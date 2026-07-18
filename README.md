@@ -1,5 +1,11 @@
 # AXIAM C SDK
 
+[![CI](https://github.com/ilpanich/axiam-c-sdk/actions/workflows/sdk-ci-c.yml/badge.svg?branch=main)](https://github.com/ilpanich/axiam-c-sdk/actions/workflows/sdk-ci-c.yml)
+[![Coverage Status](https://coveralls.io/repos/github/ilpanich/axiam-c-sdk/badge.svg?branch=main)](https://coveralls.io/github/ilpanich/axiam-c-sdk?branch=main)
+[![Docs](https://img.shields.io/badge/docs-Doxygen-blue.svg)](https://ilpanich.github.io/axiam-c-sdk/)
+[![C11](https://img.shields.io/badge/C-C11-blue.svg)](https://en.cppreference.com/w/c/11)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 A C11 client SDK for [AXIAM](https://github.com/ilpanich/axiam) (Access eXtended
 Identity and Authorization Management). It provides authentication, token
 refresh, and authorization checks over the AXIAM REST API, plus a
@@ -68,7 +74,7 @@ int main(void) {
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, "https://iam.example.com");
     axiam_client_config_set_tenant_slug(cfg, "acme");   /* §5: required */
-    axiam_client_config_set_org_slug(cfg, "acme-org");
+    axiam_client_config_set_org_slug(cfg, "acme");      /* §5.1: required for login/refresh */
 
     axiam_error_t err;
     axiam_client_t *client = axiam_client_new(cfg, &err);
