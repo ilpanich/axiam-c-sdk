@@ -38,16 +38,17 @@ char *axiam_build_mfa_body(const char *challenge_token, const char *totp_code) {
     return print_and_free(root);
 }
 
-char *axiam_build_refresh_body(const axiam_client_config_t *cfg) {
-    /* RefreshRequest requires tenant_id + org_id UUIDs. */
-    if (!cfg || !cfg->tenant_id || !cfg->tenant_id[0] ||
-        !cfg->org_id || !cfg->org_id[0]) {
+char *axiam_build_refresh_body(const char *tenant_id, const char *org_id) {
+    /* RefreshRequest requires tenant_id + org_id UUIDs. Callers pass the values
+     * resolved from the access-token claims (falling back to UUID-form config);
+     * a slug is never a valid substitute here. */
+    if (!tenant_id || !tenant_id[0] || !org_id || !org_id[0]) {
         return NULL;
     }
     cJSON *root = cJSON_CreateObject();
     if (!root) return NULL;
-    cJSON_AddStringToObject(root, "tenant_id", cfg->tenant_id);
-    cJSON_AddStringToObject(root, "org_id", cfg->org_id);
+    cJSON_AddStringToObject(root, "tenant_id", tenant_id);
+    cJSON_AddStringToObject(root, "org_id", org_id);
     return print_and_free(root);
 }
 

@@ -39,8 +39,8 @@ static void test_bytes_ctor(void) {
 }
 
 static void test_version_string(void) {
-    TEST_ASSERT_EQUAL_STRING("1.0.0-alpha8", axiam_version());
-    TEST_ASSERT_EQUAL_STRING("1.0.0-alpha8", AXIAM_VERSION);
+    TEST_ASSERT_EQUAL_STRING("1.0.0-alpha9", axiam_version());
+    TEST_ASSERT_EQUAL_STRING("1.0.0-alpha9", AXIAM_VERSION);
 }
 
 int main(void) {

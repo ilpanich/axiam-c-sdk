@@ -64,6 +64,12 @@ struct axiam_client {
     pthread_mutex_t state_mtx;
     char *csrf_token;
 
+    /* Tenant/org UUIDs resolved from the access-token claims at login (D-14),
+     * used to build the refresh body when the client was configured with slugs.
+     * Guarded by state_mtx. */
+    char *resolved_tenant_id;
+    char *resolved_org_id;
+
     /* single-flight refresh (§9) */
     pthread_mutex_t refresh_mtx;
     pthread_cond_t refresh_cond;
@@ -103,7 +109,7 @@ unsigned char *axiam_b64url_decode(const char *in, size_t in_len, size_t *out_le
 char *axiam_build_login_body(const char *user, const char *password,
                              const axiam_client_config_t *cfg);
 char *axiam_build_mfa_body(const char *challenge_token, const char *totp_code);
-char *axiam_build_refresh_body(const axiam_client_config_t *cfg);
+char *axiam_build_refresh_body(const char *tenant_id, const char *org_id);
 char *axiam_build_check_body(const char *action, const char *resource_id,
                              const char *scope, const char *subject_id);
 char *axiam_build_batch_body(const axiam_check_input_t *checks, size_t n);
