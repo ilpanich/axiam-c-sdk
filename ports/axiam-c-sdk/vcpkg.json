@@ -1,6 +1,6 @@
 {
   "name": "axiam-c-sdk",
-  "version": "1.0.0-alpha9",
+  "version": "1.0.0-alpha10",
   "description": "AXIAM C SDK — REST client conforming to CONTRACT.md §1–§7, §9–§11 (incl. §6.1 mTLS).",
   "homepage": "https://github.com/ilpanich/axiam-c-sdk",
   "license": "Apache-2.0",
