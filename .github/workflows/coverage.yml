@@ -1,0 +1,53 @@
+name: coverage
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: gcov/lcov coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libcurl4-openssl-dev libssl-dev lcov
+          pip install --user gcovr
+
+      - name: Configure with coverage
+        env:
+          CC: gcc
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON -DAXIAM_ENABLE_COVERAGE=ON
+
+      - name: Build & test
+        run: |
+          cmake --build build -j
+          ctest --test-dir build --output-on-failure
+
+      - name: Generate coverage report (gcovr → coveralls + text)
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          # gcc-13's gcov can emit spurious "branch N taken -1" negative hit
+          # counts (gcc bug 68080); tolerate them so parsing doesn't abort.
+          gcovr --root . --filter 'src/' \
+            --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+            --print-summary \
+            --coveralls coveralls.json \
+            --txt coverage.txt
+          echo "----- coverage (src/ logic layer) -----"
+          cat coverage.txt
+
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coveralls.json
+          format: coveralls
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

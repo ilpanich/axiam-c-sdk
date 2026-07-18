@@ -1,0 +1,127 @@
+name: sdk-ci-c
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build-test:
+    name: build & test (${{ matrix.cc }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cc: gcc
+            cxx: g++
+          - cc: clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libcurl4-openssl-dev libssl-dev
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  tls-bypass-gate:
+    name: TLS-bypass lint gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail on any TLS-verification bypass (CONTRACT §6)
+        run: |
+          set -e
+          if grep -rnE 'CURLOPT_SSL_VERIFYPEER[^\n]*0|CURLOPT_SSL_VERIFYHOST[^\n]*0' \
+                src/ include/ tests/; then
+            echo "::error::TLS verification bypass detected — prohibited by CONTRACT §6"
+            exit 1
+          fi
+          echo "No TLS-bypass patterns found."
+      - name: Fail on committed private keys
+        run: |
+          set -e
+          if grep -rnE 'BEGIN (RSA |EC )?PRIVATE KEY' \
+                --include='*.c' --include='*.h' --include='*.md' . \
+                | grep -v third_party; then
+            echo "::error::Committed private key material detected"
+            exit 1
+          fi
+          echo "No committed private keys."
+
+  recipes:
+    name: package recipes
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libcurl4-openssl-dev libssl-dev python3-pip
+          pipx install conan || pip install --user conan
+
+      - name: Validate vcpkg manifest JSON
+        run: python3 -c "import json; json.load(open('ports/axiam-c-sdk/vcpkg.json'))"
+
+      - name: Conan create (builds the recipe)
+        run: |
+          conan profile detect --force
+          conan create . --version=1.0.0-alpha8 --build=missing
+
+  verify-tag-on-main:
+    name: verify tag is on main
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure tag commit is reachable from main
+        run: |
+          set -e
+          git fetch origin main --depth=200
+          if git merge-base --is-ancestor "${{ github.sha }}" origin/main; then
+            echo "Tag commit is on main."
+          else
+            echo "::error::Tag ${{ github.ref_name }} is not on main"
+            exit 1
+          fi
+
+  release:
+    name: release tarball
+    needs: [build-test, tls-bypass-gate, verify-tag-on-main]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libcurl4-openssl-dev libssl-dev
+      - name: Build & package (CPack .tar.gz)
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAXIAM_BUILD_TESTS=OFF
+          cmake --build build -j
+          cd build && cpack -G TGZ
+      - name: Attach tarball to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
