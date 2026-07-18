@@ -82,7 +82,10 @@ jobs:
       - name: Conan create (builds the recipe)
         run: |
           conan profile detect --force
-          conan create . --version=1.0.0-alpha9 --build=missing
+          # Do not pass --version: conanfile.py already declares the version
+          # (the single source of truth). Passing a literal here drifts out of
+          # sync on every bump and makes conan abort with a version mismatch.
+          conan create . --build=missing
 
   verify-tag-on-main:
     name: verify tag is on main
