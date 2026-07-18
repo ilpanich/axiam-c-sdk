@@ -34,26 +34,34 @@ static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
     return add;
 }
 
-/* Capture the X-CSRF-Token response header (§3). */
+/* Capture a named response header's trimmed value into resp->headers under
+ * `store_as`. Set-Cookie is captured too (as a linked-list append, since a
+ * login sets several cookies) so the access-token JWT can be recovered for
+ * org_id/tenant_id resolution (D-14). */
+static void capture_header(axiam_http_response_t *resp, const char *buffer, size_t total,
+                           const char *match, const char *store_as) {
+    size_t klen = strlen(match);
+    if (total <= klen || strncasecmp(buffer, match, klen) != 0) return;
+    const char *v = buffer + klen;
+    size_t vlen = total - klen;
+    while (vlen && (*v == ' ' || *v == '\t')) { v++; vlen--; }
+    while (vlen && (v[vlen - 1] == '\r' || v[vlen - 1] == '\n' ||
+                    v[vlen - 1] == ' ' || v[vlen - 1] == '\t')) vlen--;
+    char *val = malloc(vlen + 1);
+    if (val) {
+        memcpy(val, v, vlen);
+        val[vlen] = '\0';
+        resp->headers = axiam_kv_append(resp->headers, store_as, val);
+        free(val);
+    }
+}
+
+/* Capture the X-CSRF-Token (§3) and Set-Cookie (§4/D-14) response headers. */
 static size_t header_cb(char *buffer, size_t size, size_t nitems, void *userdata) {
     axiam_http_response_t *resp = userdata;
     size_t total = size * nitems;
-    const char *key = "X-CSRF-Token:";
-    size_t klen = strlen(key);
-    if (total > klen && strncasecmp(buffer, key, klen) == 0) {
-        const char *v = buffer + klen;
-        size_t vlen = total - klen;
-        while (vlen && (*v == ' ' || *v == '\t')) { v++; vlen--; }
-        while (vlen && (v[vlen - 1] == '\r' || v[vlen - 1] == '\n' ||
-                        v[vlen - 1] == ' ' || v[vlen - 1] == '\t')) vlen--;
-        char *val = malloc(vlen + 1);
-        if (val) {
-            memcpy(val, v, vlen);
-            val[vlen] = '\0';
-            resp->headers = axiam_kv_append(resp->headers, "X-CSRF-Token", val);
-            free(val);
-        }
-    }
+    capture_header(resp, buffer, total, "X-CSRF-Token:", "X-CSRF-Token");
+    capture_header(resp, buffer, total, "Set-Cookie:", "Set-Cookie");
     return total;
 }
 

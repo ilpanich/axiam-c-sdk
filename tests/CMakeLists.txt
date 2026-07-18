@@ -33,6 +33,7 @@ axiam_add_test(test_error test_error.c)
 axiam_add_test(test_client_auth test_client_auth.c)
 axiam_add_test(test_authz test_authz.c)
 axiam_add_test(test_singleflight test_singleflight.c)
+axiam_add_test(test_refresh_org test_refresh_org.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
 
 # Crypto-dependent tests link the JWT fixture.

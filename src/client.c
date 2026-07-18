@@ -58,6 +58,8 @@ void axiam_client_free(axiam_client_t *client) {
     if (client->curl_ctx) axiam_curl_ctx_free(client->curl_ctx);
     axiam_client_config_free(client->cfg);
     free(client->csrf_token);
+    free(client->resolved_tenant_id);
+    free(client->resolved_org_id);
     jwks_free(client->jwks);
     pthread_mutex_destroy(&client->state_mtx);
     pthread_mutex_destroy(&client->refresh_mtx);
@@ -170,7 +172,13 @@ axiam_error_kind_t axiam_client_raw_get(axiam_client_t *c, const char *path,
 
 /* The actual refresh transport call (leader only). */
 static axiam_error_kind_t perform_refresh(axiam_client_t *c, axiam_error_t *err) {
-    char *body = axiam_build_refresh_body(c->cfg);
+    /* Prefer the UUIDs resolved from the access-token claims (D-14); fall back
+     * to any UUID-form construction options. A slug is never valid here. */
+    pthread_mutex_lock(&c->state_mtx);
+    const char *tid = c->resolved_tenant_id ? c->resolved_tenant_id : c->cfg->tenant_id;
+    const char *oid = c->resolved_org_id ? c->resolved_org_id : c->cfg->org_id;
+    char *body = axiam_build_refresh_body(tid, oid);
+    pthread_mutex_unlock(&c->state_mtx);
     if (!body) {
         /* Cannot build a refresh (need tenant_id + org_id UUIDs). */
         axiam_error_set(err, AXIAM_ERR_AUTH, 0,
@@ -243,6 +251,71 @@ static long json_get_long(const cJSON *obj, const char *key) {
     return 0;
 }
 
+/* Decode a string claim out of a compact JWT WITHOUT verifying its signature.
+ * Used only to recover the tenant_id/org_id the client must echo in the refresh
+ * body (the server re-derives and re-validates the authoritative org_id, so this
+ * carries no trust weight). Returns a malloc'd value or NULL. */
+static char *jwt_claim_dup(const char *jwt, const char *claim) {
+    if (!jwt) return NULL;
+    const char *dot1 = strchr(jwt, '.');
+    if (!dot1) return NULL;
+    const char *dot2 = strchr(dot1 + 1, '.');
+    if (!dot2) return NULL;
+    size_t payload_len = (size_t)(dot2 - (dot1 + 1));
+    size_t out_len = 0;
+    unsigned char *raw = axiam_b64url_decode(dot1 + 1, payload_len, &out_len);
+    if (!raw) return NULL;
+    char *json = malloc(out_len + 1);
+    if (!json) { free(raw); return NULL; }
+    memcpy(json, raw, out_len);
+    json[out_len] = '\0';
+    free(raw);
+    cJSON *root = cJSON_Parse(json);
+    free(json);
+    if (!root) return NULL;
+    char *val = json_dup_str(root, claim);
+    cJSON_Delete(root);
+    return val;
+}
+
+/* Recover the axiam_access cookie's value from the response's Set-Cookie
+ * headers (a login sets several cookies). Returns a borrowed pointer into the
+ * header list, or NULL. */
+static const char *access_cookie_from_headers(const axiam_kv_t *headers) {
+    for (const axiam_kv_t *kv = headers; kv; kv = kv->next) {
+        if (axiam_str_ieq(kv->key, "Set-Cookie") && kv->value &&
+            strncmp(kv->value, "axiam_access=", 13) == 0) {
+            return kv->value + 13;
+        }
+    }
+    return NULL;
+}
+
+/* After a successful login/verify_mfa, resolve tenant_id/org_id from the
+ * access-token claims so refresh() can supply the required UUIDs even when the
+ * client was constructed with slugs (D-14). Best-effort; leaves prior values
+ * on any decode failure. */
+static void resolve_ids_from_login(axiam_client_t *c, const axiam_http_response_t *resp) {
+    const char *access = access_cookie_from_headers(resp->headers);
+    if (!access) return;
+    /* The cookie value may carry attributes ("axiam_access=JWT; Path=/; ..."):
+     * copy just the token up to the first ';'. */
+    size_t tok_len = strcspn(access, ";");
+    char *jwt = malloc(tok_len + 1);
+    if (!jwt) return;
+    memcpy(jwt, access, tok_len);
+    jwt[tok_len] = '\0';
+
+    char *tid = jwt_claim_dup(jwt, "tenant_id");
+    char *oid = jwt_claim_dup(jwt, "org_id");
+    free(jwt);
+
+    pthread_mutex_lock(&c->state_mtx);
+    if (tid) { free(c->resolved_tenant_id); c->resolved_tenant_id = tid; }
+    if (oid) { free(c->resolved_org_id); c->resolved_org_id = oid; }
+    pthread_mutex_unlock(&c->state_mtx);
+}
+
 /* ------------------------------------------------------------------ */
 /* Auth operations                                                    */
 /* ------------------------------------------------------------------ */
@@ -287,6 +360,9 @@ static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_respons
         pthread_mutex_lock(&c->state_mtx);
         c->authenticated = 1;
         pthread_mutex_unlock(&c->state_mtx);
+        /* D-14: the login body carries tenant_id/org_slug but not org_id —
+         * recover both UUIDs from the access-token cookie for refresh(). */
+        resolve_ids_from_login(c, resp);
     } else if (status == 403 && root &&
                cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(root, "mfa_setup_required"))) {
         /* MFA enrollment required — not an authorization denial. */
