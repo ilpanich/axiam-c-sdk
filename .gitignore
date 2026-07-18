@@ -53,3 +53,16 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# --- AXIAM C SDK build artifacts ---
+build/
+docs/html/
+docs/
+*.gcda
+*.gcno
+*.gcov
+coverage*.info
+coverage*.json
+coveralls.json
+coverage.txt
+tests/pki/
