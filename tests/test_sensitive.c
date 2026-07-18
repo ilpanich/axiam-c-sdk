@@ -3,6 +3,13 @@
 #include "unity.h"
 #include "axiam/axiam.h"
 
+/* Stringize the numeric version macros so we can build the expected
+ * "MAJOR.MINOR.PATCH" prefix at compile time without hardcoding a literal. */
+#define AXIAM_STR2(x) #x
+#define AXIAM_STR(x) AXIAM_STR2(x)
+#define AXIAM_VERSION_PREFIX \
+    AXIAM_STR(AXIAM_VERSION_MAJOR) "." AXIAM_STR(AXIAM_VERSION_MINOR) "." AXIAM_STR(AXIAM_VERSION_PATCH)
+
 void setUp(void) {}
 void tearDown(void) {}
 
@@ -39,8 +46,14 @@ static void test_bytes_ctor(void) {
 }
 
 static void test_version_string(void) {
-    TEST_ASSERT_EQUAL_STRING("1.0.0-alpha9", axiam_version());
-    TEST_ASSERT_EQUAL_STRING("1.0.0-alpha9", AXIAM_VERSION);
+    /* The accessor must return the compiled-in macro verbatim. */
+    TEST_ASSERT_EQUAL_STRING(AXIAM_VERSION, axiam_version());
+    /* The version string must begin with MAJOR.MINOR.PATCH derived from the
+     * numeric macros, catching drift between them and the string. The
+     * pre-release suffix (e.g. "-alpha10") is intentionally not asserted so
+     * routine version bumps don't break this test. */
+    TEST_ASSERT_EQUAL_STRING_LEN(AXIAM_VERSION_PREFIX, axiam_version(),
+                                 strlen(AXIAM_VERSION_PREFIX));
 }
 
 int main(void) {
