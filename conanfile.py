@@ -47,6 +47,9 @@ class AxiamCSdkConan(ConanFile):
         deps.generate()
         tc = CMakeToolchain(self)
         tc.variables["AXIAM_BUILD_TESTS"] = "OFF"
+        # examples/ is not part of the packaged sources (not in exports_sources),
+        # so keep the sample programs out of the Conan build.
+        tc.variables["AXIAM_BUILD_EXAMPLES"] = "OFF"
         tc.variables["AXIAM_BUILD_SHARED"] = "ON" if self.options.shared else "OFF"
         tc.variables["AXIAM_BUILD_STATIC"] = "OFF" if self.options.shared else "ON"
         tc.generate()

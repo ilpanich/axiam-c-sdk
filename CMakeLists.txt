@@ -18,6 +18,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(AXIAM_BUILD_TESTS "Build the AXIAM C SDK test suite" OFF)
+option(AXIAM_BUILD_EXAMPLES "Build the AXIAM C SDK example programs" ON)
 option(AXIAM_ENABLE_COVERAGE "Instrument for gcov/lcov coverage" OFF)
 option(AXIAM_BUILD_SHARED "Build the shared library variant" ON)
 option(AXIAM_BUILD_STATIC "Build the static library variant" ON)
@@ -131,6 +132,11 @@ install(FILES
 if(AXIAM_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# ---- examples ----
+if(AXIAM_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()
 
 # ---- CPack (.tar.gz) ----
