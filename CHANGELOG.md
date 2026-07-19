@@ -5,6 +5,12 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [1.0.0-alpha12] - 2026-07-19
+
+### Changed
+
+- Add C examples, README badges, sync CONTRACT §5.1 (#4)
+
 ## [1.0.0-alpha11] - 2026-07-18
 
 ### Changed
