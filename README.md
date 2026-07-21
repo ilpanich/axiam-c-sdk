@@ -13,8 +13,10 @@ framework-agnostic route guard and declarative authorization helpers.
 
 > **This SDK conforms to CONTRACT.md §1–§7, §9–§11 (including §6.1 mTLS).**
 >
-> gRPC and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
-> follow-ups (see [Scope](#scope--follow-ups)).
+> gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
+> and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
+> follow-ups (see [Scope](#scope--follow-ups)). Per §1.1 the REST
+> `/oauth2/userinfo` endpoint is not substituted for the gRPC operation.
 
 - **Language:** C11 (public API is C, usable from C and C++).
 - **HTTP / TLS / mTLS:** [libcurl](https://curl.se/libcurl/) with in-memory PEM blobs.
