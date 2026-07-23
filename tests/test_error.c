@@ -50,11 +50,35 @@ static void test_kind_str(void) {
     TEST_ASSERT_EQUAL_STRING("network", axiam_error_kind_str(AXIAM_ERR_NETWORK));
 }
 
+/* D2: an unmapped 3xx (redirect) status falls through the switch and the
+ * >= 500 check, hitting the final "unexpected status" catch-all. */
+static void test_status_mapping_redirect_fallthrough(void) {
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_error_kind_from_http_status(302));
+}
+
+/* D2: axiam_error_set with a NULL msg clears the message instead of copying. */
+static void test_set_with_null_message(void) {
+    axiam_error_t err;
+    axiam_error_set(&err, AXIAM_ERR_NETWORK, 12, "leftover");
+    TEST_ASSERT_EQUAL_STRING("leftover", err.message);
+    axiam_error_set(&err, AXIAM_ERR_NETWORK, 34, NULL);
+    TEST_ASSERT_EQUAL_INT(34, (int)err.transport_cause);
+    TEST_ASSERT_EQUAL_STRING("", err.message);
+}
+
+/* D2: an out-of-range kind value hits axiam_error_kind_str's default arm. */
+static void test_kind_str_unknown_default(void) {
+    TEST_ASSERT_EQUAL_STRING("unknown", axiam_error_kind_str((axiam_error_kind_t)999));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_status_mapping);
     RUN_TEST(test_set_reset);
     RUN_TEST(test_message_truncation);
     RUN_TEST(test_kind_str);
+    RUN_TEST(test_status_mapping_redirect_fallthrough);
+    RUN_TEST(test_set_with_null_message);
+    RUN_TEST(test_kind_str_unknown_default);
     return UNITY_END();
 }
