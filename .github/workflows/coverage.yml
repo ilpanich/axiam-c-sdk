@@ -2,7 +2,7 @@ name: coverage
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -36,12 +36,15 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           # gcc-13's gcov can emit spurious "branch N taken -1" negative hit
           # counts (gcc bug 68080); tolerate them so parsing doesn't abort.
-          # Line-coverage gate: 96% (achieved ~98.8% as of the Phase D
-          # test-coverage pass; ratcheted 2 points below to leave headroom).
+          # Line-coverage gate: 96% (achieved ~99.0% as of the Phase D/C2
+          # test-coverage passes; ratcheted 2-3 points below to leave headroom).
+          # Branch-coverage gate: 80% (achieved 82.0% as of the C2 branch-depth
+          # pass; ratcheted 2 points below to leave headroom).
           gcovr --root . --filter 'src/' \
             --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
             --print-summary \
             --fail-under-line 96 \
+            --fail-under-branch 80 \
             --coveralls coveralls.json \
             --txt coverage.txt
           echo "----- coverage (src/ logic layer) -----"
