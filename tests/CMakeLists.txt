@@ -69,3 +69,14 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_mtls COMMAND test_mtls ${AXIAM_PKI_DIR})
 set_tests_properties(test_mtls PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
+
+# ---- src/transport_curl.c real-transport sweep (GET, custom method, closed
+# port CURLE_* failure, CA/mTLS blob wiring) — also needs the PKI fixture.
+add_executable(test_transport_curl_extra test_transport_curl_extra.c)
+target_include_directories(test_transport_curl_extra PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_transport_curl_extra PRIVATE ${AXIAM_TEST_LINK})
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_transport_curl_extra PRIVATE --coverage)
+endif()
+add_test(NAME test_transport_curl_extra COMMAND test_transport_curl_extra ${AXIAM_PKI_DIR})
+set_tests_properties(test_transport_curl_extra PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
