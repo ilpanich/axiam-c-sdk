@@ -19,4 +19,19 @@ openssl x509 -req -in "$DIR/client.csr" \
     -CA "$DIR/ca.crt" -CAkey "$DIR/ca.key" -CAcreateserial \
     -out "$DIR/client.crt" -days 2 >/dev/null 2>&1
 
+# Server certificate signed by the test CA, with a loopback SAN (IP 127.0.0.1 +
+# DNS localhost) so a real TLS handshake passes libcurl's strict hostname
+# verification (CURLOPT_SSL_VERIFYHOST=2) when the client connects to
+# https://127.0.0.1. Used by the loopback TLS-server round-trip test.
+openssl req -newkey rsa:2048 -nodes \
+    -keyout "$DIR/server.key" -out "$DIR/server.csr" \
+    -subj "/CN=localhost" >/dev/null 2>&1
+cat > "$DIR/server_ext.cnf" <<'EOF'
+subjectAltName = IP:127.0.0.1, DNS:localhost
+EOF
+openssl x509 -req -in "$DIR/server.csr" \
+    -CA "$DIR/ca.crt" -CAkey "$DIR/ca.key" -CAcreateserial \
+    -extfile "$DIR/server_ext.cnf" \
+    -out "$DIR/server.crt" -days 2 >/dev/null 2>&1
+
 echo "generated test PKI in $DIR"
