@@ -10,6 +10,7 @@ typedef struct {
     long check_status;
     const char *check_body;
     int fail_check_transport;
+    int fail_jwks_transport;
     char last_check_body[1024];
 } fake_state_t;
 
@@ -19,6 +20,13 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
                           axiam_http_response_t *resp) {
     fake_state_t *st = ctx;
     if (strstr(req->url, "/oauth2/jwks")) {
+        if (st->fail_jwks_transport) {
+            memset(resp, 0, sizeof(*resp));
+            resp->status = 0;
+            resp->transport_err = 7;
+            resp->transport_msg = strdup("connect failed");
+            return 1;
+        }
         resp_fill(resp, 200, st->jwks_body, NULL);
         return 0;
     }
@@ -161,6 +169,52 @@ static void test_cookie_sourced_token(void) {
     axiam_client_free(c);
 }
 
+/* CONTRACT §11.2 fail-closed: a JWKS network failure while verifying a
+ * present token maps to AXIAM_GUARD_UNAVAILABLE (src/guard.c:51-53), not a
+ * silent allow or a plain 401. */
+static void test_require_auth_jwks_network_failure_is_unavailable(void) {
+    g.fail_jwks_transport = 1;
+    axiam_client_t *c = make_client();
+    axiam_headers_t *h = bearer_headers(g_token);
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAVAILABLE, axiam_require_auth(c, h));
+    axiam_kv_free(h);
+    axiam_client_free(c);
+}
+
+/* A present-but-invalid token (JWKS fetch succeeds, signature verification
+ * fails) maps to AXIAM_GUARD_UNAUTHENTICATED via the same lines. */
+static void test_require_auth_invalid_token_is_unauthenticated(void) {
+    axiam_client_t *c = make_client();
+    axiam_headers_t *h = bearer_headers("not-a-jwt-at-all");
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED, axiam_require_auth(c, h));
+    axiam_kv_free(h);
+    axiam_client_free(c);
+}
+
+/* CONTRACT §11.2: an authorization-server DENY (403/409 -> AXIAM_ERR_AUTHZ)
+ * maps to AXIAM_GUARD_DENIED (src/guard.c:97). */
+static void test_require_access_authz_error_is_denied(void) {
+    g.check_status = 403;
+    axiam_client_t *c = make_client();
+    axiam_headers_t *h = bearer_headers(g_token);
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_DENIED,
+        axiam_require_access(c, h, "a", "44444444-4444-4444-4444-444444444444", NULL));
+    axiam_kv_free(h);
+    axiam_client_free(c);
+}
+
+/* CONTRACT §11.2: a check_access AUTH error (401 with no active session, so
+ * no retry loop) maps to AXIAM_GUARD_UNAUTHENTICATED (src/guard.c:99). */
+static void test_require_access_auth_error_is_unauthenticated(void) {
+    g.check_status = 401;
+    axiam_client_t *c = make_client();
+    axiam_headers_t *h = bearer_headers(g_token);
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED,
+        axiam_require_access(c, h, "a", "44444444-4444-4444-4444-444444444444", NULL));
+    axiam_kv_free(h);
+    axiam_client_free(c);
+}
+
 static void test_macro_forms(void) {
     g.check_status = 200;
     g.check_body = "{\"allowed\":true}";
@@ -185,6 +239,10 @@ int main(void) {
     RUN_TEST(test_require_access_fail_closed_on_network);
     RUN_TEST(test_require_role_local);
     RUN_TEST(test_cookie_sourced_token);
+    RUN_TEST(test_require_auth_jwks_network_failure_is_unavailable);
+    RUN_TEST(test_require_auth_invalid_token_is_unauthenticated);
+    RUN_TEST(test_require_access_authz_error_is_denied);
+    RUN_TEST(test_require_access_auth_error_is_unauthenticated);
     RUN_TEST(test_macro_forms);
     return UNITY_END();
 }
