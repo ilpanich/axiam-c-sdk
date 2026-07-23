@@ -43,6 +43,7 @@
 
 #include "unity.h"
 #include "axiam/axiam.h"
+#include "internal.h"
 
 static char g_pki_dir[1024];
 
