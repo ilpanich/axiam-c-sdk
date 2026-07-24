@@ -19,7 +19,10 @@ class AxiamCSdkConan(ConanFile):
     default_options = {"shared": False, "fPIC": True}
 
     # Consistent with CMakeLists.txt find_package(CURL)/find_package(OpenSSL).
-    requires = ("libcurl/8.6.0", "openssl/3.2.1")
+    # libcurl 8.11.1: the 8.6.0 Conan Center recipe fails on Linux in
+    # _patch_autotools ("AC_CHECK_LIB(z," no longer present in configure.ac);
+    # the 8.11.x recipe builds cleanly. openssl 3.2.1 stays in-range for it.
+    requires = ("libcurl/8.11.1", "openssl/3.2.1")
 
     exports_sources = (
         "CMakeLists.txt",
