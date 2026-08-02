@@ -133,9 +133,83 @@ static void test_clone_copies_all_fields_including_client_key(void) {
     axiam_client_free(c);
 }
 
+/* ------------------------------------------------------------------ */
+/* SEC-073 (CONTRACT §6): a plaintext base URL is refused at construction */
+/* ------------------------------------------------------------------ */
+
+/* Validate a base URL through BOTH entry points: the explicit validate() call
+ * and axiam_client_new(), which must refuse to build a client at all. */
+static axiam_error_kind_t validate_base_url(const char *base_url) {
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, base_url);
+    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_error_t err;
+    axiam_error_kind_t k = axiam_client_config_validate(cfg, &err);
+
+    axiam_error_t nerr;
+    axiam_client_t *c = axiam_client_new(cfg, &nerr);
+    if (k == AXIAM_OK) {
+        TEST_ASSERT_NOT_NULL(c);
+    } else {
+        TEST_ASSERT_NULL(c);
+    }
+    axiam_client_free(c);
+    axiam_client_config_free(cfg);
+    return k;
+}
+
+static void test_plaintext_base_url_is_rejected(void) {
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, validate_base_url("http://iam.example.com"));
+
+    /* The message must name the requirement without leaking anything else. */
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, "http://iam.example.com");
+    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_client_config_validate(cfg, &err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "https"));
+    axiam_client_config_free(cfg);
+}
+
+static void test_https_base_url_is_accepted(void) {
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("https://iam.example.com"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("HTTPS://iam.example.com"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("https://iam.example.com:8443/base"));
+}
+
+/* The one deliberate exception: loopback, for local development. */
+static void test_plaintext_loopback_is_allowed_for_dev(void) {
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("http://localhost"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("http://localhost:8080"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("http://LOCALHOST:8080/api"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("http://127.0.0.1:8080"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("http://[::1]:8080"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, validate_base_url("http://[::1]"));
+}
+
+/* Near-miss hosts must NOT inherit the loopback exception. */
+static void test_plaintext_non_loopback_lookalikes_are_rejected(void) {
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, validate_base_url("http://localhost.evil.com"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, validate_base_url("http://127.0.0.2"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, validate_base_url("http://not-localhost"));
+    /* Userinfo trick: the authority's host is `evil.example`, not `localhost`. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
+                          validate_base_url("http://localhost@evil.example/api"));
+    /* Other plaintext schemes get no special treatment either. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, validate_base_url("ws://iam.example.com"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, validate_base_url("httpss://iam.example.com"));
+    /* A scheme-less value is not a usable base URL. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, validate_base_url("iam.example.com"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, validate_base_url("://iam.example.com"));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_missing_base_url_fails);
+    RUN_TEST(test_plaintext_base_url_is_rejected);
+    RUN_TEST(test_https_base_url_is_accepted);
+    RUN_TEST(test_plaintext_loopback_is_allowed_for_dev);
+    RUN_TEST(test_plaintext_non_loopback_lookalikes_are_rejected);
     RUN_TEST(test_missing_tenant_fails);
     RUN_TEST(test_tenant_slug_valid);
     RUN_TEST(test_tenant_id_valid);

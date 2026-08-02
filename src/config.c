@@ -87,6 +87,17 @@ axiam_error_kind_t axiam_client_config_validate(const axiam_client_config_t *cfg
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "base_url is required");
         return AXIAM_ERR_NETWORK;
     }
+    /* §6: refuse a plaintext base URL at construction. The SDK forwards
+     * credentials, session cookies, CSRF and tenant headers, none of which may
+     * traverse a cleartext link; a loopback host is the only dev exception and
+     * there is no flag to disable this check for a routable host. */
+    if (!axiam_url_is_secure(cfg->base_url)) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "base_url must use https:// (plaintext transport is "
+                        "refused; only a loopback host — localhost, 127.0.0.1, "
+                        "::1 — may use http:// for local development)");
+        return AXIAM_ERR_NETWORK;
+    }
     int have_slug = cfg->tenant_slug && cfg->tenant_slug[0];
     int have_id = cfg->tenant_id && cfg->tenant_id[0];
     if (!have_slug && !have_id) {

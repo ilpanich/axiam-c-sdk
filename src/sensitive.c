@@ -28,8 +28,8 @@ axiam_sensitive_t *axiam_sensitive_new_bytes(const void *data, size_t len) {
 void axiam_sensitive_free(axiam_sensitive_t *s) {
     if (!s) return;
     if (s->data) {
-        /* Best-effort scrub before release (§7). */
-        memset(s->data, 0, s->len);
+        /* Scrub before release (§7) — including the NUL terminator slot. */
+        axiam_secure_zero(s->data, s->len + 1);
         free(s->data);
     }
     free(s);

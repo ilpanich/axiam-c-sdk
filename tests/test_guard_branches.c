@@ -48,7 +48,7 @@ static char *g_jwks;
 static axiam_client_t *make_client(void) {
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, "https://iam.example.com");
-    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
     axiam_client_config_set_transport(cfg, fake_transport, &g);
     axiam_error_t err;
     axiam_client_t *c = axiam_client_new(cfg, &err);
@@ -64,7 +64,10 @@ static axiam_headers_t *bearer_headers(const char *token) {
 
 void setUp(void) {
     memset(&g, 0, sizeof(g));
-    jwt_make("k1", "{\"sub\":\"user-9\",\"roles\":[\"admin\",\"viewer\"]}", &g_token, &g_jwks);
+    char payload[256];
+    jwt_make("k1", test_claims(payload, sizeof(payload), "user-9",
+                               ",\"roles\":[\"admin\",\"viewer\"]"),
+             &g_token, &g_jwks);
     g.jwks_body = g_jwks;
 }
 void tearDown(void) {
@@ -179,12 +182,12 @@ static void test_require_access_null_resource_id(void) {
     axiam_client_free(c);
 }
 
-/* --- claims JSON that fails to parse (a JWT whose signed payload is NOT
- * valid JSON — axiam_jwt_verify only checks the signature, not the payload
- * shape) — the `if (root)` guard's false arm in both require_access
- * (src/guard.c:80) and require_role (src/guard.c:117). --- */
+/* --- SEC-071: a signature-valid token whose payload is not a usable claims
+ * object never reaches the guard's claim handling at all — strict
+ * verification refuses it (no parseable `exp`/`tenant_id`) and both entry
+ * points fail CLOSED with 401 rather than admitting the request. --- */
 
-static void test_require_access_non_json_claims(void) {
+static void test_require_access_non_json_claims_is_unauthenticated(void) {
     char *token = NULL, *jwks = NULL;
     jwt_make("kx", "not-a-json-payload-at-all", &token, &jwks);
     g.jwks_body = jwks;
@@ -194,16 +197,16 @@ static void test_require_access_non_json_claims(void) {
     char v[2048];
     snprintf(v, sizeof(v), "Bearer %s", token);
     axiam_headers_t *h = axiam_kv_append(NULL, "Authorization", v);
-    /* subject stays NULL (no "sub" recovered) but the check still proceeds. */
-    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_ALLOW,
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED,
         axiam_require_access(c, h, "a", "44444444-4444-4444-4444-444444444444", NULL));
-    TEST_ASSERT_NULL(strstr(g.last_check_body, "\"subject_id\""));
+    /* Fail-closed means the authorization server was never consulted. */
+    TEST_ASSERT_EQUAL_STRING("", g.last_check_body);
     axiam_kv_free(h);
     free(token); free(jwks);
     axiam_client_free(c);
 }
 
-static void test_require_role_non_json_claims(void) {
+static void test_require_role_non_json_claims_is_unauthenticated(void) {
     char *token = NULL, *jwks = NULL;
     jwt_make("ky", "[1,2,3]", &token, &jwks); /* valid JSON, but not an object */
     g.jwks_body = jwks;
@@ -212,7 +215,7 @@ static void test_require_role_non_json_claims(void) {
     snprintf(v, sizeof(v), "Bearer %s", token);
     axiam_headers_t *h = axiam_kv_append(NULL, "Authorization", v);
     const char *roles[] = {"admin"};
-    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_DENIED, axiam_require_role(c, h, roles, 1));
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED, axiam_require_role(c, h, roles, 1));
     axiam_kv_free(h);
     free(token); free(jwks);
     axiam_client_free(c);
@@ -222,7 +225,9 @@ static void test_require_role_non_json_claims(void) {
 
 static void test_require_access_missing_sub_claim(void) {
     char *token = NULL, *jwks = NULL;
-    jwt_make("kz", "{\"other\":1}", &token, &jwks);
+    char payload[256];
+    jwt_make("kz", test_claims_no_sub(payload, sizeof(payload), ",\"other\":1"),
+             &token, &jwks);
     g.jwks_body = jwks;
     g.check_status = 200;
     g.check_body = "{\"allowed\":true}";
@@ -254,7 +259,9 @@ static void test_require_role_no_credential(void) {
 
 static void test_require_role_empty_array(void) {
     char *token = NULL, *jwks = NULL;
-    jwt_make("kw", "{\"sub\":\"user-1\",\"roles\":[]}", &token, &jwks);
+    char payload[256];
+    jwt_make("kw", test_claims(payload, sizeof(payload), "user-1", ",\"roles\":[]"),
+             &token, &jwks);
     g.jwks_body = jwks;
     axiam_client_t *c = make_client();
     char v[2048];
@@ -271,7 +278,8 @@ static void test_require_role_empty_array(void) {
 
 static void test_require_role_claim_absent(void) {
     char *token = NULL, *jwks = NULL;
-    jwt_make("k2", "{\"sub\":\"user-1\"}", &token, &jwks); /* no "roles" at all */
+    char payload[256]; /* no "roles" claim at all */
+    jwt_make("k2", test_claims(payload, sizeof(payload), "user-1", NULL), &token, &jwks);
     g.jwks_body = jwks;
     axiam_client_t *c = make_client();
     char v[2048];
@@ -286,7 +294,9 @@ static void test_require_role_claim_absent(void) {
 
 static void test_require_role_claim_non_array(void) {
     char *token = NULL, *jwks = NULL;
-    jwt_make("k3", "{\"sub\":\"user-1\",\"roles\":\"admin\"}", &token, &jwks); /* string, not array */
+    char payload[256]; /* "roles" is a string, not an array */
+    jwt_make("k3", test_claims(payload, sizeof(payload), "user-1", ",\"roles\":\"admin\""),
+             &token, &jwks);
     g.jwks_body = jwks;
     axiam_client_t *c = make_client();
     char v[2048];
@@ -304,7 +314,9 @@ static void test_require_role_array_with_non_string_and_non_matching_items(void)
      * string that doesn't match any wanted role -> exhausts the loop without
      * ever setting matched. */
     char *token = NULL, *jwks = NULL;
-    jwt_make("k4", "{\"sub\":\"user-1\",\"roles\":[42,\"guest\"]}", &token, &jwks);
+    char payload[256];
+    jwt_make("k4", test_claims(payload, sizeof(payload), "user-1", ",\"roles\":[42,\"guest\"]"),
+             &token, &jwks);
     g.jwks_body = jwks;
     axiam_client_t *c = make_client();
     char v[2048];
@@ -339,8 +351,8 @@ int main(void) {
     RUN_TEST(test_cookie_axiam_access_value_ends_at_space);
     RUN_TEST(test_cookie_axiam_access_value_ends_at_string_end);
     RUN_TEST(test_require_access_null_resource_id);
-    RUN_TEST(test_require_access_non_json_claims);
-    RUN_TEST(test_require_role_non_json_claims);
+    RUN_TEST(test_require_access_non_json_claims_is_unauthenticated);
+    RUN_TEST(test_require_role_non_json_claims_is_unauthenticated);
     RUN_TEST(test_require_access_missing_sub_claim);
     RUN_TEST(test_require_role_no_credential);
     RUN_TEST(test_require_role_empty_array);

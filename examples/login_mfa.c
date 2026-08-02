@@ -64,9 +64,11 @@ int main(void) {
     if (login.mfa_required) {
         printf("MFA required — completing the two-phase flow\n");
         /* POST /api/v1/auth/mfa/verify — completes the flow started by login().
-         * The challenge token is Sensitive and is never logged (§7). */
+         * The challenge token is held behind axiam_sensitive_t and is never
+         * rendered or logged (§7), so it is handed straight back to the SDK. */
         axiam_login_result_t verified = {0};
-        if (axiam_verify_mfa(client, login.challenge_token, totp_code, &verified, &err) != AXIAM_OK) {
+        if (axiam_verify_mfa_sensitive(client, login.challenge_token, totp_code,
+                                       &verified, &err) != AXIAM_OK) {
             fprintf(stderr, "MFA verification failed: %s\n", err.message);
             axiam_login_result_dispose(&verified);
             axiam_login_result_dispose(&login);

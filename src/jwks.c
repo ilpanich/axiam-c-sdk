@@ -97,8 +97,103 @@ static const struct axiam_jwk *find_key(axiam_client_t *c, const char *kid) {
     return NULL;
 }
 
+/* The tenant identifier local verification binds a token to (SEC-071).
+ * Preference order: the explicitly configured tenant UUID, then the UUID
+ * resolved from the access-token claims at login (D-14). A slug is never a
+ * valid comparand for the token's `tenant_id` claim, so a slug-only client
+ * has no binding available and must fail closed. Returns a heap copy (caller
+ * frees) or NULL when no UUID is known. */
+static char *expected_tenant_id(axiam_client_t *c) {
+    char *out = NULL;
+    pthread_mutex_lock(&c->state_mtx);
+    if (c->cfg->tenant_id && c->cfg->tenant_id[0])
+        out = axiam_strdup0(c->cfg->tenant_id);
+    else if (c->resolved_tenant_id && c->resolved_tenant_id[0])
+        out = axiam_strdup0(c->resolved_tenant_id);
+    pthread_mutex_unlock(&c->state_mtx);
+    return out;
+}
+
+/* Post-signature claim validation (SEC-071). A signature-valid token is NOT
+ * yet an authenticated caller: the lifetime must still be inside its window
+ * and the token must belong to this client's tenant (the JWKS trust anchor is
+ * organization-wide). Every failure path here fails CLOSED. */
+static axiam_error_kind_t check_claims(axiam_client_t *client, const char *claims_json,
+                                       unsigned flags, axiam_error_t *err) {
+    cJSON *root = claims_json ? cJSON_Parse(claims_json) : NULL;
+    if (!root) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token claims");
+        return AXIAM_ERR_AUTH;
+    }
+    axiam_error_kind_t kind = AXIAM_OK;
+
+    if (flags & AXIAM_JWT_VERIFY_EXPIRY) {
+        double now = (double)time(NULL);
+        const cJSON *exp = cJSON_GetObjectItemCaseSensitive(root, "exp");
+        if (!cJSON_IsNumber(exp)) {
+            /* Missing or unparseable expiry: an unbounded token is refused. */
+            axiam_error_set(err, AXIAM_ERR_AUTH, 0, "token has no usable exp claim");
+            kind = AXIAM_ERR_AUTH;
+            goto done;
+        }
+        if (now > exp->valuedouble + (double)AXIAM_JWT_CLOCK_SKEW_SECS) {
+            axiam_error_set(err, AXIAM_ERR_AUTH, 0, "token has expired");
+            kind = AXIAM_ERR_AUTH;
+            goto done;
+        }
+        /* `nbf` is optional (AXIAM access tokens omit it) but honoured when
+         * present — including when it is present but not a number. */
+        const cJSON *nbf = cJSON_GetObjectItemCaseSensitive(root, "nbf");
+        if (nbf) {
+            if (!cJSON_IsNumber(nbf)) {
+                axiam_error_set(err, AXIAM_ERR_AUTH, 0, "token has a malformed nbf claim");
+                kind = AXIAM_ERR_AUTH;
+                goto done;
+            }
+            if (now + (double)AXIAM_JWT_CLOCK_SKEW_SECS < nbf->valuedouble) {
+                axiam_error_set(err, AXIAM_ERR_AUTH, 0, "token is not yet valid");
+                kind = AXIAM_ERR_AUTH;
+                goto done;
+            }
+        }
+    }
+
+    if (flags & AXIAM_JWT_VERIFY_TENANT) {
+        char *expected = expected_tenant_id(client);
+        if (!expected) {
+            axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                            "cannot bind token to a tenant: configure tenant_id "
+                            "(UUID) on the client");
+            kind = AXIAM_ERR_AUTH;
+            goto done;
+        }
+        const cJSON *tid = cJSON_GetObjectItemCaseSensitive(root, "tenant_id");
+        int ok = cJSON_IsString(tid) && tid->valuestring &&
+                 strcmp(tid->valuestring, expected) == 0;
+        free(expected);
+        if (!ok) {
+            axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                            "token tenant_id does not match the configured tenant");
+            kind = AXIAM_ERR_AUTH;
+            goto done;
+        }
+    }
+
+done:
+    cJSON_Delete(root);
+    return kind;
+}
+
 axiam_error_kind_t axiam_jwt_verify(axiam_client_t *client, const char *token,
                                     char **out_claims_json, axiam_error_t *err) {
+    /* Safe by default: the guards' policy is also the plain entry point's. */
+    return axiam_jwt_verify_ex(client, token, AXIAM_JWT_VERIFY_STRICT,
+                               out_claims_json, err);
+}
+
+axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client, const char *token,
+                                       unsigned flags, char **out_claims_json,
+                                       axiam_error_t *err) {
     axiam_error_reset(err);
     if (out_claims_json) *out_claims_json = NULL;
     if (!client || !token) {
@@ -178,17 +273,36 @@ axiam_error_kind_t axiam_jwt_verify(axiam_client_t *client, const char *token,
         return AXIAM_ERR_AUTH;
     }
 
-    if (out_claims_json) {
+    /* The payload is needed whenever the caller wants the claims OR a claim
+     * policy is in force — decode it once. */
+    char *claims = NULL;
+    if (out_claims_json || flags) {
         size_t pdec_len = 0;
         unsigned char *pdec = axiam_b64url_decode(dot1 + 1, plen, &pdec_len);
         if (pdec) {
-            *out_claims_json = malloc(pdec_len + 1);
-            if (*out_claims_json) {
-                memcpy(*out_claims_json, pdec, pdec_len);
-                (*out_claims_json)[pdec_len] = '\0';
+            claims = malloc(pdec_len + 1);
+            if (claims) {
+                memcpy(claims, pdec, pdec_len);
+                claims[pdec_len] = '\0';
             }
             free(pdec);
         }
+        if (!claims && flags) {
+            /* Undecodable payload under a claim policy: fail closed. */
+            axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token claims");
+            return AXIAM_ERR_AUTH;
+        }
     }
+
+    if (flags) {
+        axiam_error_kind_t ck = check_claims(client, claims, flags, err);
+        if (ck != AXIAM_OK) {
+            free(claims);
+            return ck;
+        }
+    }
+
+    if (out_claims_json) *out_claims_json = claims;
+    else free(claims);
     return AXIAM_OK;
 }

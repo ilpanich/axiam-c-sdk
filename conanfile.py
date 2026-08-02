@@ -11,7 +11,7 @@ class AxiamCSdkConan(ConanFile):
     url = "https://github.com/ilpanich/axiam-c-sdk"
     description = (
         "AXIAM C SDK — REST client conforming to CONTRACT.md "
-        "§1–§7, §9–§11 (incl. §6.1 mTLS)."
+        "§1–§7, §9–§11, §13 (incl. §6.1 mTLS)."
     )
     topics = ("iam", "authentication", "authorization", "axiam", "mtls")
     settings = "os", "compiler", "build_type", "arch"

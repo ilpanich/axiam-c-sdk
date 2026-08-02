@@ -2,6 +2,7 @@
 
 #include "unity.h"
 #include "axiam/axiam.h"
+#include "internal.h"
 #include "test_util.h"
 
 /* --- Programmable fake transport --- */
@@ -124,7 +125,12 @@ static void test_login_mfa_required(void) {
     axiam_error_kind_t k = axiam_login(c, "alice", "pw", &res, &err);
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, k);
     TEST_ASSERT_TRUE(res.mfa_required);
-    TEST_ASSERT_EQUAL_STRING("chal-1", res.challenge_token);
+    /* §7/SEC-076: the challenge token is Sensitive — it renders redacted and
+     * the raw value is reachable only through the module-private accessor. */
+    TEST_ASSERT_NOT_NULL(res.challenge_token);
+    TEST_ASSERT_EQUAL_STRING("[SENSITIVE]", axiam_sensitive_to_string(res.challenge_token));
+    TEST_ASSERT_EQUAL_STRING("chal-1",
+                             (const char *)axiam_sensitive_bytes(res.challenge_token));
     axiam_login_result_dispose(&res);
     axiam_client_free(c);
 }
@@ -138,7 +144,10 @@ static void test_login_mfa_setup_required(void) {
     axiam_error_kind_t k = axiam_login(c, "alice", "pw", &res, &err);
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, k);
     TEST_ASSERT_TRUE(res.mfa_setup_required);
-    TEST_ASSERT_EQUAL_STRING("setup-9", res.setup_token);
+    TEST_ASSERT_NOT_NULL(res.setup_token);
+    TEST_ASSERT_EQUAL_STRING("[SENSITIVE]", axiam_sensitive_to_string(res.setup_token));
+    TEST_ASSERT_EQUAL_STRING("setup-9",
+                             (const char *)axiam_sensitive_bytes(res.setup_token));
     axiam_login_result_dispose(&res);
     axiam_client_free(c);
 }
@@ -156,6 +165,43 @@ static void test_verify_mfa_success(void) {
     TEST_ASSERT_TRUE(res.authenticated);
     TEST_ASSERT_EQUAL_STRING("https://iam.example.com/api/v1/auth/mfa/verify", g_fake.rec.url);
     TEST_ASSERT_NOT_NULL(strstr(g_fake.rec.body, "\"totp_code\":\"123456\""));
+    axiam_login_result_dispose(&res);
+    axiam_client_free(c);
+}
+
+/* SEC-076: the Sensitive challenge token from login() is handed straight back
+ * to verify_mfa without the caller ever materialising it as a plain string. */
+static void test_verify_mfa_sensitive_round_trip(void) {
+    g_fake.next_status = 202;
+    g_fake.next_body = "{\"mfa_required\":true,\"challenge_token\":\"chal-42\"}";
+    axiam_client_t *c = make_client();
+    axiam_login_result_t login;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_login(c, "alice", "pw", &login, &err));
+    TEST_ASSERT_TRUE(login.mfa_required);
+
+    g_fake.next_status = 200;
+    g_fake.next_body = "{\"session_id\":\"s\",\"expires_in\":900}";
+    axiam_login_result_t verified;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK,
+        axiam_verify_mfa_sensitive(c, login.challenge_token, "123456", &verified, &err));
+    TEST_ASSERT_TRUE(verified.authenticated);
+    TEST_ASSERT_NOT_NULL(strstr(g_fake.rec.body, "\"challenge_token\":\"chal-42\""));
+    TEST_ASSERT_NOT_NULL(strstr(g_fake.rec.body, "\"totp_code\":\"123456\""));
+
+    axiam_login_result_dispose(&verified);
+    axiam_login_result_dispose(&login);
+    TEST_ASSERT_NULL(login.challenge_token); /* dispose clears the handle */
+    axiam_client_free(c);
+}
+
+static void test_verify_mfa_sensitive_null_token(void) {
+    axiam_client_t *c = make_client();
+    axiam_login_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
+        axiam_verify_mfa_sensitive(c, NULL, "123456", &res, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, err.kind);
     axiam_login_result_dispose(&res);
     axiam_client_free(c);
 }
@@ -210,6 +256,8 @@ int main(void) {
     RUN_TEST(test_login_mfa_required);
     RUN_TEST(test_login_mfa_setup_required);
     RUN_TEST(test_verify_mfa_success);
+    RUN_TEST(test_verify_mfa_sensitive_round_trip);
+    RUN_TEST(test_verify_mfa_sensitive_null_token);
     RUN_TEST(test_logout_success);
     RUN_TEST(test_transport_failure_is_network);
     RUN_TEST(test_refresh_success);

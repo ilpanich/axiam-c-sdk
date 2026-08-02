@@ -11,7 +11,7 @@ Identity and Authorization Management). It provides authentication, token
 refresh, and authorization checks over the AXIAM REST API, plus a
 framework-agnostic route guard and declarative authorization helpers.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§11 (including §6.1 mTLS).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13 (including §6.1 mTLS).**
 >
 > gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
@@ -90,7 +90,8 @@ int main(void) {
         return 1;
     }
     if (login.mfa_required) {
-        axiam_verify_mfa(client, login.challenge_token, "123456", &login, &err);
+        /* §7: challenge_token is an opaque axiam_sensitive_t, handed straight back. */
+        axiam_verify_mfa_sensitive(client, login.challenge_token, "123456", &login, &err);
     }
     axiam_login_result_dispose(&login);
 
@@ -112,6 +113,13 @@ int main(void) {
 
 Strict server verification is **always on** and cannot be disabled — there is no
 `insecure`/`skip_verify` surface anywhere in this SDK (CONTRACT §6).
+
+- **The base URL must be `https://`.** A plaintext base URL is refused at
+  construction (`axiam_client_new` returns NULL with `AXIAM_ERR_NETWORK`) rather
+  than silently sending credentials, session cookies, CSRF and tenant headers in
+  cleartext. The single exception is a loopback host — `localhost`, `127.0.0.1`,
+  `::1` — so local development against a non-TLS dev server still works. There is
+  no flag to disable this for a routable host.
 
 - **Custom CA (dev / self-signed servers).** Adds a CA to the verification chain;
   PEM only.
@@ -137,15 +145,69 @@ Strict server verification is **always on** and cannot be disabled — there is 
 | §3   | CSRF: capture `X-CSRF-Token` from responses, echo on state-changing requests | `client.c`, `transport_curl.c` |
 | §4   | Per-client in-memory libcurl cookie engine (`CURLOPT_COOKIEFILE ""`) | `transport_curl.c` |
 | §5   | `X-Tenant-ID` on every request; tenant required at construction (no default) | `config.c`, `client.c` |
-| §6   | Strict TLS always on; custom CA is the only escape hatch (PEM only) | `transport_curl.c` |
+| §6   | Strict TLS always on; plaintext base URL refused (loopback dev exception); custom CA is the only escape hatch (PEM only) | `config.c`, `transport_curl.c` |
 | §6.1 | mTLS client identity (PEM cert + key, in-memory blobs) | `config.c`, `transport_curl.c` |
 | §7   | Opaque `axiam_sensitive_t`, `[SENSITIVE]` rendering, no raw getter | `sensitive.h` |
 | §9   | Single-flight refresh (`pthread_mutex_t` + condvar); no retry loop | `client.c` |
 | §10  | `axiam_middleware`/guard: `axiam_require_auth` extracts + verifies session | `guard.h` |
 | §11  | `axiam_require_access/require_role` + `AXIAM_REQUIRE_*` macros | `guard.h` |
+| §13  | `axiam_webhook_verify` — HMAC-SHA256 signed-timestamp verification | `webhook.h` |
 
 JWKS: `GET {base}/oauth2/jwks`, EdDSA/Ed25519 only, verified with OpenSSL
-`EVP_DigestVerify`, cached 300s. The verifier does not check `exp`.
+`EVP_DigestVerify`, cached 300s.
+
+### Local token verification is strict by default
+
+`axiam_jwt_verify()` — and therefore every route guard — checks far more than
+the signature. The JWKS endpoint is **organization-wide**, so a valid signature
+alone does not mean the token belongs to your tenant:
+
+- `exp` is **required** and enforced (±`AXIAM_JWT_CLOCK_SKEW_SECS`, 60s);
+- `nbf` is enforced when present;
+- `tenant_id` must equal the client's configured tenant.
+
+Anything missing or mismatched fails **closed** (`AXIAM_ERR_AUTH` / HTTP 401).
+Because the token's `tenant_id` claim is a UUID, a client used for route
+guarding must be configured with `axiam_client_config_set_tenant_id()` (a slug
+alone cannot be compared against it, and a slug-only client that has not logged
+in refuses every token). `axiam_jwt_verify_ex()` exposes the policy flags —
+`AXIAM_JWT_VERIFY_SIGNATURE_ONLY` reduces the check to the signature and must
+never be used to admit a request.
+
+## Webhook signature verification (§13)
+
+AXIAM signs every webhook delivery with a Stripe-style signed timestamp
+(`X-Axiam-Signature: t=<unix>,v1=<hex>`, HMAC-SHA256 over `<t>.<raw_body>`).
+`axiam_webhook_verify()` checks it with a constant-time comparison over the
+decoded MAC bytes and a two-sided 300s freshness window.
+
+**Pass the raw request body bytes**, exactly as received. Re-serializing parsed
+JSON changes key order and whitespace and will break the MAC.
+
+```c
+#include <axiam/axiam.h>
+
+/* `headers` is the request's header list; `body`/`body_len` the RAW bytes. */
+axiam_sensitive_t *secret = axiam_sensitive_new(getenv("AXIAM_WEBHOOK_SECRET"));
+
+axiam_webhook_event_t ev;
+axiam_webhook_status_t st =
+    axiam_webhook_verify_headers(secret, headers, body, body_len,
+                                 AXIAM_WEBHOOK_DEFAULT_TOLERANCE_SECS, &ev);
+if (st != AXIAM_WEBHOOK_OK) {
+    /* Reject with 400; the status string never contains the expected MAC. */
+    fprintf(stderr, "webhook rejected: %s\n", axiam_webhook_status_str(st));
+} else {
+    /* Deliveries are at-least-once: de-duplicate on ev.delivery_id before
+     * acting on ev.event_type / ev.body. */
+    handle_event(ev.event_type, ev.body, ev.body_len);
+    axiam_webhook_event_dispose(&ev);
+}
+axiam_sensitive_free(secret);
+```
+
+`axiam_webhook_verify()` takes the `X-Axiam-Signature` value directly, and
+`axiam_webhook_verify_at()` injects `now` for deterministic tests.
 
 ## Building & testing
 

@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include "axiam/config.h"
 #include "axiam/error.h"
+#include "axiam/sensitive.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,8 +42,15 @@ typedef struct axiam_login_result {
     int authenticated;      /**< 1 when a session was established. */
     int mfa_required;       /**< 1 when MFA verification is required next. */
     int mfa_setup_required; /**< 1 when MFA enrollment is required. */
-    char *challenge_token;  /**< For verify_mfa (when mfa_required). */
-    char *setup_token;      /**< For MFA setup (when mfa_setup_required). */
+    /**
+     * For axiam_verify_mfa_sensitive (when mfa_required). CONTRACT §7 classes
+     * the MFA challenge token as a secret, so it is held behind an opaque
+     * Sensitive handle: it renders as "[SENSITIVE]" and its backing memory is
+     * zeroized by axiam_login_result_dispose(). May be NULL.
+     */
+    axiam_sensitive_t *challenge_token;
+    /** MFA-setup token (when mfa_setup_required); Sensitive, as above. */
+    axiam_sensitive_t *setup_token;
     char *session_id;       /**< Established session id (when authenticated). */
     long  expires_in;       /**< Access token TTL seconds (when authenticated). */
     char *user_id;
@@ -51,7 +59,8 @@ typedef struct axiam_login_result {
     char *tenant_id;
 } axiam_login_result_t;
 
-/** Release heap members of a login result (not the struct itself). */
+/** Release heap members of a login result (not the struct itself). The
+ *  Sensitive MFA tokens are zeroized before release (§7). */
 void axiam_login_result_dispose(axiam_login_result_t *r);
 
 /** POST /api/v1/auth/login. */
@@ -61,12 +70,25 @@ axiam_error_kind_t axiam_login(axiam_client_t *client,
                                axiam_login_result_t *out,
                                axiam_error_t *err);
 
-/** POST /api/v1/auth/mfa/verify. */
+/** POST /api/v1/auth/mfa/verify, with the challenge token as a raw string.
+ *  Prefer axiam_verify_mfa_sensitive() when the token came from a
+ *  axiam_login_result_t — it keeps the secret behind its Sensitive handle. */
 axiam_error_kind_t axiam_verify_mfa(axiam_client_t *client,
                                     const char *challenge_token,
                                     const char *totp_code,
                                     axiam_login_result_t *out,
                                     axiam_error_t *err);
+
+/**
+ * POST /api/v1/auth/mfa/verify using the Sensitive challenge token returned by
+ * axiam_login() (§7). The secret is never rendered or copied into a plain
+ * caller-visible string.
+ */
+axiam_error_kind_t axiam_verify_mfa_sensitive(axiam_client_t *client,
+                                              const axiam_sensitive_t *challenge_token,
+                                              const char *totp_code,
+                                              axiam_login_result_t *out,
+                                              axiam_error_t *err);
 
 /** POST /api/v1/auth/refresh (also used internally by the single-flight guard). */
 axiam_error_kind_t axiam_refresh(axiam_client_t *client, axiam_error_t *err);

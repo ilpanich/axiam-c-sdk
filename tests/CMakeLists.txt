@@ -36,6 +36,7 @@ axiam_add_test(test_authz test_authz.c)
 axiam_add_test(test_singleflight test_singleflight.c)
 axiam_add_test(test_refresh_org test_refresh_org.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
+axiam_add_test(test_webhook test_webhook.c)
 
 # ---- C2 branch-coverage depth (round 2) ----
 axiam_add_test(test_client_branches test_client_branches.c)
@@ -59,6 +60,16 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_guard PRIVATE --coverage)
 endif()
 add_test(NAME test_guard COMMAND test_guard)
+
+# SEC-071: strict claim validation (exp / nbf / tenant binding) in the local
+# verification path both guards and axiam_jwt_verify share.
+add_executable(test_jwt_claims test_jwt_claims.c)
+target_include_directories(test_jwt_claims PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_jwt_claims PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_jwt_claims PRIVATE --coverage)
+endif()
+add_test(NAME test_jwt_claims COMMAND test_jwt_claims)
 
 # ---- C2 branch-coverage depth (round 2): crypto-dependent branch sweeps ----
 add_executable(test_guard_branches test_guard_branches.c)
