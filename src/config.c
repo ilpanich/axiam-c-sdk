@@ -16,6 +16,8 @@ void axiam_client_config_free(axiam_client_config_t *cfg) {
     free(cfg->org_id);
     free(cfg->custom_ca_pem);
     free(cfg->client_cert_pem);
+    free(cfg->expected_issuer);
+    free(cfg->expected_audience);
     axiam_sensitive_free(cfg->client_key);
     free(cfg);
 }
@@ -39,6 +41,16 @@ void axiam_client_config_set_org_slug(axiam_client_config_t *cfg, const char *v)
 }
 void axiam_client_config_set_org_id(axiam_client_config_t *cfg, const char *v) {
     if (cfg) set_str(&cfg->org_id, v);
+}
+
+/* §10.1 rules 5/6: optional local-verification expectations. Unset (NULL or an
+ * empty string) means "not configured", which means the claim is not checked —
+ * never a hardcoded default issuer/audience. */
+void axiam_client_config_set_expected_issuer(axiam_client_config_t *cfg, const char *v) {
+    if (cfg) set_str(&cfg->expected_issuer, (v && v[0]) ? v : NULL);
+}
+void axiam_client_config_set_expected_audience(axiam_client_config_t *cfg, const char *v) {
+    if (cfg) set_str(&cfg->expected_audience, (v && v[0]) ? v : NULL);
 }
 
 axiam_error_kind_t axiam_client_config_set_custom_ca(axiam_client_config_t *cfg,
@@ -120,6 +132,8 @@ axiam_client_config_t *axiam_client_config_clone(const axiam_client_config_t *sr
     c->org_id = axiam_strdup0(src->org_id);
     c->custom_ca_pem = axiam_strdup0(src->custom_ca_pem);
     c->client_cert_pem = axiam_strdup0(src->client_cert_pem);
+    c->expected_issuer = axiam_strdup0(src->expected_issuer);
+    c->expected_audience = axiam_strdup0(src->expected_audience);
     if (src->client_key) {
         c->client_key = axiam_sensitive_new_bytes(
             axiam_sensitive_bytes(src->client_key),

@@ -162,11 +162,22 @@ JWKS: `GET {base}/oauth2/jwks`, EdDSA/Ed25519 only, verified with OpenSSL
 the signature. The JWKS endpoint is **organization-wide**, so a valid signature
 alone does not mean the token belongs to your tenant:
 
+- the header's `alg` is pinned to `EdDSA` **before any key lookup**, so
+  `alg: none` and HS-family confusion are refused without consulting a key;
 - `exp` is **required** and enforced (±`AXIAM_JWT_CLOCK_SKEW_SECS`, 60s);
 - `nbf` is enforced when present;
-- `tenant_id` must equal the client's configured tenant.
+- `tenant_id` must equal the client's configured tenant;
+- `iss` and `aud` are checked **when, and only when, you configure an expected
+  value** — `axiam_client_config_set_expected_issuer()` /
+  `axiam_client_config_set_expected_audience()`. Both default to unset; the SDK
+  never assumes an issuer. Once configured the claim becomes required, so a
+  token that carries no `iss`/`aud` at all is refused rather than waved through.
+  `aud` accepts both the bare-string and array-of-strings forms; a resource
+  server guarding a user-facing API should expect `axiam:user`.
 
-Anything missing or mismatched fails **closed** (`AXIAM_ERR_AUTH` / HTTP 401).
+Anything missing, wrong-typed or mismatched fails **closed**
+(`AXIAM_ERR_AUTH` / HTTP 401). This is CONTRACT §10.1's minimum
+local-verification set.
 Because the token's `tenant_id` claim is a UUID, a client used for route
 guarding must be configured with `axiam_client_config_set_tenant_id()` (a slug
 alone cannot be compared against it, and a slug-only client that has not logged

@@ -35,6 +35,20 @@ void axiam_client_config_set_tenant_id(axiam_client_config_t *cfg, const char *t
 void axiam_client_config_set_org_slug(axiam_client_config_t *cfg, const char *org_slug);
 void axiam_client_config_set_org_id(axiam_client_config_t *cfg, const char *org_id);
 
+/* --- Local token-verification expectations (§10.1 rules 5 and 6). ---
+ *
+ * Both are OPTIONAL and default to UNSET. When unset, the corresponding claim
+ * is not checked by axiam_jwt_verify(); when set, a token whose claim is
+ * absent, of the wrong JSON type, or different MUST be rejected. Passing NULL
+ * or "" clears the expectation. The SDK never assumes an issuer or audience.
+ *
+ * A resource server guarding a user-facing API SHOULD set the audience to
+ * "axiam:user". The issuer is deployment-specific (typically the AXIAM base
+ * URL) and is therefore never defaulted.
+ */
+void axiam_client_config_set_expected_issuer(axiam_client_config_t *cfg, const char *issuer);
+void axiam_client_config_set_expected_audience(axiam_client_config_t *cfg, const char *audience);
+
 /**
  * Add a custom CA certificate to the verification chain (§6). PEM only.
  * This NEVER relaxes verification — it augments the trust store for dev/

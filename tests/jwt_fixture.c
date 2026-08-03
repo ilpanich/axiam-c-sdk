@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 
 static const char B64URL[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -44,14 +45,16 @@ static char *concat3(const char *a, const char *b, const char *c) {
     return s;
 }
 
-int jwt_make(const char *kid, const char *payload_json,
-             char **out_token, char **out_jwks) {
+/* Shared minting core. `alg` goes into the header verbatim; the signature is
+ * chosen from it (see jwt_make_confused in the header for the rationale). */
+static int jwt_make_with_alg(const char *kid, const char *alg,
+                             const char *payload_json,
+                             char **out_token, char **out_jwks) {
     int rc = -1;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL);
     char *hdr_b64 = NULL, *pl_b64 = NULL, *sig_b64 = NULL, *x_b64 = NULL;
     char *signing_input = NULL, *token = NULL, *jwks = NULL;
-    unsigned char *sig = NULL;
 
     if (!pctx || EVP_PKEY_keygen_init(pctx) <= 0 ||
         EVP_PKEY_keygen(pctx, &pkey) <= 0)
@@ -64,7 +67,8 @@ int jwt_make(const char *kid, const char *payload_json,
     x_b64 = jwt_b64url_encode(pub, 32);
 
     char header[128];
-    snprintf(header, sizeof(header), "{\"alg\":\"EdDSA\",\"typ\":\"JWT\",\"kid\":\"%s\"}", kid);
+    snprintf(header, sizeof(header), "{\"alg\":\"%s\",\"typ\":\"JWT\",\"kid\":\"%s\"}",
+             alg, kid);
     hdr_b64 = jwt_b64url_encode((const unsigned char *)header, strlen(header));
     pl_b64 = jwt_b64url_encode((const unsigned char *)payload_json, strlen(payload_json));
     if (!hdr_b64 || !pl_b64 || !x_b64) goto done;
@@ -72,24 +76,39 @@ int jwt_make(const char *kid, const char *payload_json,
     signing_input = concat3(hdr_b64, ".", pl_b64);
     if (!signing_input) goto done;
 
-    EVP_MD_CTX *md = EVP_MD_CTX_new();
-    size_t siglen = 0;
-    if (!md ||
-        EVP_DigestSignInit(md, NULL, NULL, NULL, pkey) <= 0 ||
-        EVP_DigestSign(md, NULL, &siglen, (const unsigned char *)signing_input,
-                       strlen(signing_input)) <= 0) {
-        if (md) EVP_MD_CTX_free(md);
-        goto done;
-    }
-    sig = malloc(siglen);
-    if (!sig || EVP_DigestSign(md, sig, &siglen,
-                               (const unsigned char *)signing_input,
-                               strlen(signing_input)) <= 0) {
+    if (strcmp(alg, "none") == 0) {
+        sig_b64 = jwt_b64url_encode((const unsigned char *)"", 0);
+    } else if (strcmp(alg, "HS256") == 0) {
+        unsigned char mac[EVP_MAX_MD_SIZE];
+        unsigned int maclen = 0;
+        if (!HMAC(EVP_sha256(), pub, (int)publen,
+                  (const unsigned char *)signing_input, strlen(signing_input),
+                  mac, &maclen))
+            goto done;
+        sig_b64 = jwt_b64url_encode(mac, maclen);
+    } else {
+        EVP_MD_CTX *md = EVP_MD_CTX_new();
+        size_t siglen = 0;
+        unsigned char *sig = NULL;
+        if (!md ||
+            EVP_DigestSignInit(md, NULL, NULL, NULL, pkey) <= 0 ||
+            EVP_DigestSign(md, NULL, &siglen, (const unsigned char *)signing_input,
+                           strlen(signing_input)) <= 0) {
+            if (md) EVP_MD_CTX_free(md);
+            goto done;
+        }
+        sig = malloc(siglen);
+        if (!sig || EVP_DigestSign(md, sig, &siglen,
+                                   (const unsigned char *)signing_input,
+                                   strlen(signing_input)) <= 0) {
+            EVP_MD_CTX_free(md);
+            free(sig);
+            goto done;
+        }
         EVP_MD_CTX_free(md);
-        goto done;
+        sig_b64 = jwt_b64url_encode(sig, siglen);
+        free(sig);
     }
-    EVP_MD_CTX_free(md);
-    sig_b64 = jwt_b64url_encode(sig, siglen);
     if (!sig_b64) goto done;
 
     token = concat3(signing_input, ".", sig_b64);
@@ -119,8 +138,17 @@ done:
     free(sig_b64);
     free(x_b64);
     free(signing_input);
-    free(sig);
     free(token);
     free(jwks);
     return rc;
+}
+
+int jwt_make_confused(const char *kid, const char *alg, const char *payload_json,
+                      char **out_token, char **out_jwks) {
+    return jwt_make_with_alg(kid, alg, payload_json, out_token, out_jwks);
+}
+
+int jwt_make(const char *kid, const char *payload_json,
+             char **out_token, char **out_jwks) {
+    return jwt_make_with_alg(kid, "EdDSA", payload_json, out_token, out_jwks);
 }

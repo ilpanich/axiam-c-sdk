@@ -1,13 +1,17 @@
-/* SEC-071: strict local token verification.
+/* SEC-071 / CONTRACT §10.1: strict local token verification.
  *
  * The JWKS trust anchor is organization-wide and the SDK's route guards are a
  * relying party, so a valid Ed25519 signature is NOT by itself an
- * authenticated caller. These tests pin the two controls the guards depend on:
+ * authenticated caller. These tests pin the controls the guards depend on:
  *
+ *   - signature with `alg` pinned to EdDSA BEFORE any key lookup (`alg:none`
+ *     and HS/EdDSA confusion refused without consulting a key);
  *   - lifetime: `exp` is mandatory and enforced (with a bounded clock skew),
  *     `nbf` is honoured when present;
  *   - tenant binding: the `tenant_id` claim must equal the client's
- *     configured tenant.
+ *     configured tenant;
+ *   - `iss` / `aud`: checked when — and only when — the client was configured
+ *     with an expected value.
  *
  * Every negative case must fail CLOSED — 401 from the guards, AXIAM_ERR_AUTH
  * from the verifier — and the positive case must still be admitted.
@@ -87,6 +91,31 @@ static char *mint(const char *payload) {
     free((char *)g.jwks_body); /* previous doc, if any */
     g.jwks_body = jwks;
     return token;
+}
+
+/* As mint(), but the header declares `alg` while the JWKS still publishes the
+ * genuine EdDSA key under the same kid (§10.1 rule 1 confusion shapes). */
+static char *mint_alg(const char *alg, const char *payload) {
+    char *token = NULL, *jwks = NULL;
+    TEST_ASSERT_EQUAL_INT(0, jwt_make_confused("k1", alg, payload, &token, &jwks));
+    free((char *)g.jwks_body);
+    g.jwks_body = jwks;
+    return token;
+}
+
+/* A client with an expected issuer and/or audience (§10.1 rules 5/6). NULL
+ * leaves the corresponding expectation UNSET, i.e. unchecked. */
+static axiam_client_t *make_client_with_iss_aud(const char *iss, const char *aud) {
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, "https://iam.example.com");
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
+    axiam_client_config_set_expected_issuer(cfg, iss);
+    axiam_client_config_set_expected_audience(cfg, aud);
+    axiam_client_config_set_transport(cfg, fake_transport, &g);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    return c;
 }
 
 void setUp(void) {
@@ -391,6 +420,171 @@ static void test_rejected_token_yields_no_claims(void) {
     axiam_client_free(c);
 }
 
+/* --- 7. §10.1 rule 1: algorithm confusion is refused before any key lookup --- */
+
+static void test_alg_none_token_is_rejected(void) {
+    char payload[256];
+    char *token = mint_alg("none", test_claims(payload, sizeof(payload), "u", NULL));
+    axiam_client_t *c = make_client();
+    axiam_headers_t *h = bearer_headers(token);
+    axiam_error_t err;
+
+    /* Rejected on the strict path, on the raw signature-only primitive, and at
+     * the guard — the `alg` pin runs before a key is ever consulted, so the
+     * JWKS transport is never even reached for this token. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify(c, token, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "alg"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH,
+        axiam_jwt_verify_ex(c, token, AXIAM_JWT_VERIFY_SIGNATURE_ONLY, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED, axiam_require_auth(c, h));
+
+    axiam_kv_free(h);
+    free(token);
+    axiam_client_free(c);
+}
+
+static void test_hs_signed_token_with_eddsa_kid_is_rejected(void) {
+    /* Classic HS/EdDSA confusion: the header claims HS256 and the "secret" is
+     * the org's published Ed25519 public key, so the MAC genuinely verifies for
+     * an implementation that trusts the header. The `alg` pin refuses it. */
+    char payload[256];
+    char *token = mint_alg("HS256", test_claims(payload, sizeof(payload), "u", NULL));
+    axiam_client_t *c = make_client();
+    axiam_headers_t *h = bearer_headers(token);
+    axiam_error_t err;
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify(c, token, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "alg"));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH,
+        axiam_jwt_verify_ex(c, token, AXIAM_JWT_VERIFY_SIGNATURE_ONLY, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED, axiam_require_auth(c, h));
+
+    axiam_kv_free(h);
+    free(token);
+    axiam_client_free(c);
+}
+
+/* --- 8. §10.1 rules 5/6: iss/aud are checked only when configured --- */
+
+static void test_iss_aud_unconfigured_are_not_checked(void) {
+    /* A token carrying a foreign issuer/audience is still admitted when the
+     * client has no expectation — the rules are CONDITIONAL, and the SDK never
+     * hardcodes an expected issuer. */
+    char payload[320];
+    char *token = mint(test_claims(payload, sizeof(payload), "u",
+                                   ",\"iss\":\"https://other.example\","
+                                   "\"aud\":[\"axiam:m2m\"]"));
+    axiam_client_t *c = make_client_with_iss_aud(NULL, NULL);
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));
+    free(token);
+    axiam_client_free(c);
+}
+
+static void test_configured_issuer_is_enforced(void) {
+    const char *want = "https://iam.example.com";
+    char payload[320];
+    axiam_error_t err;
+
+    /* Matching issuer: accepted. */
+    char *ok = mint(test_claims(payload, sizeof(payload), "u",
+                                ",\"iss\":\"https://iam.example.com\""));
+    axiam_client_t *c = make_client_with_iss_aud(want, NULL);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, ok, NULL, &err));
+    free(ok);
+    axiam_client_free(c);
+
+    /* Different issuer: rejected. */
+    char *bad = mint(test_claims(payload, sizeof(payload), "u",
+                                 ",\"iss\":\"https://evil.example\""));
+    c = make_client_with_iss_aud(want, NULL);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify(c, bad, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "iss"));
+    free(bad);
+    axiam_client_free(c);
+
+    /* No `iss` at all while an issuer IS configured: fails closed. */
+    char *none = mint(test_claims(payload, sizeof(payload), "u", NULL));
+    c = make_client_with_iss_aud(want, NULL);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify(c, none, NULL, &err));
+    free(none);
+    axiam_client_free(c);
+
+    /* `iss` present but the wrong JSON type: fails closed. */
+    char *typed = mint(test_claims(payload, sizeof(payload), "u", ",\"iss\":42"));
+    c = make_client_with_iss_aud(want, NULL);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify(c, typed, NULL, &err));
+    free(typed);
+    axiam_client_free(c);
+}
+
+static void test_configured_audience_is_enforced(void) {
+    const char *want = "axiam:user";
+    char payload[320];
+    axiam_error_t err;
+
+    /* `aud` as an array containing the expectation: accepted. */
+    char *arr = mint(test_claims(payload, sizeof(payload), "u",
+                                 ",\"aud\":[\"axiam:m2m\",\"axiam:user\"]"));
+    axiam_client_t *c = make_client_with_iss_aud(NULL, want);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, arr, NULL, &err));
+    free(arr);
+    axiam_client_free(c);
+
+    /* `aud` as a bare string equal to the expectation: accepted. */
+    char *str = mint(test_claims(payload, sizeof(payload), "u",
+                                 ",\"aud\":\"axiam:user\""));
+    c = make_client_with_iss_aud(NULL, want);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, str, NULL, &err));
+    free(str);
+    axiam_client_free(c);
+
+    /* An array without the expectation: rejected. */
+    char *bad = mint(test_claims(payload, sizeof(payload), "u",
+                                 ",\"aud\":[\"axiam:m2m\"]"));
+    c = make_client_with_iss_aud(NULL, want);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify(c, bad, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "aud"));
+    free(bad);
+    axiam_client_free(c);
+
+    /* No `aud` at all while an audience IS configured: fails closed. */
+    char *none = mint(test_claims(payload, sizeof(payload), "u", NULL));
+    c = make_client_with_iss_aud(NULL, want);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify(c, none, NULL, &err));
+    free(none);
+    axiam_client_free(c);
+
+    /* `aud` present but the wrong JSON type: fails closed. */
+    char *typed = mint(test_claims(payload, sizeof(payload), "u", ",\"aud\":7"));
+    c = make_client_with_iss_aud(NULL, want);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify(c, typed, NULL, &err));
+    free(typed);
+    axiam_client_free(c);
+
+    /* An empty expectation is treated as UNSET, never as "must equal "". */
+    char *plain = mint(test_claims(payload, sizeof(payload), "u", NULL));
+    c = make_client_with_iss_aud("", "");
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, plain, NULL, &err));
+    free(plain);
+    axiam_client_free(c);
+}
+
+/* The guard entry point honours the same iss/aud expectations. */
+static void test_guard_enforces_configured_audience(void) {
+    char payload[320];
+    char *token = mint(test_claims(payload, sizeof(payload), "u",
+                                   ",\"aud\":[\"axiam:m2m\"],\"roles\":[\"admin\"]"));
+    axiam_client_t *c = make_client_with_iss_aud(NULL, "axiam:user");
+    axiam_headers_t *h = bearer_headers(token);
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED, axiam_require_auth(c, h));
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED,
+        axiam_require_access(c, h, "a", "44444444-4444-4444-4444-444444444444", NULL));
+    axiam_kv_free(h);
+    free(token);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_valid_token_is_accepted);
@@ -408,5 +602,11 @@ int main(void) {
     RUN_TEST(test_signature_only_flag_skips_claim_checks);
     RUN_TEST(test_strict_verify_returns_claims);
     RUN_TEST(test_rejected_token_yields_no_claims);
+    RUN_TEST(test_alg_none_token_is_rejected);
+    RUN_TEST(test_hs_signed_token_with_eddsa_kid_is_rejected);
+    RUN_TEST(test_iss_aud_unconfigured_are_not_checked);
+    RUN_TEST(test_configured_issuer_is_enforced);
+    RUN_TEST(test_configured_audience_is_enforced);
+    RUN_TEST(test_guard_enforces_configured_audience);
     return UNITY_END();
 }

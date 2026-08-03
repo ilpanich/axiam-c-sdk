@@ -8,10 +8,11 @@
  * §11.2). No decision caching (§11.6). Network failure fails CLOSED (503).
  *
  * Token verification is always AXIAM_JWT_VERIFY_STRICT (see jwks.h): signature
- * AND lifetime (`exp`, and `nbf` when present) AND the tenant binding. An
- * expired token, or one minted for a different tenant of the same
- * organization, is refused with AXIAM_GUARD_UNAUTHENTICATED and never reaches
- * the authorization check.
+ * with `alg` pinned to EdDSA before key lookup, AND lifetime (`exp` required,
+ * and `nbf` when present) AND the tenant binding AND the configured `iss` /
+ * `aud` expectations. An expired token, one minted for a different tenant of
+ * the same organization, or one from an unexpected issuer/audience is refused
+ * with AXIAM_GUARD_UNAUTHENTICATED and never reaches the authorization check.
  *
  * The macros AXIAM_REQUIRE_ACCESS / AXIAM_REQUIRE_AUTH / AXIAM_REQUIRE_ROLE are
  * C's analog of the annotations other SDKs expose (§11).
