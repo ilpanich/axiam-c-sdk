@@ -245,6 +245,23 @@ static char *json_dup_str(const cJSON *obj, const char *key) {
     return NULL;
 }
 
+/* Lift a string claim into a Sensitive handle (§7) and scrub the plaintext
+ * copy left inside the parsed document. Returns NULL when absent. */
+static axiam_sensitive_t *json_dup_sensitive(cJSON *obj, const char *key) {
+    cJSON *it = cJSON_GetObjectItemCaseSensitive(obj, key);
+    if (!cJSON_IsString(it) || !it->valuestring) return NULL;
+    axiam_sensitive_t *s = axiam_sensitive_new(it->valuestring);
+    axiam_secure_zero(it->valuestring, strlen(it->valuestring));
+    return s;
+}
+
+/* Scrub a request body that carried credentials before releasing it (§7). */
+static void free_scrubbed(char *body) {
+    if (!body) return;
+    axiam_secure_zero(body, strlen(body));
+    free(body);
+}
+
 static long json_get_long(const cJSON *obj, const char *key) {
     const cJSON *it = cJSON_GetObjectItemCaseSensitive(obj, key);
     if (cJSON_IsNumber(it)) return (long)it->valuedouble;
@@ -322,8 +339,9 @@ static void resolve_ids_from_login(axiam_client_t *c, const axiam_http_response_
 
 void axiam_login_result_dispose(axiam_login_result_t *r) {
     if (!r) return;
-    free(r->challenge_token);
-    free(r->setup_token);
+    /* §7: the MFA challenge/setup tokens are secrets — zeroized on release. */
+    axiam_sensitive_free(r->challenge_token);
+    axiam_sensitive_free(r->setup_token);
     free(r->session_id);
     free(r->user_id);
     free(r->username);
@@ -342,7 +360,7 @@ static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_respons
         /* MFA required — checked before the generic 2xx success branch. */
         if (out) {
             out->mfa_required = 1;
-            out->challenge_token = root ? json_dup_str(root, "challenge_token") : NULL;
+            out->challenge_token = root ? json_dup_sensitive(root, "challenge_token") : NULL;
         }
     } else if (status >= 200 && status < 300) {
         if (out && root) {
@@ -368,7 +386,7 @@ static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_respons
         /* MFA enrollment required — not an authorization denial. */
         if (out) {
             out->mfa_setup_required = 1;
-            out->setup_token = json_dup_str(root, "setup_token");
+            out->setup_token = json_dup_sensitive(root, "setup_token");
         }
     } else {
         kind = axiam_error_kind_from_http_status(status);
@@ -393,7 +411,7 @@ axiam_error_kind_t axiam_login(axiam_client_t *client, const char *username_or_e
 
     axiam_http_response_t resp;
     int rc = transport_once(client, "POST", "/api/v1/auth/login", body, 1, &resp);
-    free(body);
+    free_scrubbed(body); /* §7: the body carried the password. */
     if (rc != 0 || resp.status == 0) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
                         resp.transport_msg ? resp.transport_msg : "network failure");
@@ -419,7 +437,7 @@ axiam_error_kind_t axiam_verify_mfa(axiam_client_t *client, const char *challeng
 
     axiam_http_response_t resp;
     int rc = transport_once(client, "POST", "/api/v1/auth/mfa/verify", body, 1, &resp);
-    free(body);
+    free_scrubbed(body); /* §7: the body carried the challenge token. */
     if (rc != 0 || resp.status == 0) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
                         resp.transport_msg ? resp.transport_msg : "network failure");
@@ -429,6 +447,23 @@ axiam_error_kind_t axiam_verify_mfa(axiam_client_t *client, const char *challeng
     axiam_error_kind_t kind = parse_login_like(client, &resp, out, err);
     axiam_http_response_dispose(&resp);
     return kind;
+}
+
+axiam_error_kind_t axiam_verify_mfa_sensitive(axiam_client_t *client,
+                                              const axiam_sensitive_t *challenge_token,
+                                              const char *totp_code,
+                                              axiam_login_result_t *out,
+                                              axiam_error_t *err) {
+    if (!challenge_token) {
+        axiam_error_reset(err);
+        if (out) memset(out, 0, sizeof(*out));
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    /* The raw value is read through the module-private accessor and never
+     * leaves this call (§7). */
+    return axiam_verify_mfa(client, (const char *)axiam_sensitive_bytes(challenge_token),
+                            totp_code, out, err);
 }
 
 axiam_error_kind_t axiam_refresh(axiam_client_t *client, axiam_error_t *err) {

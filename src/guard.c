@@ -37,14 +37,22 @@ static char *extract_token(const axiam_headers_t *headers) {
 }
 
 /* Verify the request token and return its claims JSON (caller frees).
- * Sets *status to a guard status on failure. */
+ * Sets *status to a guard status on failure.
+ *
+ * SEC-071: verification is AXIAM_JWT_VERIFY_STRICT — signature AND lifetime
+ * (`exp`, plus `nbf` when present, with AXIAM_JWT_CLOCK_SKEW_SECS of skew) AND
+ * the tenant binding. The JWKS trust anchor is organization-wide, so without
+ * the tenant assertion a token minted for a sibling tenant would be admitted;
+ * without the expiry check an expired token would be admitted forever. Both
+ * fail closed (401). */
 static char *verify_and_claims(axiam_client_t *client, const axiam_headers_t *headers,
                                axiam_guard_status_t *status) {
     char *token = extract_token(headers);
     if (!token) { *status = AXIAM_GUARD_UNAUTHENTICATED; return NULL; }
     char *claims = NULL;
     axiam_error_t err;
-    axiam_error_kind_t k = axiam_jwt_verify(client, token, &claims, &err);
+    axiam_error_kind_t k = axiam_jwt_verify_ex(client, token, AXIAM_JWT_VERIFY_STRICT,
+                                               &claims, &err);
     free(token);
     if (k == AXIAM_OK) { *status = AXIAM_GUARD_ALLOW; return claims; }
     /* §11.2: transport failure fetching JWKS fails CLOSED (503). */

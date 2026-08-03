@@ -2,10 +2,41 @@
 #ifndef AXIAM_TEST_UTIL_H
 #define AXIAM_TEST_UTIL_H
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "axiam/axiam.h"
+
+/* The tenant UUID the guard/JWKS test clients are configured with. Strict
+ * verification (SEC-071) binds a token's `tenant_id` claim to it. */
+#define AXIAM_TEST_TENANT_ID "11111111-1111-1111-1111-111111111111"
+
+/**
+ * Build a JWT claims payload that PASSES strict verification: a live `exp`
+ * and the configured tenant. `extra` is appended verbatim inside the object
+ * (e.g. ",\"roles\":[\"admin\"]") and may be NULL. Returns buf.
+ */
+static inline const char *test_claims(char *buf, size_t n, const char *sub,
+                                      const char *extra) {
+    snprintf(buf, n, "{\"sub\":\"%s\",\"tenant_id\":\"%s\",\"exp\":%lld%s}",
+             sub, AXIAM_TEST_TENANT_ID, (long long)time(NULL) + 900,
+             extra ? extra : "");
+    return buf;
+}
+
+/**
+ * As test_claims(), but WITHOUT a `sub` claim: only the members strict
+ * verification requires, plus whatever `members` appends verbatim.
+ */
+static inline const char *test_claims_no_sub(char *buf, size_t n,
+                                             const char *members) {
+    snprintf(buf, n, "{\"tenant_id\":\"%s\",\"exp\":%lld%s}",
+             AXIAM_TEST_TENANT_ID, (long long)time(NULL) + 900,
+             members ? members : "");
+    return buf;
+}
 
 /* A recorder shared by tests: captures the last request the transport saw. */
 typedef struct test_recorder {

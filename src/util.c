@@ -23,6 +23,63 @@ int axiam_is_pem(const char *s) {
     return strstr(s, "-----BEGIN") != NULL;
 }
 
+void axiam_secure_zero(void *p, size_t n) {
+    if (!p) return;
+    /* A plain memset() before free() is a dead store the compiler may elide;
+     * writing through a volatile pointer keeps the scrub observable (§7). */
+    volatile unsigned char *v = (volatile unsigned char *)p;
+    while (n--) *v++ = 0;
+}
+
+/* ---- transport-URL scheme guard (§6) ---- */
+
+/* The sole exception to the plaintext ban: a loopback authority, so local
+ * development / integration tests against a non-TLS dev server still work.
+ * Mirrors the Rust SDK's `is_loopback_host`. */
+static int is_loopback_host(const char *host, size_t len) {
+    static const char *const loopback[] = {"localhost", "127.0.0.1", "::1", "[::1]"};
+    for (size_t i = 0; i < sizeof(loopback) / sizeof(loopback[0]); i++) {
+        if (strlen(loopback[i]) == len && strncasecmp(host, loopback[i], len) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+int axiam_url_is_secure(const char *url) {
+    if (!url) return 0;
+    const char *sep = strstr(url, "://");
+    if (!sep || sep == url) return 0; /* no scheme at all — not a usable base URL */
+
+    size_t scheme_len = (size_t)(sep - url);
+    if (scheme_len == 5 && strncasecmp(url, "https", 5) == 0) return 1;
+
+    /* Non-TLS scheme: tolerated only for a loopback authority. */
+    const char *authority = sep + 3;
+    size_t auth_len = strcspn(authority, "/?#");
+
+    /* Drop any userinfo ("user:pass@host"). The LAST '@' delimits it, so
+     * "http://localhost@evil.example/" resolves to the host `evil.example`
+     * and is correctly refused. */
+    const char *host = authority;
+    size_t host_len = auth_len;
+    for (size_t i = 0; i < auth_len; i++) {
+        if (authority[i] == '@') {
+            host = authority + i + 1;
+            host_len = auth_len - i - 1;
+        }
+    }
+
+    /* Strip the port, keeping a bracketed IPv6 literal intact. */
+    if (host_len > 0 && host[0] == '[') {
+        const char *close = memchr(host, ']', host_len);
+        if (close) host_len = (size_t)(close - host) + 1;
+    } else {
+        const char *colon = memchr(host, ':', host_len);
+        if (colon) host_len = (size_t)(colon - host);
+    }
+    return is_loopback_host(host, host_len);
+}
+
 /* ---- header key/value list ---- */
 
 axiam_kv_t *axiam_kv_append(axiam_kv_t *head, const char *key, const char *value) {

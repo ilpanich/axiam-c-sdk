@@ -5,6 +5,54 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [Unreleased]
+
+### Security
+
+- **SEC-071 (HIGH) — route guards no longer accept expired or cross-tenant tokens.**
+  Local verification is now strict by default: `axiam_jwt_verify()` (and therefore
+  `axiam_require_auth` / `axiam_require_access` / `axiam_require_role`) enforces the
+  token lifetime — `exp` is mandatory, `nbf` is honoured when present, both with a
+  60s `AXIAM_JWT_CLOCK_SKEW_SECS` allowance — and asserts that the `tenant_id` claim
+  equals the client's configured tenant. The JWKS trust anchor is organization-wide,
+  so a valid signature alone never implied the caller's tenant. Every new check fails
+  **closed** (`AXIAM_ERR_AUTH` / HTTP 401), and the authorization server is no longer
+  consulted for a token the guard should have refused.
+- **SEC-073 — a plaintext `http://` base URL is refused at construction** (CONTRACT §6).
+  `axiam_client_config_validate()` / `axiam_client_new()` now reject a non-`https`
+  base URL, with a loopback exception (`localhost`, `127.0.0.1`, `::1`) for local
+  development. There is no flag to disable the check for a routable host.
+- **SEC-076 — MFA challenge/setup tokens are held behind `axiam_sensitive_t`** (§7):
+  they render as `[SENSITIVE]` and their memory is zeroized on release. Login and
+  MFA request bodies (which carry the password and the challenge token) are also
+  scrubbed before being freed, and the Sensitive scrub now uses a volatile write
+  the compiler may not elide.
+
+### Added
+
+- **T-145 / CONTRACT §13 — webhook signature verification.** New `axiam/webhook.h`:
+  `axiam_webhook_verify()`, `axiam_webhook_verify_at()` (a `now` seam for tests) and
+  `axiam_webhook_verify_headers()` (which also yields the event type and the
+  `X-Axiam-Delivery` dedup key). HMAC-SHA256 over `<timestamp>.<raw_body>`,
+  constant-time comparison over the decoded MAC bytes (explicit volatile
+  accumulator — no `memcmp`, no early return), two-sided 300s freshness window,
+  typed statuses that never carry the expected signature.
+- `axiam_jwt_verify_ex()` with the `AXIAM_JWT_VERIFY_*` policy flags, for callers
+  that deliberately want a weaker check than the strict default.
+- `axiam_verify_mfa_sensitive()`, which takes the Sensitive challenge token straight
+  from `axiam_login_result_t`.
+
+### Changed
+
+- **Source-breaking:** `axiam_login_result_t.challenge_token` and `.setup_token` are
+  now `axiam_sensitive_t *` instead of `char *`. Pass them to the new
+  `axiam_verify_mfa_sensitive()`; `axiam_verify_mfa()` still accepts a raw string.
+- **Behaviour-breaking:** a client used for route guarding must be configured with
+  `axiam_client_config_set_tenant_id()` (the token's `tenant_id` claim is a UUID and
+  a slug cannot be compared against it). A slug-only client that has not completed a
+  login has no tenant binding available and refuses every token.
+- Vendored `CONTRACT.md` re-synced with the new §13 (webhook signature verification).
+
 ## [1.0.0-alpha23] - 2026-08-02
 
 ### Changed

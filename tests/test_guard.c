@@ -53,7 +53,7 @@ static char *g_jwks;
 static axiam_client_t *make_client(void) {
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, "https://iam.example.com");
-    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
     axiam_client_config_set_transport(cfg, fake_transport, &g);
     axiam_error_t err;
     axiam_client_t *c = axiam_client_new(cfg, &err);
@@ -69,7 +69,9 @@ static axiam_headers_t *bearer_headers(const char *token) {
 
 void setUp(void) {
     memset(&g, 0, sizeof(g));
-    jwt_make("k1", "{\"sub\":\"user-9\",\"roles\":[\"admin\",\"viewer\"]}",
+    char payload[256];
+    jwt_make("k1", test_claims(payload, sizeof(payload), "user-9",
+                               ",\"roles\":[\"admin\",\"viewer\"]"),
              &g_token, &g_jwks);
     g.jwks_body = g_jwks;
 }

@@ -101,6 +101,15 @@ char *axiam_strdup0(const char *s); /* strdup that tolerates NULL -> NULL */
 int   axiam_str_ieq(const char *a, const char *b);
 int   axiam_is_pem(const char *s); /* crude "-----BEGIN" check */
 
+/* Overwrite `n` bytes at `p` with zeroes in a way the compiler may not elide
+ * (§7 scrub-before-release). Safe on NULL. */
+void  axiam_secure_zero(void *p, size_t n);
+
+/* §6 transport-URL guard: 1 when `url` uses `https://`, or a non-TLS scheme
+ * against a loopback authority (localhost / 127.0.0.1 / ::1) — the only
+ * development exception. 0 for every other (plaintext / scheme-less) URL. */
+int   axiam_url_is_secure(const char *url);
+
 /* base64url decode; returns malloc'd buffer + sets *out_len, or NULL. */
 unsigned char *axiam_b64url_decode(const char *in, size_t in_len, size_t *out_len);
 

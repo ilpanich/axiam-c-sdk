@@ -29,7 +29,7 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
 static axiam_client_t *make_client(void) {
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, "https://iam.example.com");
-    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
     axiam_client_config_set_transport(cfg, fake_transport, &g);
     axiam_error_t err;
     axiam_client_t *c = axiam_client_new(cfg, &err);
@@ -42,7 +42,9 @@ void tearDown(void) {}
 
 static void test_verify_valid_eddsa_jwt(void) {
     char *token = NULL, *jwks = NULL;
-    TEST_ASSERT_EQUAL_INT(0, jwt_make("k1", "{\"sub\":\"user-1\",\"roles\":[\"admin\"]}",
+    char payload[256];
+    TEST_ASSERT_EQUAL_INT(0, jwt_make("k1", test_claims(payload, sizeof(payload), "user-1",
+                                                        ",\"roles\":[\"admin\"]"),
                                       &token, &jwks));
     g.jwks_body = jwks;
     axiam_client_t *c = make_client();
@@ -144,8 +146,11 @@ static char *extract_first_key_json(const char *jwks_doc) {
  * entries parsed from one JWKS document. */
 static void test_jwks_skips_bad_entries_and_appends_two_valid_keys(void) {
     char *tokA = NULL, *jwksA = NULL, *tokB = NULL, *jwksB = NULL;
-    TEST_ASSERT_EQUAL_INT(0, jwt_make("keyA", "{\"sub\":\"userA\"}", &tokA, &jwksA));
-    TEST_ASSERT_EQUAL_INT(0, jwt_make("keyB", "{\"sub\":\"userB\"}", &tokB, &jwksB));
+    char pa[256], pb[256];
+    TEST_ASSERT_EQUAL_INT(0, jwt_make("keyA", test_claims(pa, sizeof(pa), "userA", NULL),
+                                      &tokA, &jwksA));
+    TEST_ASSERT_EQUAL_INT(0, jwt_make("keyB", test_claims(pb, sizeof(pb), "userB", NULL),
+                                      &tokB, &jwksB));
     char *keyA_json = extract_first_key_json(jwksA);
     char *keyB_json = extract_first_key_json(jwksB);
     TEST_ASSERT_NOT_NULL(keyA_json);
@@ -204,7 +209,8 @@ static void test_jwt_verify_null_guards(void) {
  * cached key list, freeing the previously-cached nodes. */
 static void test_jwks_refetch_frees_previously_cached_keys(void) {
     char *token1 = NULL, *jwks1 = NULL;
-    jwt_make("k1", "{\"sub\":\"u1\"}", &token1, &jwks1);
+    char p1[256], p2[256];
+    jwt_make("k1", test_claims(p1, sizeof(p1), "u1", NULL), &token1, &jwks1);
     g.jwks_body = jwks1;
     axiam_client_t *c = make_client();
     axiam_error_t err;
@@ -215,7 +221,7 @@ static void test_jwks_refetch_frees_previously_cached_keys(void) {
     c->jwks_fetched_at = 0;
 
     char *token2 = NULL, *jwks2 = NULL;
-    jwt_make("k2", "{\"sub\":\"u2\"}", &token2, &jwks2);
+    jwt_make("k2", test_claims(p2, sizeof(p2), "u2", NULL), &token2, &jwks2);
     g.jwks_body = jwks2;
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token2, NULL, &err));
     TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);
