@@ -40,6 +40,78 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  sanitizers:
+    # §13.4 observation 10 / §12.6.1. OBS-4 was a signed-integer overflow (UB)
+    # on the token-decode path in the C++ SDK that survived three security
+    # passes because neither C repo had a sanitizer job — the only legs were
+    # gcc/clang builds plus coverage, and UB is exactly what an ordinary build
+    # does not report. Both suites already pass cleanly under these tools, so
+    # this job costs a few minutes and closes the class.
+    name: ASan+UBSan & valgrind
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libcurl4-openssl-dev libssl-dev valgrind
+
+      # -fno-sanitize-recover=all is load-bearing: without it UBSan prints a
+      # diagnostic and carries on, so the run stays green and the finding is
+      # only visible to whoever reads the log. Aborting makes it a gate.
+      - name: Configure (ASan + UBSan)
+        run: |
+          cmake -S . -B build-asan \
+            -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all -g" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build (ASan + UBSan)
+        run: cmake --build build-asan -j
+
+      - name: Test under ASan + UBSan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1:strict_string_checks=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --test-dir build-asan --output-on-failure
+
+      - name: Configure (plain, for valgrind)
+        run: cmake -S . -B build-vg -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON
+
+      - name: Build (plain)
+        run: cmake --build build-vg -j
+
+      # valgrind is run over the test binaries directly rather than through
+      # ctest, because this project uses enable_testing() rather than
+      # include(CTest) and so has no MemoryCheckCommand wiring. The PKI fixture
+      # must therefore be generated first and its directory passed as argv[1] —
+      # the crypto/TLS tests take it there, and without it they fail on a
+      # missing ca.crt rather than on anything valgrind found.
+      - name: Generate the PKI fixture
+        run: ctest --test-dir build-vg -R gen_pki --output-on-failure
+
+      - name: Valgrind sweep over every test binary
+        working-directory: build-vg
+        run: |
+          set -euo pipefail
+          failures=0
+          for t in tests/test_*; do
+            [ -x "$t" ] || continue
+            echo "::group::valgrind $t"
+            if ! valgrind --error-exitcode=9 --leak-check=full \
+                 --errors-for-leak-kinds=definite -q "$t" "$PWD/tests/pki"; then
+              echo "::error::valgrind reported errors or definite leaks in $t"
+              failures=$((failures + 1))
+            fi
+            echo "::endgroup::"
+          done
+          if [ "$failures" -ne 0 ]; then
+            echo "::error::valgrind failed for $failures test binaries"
+            exit 1
+          fi
+          echo "valgrind sweep clean"
+
   tls-bypass-gate:
     name: TLS-bypass lint gate
     runs-on: ubuntu-24.04
