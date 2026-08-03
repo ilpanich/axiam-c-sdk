@@ -114,6 +114,24 @@ static char *expected_tenant_id(axiam_client_t *c) {
     return out;
 }
 
+/* §10.1 rule 6: `aud` may be a bare string or an array of strings; the token is
+ * acceptable when the expected audience appears among them. Any other JSON
+ * shape (absent, number, object, array without a matching string) is a
+ * mismatch and fails closed. */
+static int audience_contains(const cJSON *aud, const char *expected) {
+    if (cJSON_IsString(aud) && aud->valuestring)
+        return strcmp(aud->valuestring, expected) == 0;
+    if (cJSON_IsArray(aud)) {
+        const cJSON *e = NULL;
+        cJSON_ArrayForEach(e, aud) {
+            if (cJSON_IsString(e) && e->valuestring &&
+                strcmp(e->valuestring, expected) == 0)
+                return 1;
+        }
+    }
+    return 0;
+}
+
 /* Post-signature claim validation (SEC-071). A signature-valid token is NOT
  * yet an authenticated caller: the lifetime must still be inside its window
  * and the token must belong to this client's tenant (the JWKS trust anchor is
@@ -176,6 +194,35 @@ static axiam_error_kind_t check_claims(axiam_client_t *client, const char *claim
                             "token tenant_id does not match the configured tenant");
             kind = AXIAM_ERR_AUTH;
             goto done;
+        }
+    }
+
+    if (flags & AXIAM_JWT_VERIFY_ISSUER_AUDIENCE) {
+        /* §10.1 rules 5/6 are CONDITIONAL: an unset expectation means the claim
+         * is not checked. A configured expectation makes it required — absent,
+         * wrong-typed or mismatched all fail closed. The expectations are
+         * config-only and never mutated after client construction, so no lock
+         * is needed here. */
+        const char *want_iss = client && client->cfg ? client->cfg->expected_issuer : NULL;
+        if (want_iss && want_iss[0]) {
+            const cJSON *iss = cJSON_GetObjectItemCaseSensitive(root, "iss");
+            if (!cJSON_IsString(iss) || !iss->valuestring ||
+                strcmp(iss->valuestring, want_iss) != 0) {
+                axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                                "token iss does not match the expected issuer");
+                kind = AXIAM_ERR_AUTH;
+                goto done;
+            }
+        }
+        const char *want_aud = client && client->cfg ? client->cfg->expected_audience : NULL;
+        if (want_aud && want_aud[0]) {
+            const cJSON *aud = cJSON_GetObjectItemCaseSensitive(root, "aud");
+            if (!audience_contains(aud, want_aud)) {
+                axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                                "token aud does not contain the expected audience");
+                kind = AXIAM_ERR_AUTH;
+                goto done;
+            }
         }
     }
 

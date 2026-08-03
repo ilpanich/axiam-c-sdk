@@ -35,6 +35,11 @@ struct axiam_client_config {
     char *org_id;
     char *custom_ca_pem;      /* owned, may be NULL */
     char *client_cert_pem;    /* owned, may be NULL */
+    /* Optional local-verification expectations (CONTRACT §10.1 rules 5/6).
+     * NULL = unset = the corresponding claim is not checked. Never defaulted
+     * to a hardcoded value. */
+    char *expected_issuer;    /* owned, may be NULL */
+    char *expected_audience;  /* owned, may be NULL */
     axiam_sensitive_t *client_key; /* mTLS private key behind Sensitive (§7) */
     long timeout_ms;
     long connect_timeout_ms;

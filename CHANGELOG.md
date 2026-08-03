@@ -18,6 +18,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   so a valid signature alone never implied the caller's tenant. Every new check fails
   **closed** (`AXIAM_ERR_AUTH` / HTTP 401), and the authorization server is no longer
   consulted for a token the guard should have refused.
+- **CONTRACT §10.1 conformance — optional `iss` / `aud` pinning on local verification.**
+  The §10.1 "minimum local-verification set" is now fully satisfied by
+  `axiam_jwt_verify()` and the §10/§11 guards. Rules 1–4 and 7 (EdDSA `alg` pin
+  before key lookup, mandatory numeric `exp`, `nbf` when present, asserted
+  `tenant_id`, the named/bounded `AXIAM_JWT_CLOCK_SKEW_SECS`) were already
+  enforced by SEC-071. Rules 5 and 6 are new: `axiam_client_config_set_expected_issuer()`
+  and `axiam_client_config_set_expected_audience()` configure the expectations,
+  and `AXIAM_JWT_VERIFY_STRICT` now also carries `AXIAM_JWT_VERIFY_ISSUER_AUDIENCE`.
+  Both checks are **conditional** — an unset expectation (the default) means the
+  claim is not checked, and no issuer is ever assumed. When one *is* configured,
+  a token whose claim is absent, of the wrong JSON type, or different is refused
+  with `AXIAM_ERR_AUTH` / HTTP 401. `aud` is matched against both the bare-string
+  and the array-of-strings forms. A resource server guarding a user-facing API
+  should set the audience to `axiam:user`.
 - **SEC-073 — a plaintext `http://` base URL is refused at construction** (CONTRACT §6).
   `axiam_client_config_validate()` / `axiam_client_new()` now reject a non-`https`
   base URL, with a loopback exception (`localhost`, `127.0.0.1`, `::1`) for local
@@ -51,7 +65,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   `axiam_client_config_set_tenant_id()` (the token's `tenant_id` claim is a UUID and
   a slug cannot be compared against it). A slug-only client that has not completed a
   login has no tenant binding available and refuses every token.
-- Vendored `CONTRACT.md` re-synced with the new §13 (webhook signature verification).
+- **Behaviour-breaking (opt-in): configuring an expected issuer or audience tightens
+  acceptance.** A client built with `axiam_client_config_set_expected_issuer()` or
+  `..._set_expected_audience()` refuses tokens that previously passed — including
+  tokens that carry no `iss`/`aud` claim at all, which fail closed rather than
+  being treated as "nothing to check". Clients that set neither (the default)
+  behave exactly as before. `AXIAM_JWT_VERIFY_STRICT`'s numeric value changed
+  because it gained `AXIAM_JWT_VERIFY_ISSUER_AUDIENCE`; recompile against the new
+  header rather than relying on a cached literal.
+- Vendored `CONTRACT.md` re-synced with the new §13 (webhook signature verification)
+  and §10.1 (minimum local-verification set).
 
 ## [1.0.0-alpha23] - 2026-08-02
 
