@@ -7,6 +7,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- **ASan+UBSan and valgrind CI job (§13.4 observation 10 / §12.6.1).** `OBS-4`
+  was a signed-integer overflow — undefined behaviour on the **token-decode
+  path** — that survived three security passes because neither C repository had
+  a sanitizer leg: the only jobs were gcc/clang builds plus coverage, and UB is
+  exactly what an ordinary build does not report. The new job runs the full
+  suite under ASan+UBSan with `-fno-sanitize-recover=all` (so a UBSan diagnostic
+  aborts rather than printing and letting the run stay green) and then sweeps
+  every test binary under valgrind with `--error-exitcode=9 --leak-check=full`.
+  Verified locally before wiring: 23/23 tests pass under the sanitizers, and the
+  valgrind sweep reports 0 errors and 0 definite leaks.
+
+### Notes
+
+- **§13.4 observation 8 was mistaken; no change was needed.** It recorded that
+  this SDK's §10.1 negative-test set "looks incomplete — `tests/test_jwt_claims.c`
+  covers the `exp` cases but not evidently the rest". Auditing the file against
+  the mandated list shows the set is **complete**, and each case is substantive
+  rather than nominal: expired, absent `exp`, non-numeric `exp`, future `nbf`,
+  malformed `nbf`, foreign tenant, absent `tenant_id`, `alg: none`, and an
+  HS-signed token bearing the org's EdDSA `kid` — plus issuer and audience
+  mismatches, which §10.1 requires only where the SDK supports that
+  configuration. The tenant and `alg` cases additionally assert at all three
+  guard entry points and that the authz server is never consulted.
+
 ### Security
 
 - **SEC-071 (HIGH) — route guards no longer accept expired or cross-tenant tokens.**
