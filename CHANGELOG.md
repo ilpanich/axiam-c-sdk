@@ -5,6 +5,23 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [1.0.0-alpha24] - 2026-08-04
+
+### Added
+
+- Conform local token verification to CONTRACT §10.1
+
+### Changed
+
+- Add the §10.1 rule-8 guardrail regression tests (#15)
+- Device (mTLS) tokens now carry aud=axiam:m2m (#14)
+- Service accounts can use login_client_credentials (#13)
+- Add ASan+UBSan and valgrind gates (§13.4 observation 10 / §12.6.1) (#12)
+
+### Fixed
+
+- Enforce token lifetime and tenant binding, require https, wrap MFA tokens
+
 ## [Unreleased]
 
 ### Added
