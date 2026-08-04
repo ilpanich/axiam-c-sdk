@@ -1,4 +1,7 @@
 #include <string.h>
+#include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "unity.h"
 #include "axiam/axiam.h"
@@ -231,6 +234,124 @@ static void test_macro_forms(void) {
     axiam_client_free(c);
 }
 
+
+/* ---------------------------------------------------------------------------
+ * CONTRACT.md §10.1 rule 8 — "subject of the decision" (SEC-085, §15.3.1).
+ *
+ * Rules 1-7 ask whether the token is good. Rule 8 asks whether it is the token
+ * the decision is even ABOUT. SEC-085 satisfied all seven and was still an
+ * authentication bypass: the PHP guard routed a failed verification into a
+ * second, successful one against the *application's own* session, so the caller
+ * was admitted as the app's service account — in an IAM integration typically
+ * far more privileged than the user whose request it replaced.
+ *
+ * This SDK matters here more than the ones handed a bare verifier: the C guard
+ * takes an `axiam_client_t *`, which carries its own session state
+ * (`authenticated`, the CSRF token, the resolved tenant/org). That is the same
+ * structural shape SEC-085 exploited — a stateful client reachable from the
+ * guard. The guard is correct today (it verifies the token it pulled from the
+ * request headers and nothing else), but nothing pinned that.
+ *
+ * These tests make the substitution genuinely available before asserting it is
+ * not taken. The precondition that matters is asserted directly: a SECOND,
+ * fully valid token for a more privileged principal is shown to pass this very
+ * guard, so a fallback would have succeeded had one existed. Without that
+ * check the tests could pass merely because nothing was available to
+ * substitute, which proves nothing.
+ * ------------------------------------------------------------------------- */
+
+static void test_rule8_failed_caller_token_rejected_with_live_client_session(void) {
+    axiam_client_t *c = make_client();
+
+    /* The application's own credential: a valid, admin-roled token for a
+     * DIFFERENT principal than the caller. Publishing its key makes it the
+     * credential a fallback would have substituted — and one that genuinely
+     * verifies, which is what makes the assertions below meaningful rather
+     * than passing because nothing could have been substituted. */
+    char app_payload[256];
+    char *app_token = NULL, *app_jwks = NULL;
+    jwt_make("k1", test_claims(app_payload, sizeof(app_payload),
+                               "app-service-account", ",\"roles\":[\"admin\"]"),
+             &app_token, &app_jwks);
+    g.jwks_body = app_jwks;
+
+    /* Precondition, asserted rather than assumed. */
+    axiam_headers_t *app_h = bearer_headers(app_token);
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_ALLOW, axiam_require_auth(c, app_h));
+    axiam_kv_free(app_h);
+
+    /* The caller presents a credential that cannot verify. With the app's key
+     * published and its token valid, the ONLY way to admit this caller is to
+     * decide on a credential it never presented. */
+    axiam_headers_t *bad = bearer_headers("not.a.valid-jwt");
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED, axiam_require_auth(c, bad));
+    axiam_kv_free(bad);
+
+    free(app_token); free(app_jwks);
+    g.jwks_body = g_jwks;
+    axiam_client_free(c);
+}
+
+static void test_rule8_an_expired_caller_token_is_not_swapped_for_a_valid_one(void) {
+    /* Sharper than the malformed case: this token's own key IS the published
+     * one, so its signature is genuinely valid and it fails on `exp` alone.
+     * Nothing but the caller's own expiry can be the reason for the refusal. */
+    axiam_client_t *c = make_client();
+
+    char exp_payload[256];
+    snprintf(exp_payload, sizeof(exp_payload),
+             "{\"sub\":\"caller-1\",\"tenant_id\":\"%s\",\"exp\":%lld}",
+             AXIAM_TEST_TENANT_ID, (long long)time(NULL) - 900);
+    char *expired = NULL, *expired_jwks = NULL;
+    jwt_make("k1", exp_payload, &expired, &expired_jwks);
+    g.jwks_body = expired_jwks;
+
+    axiam_headers_t *eh = bearer_headers(expired);
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED, axiam_require_auth(c, eh));
+    axiam_kv_free(eh);
+
+    free(expired); free(expired_jwks);
+    g.jwks_body = g_jwks;
+    axiam_client_free(c);
+}
+
+static void test_rule8_authz_check_carries_the_callers_subject_not_the_apps(void) {
+    /* The consequence that made SEC-085 a bypass: the authorization check ran
+     * for the WRONG subject. The subject propagated to /authz/check must be the
+     * caller's own, never an identity belonging to the client. */
+    g.check_status = 200;
+    g.check_body = "{\"allowed\":true}";
+    axiam_client_t *c = make_client();
+
+    axiam_headers_t *h = bearer_headers(g_token); /* sub = user-9 */
+    axiam_guard_status_t st = axiam_require_access(
+        c, h, "users:get", "44444444-4444-4444-4444-444444444444", NULL);
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_ALLOW, st);
+    TEST_ASSERT_NOT_NULL(strstr(g.last_check_body, "\"subject_id\":\"user-9\""));
+    TEST_ASSERT_NULL(strstr(g.last_check_body, "app-service-account"));
+    axiam_kv_free(h);
+    axiam_client_free(c);
+}
+
+static void test_rule8_rejection_performs_no_authz_check_at_all(void) {
+    /* A rejected caller must not reach the authorization stage under ANY
+     * identity. Had a fallback substituted another credential, a check would
+     * have been issued — so an empty recorded body is the evidence that no
+     * second credential was consulted. */
+    g.check_status = 200;
+    g.check_body = "{\"allowed\":true}";
+    axiam_client_t *c = make_client();
+    g.last_check_body[0] = '\0';
+
+    axiam_headers_t *bad = bearer_headers("not.a.valid-jwt");
+    axiam_guard_status_t st = axiam_require_access(
+        c, bad, "users:get", "44444444-4444-4444-4444-444444444444", NULL);
+    TEST_ASSERT_EQUAL_INT(AXIAM_GUARD_UNAUTHENTICATED, st);
+    TEST_ASSERT_EQUAL_STRING("", g.last_check_body);
+    axiam_kv_free(bad);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_require_auth_allow_and_deny);
@@ -246,5 +367,9 @@ int main(void) {
     RUN_TEST(test_require_access_authz_error_is_denied);
     RUN_TEST(test_require_access_auth_error_is_unauthenticated);
     RUN_TEST(test_macro_forms);
+    RUN_TEST(test_rule8_failed_caller_token_rejected_with_live_client_session);
+    RUN_TEST(test_rule8_an_expired_caller_token_is_not_swapped_for_a_valid_one);
+    RUN_TEST(test_rule8_authz_check_carries_the_callers_subject_not_the_apps);
+    RUN_TEST(test_rule8_rejection_performs_no_authz_check_at_all);
     return UNITY_END();
 }
