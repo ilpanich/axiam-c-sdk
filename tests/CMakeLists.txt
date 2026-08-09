@@ -71,6 +71,16 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_jwt_claims COMMAND test_jwt_claims)
 
+# §11 rule 9 decision reason codes. Links the JWT fixture because the second
+# half of the clause is about the guard, which verifies a real token.
+add_executable(test_reason_code test_reason_code.c)
+target_include_directories(test_reason_code PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_reason_code PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_reason_code PRIVATE --coverage)
+endif()
+add_test(NAME test_reason_code COMMAND test_reason_code)
+
 # ---- C2 branch-coverage depth (round 2): crypto-dependent branch sweeps ----
 add_executable(test_guard_branches test_guard_branches.c)
 target_include_directories(test_guard_branches PRIVATE ${AXIAM_TEST_INCLUDES})

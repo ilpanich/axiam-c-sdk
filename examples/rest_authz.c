@@ -16,10 +16,33 @@
 #include <axiam/axiam.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static const char *getenv_or(const char *key, const char *fallback) {
     const char *v = getenv(key);
     return (v && v[0]) ? v : fallback;
+}
+
+/*
+ * Turn a §11 rule 9 reason code into something worth showing a person. This is
+ * the entire reason the code exists: `no_grant` and `denied_by_rule` are both
+ * `allowed == 0`, but one of them means "ask an admin" and the other means "an
+ * admin has already said no". Sending a user to raise a ticket that will be
+ * refused is the bug the clause prevents.
+ *
+ * Note what this function does NOT do: it never decides the outcome. That is
+ * `allowed`, and a code this build has never seen falls through to the default
+ * without changing anything.
+ */
+static const char *explain(const axiam_check_result_t *r) {
+    if (!r->reason_code) return "(server predates reason codes)";
+    if (strcmp(r->reason_code, AXIAM_REASON_CODE_ALLOWED) == 0)
+        return "a grant matched";
+    if (strcmp(r->reason_code, AXIAM_REASON_CODE_NO_GRANT) == 0)
+        return "nothing grants this — you can request access";
+    if (strcmp(r->reason_code, AXIAM_REASON_CODE_DENIED_BY_RULE) == 0)
+        return "an explicit deny rule applies — requesting access will not help";
+    return "an unrecognised reason code — treat it as opaque";
 }
 
 int main(void) {
@@ -68,6 +91,9 @@ int main(void) {
     if (axiam_check_access(client, "resource:read", resource_id, NULL, NULL, &res, &err) == AXIAM_OK) {
         printf("check_access -> allowed: %d, reason: %s\n",
                res.allowed, res.reason ? res.reason : "(none)");
+        /* §11 rule 9 — the machine-readable half of the decision. */
+        printf("  reason_code: %s (%s)\n",
+               res.reason_code ? res.reason_code : "(absent)", explain(&res));
     } else {
         fprintf(stderr, "check_access error: %s\n", err.message);
     }
@@ -91,7 +117,10 @@ int main(void) {
     size_t count = 0;
     if (axiam_batch_check(client, checks, 2, batch, &count, &err) == AXIAM_OK) {
         for (size_t i = 0; i < count; i++) {
-            printf("batch_check[%zu] -> allowed: %d\n", i, batch[i].allowed);
+            printf("batch_check[%zu] -> allowed: %d, reason_code: %s (%s)\n",
+                   i, batch[i].allowed,
+                   batch[i].reason_code ? batch[i].reason_code : "(absent)",
+                   explain(&batch[i]));
         }
     } else {
         fprintf(stderr, "batch_check error: %s\n", err.message);

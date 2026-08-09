@@ -509,6 +509,8 @@ void axiam_check_result_dispose(axiam_check_result_t *r) {
     if (!r) return;
     free(r->reason);
     r->reason = NULL;
+    free(r->reason_code);
+    r->reason_code = NULL;
     r->allowed = 0;
 }
 
@@ -517,6 +519,11 @@ static void parse_check_result(const cJSON *obj, axiam_check_result_t *out) {
     const cJSON *allowed = cJSON_GetObjectItemCaseSensitive(obj, "allowed");
     out->allowed = cJSON_IsTrue(allowed) ? 1 : 0;
     out->reason = json_dup_str(obj, "reason");
+    /* §11 rule 9. Copied verbatim, with no validation against the three known
+       codes: an unrecognised code must reach the caller, and a server that
+       omits the field entirely must read as absent rather than as an error
+       (json_dup_str yields NULL for both missing and non-string). */
+    out->reason_code = json_dup_str(obj, "reason_code");
 }
 
 /* Shared POST-with-single-flight-refresh path for authz checks. */

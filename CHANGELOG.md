@@ -26,6 +26,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Decision reason codes (CONTRACT §11 rule 9).** `axiam_check_result_t` gains
+  an owned `reason_code` string, populated by `axiam_check_access`, `axiam_can`
+  and every row of `axiam_batch_check`, with `AXIAM_REASON_CODE_ALLOWED`,
+  `AXIAM_REASON_CODE_NO_GRANT` and `AXIAM_REASON_CODE_DENIED_BY_RULE` as
+  comparison constants. The two refusals are both `allowed == 0` but mean
+  opposite things to the user — *ask an admin* versus *an admin already
+  decided* — and an application that cannot tell them apart sends people to
+  raise tickets that will be refused.
+
+  Deliberately a `char *` and not an enum: §11 rule 9 requires an unrecognised
+  code be surfaced verbatim, so a server that adds a fourth code must not become
+  a decode failure in every deployed client. A server that omits the field
+  yields `NULL` (absent, not an error), and the allow/deny outcome is carried by
+  `allowed` alone. Guard behaviour is unchanged — `axiam_require_access` still
+  returns `AXIAM_GUARD_DENIED` (403) for both refusals — which
+  `tests/test_reason_code.c` asserts alongside the reporting half.
+
 - **ASan+UBSan and valgrind CI job (§13.4 observation 10 / §12.6.1).** `OBS-4`
   was a signed-integer overflow — undefined behaviour on the **token-decode
   path** — that survived three security passes because neither C repository had
@@ -36,6 +53,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   every test binary under valgrind with `--error-exitcode=9 --leak-check=full`.
   Verified locally before wiring: 23/23 tests pass under the sanitizers, and the
   valgrind sweep reports 0 errors and 0 definite leaks.
+
+### Changed
+
+- **Re-vendored `CONTRACT.md` and `openapi.json`** from `ilpanich/axiam` at
+  contract 1.7. Of the sections 1.7 adds, only §11 rule 9 is implemented here;
+  §12.7 (logout), §14 (device grant) and §15 (token exchange) all build on a
+  §12 OIDC relying-party layer this SDK does not have, and are recorded under
+  Scope / follow-ups in the README rather than half-shipped.
 
 ### Notes
 
