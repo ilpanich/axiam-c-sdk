@@ -99,7 +99,8 @@ int main(void) {
     axiam_check_result_t res = {0};
     if (axiam_check_access(client, "users:get",
             "44444444-4444-4444-4444-444444444444", NULL, NULL, &res, &err) == AXIAM_OK) {
-        printf("allowed: %d\n", res.allowed);
+        printf("allowed: %d (%s)\n", res.allowed,
+               res.reason_code ? res.reason_code : "no reason code");
     }
     axiam_check_result_dispose(&res);
 
@@ -151,6 +152,7 @@ Strict server verification is **always on** and cannot be disabled — there is 
 | §9   | Single-flight refresh (`pthread_mutex_t` + condvar); no retry loop | `client.c` |
 | §10  | `axiam_middleware`/guard: `axiam_require_auth` extracts + verifies session | `guard.h` |
 | §11  | `axiam_require_access/require_role` + `AXIAM_REQUIRE_*` macros | `guard.h` |
+| §11 r9 | `reason_code` on every decision (`AXIAM_REASON_CODE_*`); guard behaviour unchanged | `client.h` |
 | §13  | `axiam_webhook_verify` — HMAC-SHA256 signed-timestamp verification | `webhook.h` |
 
 JWKS: `GET {base}/oauth2/jwks`, EdDSA/Ed25519 only, verified with OpenSSL
@@ -184,6 +186,48 @@ alone cannot be compared against it, and a slug-only client that has not logged
 in refuses every token). `axiam_jwt_verify_ex()` exposes the policy flags —
 `AXIAM_JWT_VERIFY_SIGNATURE_ONLY` reduces the check to the signature and must
 never be used to admit a request.
+
+### Decision reason codes (§11 rule 9)
+
+Every `axiam_check_result_t` — from `axiam_check_access`, `axiam_can` and each
+row of `axiam_batch_check` — carries a `reason_code` alongside `allowed`:
+
+| `reason_code` | Meaning |
+|---|---|
+| `AXIAM_REASON_CODE_ALLOWED` (`"allowed"`) | an allow grant matched and no deny did |
+| `AXIAM_REASON_CODE_NO_GRANT` (`"no_grant"`) | nothing matched — default deny |
+| `AXIAM_REASON_CODE_DENIED_BY_RULE` (`"denied_by_rule"`) | an explicit deny rule matched and overrode any allow |
+
+The two refusals are both `allowed == 0`, but they mean opposite things to the
+person on the other end: `no_grant` says *ask an admin for access*,
+`denied_by_rule` says *an admin has already decided*. Branch on the code when
+you are telling a user what to do next:
+
+```c
+axiam_check_result_t res = {0};
+if (axiam_check_access(client, "docs:edit", doc_id, NULL, NULL, &res, &err) == AXIAM_OK
+    && !res.allowed) {
+    if (res.reason_code && strcmp(res.reason_code, AXIAM_REASON_CODE_NO_GRANT) == 0)
+        show_request_access_button();
+    else
+        show_plain_denied_message();   /* a rule, or a code we don't know */
+}
+axiam_check_result_dispose(&res);      /* frees reason and reason_code */
+```
+
+Three things this field deliberately is **not**:
+
+- **Not an enum.** An unrecognised code is surfaced verbatim, so the server can
+  add a fourth code without turning every deployed client into a parse failure.
+  Compare with `strcmp` and let anything unknown fall through to a default.
+- **Not the decision.** The outcome is carried by `allowed` alone. Never
+  re-derive allow/deny from the code.
+- **Not guaranteed present.** A server older than this clause omits the field
+  and `reason_code` is `NULL` — that is absence, not an error.
+
+Enforcement is unchanged: `axiam_require_access` returns `AXIAM_GUARD_DENIED`
+(403) for both refusals. The clause is about reporting, and the guard must not
+vary its behaviour on the code.
 
 ## Webhook signature verification (§13)
 
@@ -254,6 +298,23 @@ Out of scope for v1.0, tracked as follow-ups:
   surface is transport-agnostic and can gain a gRPC dispatcher later.
 - **§8 AMQP HMAC consumer.** The contract's §8 AMQP obligations do not list C
   among the required consumer languages; no AMQP surface is shipped.
+- **§12 OIDC relying-party surface**, and with it the three sections built on
+  top of it: **§12.7** RP-initiated and back-channel logout, **§14** the device
+  authorization grant (RFC 8628), and **§15** token exchange (RFC 8693).
+
+  This SDK ships no OIDC layer — no discovery-document cache, no token
+  endpoint, no ID-token validation, no PKCE. Each of those three sections needs
+  it directly: §12.7's `logout_url` must read `end_session_endpoint` *from
+  discovery* (the clause exists precisely to forbid concatenating onto the
+  issuer), §14 must read `device_authorization_endpoint` from discovery and
+  then poll the token endpoint, and §15 is a token-endpoint grant requiring
+  confidential-client authentication. Adding them means designing an OIDC stack
+  for C, not extending an existing one, so they are tracked here rather than
+  half-shipped.
+
+  What *is* implemented from the same area is local JWT/JWKS verification
+  (`axiam_jwt_verify`, §10.1), which the route guards need and which does not
+  depend on discovery.
 
 ## License
 

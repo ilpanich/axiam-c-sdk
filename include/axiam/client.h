@@ -100,10 +100,38 @@ axiam_error_kind_t axiam_logout(axiam_client_t *client, axiam_error_t *err);
 /* Authorization                                                      */
 /* ------------------------------------------------------------------ */
 
-/** Single check result. reason is owned; free with axiam_check_result_dispose. */
+/**
+ * @name Decision reason codes (§11 rule 9)
+ *
+ * The three codes the server currently emits. They are provided as string
+ * constants rather than an enum on purpose: §11 rule 9 requires an unrecognised
+ * code be surfaced *verbatim*, so a server that adds a fourth code must not
+ * become a parse failure in every deployed client. Compare with `strcmp`, and
+ * treat anything else as "some code this build does not know about".
+ * @{
+ */
+/** An allow grant matched and no deny did. */
+#define AXIAM_REASON_CODE_ALLOWED        "allowed"
+/** Nothing matched — default deny. Tells the user to *ask an admin for access*. */
+#define AXIAM_REASON_CODE_NO_GRANT       "no_grant"
+/** An explicit deny rule matched and overrode any allow. *An admin already decided.* */
+#define AXIAM_REASON_CODE_DENIED_BY_RULE "denied_by_rule"
+/** @} */
+
+/**
+ * Single check result. reason and reason_code are owned; free with
+ * axiam_check_result_dispose.
+ */
 typedef struct axiam_check_result {
     int allowed;    /**< 1 = permitted. */
     char *reason;   /**< Optional generic deny reason (may be NULL). */
+    /**
+     * §11 rule 9 machine-readable decision reason (may be NULL when the server
+     * is older than the clause). One of the AXIAM_REASON_CODE_* constants, or
+     * an unrecognised code passed through untouched. The allow/deny outcome is
+     * carried by `allowed` alone — never re-derive it from this field.
+     */
+    char *reason_code;
 } axiam_check_result_t;
 
 void axiam_check_result_dispose(axiam_check_result_t *r);
