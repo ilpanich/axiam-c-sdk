@@ -45,8 +45,137 @@ struct axiam_client_config {
     long connect_timeout_ms;
     axiam_transport_fn transport;
     void *transport_ctx;
+    /* §16: on by default. Only ever lowered to 0 — the table is not settable. */
+    int retry_enabled;
+    /* §17: requested memo TTL in ms, BEFORE clamping. 0 = disabled. Kept
+     * unclamped so the §19 config_clamped event can report what was asked
+     * for; the effective value lives on the memo. */
+    long decision_memo_ttl_ms;
+    /* §19 */
+    axiam_telemetry_hook_fn telemetry_hook;
+    void *telemetry_ctx;
 };
 axiam_client_config_t *axiam_client_config_clone(const axiam_client_config_t *src);
+
+/* ---- §19 telemetry dispatch ---- */
+typedef struct axiam_telemetry {
+    axiam_telemetry_hook_fn fn;
+    void *ctx;
+} axiam_telemetry_t;
+
+/** 1 when a hook is installed. The whole cost of §19 when one is not. */
+int axiam_telemetry_installed(const axiam_telemetry_t *t);
+/** Deliver `ev`. No-op when no hook is installed. */
+void axiam_telemetry_emit(const axiam_telemetry_t *t, const axiam_telemetry_event_t *ev);
+/** Emit a request_start. */
+void axiam_telemetry_request_start(const axiam_telemetry_t *t, const char *op,
+                                   const char *method, const char *path, int attempt);
+/** Emit the request_end closing the pair opened by axiam_telemetry_request_start. */
+void axiam_telemetry_request_end(const axiam_telemetry_t *t, const char *op,
+                                 const char *method, const char *path, int attempt,
+                                 long status, double duration_ms,
+                                 axiam_telemetry_outcome_t outcome);
+/** Emit a §16.5 retry event. */
+void axiam_telemetry_retry(const axiam_telemetry_t *t, const char *op, int attempt,
+                           long delay_ms, const char *reason);
+/** Emit a §9 refresh event. */
+void axiam_telemetry_refresh(const axiam_telemetry_t *t, axiam_refresh_role_t role,
+                             double duration_ms);
+/** Emit a §19.2 rule 6 config_clamped event. */
+void axiam_telemetry_config_clamped(const axiam_telemetry_t *t, const char *setting,
+                                    const char *requested, const char *effective,
+                                    const char *contract_reference);
+/** Monotonic milliseconds, for event durations. */
+double axiam_now_ms(void);
+
+/* ---- §16 bounded read-only retry ---- */
+
+/** §16.1: 1 initial attempt + 2 retries. NOT configurable upward. */
+#define AXIAM_RETRY_MAX_ATTEMPTS 3
+/** §16.1 base delay, milliseconds. */
+#define AXIAM_RETRY_BASE_DELAY_MS 200L
+/** §16.1 ceiling on any single wait, milliseconds. */
+#define AXIAM_RETRY_MAX_DELAY_MS 5000L
+
+/** §16.1 backoff before jitter: min(cap, base << (attempt-1)). */
+long axiam_retry_backoff_ms(int attempt);
+
+/**
+ * §16.1 wait for `attempt`, given a uniform `fraction` in [0,1] and a
+ * `retry_after_ms` of -1 when the server sent no hint.
+ *
+ * Full jitter: the wait is `backoff * fraction`, i.e. uniform over
+ * [0, backoff] — not `backoff ± something`. Retry-After is a FLOOR: it can
+ * only lengthen the wait, so a `Retry-After: 0` cannot defeat the backoff.
+ */
+long axiam_retry_delay_ms(int attempt, long retry_after_ms, double fraction);
+
+/**
+ * §16.3: 1 when a completed exchange should be retried. `transport_failed` is
+ * nonzero when no HTTP response arrived at all.
+ */
+int axiam_retry_should_retry(int transport_failed, long status);
+
+/** Parse a Retry-After header (delta-seconds or HTTP-date). -1 when absent or
+ *  unparseable — an unparseable hint must not become a zero-length floor. */
+long axiam_retry_after_ms(const char *header_value);
+
+/** Uniform fraction in [0,1]. Not cryptographic; §16.1 says it need not be. */
+typedef double (*axiam_jitter_fn)(void *ctx);
+/** Sleep seam, so a test can observe a delay without taking it. */
+typedef void (*axiam_sleep_fn)(void *ctx, long ms);
+
+/** Default jitter source (rand_r on a per-client seed). */
+double axiam_default_jitter(void *ctx);
+/** Default sleep (nanosleep). */
+void axiam_default_sleep(void *ctx, long ms);
+
+/* ---- §17 client-side decision memo ---- */
+
+/** §17.1 rule 2 ceiling, milliseconds. A larger TTL is clamped, not rejected. */
+#define AXIAM_MEMO_MAX_TTL_MS 5000L
+/** §17.1 rule 8 entry cap before FIFO eviction. */
+#define AXIAM_MEMO_MAX_ENTRIES 1024
+
+struct axiam_memo_entry {
+    char *key;
+    int allowed;
+    char *reason;
+    char *reason_code;
+    double stored_at_ms;
+    struct axiam_memo_entry *next; /* insertion order: head = oldest */
+};
+
+typedef struct axiam_memo {
+    pthread_mutex_t mtx;
+    long ttl_ms; /* AFTER clamping; 0 = disabled */
+    size_t count;
+    struct axiam_memo_entry *head; /* oldest */
+    struct axiam_memo_entry *tail; /* newest */
+} axiam_memo_t;
+
+/** Initialise a memo from a requested (unclamped) TTL. */
+void axiam_memo_init(axiam_memo_t *m, long requested_ttl_ms);
+/** 1 when the memo does anything. 0 for the default configuration. */
+int axiam_memo_enabled(const axiam_memo_t *m);
+/** The TTL after clamping, milliseconds. */
+long axiam_memo_effective_ttl_ms(const axiam_memo_t *m);
+/**
+ * §17.1 rule 3 key: all four components, absent distinguished from present.
+ * Returns a malloc'd string, or NULL on OOM.
+ */
+char *axiam_memo_key(const char *subject_id, const char *resource_id,
+                     const char *action, const char *scope);
+/** Copy a live decision into `out` and return 1, or return 0 on a miss. */
+int axiam_memo_get(axiam_memo_t *m, const char *key, axiam_check_result_t *out);
+/** Memoize a decision the server actually returned (§17.1 rule 7: successes only). */
+void axiam_memo_put(axiam_memo_t *m, const char *key, const axiam_check_result_t *r);
+/** Drop every entry (§17.1 rule 9). */
+void axiam_memo_clear(axiam_memo_t *m);
+/** Entry count, for tests. */
+size_t axiam_memo_count(axiam_memo_t *m);
+/** Release everything the memo owns. */
+void axiam_memo_destroy(axiam_memo_t *m);
 
 /* ---- Client ---- */
 struct axiam_jwk {
@@ -87,6 +216,25 @@ struct axiam_client {
     struct axiam_jwk *jwks;
     time_t jwks_fetched_at;
     int jwks_valid;
+
+    /* §16 retry. The seams are module-private on purpose: §16.1 forbids
+     * raising the table, and a public knob for the jitter source or the sleep
+     * would be an attractive nuisance. Tests reach them through internal.h. */
+    int retry_enabled;
+    axiam_jitter_fn jitter_fn;
+    void *jitter_ctx;
+    axiam_sleep_fn sleep_fn;
+    void *sleep_ctx;
+    unsigned int rand_seed;
+
+    /* §17 decision memo. Disabled unless the config carried a TTL. */
+    axiam_memo_t memo;
+
+    /* §19 telemetry. */
+    axiam_telemetry_t telemetry;
+
+    /* §18 shutdown flag, guarded by state_mtx and read on every operation. */
+    int closed;
 };
 
 /* ---- Default libcurl transport ---- */

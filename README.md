@@ -11,7 +11,7 @@ Identity and Authorization Management). It provides authentication, token
 refresh, and authorization checks over the AXIAM REST API, plus a
 framework-agnostic route guard and declarative authorization helpers.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13 (including §6.1 mTLS).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13, §16–§19 (including §6.1 mTLS).**
 >
 > gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
@@ -154,9 +154,66 @@ Strict server verification is **always on** and cannot be disabled — there is 
 | §11  | `axiam_require_access/require_role` + `AXIAM_REQUIRE_*` macros | `guard.h` |
 | §11 r9 | `reason_code` on every decision (`AXIAM_REASON_CODE_*`); guard behaviour unchanged | `client.h` |
 | §13  | `axiam_webhook_verify` — HMAC-SHA256 signed-timestamp verification | `webhook.h` |
+| §16  | Bounded read-only retry: 3 attempts, 200 ms base, 5 s cap, full jitter, `Retry-After` as a floor; `axiam_client_config_set_retry_enabled` | `retry.c`, `client.c` |
+| §17  | Opt-in decision memo, off by default, TTL clamped to 5 s; `axiam_client_config_set_decision_memo_ttl` | `memo.c` |
+| §18  | `axiam_client_close` — idempotent, issues no request, use-after-close errors | `client.c` |
+| §19  | Telemetry hooks; `axiam_client_config_set_telemetry_hook` | `telemetry.h`, `telemetry.c` |
 
 JWKS: `GET {base}/oauth2/jwks`, EdDSA/Ed25519 only, verified with OpenSSL
 `EVP_DigestVerify`, cached 300s.
+
+### Retry, memo, shutdown and telemetry (§16–§19)
+
+Retry is **on by default** and applies only to operations that change no server
+state — `check_access`, `can`, `batch_check` and the JWKS fetch. That is not the
+same as "HTTP GET": the authorization check is a `POST` with a body and is the
+operation this policy exists for. `login`, `verify_mfa`, `logout` and `refresh`
+are never retried automatically, both because they change state and because
+their credentials are single-use.
+
+```c
+axiam_client_config_set_retry_enabled(cfg, 0);   /* one attempt, no backoff */
+```
+
+The decision memo is **disabled by default** and must be switched on
+deliberately:
+
+```c
+axiam_client_config_set_decision_memo_ttl(cfg, 5000);  /* 5 s, the maximum */
+```
+
+> **Read-your-own-writes is not guaranteed.** The staleness bound is the TTL in
+> *both* directions: a grant revoked on the server can still read as allowed for
+> up to the TTL, and a grant just *added* can still read as denied for up to the
+> TTL. An admin UI that grants a role and immediately re-checks is the case that
+> breaks, and it breaks silently. A TTL above 5 s is **clamped** to 5 s, and the
+> clamp is announced through the `config_clamped` telemetry event rather than
+> applied in silence.
+
+Telemetry is a plain callback; nothing is allocated and no thread is started, so
+with no hook installed the cost is one `NULL` check per request. A hook is
+invoked on the calling thread and must not block — buffering is yours to choose.
+Event payloads carry the operation, the *path template* (never a URL with ids
+substituted in) and the attempt number, and by construction cannot carry a
+token: `axiam_telemetry_event_t` has a fixed field list and no free-form map.
+Every `const char *` in an event is borrowed for the duration of the call, so a
+sink that keeps a string must copy it.
+
+```c
+static void sink(void *ctx, const axiam_telemetry_event_t *ev) {
+    if (ev->kind == AXIAM_TELEMETRY_RETRY)
+        fprintf(stderr, "retry %s attempt=%d delay=%ldms\n",
+                ev->operation, ev->attempt, ev->delay_ms);
+}
+axiam_client_config_set_telemetry_hook(cfg, sink, NULL);
+```
+
+`axiam_client_close()` releases the transport, the cookie jar and the JWKS cache
+without issuing a request — it does **not** log out, because the server-side
+session deliberately outlives the client object. It is idempotent, and any
+operation attempted afterwards returns `AXIAM_ERR_NETWORK` with a message naming
+the cause rather than silently reconnecting. `axiam_client_free()` still calls it
+for you, so existing code needs no change.
 
 ### Local token verification is strict by default
 

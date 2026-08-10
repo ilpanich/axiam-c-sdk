@@ -9,6 +9,7 @@
 #define AXIAM_CONFIG_H
 
 #include "axiam/error.h"
+#include "axiam/telemetry.h"
 #include "axiam/transport.h"
 
 #ifdef __cplusplus
@@ -79,6 +80,52 @@ void axiam_client_config_set_connect_timeout_ms(axiam_client_config_t *cfg, long
 void axiam_client_config_set_transport(axiam_client_config_t *cfg,
                                         axiam_transport_fn fn,
                                         void *ctx);
+
+/* --- §16 bounded read-only retry --- */
+
+/**
+ * Enable or disable the §16 read-only retry policy. **On by default.**
+ *
+ * There is deliberately no setter for the attempt cap, the base delay or the
+ * delay cap: §16.1 permits lowering or disabling, never raising, and eleven
+ * SDKs agreeing on one table is the point. Pass 0 to make every operation
+ * exactly one attempt — the right choice for a caller who owns their own retry
+ * layer and knows their own deadline.
+ */
+void axiam_client_config_set_retry_enabled(axiam_client_config_t *cfg, int enabled);
+
+/* --- §17 client-side decision memo --- */
+
+/**
+ * Enable the §17 decision memo with a TTL in milliseconds. **Disabled by
+ * default** (`0`), which means off — not "cache for zero milliseconds".
+ *
+ * A TTL above 5000 ms is **clamped to 5000 ms**, not rejected (§17.1 rule 2),
+ * and the clamp is reported through the §19 `config_clamped` event.
+ *
+ * READ-YOUR-OWN-WRITES IS NOT GUARANTEED. The staleness bound is the TTL in
+ * both directions: a grant revoked on the server can still read as allowed for
+ * up to the TTL, and a grant just *added* can still read as denied for up to
+ * the TTL. An admin UI that grants a role and immediately re-checks is the case
+ * that breaks, and it breaks silently. Switch this on having read that, not
+ * because it looks like an easy win.
+ */
+void axiam_client_config_set_decision_memo_ttl(axiam_client_config_t *cfg, long ttl_ms);
+
+/* --- §19 telemetry --- */
+
+/**
+ * Install a §19 telemetry sink. Pass NULL to clear.
+ *
+ * `ctx` is passed to every invocation and is NOT owned by the config or the
+ * client; it must outlive the client. A hook that throws — in C, one that
+ * longjmps or aborts — is outside what the SDK can defend against; §19.2 rule 2
+ * is satisfied here by the SDK never inspecting a return value and never
+ * letting a hook influence control flow.
+ */
+void axiam_client_config_set_telemetry_hook(axiam_client_config_t *cfg,
+                                            axiam_telemetry_hook_fn fn,
+                                            void *ctx);
 
 /**
  * Validate the config (§5: base URL + exactly one tenant identifier).

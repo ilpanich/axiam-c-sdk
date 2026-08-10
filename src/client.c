@@ -1,8 +1,16 @@
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "cJSON.h"
 #include "internal.h"
+
+/* §19.1 path templates. Constants, never a URL with ids substituted in — a
+ * metric label carrying a UUID is a cardinality bomb. */
+#define PATH_AUTHZ_CHECK "/api/v1/authz/check"
+#define PATH_AUTHZ_BATCH "/api/v1/authz/check/batch"
 
 /* ------------------------------------------------------------------ */
 /* Construction                                                       */
@@ -27,6 +35,40 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
     pthread_cond_init(&c->refresh_cond, NULL);
     pthread_mutex_init(&c->jwks_mtx, NULL);
     c->refresh_result = AXIAM_OK;
+
+    /* §16 */
+    c->retry_enabled = c->cfg->retry_enabled;
+    c->rand_seed = (unsigned int)(time(NULL) ^ (unsigned long)(uintptr_t)c);
+    c->jitter_fn = axiam_default_jitter;
+    c->jitter_ctx = &c->rand_seed;
+    c->sleep_fn = axiam_default_sleep;
+    c->sleep_ctx = NULL;
+
+    /* §17: clamps internally; the config keeps the unclamped request so the
+     * event below can name it. */
+    axiam_memo_init(&c->memo, c->cfg->decision_memo_ttl_ms);
+
+    /* §19 */
+    c->telemetry.fn = c->cfg->telemetry_hook;
+    c->telemetry.ctx = c->cfg->telemetry_ctx;
+
+    /* §19.2 rule 6: a setting we lowered is reported, not swallowed. An
+     * operator who set a 60-second memo TTL believes their staleness bound is
+     * 60 seconds; it is five, and without this nothing anywhere says so.
+     * Nothing is emitted when the request was already inside the limit — an
+     * event that fires when nothing happened trains its reader to ignore it.
+     * The memo TTL is the only clamped setting here: §16.1's table is not
+     * configurable in this SDK, only switchable. */
+    if (c->cfg->decision_memo_ttl_ms > 0 &&
+        c->cfg->decision_memo_ttl_ms != axiam_memo_effective_ttl_ms(&c->memo)) {
+        char requested[32];
+        char effective[32];
+        snprintf(requested, sizeof(requested), "%ldms", c->cfg->decision_memo_ttl_ms);
+        snprintf(effective, sizeof(effective), "%ldms",
+                 axiam_memo_effective_ttl_ms(&c->memo));
+        axiam_telemetry_config_clamped(&c->telemetry, "decision_memo_ttl_ms",
+                                       requested, effective, "\xc2\xa7""17.1 rule 2");
+    }
 
     if (cfg->transport) {
         c->transport = cfg->transport;
@@ -53,19 +95,82 @@ static void jwks_free(struct axiam_jwk *j) {
     }
 }
 
+void axiam_client_close(axiam_client_t *client) {
+    if (!client) return;
+
+    /* §18.1 rule 2: idempotent. The flag is checked and set under the same
+     * lock, so two threads racing on close cannot both reach the release
+     * below — cleanup runs from error paths, and an error path that
+     * double-frees hides the original failure. */
+    pthread_mutex_lock(&client->state_mtx);
+    if (client->closed) {
+        pthread_mutex_unlock(&client->state_mtx);
+        return;
+    }
+    client->closed = 1;
+    /* §18.1 rule 3: the cookie jar and the CSRF token go with the handles.
+     * §18.1 rule 6: the CSRF token is scrubbed rather than merely freed. */
+    if (client->csrf_token) {
+        axiam_secure_zero(client->csrf_token, strlen(client->csrf_token));
+        free(client->csrf_token);
+        client->csrf_token = NULL;
+    }
+    pthread_mutex_unlock(&client->state_mtx);
+
+    /* NO REQUEST IS ISSUED HERE (§18.1 rule 5). The server-side session
+     * deliberately outlives the client object — that is what lets a process
+     * restart and resume — so a close() that logged out would silently end
+     * every user's session on each deploy. */
+    if (client->curl_ctx) {
+        axiam_curl_ctx_free(client->curl_ctx);
+        client->curl_ctx = NULL;
+    }
+    /* The transport pointer goes too: a call that slipped past the closed
+     * check must fail on the flag, never dereference a freed ctx. */
+    client->transport = NULL;
+    client->transport_ctx = NULL;
+
+    pthread_mutex_lock(&client->jwks_mtx);
+    jwks_free(client->jwks);
+    client->jwks = NULL;
+    client->jwks_valid = 0;
+    pthread_mutex_unlock(&client->jwks_mtx);
+
+    axiam_memo_clear(&client->memo);
+}
+
 void axiam_client_free(axiam_client_t *client) {
     if (!client) return;
-    if (client->curl_ctx) axiam_curl_ctx_free(client->curl_ctx);
+    /* §18.1 rule 1 names axiam_client_free as this SDK's canonical shutdown, so
+     * free alone must still be complete: close first when the caller did not. */
+    axiam_client_close(client);
     axiam_client_config_free(client->cfg);
     free(client->csrf_token);
     free(client->resolved_tenant_id);
     free(client->resolved_org_id);
-    jwks_free(client->jwks);
+    axiam_memo_destroy(&client->memo);
     pthread_mutex_destroy(&client->state_mtx);
     pthread_mutex_destroy(&client->refresh_mtx);
     pthread_cond_destroy(&client->refresh_cond);
     pthread_mutex_destroy(&client->jwks_mtx);
     free(client);
+}
+
+/* §18.1 rule 4: use after close is an error, not undefined. Every entry point
+ * runs this first, so a call on a closed client names its cause rather than
+ * reconnecting or reading freed memory. */
+static int client_is_closed(axiam_client_t *c) {
+    if (!c) return 0;
+    pthread_mutex_lock(&c->state_mtx);
+    int closed = c->closed;
+    pthread_mutex_unlock(&c->state_mtx);
+    return closed;
+}
+
+static axiam_error_kind_t closed_error(axiam_error_t *err) {
+    axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                    "client is closed (CONTRACT.md \xc2\xa7""18.1 rule 4)");
+    return AXIAM_ERR_NETWORK;
 }
 
 unsigned long axiam_client_refresh_count(const axiam_client_t *client) {
@@ -148,6 +253,7 @@ axiam_error_kind_t axiam_client_raw_get(axiam_client_t *c, const char *path,
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
         return AXIAM_ERR_NETWORK;
     }
+    if (client_is_closed(c)) return closed_error(err);
     axiam_http_response_t resp;
     int rc = transport_once(c, "GET", path, NULL, 0, &resp);
     axiam_error_kind_t kind;
@@ -211,12 +317,21 @@ static axiam_error_kind_t perform_refresh(axiam_client_t *c, axiam_error_t *err)
 /* Coalesce concurrent refreshes: exactly one leader performs the refresh; all
  * other callers block and share its result (§9). */
 static axiam_error_kind_t single_flight_refresh(axiam_client_t *c, axiam_error_t *err) {
+    double started = axiam_telemetry_installed(&c->telemetry) ? axiam_now_ms() : 0.0;
+
     pthread_mutex_lock(&c->refresh_mtx);
     if (c->refresh_in_flight) {
         while (c->refresh_in_flight)
             pthread_cond_wait(&c->refresh_cond, &c->refresh_mtx);
         axiam_error_kind_t r = c->refresh_result;
         pthread_mutex_unlock(&c->refresh_mtx);
+        /* §19.1 refresh: the caller waited on somebody else's refresh. The
+         * distinction is the whole value of the event — a follower's latency
+         * is the leader's, and without the role they are indistinguishable. */
+        axiam_telemetry_refresh(&c->telemetry, AXIAM_REFRESH_FOLLOWER,
+                                axiam_telemetry_installed(&c->telemetry)
+                                    ? axiam_now_ms() - started
+                                    : 0.0);
         if (r != AXIAM_OK)
             axiam_error_set(err, r, 0, "token refresh failed");
         return r;
@@ -232,6 +347,13 @@ static axiam_error_kind_t single_flight_refresh(axiam_client_t *c, axiam_error_t
     c->refresh_count++;
     pthread_cond_broadcast(&c->refresh_cond);
     pthread_mutex_unlock(&c->refresh_mtx);
+
+    /* §17.1 rule 9: a refresh is a credential change. */
+    axiam_memo_clear(&c->memo);
+    axiam_telemetry_refresh(&c->telemetry, AXIAM_REFRESH_LEADER,
+                            axiam_telemetry_installed(&c->telemetry)
+                                ? axiam_now_ms() - started
+                                : 0.0);
     return r;
 }
 
@@ -406,6 +528,12 @@ axiam_error_kind_t axiam_login(axiam_client_t *client, const char *username_or_e
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
         return AXIAM_ERR_NETWORK;
     }
+    if (client_is_closed(client)) return closed_error(err);
+    /* §17.1 rule 9: cleared on the CALLER'S INTENT to change credentials, not
+     * on the server's answer. Entries are keyed by subject rather than session,
+     * so a login that failed still means this caller is done with the principal
+     * whose decisions are cached. */
+    axiam_memo_clear(&client->memo);
     char *body = axiam_build_login_body(username_or_email, password, client->cfg);
     if (!body) { axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory"); return AXIAM_ERR_NETWORK; }
 
@@ -432,6 +560,8 @@ axiam_error_kind_t axiam_verify_mfa(axiam_client_t *client, const char *challeng
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
         return AXIAM_ERR_NETWORK;
     }
+    if (client_is_closed(client)) return closed_error(err);
+    axiam_memo_clear(&client->memo); /* §17.1 rule 9 */
     char *body = axiam_build_mfa_body(challenge_token, totp_code);
     if (!body) { axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory"); return AXIAM_ERR_NETWORK; }
 
@@ -472,6 +602,7 @@ axiam_error_kind_t axiam_refresh(axiam_client_t *client, axiam_error_t *err) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
         return AXIAM_ERR_NETWORK;
     }
+    if (client_is_closed(client)) return closed_error(err);
     return single_flight_refresh(client, err);
 }
 
@@ -481,6 +612,8 @@ axiam_error_kind_t axiam_logout(axiam_client_t *client, axiam_error_t *err) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
         return AXIAM_ERR_NETWORK;
     }
+    if (client_is_closed(client)) return closed_error(err);
+    axiam_memo_clear(&client->memo); /* §17.1 rule 9, before the wire */
     axiam_http_response_t resp;
     int rc = transport_once(client, "POST", "/api/v1/auth/logout", NULL, 1, &resp);
     axiam_error_kind_t kind;
@@ -526,12 +659,74 @@ static void parse_check_result(const cJSON *obj, axiam_check_result_t *out) {
     out->reason_code = json_dup_str(obj, "reason_code");
 }
 
+/*
+ * One eligible operation, with the §16 budget and the §19 pairs around it.
+ *
+ * §16.2: eligibility is "changes no server state", NOT "is a GET". The
+ * authorization check is a POST with a body and is the single most important
+ * operation in that section — an SDK that gated retry on the HTTP verb would
+ * retry nothing that matters. This function is therefore called ONLY from the
+ * authz paths; login, verify_mfa, logout and refresh reach transport_once
+ * directly and make exactly one attempt.
+ *
+ * One request_start/request_end pair PER ATTEMPT (§19.2 rule 5), with a retry
+ * event between consecutive pairs: a caller must be able to count real wire
+ * calls from the events, which one pair per logical operation would hide.
+ */
+static int transport_retrying(axiam_client_t *c, const char *op, const char *path,
+                              const char *body, axiam_http_response_t *resp,
+                              int first_attempt, int max_attempts, int *last_attempt) {
+    int rc = -1;
+    int attempt = first_attempt;
+
+    for (; attempt < first_attempt + max_attempts; attempt++) {
+        axiam_telemetry_request_start(&c->telemetry, op, "POST", path, attempt);
+        double started = axiam_telemetry_installed(&c->telemetry) ? axiam_now_ms() : 0.0;
+
+        rc = transport_once(c, "POST", path, body, 1, resp);
+
+        int transport_failed = (rc != 0);
+        long status = resp->status;
+        axiam_telemetry_request_end(
+            &c->telemetry, op, "POST", path, attempt, status,
+            axiam_telemetry_installed(&c->telemetry) ? axiam_now_ms() - started : 0.0,
+            (!transport_failed && status >= 200 && status < 300) ? AXIAM_TELEMETRY_SUCCESS
+                                                                 : AXIAM_TELEMETRY_FAILURE);
+
+        if (attempt == first_attempt + max_attempts - 1) break;
+        if (!axiam_retry_should_retry(transport_failed, status)) break;
+
+        long retry_after = axiam_retry_after_ms(axiam_kv_get(resp->headers, "Retry-After"));
+        long delay = axiam_retry_delay_ms(attempt - first_attempt + 1, retry_after,
+                                          c->jitter_fn(c->jitter_ctx));
+
+        /* §16.5: a retried-then-succeeded operation is otherwise invisible —
+         * the caller sees a slow success and no signal that the server is
+         * failing. The reason carries a status or a transport message, never a
+         * token. */
+        char reason[96];
+        if (transport_failed || status == 0) {
+            snprintf(reason, sizeof(reason), "transport failure");
+        } else {
+            snprintf(reason, sizeof(reason), "HTTP %ld", status);
+        }
+        axiam_telemetry_retry(&c->telemetry, op, attempt, delay, reason);
+
+        axiam_http_response_dispose(resp);
+        c->sleep_fn(c->sleep_ctx, delay);
+    }
+    if (last_attempt) *last_attempt = attempt;
+    return rc;
+}
+
 /* Shared POST-with-single-flight-refresh path for authz checks. */
 static axiam_error_kind_t authz_post(axiam_client_t *client, const char *path,
-                                     const char *body, char **out_body,
-                                     axiam_error_t *err) {
+                                     const char *body, const char *op,
+                                     char **out_body, axiam_error_t *err) {
     axiam_http_response_t resp;
-    int rc = transport_once(client, "POST", path, body, 1, &resp);
+    int budget = client->retry_enabled ? AXIAM_RETRY_MAX_ATTEMPTS : 1;
+    int spent = 1;
+    int rc = transport_retrying(client, op, path, body, &resp, 1, budget, &spent);
     if (rc != 0 || resp.status == 0) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
                         resp.transport_msg ? resp.transport_msg : "network failure");
@@ -539,7 +734,11 @@ static axiam_error_kind_t authz_post(axiam_client_t *client, const char *path,
         return AXIAM_ERR_NETWORK;
     }
 
-    /* §9: on 401 with an active session, refresh once then retry once. */
+    /* §9: on 401 with an active session, refresh once then retry once.
+     * §16.2: the two mechanisms compose in one direction only. The §16 budget
+     * is NOT reset by a §9 refresh occurring mid-operation — one §9 refresh,
+     * one §16 budget, per logical call — so the post-refresh attempt below is
+     * exactly one attempt, numbered after the ones already spent. */
     if (resp.status == 401) {
         int authed;
         pthread_mutex_lock(&client->state_mtx);
@@ -549,7 +748,7 @@ static axiam_error_kind_t authz_post(axiam_client_t *client, const char *path,
             axiam_http_response_dispose(&resp);
             axiam_error_kind_t rk = single_flight_refresh(client, err);
             if (rk != AXIAM_OK) return rk; /* no retry loop */
-            rc = transport_once(client, "POST", path, body, 1, &resp);
+            rc = transport_retrying(client, op, path, body, &resp, spent + 1, 1, NULL);
             if (rc != 0 || resp.status == 0) {
                 axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
                                 resp.transport_msg ? resp.transport_msg : "network failure");
@@ -581,16 +780,43 @@ axiam_error_kind_t axiam_check_access(axiam_client_t *client, const char *action
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
         return AXIAM_ERR_NETWORK;
     }
+    if (client_is_closed(client)) return closed_error(err);
+
+    /* §17: consulted before the wire, written only after a decision the server
+     * actually returned. */
+    char *key = NULL;
+    if (axiam_memo_enabled(&client->memo) && out) {
+        key = axiam_memo_key(subject_id, resource_id, action, scope);
+        if (key && axiam_memo_get(&client->memo, key, out)) {
+            free(key);
+            return AXIAM_OK;
+        }
+    }
+
     char *body = axiam_build_check_body(action, resource_id, scope, subject_id);
-    if (!body) { axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory"); return AXIAM_ERR_NETWORK; }
+    if (!body) {
+        free(key);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
 
     char *resp_body = NULL;
-    axiam_error_kind_t kind = authz_post(client, "/api/v1/authz/check", body, &resp_body, err);
+    axiam_error_kind_t kind =
+        authz_post(client, PATH_AUTHZ_CHECK, body, "check_access", &resp_body, err);
     free(body);
     if (kind == AXIAM_OK && resp_body) {
         cJSON *root = cJSON_Parse(resp_body);
         if (root) { parse_check_result(root, out); cJSON_Delete(root); }
+        /* §17.1 rule 7: only a decision the server actually returned. A
+         * NetworkError, a 503 or an exhausted §16 budget is never an entry —
+         * memoizing a transport failure as a deny would turn a blip into a
+         * TTL-long outage, and memoizing it as an allow is unthinkable.
+         * Rule 4: allows and denies are stored identically, because asymmetric
+         * caching changes the timing of the two outcomes and so leaks which one
+         * occurred to anyone who can observe latency. */
+        if (key) axiam_memo_put(&client->memo, key, out);
     }
+    free(key);
     free(resp_body);
     return kind;
 }
@@ -611,11 +837,18 @@ axiam_error_kind_t axiam_batch_check(axiam_client_t *client, const axiam_check_i
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
         return AXIAM_ERR_NETWORK;
     }
+    if (client_is_closed(client)) return closed_error(err);
     char *body = axiam_build_batch_body(checks, n);
     if (!body) { axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory"); return AXIAM_ERR_NETWORK; }
 
     char *resp_body = NULL;
-    axiam_error_kind_t kind = authz_post(client, "/api/v1/authz/check/batch", body, &resp_body, err);
+    /* Deliberately NOT memoized: the memo key is per-check, so a batch would
+     * have to be split into n entries with n keys — which is the right design,
+     * but it changes what a partial cache hit means (some rows from the wire,
+     * some from the memo, one composite result). §17 says nothing about batch,
+     * so this SDK does the conservative thing rather than inventing semantics. */
+    axiam_error_kind_t kind =
+        authz_post(client, PATH_AUTHZ_BATCH, body, "batch_check", &resp_body, err);
     free(body);
     if (kind == AXIAM_OK && resp_body) {
         cJSON *root = cJSON_Parse(resp_body);

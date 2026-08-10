@@ -38,6 +38,12 @@ axiam_add_test(test_refresh_org test_refresh_org.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
 axiam_add_test(test_webhook test_webhook.c)
 
+# ---- D5: §16 retry, §17 decision memo, §18 close(), §19 telemetry.
+# Reaches into internal.h for the injected PRNG / injected sleep seams §16.7
+# requires; the assertions themselves go through the public check_access
+# surface and count requests on the wire.
+axiam_add_test(test_d5_conformance test_d5_conformance.c)
+
 # ---- C2 branch-coverage depth (round 2) ----
 axiam_add_test(test_client_branches test_client_branches.c)
 axiam_add_test(test_client_null_args test_client_null_args.c)

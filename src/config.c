@@ -4,7 +4,17 @@
 #include "internal.h"
 
 axiam_client_config_t *axiam_client_config_new(void) {
-    return calloc(1, sizeof(axiam_client_config_t));
+    axiam_client_config_t *cfg = calloc(1, sizeof(axiam_client_config_t));
+    if (!cfg) return NULL;
+    /* §16.1: the disable switch MUST default to on. calloc would have made the
+     * policy opt-in, which is the one thing that section forbids — an SDK whose
+     * retry is off unless asked for retries nothing in practice. */
+    cfg->retry_enabled = 1;
+    /* §17.1 rule 1: the memo is off by default, and 0 means disabled — not
+     * "cache for zero milliseconds". calloc already says so; this is here to
+     * make the intent unmissable to the next reader. */
+    cfg->decision_memo_ttl_ms = 0;
+    return cfg;
 }
 
 void axiam_client_config_free(axiam_client_config_t *cfg) {
@@ -88,6 +98,24 @@ void axiam_client_config_set_transport(axiam_client_config_t *cfg,
     cfg->transport_ctx = ctx;
 }
 
+void axiam_client_config_set_retry_enabled(axiam_client_config_t *cfg, int enabled) {
+    if (cfg) cfg->retry_enabled = enabled ? 1 : 0;
+}
+
+void axiam_client_config_set_decision_memo_ttl(axiam_client_config_t *cfg, long ttl_ms) {
+    /* Stored UNCLAMPED. The clamp happens when the memo is built, so the §19
+     * config_clamped event can report what the caller actually asked for
+     * rather than the value it was quietly turned into. */
+    if (cfg) cfg->decision_memo_ttl_ms = ttl_ms;
+}
+
+void axiam_client_config_set_telemetry_hook(axiam_client_config_t *cfg,
+                                            axiam_telemetry_hook_fn fn, void *ctx) {
+    if (!cfg) return;
+    cfg->telemetry_hook = fn;
+    cfg->telemetry_ctx = ctx;
+}
+
 axiam_error_kind_t axiam_client_config_validate(const axiam_client_config_t *cfg,
                                                 axiam_error_t *err) {
     axiam_error_reset(err);
@@ -143,5 +171,9 @@ axiam_client_config_t *axiam_client_config_clone(const axiam_client_config_t *sr
     c->connect_timeout_ms = src->connect_timeout_ms;
     c->transport = src->transport;
     c->transport_ctx = src->transport_ctx;
+    c->retry_enabled = src->retry_enabled;
+    c->decision_memo_ttl_ms = src->decision_memo_ttl_ms;
+    c->telemetry_hook = src->telemetry_hook;
+    c->telemetry_ctx = src->telemetry_ctx;
     return c;
 }
