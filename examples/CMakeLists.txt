@@ -12,3 +12,4 @@ endfunction()
 
 axiam_add_example(login_mfa)
 axiam_add_example(rest_authz)
+axiam_add_example(telemetry_hook)

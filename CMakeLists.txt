@@ -47,6 +47,9 @@ set(AXIAM_SOURCES
     src/json_build.c
     src/transport_curl.c
     src/client.c
+    src/retry.c
+    src/memo.c
+    src/telemetry.c
     src/jwks.c
     src/guard.c
     src/webhook.c

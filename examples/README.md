@@ -9,6 +9,7 @@ end-to-end requires a reachable AXIAM server at the configured base URL.
 |---------|-------|
 | [`login_mfa.c`](login_mfa.c)  | Two-phase `axiam_login` / `axiam_verify_mfa` flow (CONTRACT.md §1, §5, §5.1). |
 | [`rest_authz.c`](rest_authz.c) | REST authorization: `axiam_check_access`, `axiam_can`, `axiam_batch_check` (§1). |
+| [`telemetry_hook.c`](telemetry_hook.c) | Metrics without a metrics dependency: §19 hooks, the §16 retry signal, and the §19.2 rule 6 clamp warning. |
 
 ## Organization context (§5.1)
 
@@ -61,6 +62,7 @@ export AXIAM_EMAIL=alice@example.com
 export AXIAM_PASSWORD=s3cret
 ./build/examples/login_mfa
 ./build/examples/rest_authz
+./build/examples/telemetry_hook
 ```
 
 Strict TLS verification is always on (§6). For a self-signed dev server, add a

@@ -26,6 +26,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Bounded read-only retry (CONTRACT §16).** `check_access`, `can`,
+  `batch_check` and the JWKS fetch now retry a transient failure: 3 attempts
+  total, 200 ms base, 5 s cap, **full jitter** over `[0, backoff]`, and
+  `Retry-After` honored as a **floor** — it can lengthen a wait, never shorten
+  one, so a `Retry-After: 0` cannot defeat the backoff. On by default;
+  `axiam_client_config_set_retry_enabled(cfg, 0)` gives exactly one attempt for
+  a caller who owns their own retry layer. The attempt cap, base and cap are
+  deliberately **not** settable: §16.1 permits lowering or disabling, never
+  raising, and a caller who can raise them turns one client into the herd a
+  backoff exists to prevent.
+
+  Eligibility is "changes no server state", **not** "is a `GET`". The
+  authorization check is a `POST` with a body and is the operation this policy
+  exists for; `login`, `verify_mfa`, `logout` and `refresh` are never retried,
+  both because they change state and because their credentials are single-use.
+  `tests/test_d5_conformance.c` asserts that a `503` on `login` still makes
+  exactly one request on the wire — the case that catches a retry wired at the
+  transport layer instead of the operation layer.
+
+- **Client-side decision memo (CONTRACT §17).** `axiam_client_config_set_decision_memo_ttl`
+  enables a bounded, TTL-clamped cache of authorization decisions. **Disabled by
+  default**, and `0` means disabled rather than "cache for zero milliseconds". A
+  TTL above 5 s is clamped to 5 s rather than rejected, allows and denies are
+  cached identically, `reason_code` comes back with the decision, failures are
+  never cached, and any credential change clears it.
+
+  **Read-your-own-writes is not guaranteed.** The staleness bound is the TTL in
+  both directions — a grant just *added* can still read as denied for up to the
+  TTL — which is the direction that surprises people and breaks silently.
+
+- **Deterministic shutdown (CONTRACT §18).** `axiam_client_close()` releases the
+  transport, the cookie jar and the JWKS cache, scrubs the CSRF token, and is
+  idempotent. It issues **no request**: the server-side session deliberately
+  outlives the client object, so a close that logged out would silently end
+  every user's session on each deploy. A call on a closed client returns
+  `AXIAM_ERR_NETWORK` with a message naming the cause rather than reconnecting
+  or reading freed memory. `axiam_client_free()` calls it for you, so existing
+  code needs no change.
+
+- **Telemetry hooks (CONTRACT §19).** `axiam_client_config_set_telemetry_hook`
+  installs a sink for `request_start`, `request_end`, `retry`, `refresh` and
+  `config_clamped` events, so metrics can be wired without this library taking a
+  dependency on any metrics package. One `request_start`/`request_end` pair per
+  **attempt**, so a caller can count real wire calls from the events. Payloads
+  cannot carry a token by construction: `axiam_telemetry_event_t` is a fixed
+  struct with no free-form map, and carries the path *template* rather than a
+  URL with ids substituted in.
+
 - **Decision reason codes (CONTRACT §11 rule 9).** `axiam_check_result_t` gains
   an owned `reason_code` string, populated by `axiam_check_access`, `axiam_can`
   and every row of `axiam_batch_check`, with `AXIAM_REASON_CODE_ALLOWED`,

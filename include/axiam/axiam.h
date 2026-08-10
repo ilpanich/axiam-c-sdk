@@ -12,6 +12,7 @@
 
 #include "axiam/error.h"
 #include "axiam/sensitive.h"
+#include "axiam/telemetry.h"
 #include "axiam/transport.h"
 #include "axiam/config.h"
 #include "axiam/client.h"

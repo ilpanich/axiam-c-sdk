@@ -27,7 +27,32 @@ typedef struct axiam_client axiam_client_t;
  */
 axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t *err);
 
-/** Destroy a client and release its cookie jar / TLS material. Safe on NULL. */
+/**
+ * Deterministic shutdown (CONTRACT.md §18). Releases the transport, the cookie
+ * jar, the JWKS cache and every OS handle the client holds, and zeroizes §7
+ * Sensitive material — while leaving the handle itself valid so a later
+ * axiam_client_free() is safe.
+ *
+ * - **Idempotent** (§18.1 rule 2): calling it twice is a no-op the second time,
+ *   never a double free. Cleanup runs from error paths, and an error path that
+ *   itself faults hides the original failure.
+ * - **Does not log out** (§18.1 rule 5): it issues no request. The server-side
+ *   session deliberately outlives the client object — that is what lets a
+ *   process restart and resume — so a close() that logged out would silently
+ *   end every user's session on each deploy.
+ * - **Use after close is an error, not undefined** (§18.1 rule 4): every
+ *   operation on a closed client returns AXIAM_ERR_NETWORK with a message
+ *   naming the cause, rather than reconnecting or reading freed memory.
+ *
+ * Safe on NULL.
+ */
+void axiam_client_close(axiam_client_t *client);
+
+/**
+ * Destroy a client and free the handle. Calls axiam_client_close() first if the
+ * caller has not, so `free` alone remains a complete shutdown (§18.1 rule 1
+ * names axiam_client_free as this SDK's canonical form). Safe on NULL.
+ */
 void axiam_client_free(axiam_client_t *client);
 
 /** Number of refresh transport round-trips performed (test/observability). */
