@@ -11,7 +11,7 @@ Identity and Authorization Management). It provides authentication, token
 refresh, and authorization checks over the AXIAM REST API, plus a
 framework-agnostic route guard and declarative authorization helpers.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13, §16–§19 (including §6.1 mTLS).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13, §16–§19 and §20 (including §6.1 mTLS).**
 >
 > gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
@@ -158,6 +158,7 @@ Strict server verification is **always on** and cannot be disabled — there is 
 | §17  | Opt-in decision memo, off by default, TTL clamped to 5 s; `axiam_client_config_set_decision_memo_ttl` | `memo.c` |
 | §18  | `axiam_client_close` — idempotent, issues no request, use-after-close errors | `client.c` |
 | §19  | Telemetry hooks; `axiam_client_config_set_telemetry_hook` | `telemetry.h`, `telemetry.c` |
+| §20  | UMA 2.0: Protection API (`rreg` CRUD + `perm`), the ticket grant, and both halves of the `WWW-Authenticate: UMA` challenge | `uma.h`, `uma.c` |
 
 JWKS: `GET {base}/oauth2/jwks`, EdDSA/Ed25519 only, verified with OpenSSL
 `EVP_DigestVerify`, cached 300s.
@@ -358,6 +359,7 @@ Out of scope for v1.0, tracked as follow-ups:
 - **§12 OIDC relying-party surface**, and with it the three sections built on
   top of it: **§12.7** RP-initiated and back-channel logout, **§14** the device
   authorization grant (RFC 8628), and **§15** token exchange (RFC 8693).
+  (**§20 UMA is *not* in this list** — see the note at the end of this bullet.)
 
   This SDK ships no OIDC layer — no discovery-document cache, no token
   endpoint, no ID-token validation, no PKCE. Each of those three sections needs
@@ -371,7 +373,15 @@ Out of scope for v1.0, tracked as follow-ups:
 
   What *is* implemented from the same area is local JWT/JWKS verification
   (`axiam_jwt_verify`, §10.1), which the route guards need and which does not
-  depend on discovery.
+  depend on discovery — and, since 2026-08, the whole of **§20 UMA 2.0**. §20
+  looks like it belongs on the deferred list and does not: UMA carries its
+  **own** discovery document (`/.well-known/uma2-configuration`, §20.1's named
+  wire reference), the Protection API is ordinary bearer-authenticated REST,
+  and the ticket grant returns an opaque RPT with no `id_token` to validate.
+  One GET and one POST, with no PKCE, no state store and no JWKS interaction.
+  The "designing an OIDC stack for C" objection above is real for §12.7/§14/§15
+  and simply does not apply here, so deferring §20 too would have been a habit
+  rather than a reason.
 
 ## License
 

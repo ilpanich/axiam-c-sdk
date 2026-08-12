@@ -32,6 +32,20 @@ typedef struct axiam_error {
     axiam_error_kind_t kind;     /**< The error kind. */
     char message[256];           /**< Human-readable, redacted message. */
     long transport_cause;        /**< Numeric transport cause: HTTP status, or CURLcode << (negated). */
+    /**
+     * The `error` field of an OAuth2ErrorResponse — e.g. "invalid_grant",
+     * "access_denied" — or "" when the failure was not an OAuth2 protocol
+     * error. Currently filled only by the §20 UMA ticket grant.
+     *
+     * Read THIS rather than the HTTP status: CONTRACT.md §20.4 puts
+     * `access_denied` on a 403 where RFC 8628's is a 400, and requires an SDK
+     * to dispatch on the field so the mapping stays correct if either moves.
+     * The contract models it as an `OAuthProtocolError` sub-type of the
+     * authentication error; C has no subtyping, so the kind stays
+     * AXIAM_ERR_AUTH and the code lands here — the §2 taxonomy keeps its three
+     * kinds rather than gaining a fourth.
+     */
+    char oauth_error[64];
 } axiam_error_t;
 
 /** Map an HTTP status code to an error kind (CONTRACT.md §2 table). */

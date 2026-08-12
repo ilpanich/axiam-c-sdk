@@ -13,6 +13,7 @@
 #include <time.h>
 
 #include "axiam/axiam.h"
+#include "axiam/uma.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -210,6 +211,13 @@ struct axiam_client {
     int refresh_in_flight;
     axiam_error_kind_t refresh_result;
     unsigned long refresh_count;
+
+    /* §20 UMA discovery cache, guarded by state_mtx. An endpoint map is not a
+     * credential, and re-fetching it on every guarded request is a
+     * self-inflicted round trip. */
+    axiam_uma_config_t uma_config;
+    time_t uma_config_fetched_at;
+    int uma_config_valid;
 
     /* JWKS cache */
     pthread_mutex_t jwks_mtx;
