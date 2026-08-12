@@ -47,3 +47,10 @@ size_t axiam_sensitive_len(const axiam_sensitive_t *s) {
 const unsigned char *axiam_sensitive_bytes(const axiam_sensitive_t *s) {
     return s ? s->data : NULL;
 }
+
+const char *axiam_sensitive_reveal(const axiam_sensitive_t *s) {
+    /* The buffer is always NUL-terminated (axiam_sensitive_new_bytes reserves
+     * the extra slot), so a caller can treat this as a C string even when the
+     * handle was built from raw bytes. */
+    return s ? (const char *)s->data : NULL;
+}

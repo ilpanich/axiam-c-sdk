@@ -54,6 +54,12 @@ set(AXIAM_SOURCES
     src/guard.c
     src/webhook.c
     src/uma.c
+    src/oidc.c
+    src/oidc_validate.c
+    src/oidc_refresh.c
+    src/oidc_device.c
+    src/oidc_exchange.c
+    src/oidc_logout.c
     src/version.c)
 
 # Compile the SDK sources once into an object library shared by both variants.

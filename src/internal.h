@@ -2,8 +2,11 @@
  * AXIAM C SDK — internal shared declarations (NOT installed).
  *
  * This header exposes module-private structure definitions and helpers shared
- * across translation units. The only route to a Sensitive raw value lives here
- * (axiam_sensitive_bytes) — it is deliberately absent from the public headers.
+ * across translation units, including axiam_sensitive_bytes(). Since contract
+ * 1.11 that is no longer the ONLY route to a raw Sensitive value — §12 needs
+ * one the caller can use, so §7 rule 3's single explicit accessor
+ * (axiam_sensitive_reveal) is public. This one stays because internal code
+ * wants `const unsigned char *` rather than a string.
  */
 #ifndef AXIAM_INTERNAL_H
 #define AXIAM_INTERNAL_H
@@ -13,6 +16,7 @@
 #include <time.h>
 
 #include "axiam/axiam.h"
+#include "axiam/oidc.h"
 #include "axiam/uma.h"
 
 #ifdef __cplusplus
@@ -42,6 +46,17 @@ struct axiam_client_config {
     char *expected_issuer;    /* owned, may be NULL */
     char *expected_audience;  /* owned, may be NULL */
     axiam_sensitive_t *client_key; /* mTLS private key behind Sensitive (§7) */
+    /* §12 relying-party identity. client_id is not a per-call argument (§12.1):
+     * §12.4 rule 4 compares the ID token's `aud` against the SAME value, and
+     * two sources could disagree. The secret is behind Sensitive (§12.3 rule 2). */
+    char *oidc_client_id;
+    axiam_sensitive_t *oidc_client_secret;
+    /* §12.3 rule 6 discovery TTL, seconds, AFTER clamping up to the 5-minute
+     * floor. 0 = use the floor. */
+    long oidc_discovery_ttl_s;
+    /* §12.4 rule 5 clock skew, seconds, AFTER clamping into [0, 60]. -1 = the
+     * 60-second default; a larger request is clamped DOWN, not rejected. */
+    long oidc_clock_skew_s;
     long timeout_ms;
     long connect_timeout_ms;
     axiam_transport_fn transport;
@@ -126,10 +141,24 @@ typedef double (*axiam_jitter_fn)(void *ctx);
 /** Sleep seam, so a test can observe a delay without taking it. */
 typedef void (*axiam_sleep_fn)(void *ctx, long ms);
 
+/**
+ * Wall-clock seam, in seconds. The §14.2 rule 4 deadline is the only thing in
+ * this SDK whose correctness depends on time PASSING rather than on a duration,
+ * and §14.6 requires asserting that polling stops at `expires_in`. With the
+ * sleep seam alone a test's clock never advances, so the assertion is
+ * unwritable; with both, a 600-second grant runs in microseconds and the
+ * intervals themselves become observable. Module-private for the same reason
+ * the sleep seam is: a public knob for "what time is it" would be an
+ * attractive nuisance.
+ */
+typedef time_t (*axiam_clock_fn)(void *ctx);
+
 /** Default jitter source (rand_r on a per-client seed). */
 double axiam_default_jitter(void *ctx);
 /** Default sleep (nanosleep). */
 void axiam_default_sleep(void *ctx, long ms);
+/** Default clock (time(NULL)). */
+time_t axiam_default_clock(void *ctx);
 
 /* ---- §17 client-side decision memo ---- */
 
@@ -219,11 +248,38 @@ struct axiam_client {
     time_t uma_config_fetched_at;
     int uma_config_valid;
 
+    /* §12 OIDC discovery cache. Per-client-instance, which satisfies §12.3
+     * rule 6's origin rule by construction (a client is bound to one base URL
+     * for its lifetime) and is NOT keyed on the tenant, because the document
+     * carries no tenant-specific content. Guarded by oidc_config_mtx, which is
+     * held across the FETCH as well as the copy: that is the single-flight
+     * rule 6 requires, in its simplest correct form — a second caller blocks,
+     * then finds the cache warm. */
+    pthread_mutex_t oidc_config_mtx;
+    axiam_oidc_config_t oidc_config;
+    time_t oidc_config_fetched_at;
+    int oidc_config_valid;
+
+    /* §12.1 / §9 rule 2 single-flight for oidc_refresh, keyed on the refresh
+     * token's digest. AXIAM rotates refresh tokens, so two threads racing on
+     * one token would spend it twice and the loser would see an invalid_grant
+     * for a token that was good a millisecond earlier. Guarded by
+     * oidc_refresh_mtx + oidc_refresh_cond. */
+    pthread_mutex_t oidc_refresh_mtx;
+    pthread_cond_t oidc_refresh_cond;
+    struct axiam_oidc_flight *oidc_refresh_flights;
+    unsigned long oidc_refresh_count;
+
     /* JWKS cache */
     pthread_mutex_t jwks_mtx;
     struct axiam_jwk *jwks;
     time_t jwks_fetched_at;
     int jwks_valid;
+    /* §12.4 rule 2: when the unknown-`kid` re-fetch cooldown window closes. An
+     * unknown kid inside the window re-consults the cached set with NO network
+     * call, so an attacker presenting forged kids cannot drive one JWKS fetch
+     * per token. 0 = no window open. */
+    time_t jwks_refetch_cooldown_until;
 
     /* §16 retry. The seams are module-private on purpose: §16.1 forbids
      * raising the table, and a public knob for the jitter source or the sleep
@@ -233,6 +289,8 @@ struct axiam_client {
     void *jitter_ctx;
     axiam_sleep_fn sleep_fn;
     void *sleep_ctx;
+    axiam_clock_fn clock_fn;
+    void *clock_ctx;
     unsigned int rand_seed;
 
     /* §17 decision memo. Disabled unless the config carried a TTL. */
@@ -256,6 +314,26 @@ int   axiam_curl_transport(void *ctx, const axiam_http_request_t *req,
 /* Internal: perform a non-state-changing GET and return the body on 2xx. */
 axiam_error_kind_t axiam_client_raw_get(axiam_client_t *c, const char *path,
                                         char **out_body, axiam_error_t *err);
+
+/* ---- §12.4 verification seam (implemented in jwks.c) ---- */
+
+/**
+ * Signature + `alg` pin only, with the §12.4 reason code written into
+ * `out_reason` (invalid_alg / unknown_kid / invalid_signature). This is the
+ * SAME verifier the §10 guards use — §12.4 says "extend it, never fork it", so
+ * §12 layers rules 3–6 on top of this rather than re-implementing key lookup.
+ *
+ * `out_claims_json` receives the decoded payload on success (caller frees).
+ */
+axiam_error_kind_t axiam_jwt_verify_reasoned(axiam_client_t *client, const char *token,
+                                             char **out_claims_json,
+                                             char *out_reason, size_t reason_cap,
+                                             axiam_error_t *err);
+
+/* ---- §12 internals shared across the OIDC translation units ---- */
+
+/** Release the members the client owns for §12 (called from close/free). */
+void axiam_oidc_client_dispose(axiam_client_t *c);
 
 /* ---- Small helpers ---- */
 char *axiam_strdup0(const char *s); /* strdup that tolerates NULL -> NULL */

@@ -67,6 +67,48 @@ axiam_error_kind_t axiam_client_config_set_client_cert(axiam_client_config_t *cf
                                                        const char *cert_pem,
                                                        const char *key_pem);
 
+/* --- §12 OIDC relying-party identity --- */
+
+/**
+ * The relying party's `client_id` (§12). Required by every §12/§14/§15
+ * operation that talks to an `/oauth2/` endpoint.
+ *
+ * It is CONFIGURATION rather than a per-call argument, and §12.1 is explicit
+ * about why: §12.4 rule 4 compares an ID token's `aud` against the same value,
+ * and two sources could disagree. An operation called on a client with no
+ * `client_id` fails fast, with no wire call — a missing client registration is
+ * a deployment mistake, not an authentication outcome.
+ */
+void axiam_client_config_set_oidc_client_id(axiam_client_config_t *cfg, const char *client_id);
+
+/**
+ * The relying party's `client_secret` (§12), retained behind a Sensitive handle
+ * (§12.3 rule 2) and sent as `client_secret_post` — never as HTTP Basic, which
+ * the server does not document (§12.1 rule 3).
+ *
+ * OPTIONAL. A public client omits it; `axiam_oidc_exchange` and
+ * `axiam_oidc_refresh` then send no `client_secret` field at all rather than an
+ * empty one. `axiam_introspect`, `axiam_revoke` and `axiam_token_exchange` are
+ * confidential-only (§12.1 rule 4, §15.1) and refuse client-side without it.
+ */
+void axiam_client_config_set_oidc_client_secret(axiam_client_config_t *cfg, const char *client_secret);
+
+/**
+ * Discovery-document cache TTL in seconds (§12.3 rule 6). Default 300.
+ *
+ * The 5-minute floor is a MINIMUM: a smaller value is RAISED to it, not
+ * rejected. Pass 0 for the default.
+ */
+void axiam_client_config_set_oidc_discovery_ttl(axiam_client_config_t *cfg, long ttl_seconds);
+
+/**
+ * Permitted clock skew for the §12.4 rule 5 `exp`/`iat`/`nbf` checks, in
+ * seconds. Default 60, which is also the CEILING: a larger value is clamped
+ * DOWN to 60 rather than rejected, and a negative one is clamped to 0. There is
+ * no way to widen it past the contract, and no "skip the time checks" mode.
+ */
+void axiam_client_config_set_oidc_clock_skew(axiam_client_config_t *cfg, long skew_seconds);
+
 /** Total request timeout in milliseconds (0 = library default). */
 void axiam_client_config_set_timeout_ms(axiam_client_config_t *cfg, long timeout_ms);
 /** Connection timeout in milliseconds (0 = library default). */

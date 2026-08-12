@@ -1,9 +1,9 @@
 /*
  * AXIAM C SDK — umbrella header.
  *
- * The AXIAM C SDK conforms to CONTRACT.md §1–§7, §9, §10, §11, §13, §16–§19 and
- * §20 (including §6.1 mTLS). gRPC and §8 AMQP are out of scope for v1.0
- * (tracked as follow-ups).
+ * The AXIAM C SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and
+ * §20 (including §6.1 mTLS, §12.7 logout, and the §11 rule 9 decision reason
+ * codes). gRPC and §8 AMQP are out of scope for v1.0 (tracked as follow-ups).
  *
  * All public symbols are prefixed `axiam_` and use snake_case (CONTRACT §1).
  */
@@ -18,6 +18,7 @@
 #include "axiam/client.h"
 #include "axiam/jwks.h"
 #include "axiam/guard.h"
+#include "axiam/oidc.h"
 #include "axiam/uma.h"
 #include "axiam/webhook.h"
 

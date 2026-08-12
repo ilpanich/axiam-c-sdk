@@ -118,3 +118,8 @@ void axiam_default_sleep(void *ctx, long ms) {
     while (nanosleep(&ts, &ts) == -1 && errno == EINTR) {
     }
 }
+
+time_t axiam_default_clock(void *ctx) {
+    (void)ctx;
+    return time(NULL);
+}
