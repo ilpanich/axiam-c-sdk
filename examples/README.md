@@ -12,6 +12,9 @@ end-to-end requires a reachable AXIAM server at the configured base URL.
 | [`telemetry_hook.c`](telemetry_hook.c) | Metrics without a metrics dependency: §19 hooks, the §16 retry signal, and the §19.2 rule 6 clamp warning. |
 | [`uma_resource_server.c`](uma_resource_server.c) | UMA 2.0 (§20), emit half: register a resource, guard it, answer a denial with `WWW-Authenticate: UMA`. |
 | [`uma_client.c`](uma_client.c) | The other half: parse the challenge, make the **trust decision** §20.3 keeps in the caller's hands, then exchange the ticket for an RPT. |
+| [`oidc_login.c`](oidc_login.c) | The OIDC relying-party flow (§12) and §12.7 logout — and, more to the point, the four values §12.3 rule 1 makes the **caller's** to keep across the redirect. |
+| [`device_login.c`](device_login.c) | RFC 8628 (§14) for a thing with no browser: display the code, then let the SDK run §14.2's polling rules. |
+| [`token_exchange.c`](token_exchange.c) | RFC 8693 (§15): delegation versus impersonation, and the refusals the SDK surfaces rather than works around. |
 
 ## Organization context (§5.1)
 
@@ -57,6 +60,11 @@ Connection details are read from the environment (with the defaults shown):
 | `AXIAM_PASSWORD`    | `changeme`                                 |
 | `AXIAM_TOTP_CODE`   | `000000` (login_mfa only)                  |
 | `AXIAM_RESOURCE_ID` | `00000000-0000-0000-0000-000000000000` (rest_authz only) |
+| `AXIAM_TENANT_ID`   | `11111111-1111-1111-1111-111111111111` (the §12/§14/§15 examples — a **UUID**, because five of the nine §12 operations put the tenant in a query parameter that a slug cannot satisfy) |
+| `AXIAM_OIDC_CLIENT_ID` / `AXIAM_OIDC_CLIENT_SECRET` | the relying party's registration (the secret is omitted for a public client, which is what `device_login` runs as) |
+| `AXIAM_REDIRECT_URI` | `https://app.example.com/callback` (oidc_login only) |
+| `AXIAM_AUTH_CODE` / `AXIAM_RETURNED_STATE` | what your callback received; `oidc_login` stops before the exchange without them |
+| `AXIAM_SUBJECT_TOKEN` / `AXIAM_ACTOR_TOKEN` | token_exchange only — **the actor token's presence is what selects delegation over impersonation** |
 
 ```sh
 export AXIAM_BASE_URL=https://iam.example.com

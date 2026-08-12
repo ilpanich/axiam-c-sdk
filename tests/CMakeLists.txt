@@ -155,3 +155,57 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_tls_server COMMAND test_tls_server ${AXIAM_PKI_DIR})
 set_tests_properties(test_tls_server PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
+
+# ---- §12 OIDC relying party, §12.7 logout, §14 device grant, §15 token
+# exchange (the contract-1.11 port; see CONTRACT.md §12.6).
+#
+# test_oidc and the grant suites use a scriptable fake transport and assert on
+# REQUEST COUNTS, in the spirit §16.7 states outright: a tested surface nobody
+# calls is worse than an absent one.
+axiam_add_test(test_oidc test_oidc.c)
+
+# The ID-token suites need real EdDSA signatures, so they link the JWT fixture.
+add_executable(test_oidc_idtoken test_oidc_idtoken.c)
+target_include_directories(test_oidc_idtoken PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_oidc_idtoken PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_oidc_idtoken PRIVATE --coverage)
+endif()
+add_test(NAME test_oidc_idtoken COMMAND test_oidc_idtoken)
+
+add_executable(test_oidc_logout test_oidc_logout.c)
+target_include_directories(test_oidc_logout PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_oidc_logout PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_oidc_logout PRIVATE --coverage)
+endif()
+add_test(NAME test_oidc_logout COMMAND test_oidc_logout)
+
+axiam_add_test(test_oidc_grants test_oidc_grants.c)
+
+# §12.1 / §9 rule 2: oidc_refresh coalesces concurrent redemptions of one
+# rotating refresh token. Asserted by counting wire calls under N threads.
+add_executable(test_oidc_singleflight test_oidc_singleflight.c)
+target_include_directories(test_oidc_singleflight PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_oidc_singleflight PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_oidc_singleflight PRIVATE --coverage)
+endif()
+add_test(NAME test_oidc_singleflight COMMAND test_oidc_singleflight)
+
+# ---- C2 branch-coverage depth: the §12/§12.7/§14/§15 refusal paths.
+axiam_add_test(test_oidc_branches test_oidc_branches.c)
+
+# The other side of every optional-field branch: the shapes a real server sends
+# that the happy-path suites never produce.
+add_executable(test_oidc_shapes test_oidc_shapes.c)
+target_include_directories(test_oidc_shapes PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_oidc_shapes PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_oidc_shapes PRIVATE --coverage)
+endif()
+add_test(NAME test_oidc_shapes COMMAND test_oidc_shapes)
+
+# Wire-level oddities in the shared request builder, plus the discovery failure
+# every one of the nine operations has to surface rather than proceed past.
+axiam_add_test(test_oidc_wire test_oidc_wire.c)

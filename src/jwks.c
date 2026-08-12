@@ -61,10 +61,10 @@ static int parse_jwks(axiam_client_t *c, const char *json) {
     return 1;
 }
 
-static axiam_error_kind_t ensure_jwks(axiam_client_t *c, axiam_error_t *err) {
+static axiam_error_kind_t ensure_jwks(axiam_client_t *c, int force, axiam_error_t *err) {
     time_t now = time(NULL);
     pthread_mutex_lock(&c->jwks_mtx);
-    int fresh = c->jwks_valid &&
+    int fresh = !force && c->jwks_valid &&
                 (now - c->jwks_fetched_at) < AXIAM_JWKS_CACHE_TTL_SECS;
     pthread_mutex_unlock(&c->jwks_mtx);
     if (fresh) return AXIAM_OK;
@@ -231,6 +231,51 @@ done:
     return kind;
 }
 
+/* Record a §12.3 rule 3 reason code, when the caller asked for one. */
+static void set_reason(char *reason, size_t cap, const char *code) {
+    if (reason && cap) snprintf(reason, cap, "%s", code);
+}
+
+/*
+ * §12.4 rule 2's unknown-`kid` handling, shared by the §10 guards and the §12
+ * ID-token path.
+ *
+ * "One re-fetch then fail", taken literally against a warm cache, is
+ * unimplementable without handing an attacker one JWKS fetch per forged `kid`.
+ * The rule is per WINDOW: the first unknown `kid` triggers exactly one re-fetch
+ * and opens a cooldown; another unknown `kid` inside that window re-consults the
+ * cached set with NO network call and fails immediately. Neither weakening is
+ * permitted — "never re-fetch" breaks key rotation, "always re-fetch" is a
+ * fetch-amplification vector.
+ *
+ * Returns 1 and fills `pub` when a key was found.
+ */
+static int lookup_key(axiam_client_t *c, const char *kid, unsigned char pub[32],
+                      axiam_error_t *err) {
+    pthread_mutex_lock(&c->jwks_mtx);
+    const struct axiam_jwk *key = find_key(c, kid);
+    if (key) { memcpy(pub, key->x, 32); pthread_mutex_unlock(&c->jwks_mtx); return 1; }
+
+    time_t now = time(NULL);
+    int may_refetch = now >= c->jwks_refetch_cooldown_until;
+    if (may_refetch) c->jwks_refetch_cooldown_until = now + AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S;
+    pthread_mutex_unlock(&c->jwks_mtx);
+    if (!may_refetch) return 0;
+
+    if (ensure_jwks(c, 1, err) != AXIAM_OK) return 0;
+
+    pthread_mutex_lock(&c->jwks_mtx);
+    key = find_key(c, kid);
+    if (key) memcpy(pub, key->x, 32);
+    pthread_mutex_unlock(&c->jwks_mtx);
+    return key != NULL;
+}
+
+static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
+                                      unsigned flags, char **out_claims_json,
+                                      char *reason, size_t reason_cap,
+                                      axiam_error_t *err);
+
 axiam_error_kind_t axiam_jwt_verify(axiam_client_t *client, const char *token,
                                     char **out_claims_json, axiam_error_t *err) {
     /* Safe by default: the guards' policy is also the plain entry point's. */
@@ -241,6 +286,30 @@ axiam_error_kind_t axiam_jwt_verify(axiam_client_t *client, const char *token,
 axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client, const char *token,
                                        unsigned flags, char **out_claims_json,
                                        axiam_error_t *err) {
+    return verify_core(client, token, flags, out_claims_json, NULL, 0, err);
+}
+
+axiam_error_kind_t axiam_jwt_verify_reasoned(axiam_client_t *client, const char *token,
+                                             char **out_claims_json,
+                                             char *out_reason, size_t reason_cap,
+                                             axiam_error_t *err) {
+    /*
+     * §12.4 says to EXTEND this verifier, never fork it — so §12's ID-token path
+     * enters here, at the same key cache, the same EdDSA pin and the same
+     * unknown-`kid` cooldown the §10 middleware uses, and layers rules 3 to 6 on
+     * top. The flags are 0 because §12.4's claim rules are not §10.1's: an ID
+     * token's `aud` is the RP's client_id rather than `axiam:user`, and it
+     * carries no `tenant_id` claim to bind.
+     */
+    if (out_reason && reason_cap) out_reason[0] = '\0';
+    return verify_core(client, token, AXIAM_JWT_VERIFY_SIGNATURE_ONLY, out_claims_json,
+                       out_reason, reason_cap, err);
+}
+
+static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
+                                      unsigned flags, char **out_claims_json,
+                                      char *reason, size_t reason_cap,
+                                      axiam_error_t *err) {
     axiam_error_reset(err);
     if (out_claims_json) *out_claims_json = NULL;
     if (!client || !token) {
@@ -248,23 +317,45 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client, const char *token
         return AXIAM_ERR_AUTH;
     }
 
-    /* Split into header.payload.signature. */
+    /* Split into header.payload.signature. A token that is not three
+     * dot-separated parts cannot even have its algorithm established, which is
+     * why §12.3 rule 3 folds that case into `invalid_alg`. */
     const char *dot1 = strchr(token, '.');
-    if (!dot1) { axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token"); return AXIAM_ERR_AUTH; }
+    if (!dot1) {
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_ALG);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token");
+        return AXIAM_ERR_AUTH;
+    }
     const char *dot2 = strchr(dot1 + 1, '.');
-    if (!dot2) { axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token"); return AXIAM_ERR_AUTH; }
+    if (!dot2) {
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_ALG);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token");
+        return AXIAM_ERR_AUTH;
+    }
     size_t hlen = (size_t)(dot1 - token);
     size_t plen = (size_t)(dot2 - (dot1 + 1));
     const char *sig_b64 = dot2 + 1;
     size_t slen = strlen(sig_b64);
 
-    /* Decode + inspect header: reject non-EdDSA BEFORE key lookup. */
+    /* Decode + inspect header: reject non-EdDSA BEFORE key lookup. §12.4 rule 1
+     * is explicit that the `alg` is read from the header and checked first — an
+     * SDK must not let the token select its own verification algorithm, and the
+     * discovery document's `id_token_signing_alg_values_supported` cannot widen
+     * this either. */
     size_t hdr_len = 0;
     unsigned char *hdr = axiam_b64url_decode(token, hlen, &hdr_len);
-    if (!hdr) { axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token header"); return AXIAM_ERR_AUTH; }
+    if (!hdr) {
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_ALG);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token header");
+        return AXIAM_ERR_AUTH;
+    }
     cJSON *hjson = cJSON_ParseWithLength((const char *)hdr, hdr_len);
     free(hdr);
-    if (!hjson) { axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token header"); return AXIAM_ERR_AUTH; }
+    if (!hjson) {
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_ALG);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token header");
+        return AXIAM_ERR_AUTH;
+    }
     const cJSON *alg = cJSON_GetObjectItemCaseSensitive(hjson, "alg");
     const cJSON *kid = cJSON_GetObjectItemCaseSensitive(hjson, "kid");
     char *kid_copy = NULL;
@@ -274,21 +365,28 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client, const char *token
     cJSON_Delete(hjson);
     if (!alg_ok) {
         free(kid_copy);
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_ALG);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0, "unsupported token alg (EdDSA only)");
         return AXIAM_ERR_AUTH;
     }
 
-    axiam_error_kind_t kk = ensure_jwks(client, err);
-    if (kk != AXIAM_OK) { free(kid_copy); return kk; }
+    axiam_error_kind_t kk = ensure_jwks(client, 0, err);
+    if (kk != AXIAM_OK) {
+        free(kid_copy);
+        /* §12.3 rule 3: a JWKS transport failure during the rule-2 re-fetch MAY
+         * surface as `unknown_kid` rather than `invalid_signature`, and does —
+         * "the key could not be established" is what both mean here. */
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_UNKNOWN_KID);
+        return kk;
+    }
 
-    pthread_mutex_lock(&client->jwks_mtx);
-    const struct axiam_jwk *key = find_key(client, kid_copy);
     unsigned char pub[32];
-    int have_key = 0;
-    if (key) { memcpy(pub, key->x, 32); have_key = 1; }
-    pthread_mutex_unlock(&client->jwks_mtx);
+    int have_key = lookup_key(client, kid_copy, pub, err);
     free(kid_copy);
     if (!have_key) {
+        /* Covers "no kid in the header at all" as well as "no key matches it",
+         * which §12.3 rule 3 folds into the one code deliberately. */
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_UNKNOWN_KID);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0, "no matching signing key");
         return AXIAM_ERR_AUTH;
     }
@@ -298,10 +396,19 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client, const char *token
 
     size_t sig_len = 0;
     unsigned char *sig = axiam_b64url_decode(sig_b64, slen, &sig_len);
-    if (!sig) { axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed signature"); return AXIAM_ERR_AUTH; }
+    if (!sig) {
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_SIGNATURE);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed signature");
+        return AXIAM_ERR_AUTH;
+    }
 
     EVP_PKEY *pkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, pub, 32);
-    if (!pkey) { free(sig); axiam_error_set(err, AXIAM_ERR_AUTH, 0, "key load failed"); return AXIAM_ERR_AUTH; }
+    if (!pkey) {
+        free(sig);
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_SIGNATURE);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "key load failed");
+        return AXIAM_ERR_AUTH;
+    }
 
     EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
     int verified = 0;
@@ -316,6 +423,7 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client, const char *token
     free(sig);
 
     if (!verified) {
+        set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_SIGNATURE);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0, "signature verification failed");
         return AXIAM_ERR_AUTH;
     }
@@ -334,8 +442,10 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client, const char *token
             }
             free(pdec);
         }
-        if (!claims && flags) {
-            /* Undecodable payload under a claim policy: fail closed. */
+        if (!claims && (flags || reason)) {
+            /* Undecodable payload: fail closed, whether a §10.1 claim policy is
+             * in force or a §12.4 caller is about to apply its own. */
+            set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_SIGNATURE);
             axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token claims");
             return AXIAM_ERR_AUTH;
         }

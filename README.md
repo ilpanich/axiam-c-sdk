@@ -11,7 +11,7 @@ Identity and Authorization Management). It provides authentication, token
 refresh, and authorization checks over the AXIAM REST API, plus a
 framework-agnostic route guard and declarative authorization helpers.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§11, §13, §16–§19 and §20 (including §6.1 mTLS).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and §20 (including §6.1 mTLS, §12.7 logout, and the §11 rule 9 decision reason codes).**
 >
 > gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
@@ -148,8 +148,8 @@ Strict server verification is **always on** and cannot be disabled — there is 
 | §5   | `X-Tenant-ID` on every request; tenant required at construction (no default) | `config.c`, `client.c` |
 | §6   | Strict TLS always on; plaintext base URL refused (loopback dev exception); custom CA is the only escape hatch (PEM only) | `config.c`, `transport_curl.c` |
 | §6.1 | mTLS client identity (PEM cert + key, in-memory blobs) | `config.c`, `transport_curl.c` |
-| §7   | Opaque `axiam_sensitive_t`, `[SENSITIVE]` rendering, no raw getter | `sensitive.h` |
-| §9   | Single-flight refresh (`pthread_mutex_t` + condvar); no retry loop | `client.c` |
+| §7   | Opaque `axiam_sensitive_t`, `[SENSITIVE]` rendering, and exactly one explicit accessor (`axiam_sensitive_reveal`, rule 3) | `sensitive.h` |
+| §9   | Single-flight refresh (`pthread_mutex_t` + condvar); no retry loop. A second, dedicated guard covers `axiam_oidc_refresh` (§9 rule 5) | `client.c`, `oidc_refresh.c` |
 | §10  | `axiam_middleware`/guard: `axiam_require_auth` extracts + verifies session | `guard.h` |
 | §11  | `axiam_require_access/require_role` + `AXIAM_REQUIRE_*` macros; `axiam_require_access_uma` adds the §20.3 challenge on a denial | `guard.h` |
 | §11 r9 | `reason_code` on every decision (`AXIAM_REASON_CODE_*`); guard behaviour unchanged | `client.h` |
@@ -158,6 +158,10 @@ Strict server verification is **always on** and cannot be disabled — there is 
 | §17  | Opt-in decision memo, off by default, TTL clamped to 5 s; `axiam_client_config_set_decision_memo_ttl` | `memo.c` |
 | §18  | `axiam_client_close` — idempotent, issues no request, use-after-close errors | `client.c` |
 | §19  | Telemetry hooks; `axiam_client_config_set_telemetry_hook` | `telemetry.h`, `telemetry.c` |
+| §12  | OIDC relying party: the nine canonical operations, the discovery cache, S256 PKCE, and the §12.4 ID-token checklist | `oidc.h`, `oidc.c`, `oidc_validate.c` |
+| §12.7 | `axiam_logout_url` (RP-initiated) and `axiam_verify_logout_token` (back-channel) | `oidc.h`, `oidc_logout.c` |
+| §14  | RFC 8628 device grant: `axiam_device_authorize/poll/login`, with §14.2's polling rules | `oidc.h`, `oidc_device.c` |
+| §15  | RFC 8693 token exchange: `axiam_token_exchange`, delegation vs impersonation | `oidc.h`, `oidc_exchange.c` |
 | §20  | UMA 2.0: Protection API (`rreg` CRUD + `perm`), the ticket grant, and both halves of the `WWW-Authenticate: UMA` challenge | `uma.h`, `uma.c` |
 
 JWKS: `GET {base}/oauth2/jwks`, EdDSA/Ed25519 only, verified with OpenSSL
@@ -385,6 +389,64 @@ gcov -n build/CMakeFiles/axiam_obj.dir/src/*.gcno
 API reference is generated with Doxygen (`doxygen Doxyfile` → `docs/html`) and
 published to GitHub Pages by CI.
 
+## §12 OIDC, §12.7 logout, §14 device grant, §15 token exchange
+
+These four shipped together in the contract-1.11 port ([`CONTRACT.md` §12.6](CONTRACT.md)).
+They were previously deferred here, and the reasoning behind the reversal is
+worth keeping: the original deferral argued from persona — this is a device- and
+IoT-oriented SDK and the browser-redirect flow has no natural home in it — which
+covered `oidc_begin` and `oidc_exchange` and none of the other seven operations.
+`login_client_credentials` is the machine-to-machine login an embedded consumer
+wants; `introspect` and `revoke` are ordinary questions a device asks about its
+own credentials; §14 exists *because* a device cannot show a browser. Meanwhile
+§20 had already given this SDK a `/oauth2/token` call, so it was speaking OAuth2
+at the token endpoint anyway — without the shared discovery cache and ID-token
+validation §12 specifies. The port removed a divergence rather than adding one.
+
+```c
+axiam_client_config_set_oidc_client_id(cfg, "example-rp");
+axiam_client_config_set_oidc_client_secret(cfg, secret);  /* omit for a public client */
+
+axiam_oidc_config_t doc;
+axiam_oidc_discover(client, &doc, &err);          /* cached ≥ 5 min per client */
+
+axiam_authorization_request_t req;
+axiam_oidc_begin(client, &doc, redirect_uri, "openid profile", &req, &err);
+/* No network I/O happened. Keep req.state, req.nonce, req.code_verifier AND
+ * your redirect_uri — §12.3 rule 1 means the SDK stores none of them. */
+
+axiam_oidc_exchange_params_t p = {0};
+p.code = code; p.code_verifier = req.code_verifier;
+p.redirect_uri = redirect_uri; p.nonce = req.nonce;
+
+axiam_oidc_token_set_t tokens;
+axiam_oidc_exchange(client, &p, &tokens, &err);
+/* tokens.id_claims is non-NULL only after every §12.4 rule passed; on any
+ * failure the WHOLE set is discarded (rule 7) and err.id_token_reason names
+ * the rule. */
+```
+
+Three things this surface will not do, each because a section says so:
+
+- **It stores no correlation values** (§12.3 rule 1). See above.
+- **It never skips ID-token validation** and has no flag to. §12.4 rule 7 is
+  all-or-nothing: a token set whose `id_token` fails any check is discarded
+  whole, access and refresh tokens included.
+- **It adopts nothing.** Every operation returns tokens; none becomes this
+  client's own credential. §15.2 rule 5 makes that a MUST NOT for the exchanged
+  token specifically, and this SDK takes one posture everywhere rather than two.
+
+Worked examples: [`examples/oidc_login.c`](examples/oidc_login.c),
+[`examples/device_login.c`](examples/device_login.c),
+[`examples/token_exchange.c`](examples/token_exchange.c).
+
+**§7 rule 3 — the one explicit accessor.** §12 returns tokens *to* the caller,
+so `axiam_sensitive_reveal()` is public as of contract 1.11: a wrapper a §12
+caller can never read makes §12 unusable. `axiam_sensitive_to_string()` remains
+what diagnostics call, and still answers `"[SENSITIVE]"` whatever the content.
+Call the accessor at the point of use — building one header, one form field —
+and never let the result reach a log or a serialization sink.
+
 ## Scope / follow-ups
 
 Out of scope for v1.0, tracked as follow-ups:
@@ -393,32 +455,10 @@ Out of scope for v1.0, tracked as follow-ups:
   surface is transport-agnostic and can gain a gRPC dispatcher later.
 - **§8 AMQP HMAC consumer.** The contract's §8 AMQP obligations do not list C
   among the required consumer languages; no AMQP surface is shipped.
-- **§12 OIDC relying-party surface**, and with it the three sections built on
-  top of it: **§12.7** RP-initiated and back-channel logout, **§14** the device
-  authorization grant (RFC 8628), and **§15** token exchange (RFC 8693).
-  (**§20 UMA is *not* in this list** — see the note at the end of this bullet.)
-
-  This SDK ships no OIDC layer — no discovery-document cache, no token
-  endpoint, no ID-token validation, no PKCE. Each of those three sections needs
-  it directly: §12.7's `logout_url` must read `end_session_endpoint` *from
-  discovery* (the clause exists precisely to forbid concatenating onto the
-  issuer), §14 must read `device_authorization_endpoint` from discovery and
-  then poll the token endpoint, and §15 is a token-endpoint grant requiring
-  confidential-client authentication. Adding them means designing an OIDC stack
-  for C, not extending an existing one, so they are tracked here rather than
-  half-shipped.
-
-  What *is* implemented from the same area is local JWT/JWKS verification
-  (`axiam_jwt_verify`, §10.1), which the route guards need and which does not
-  depend on discovery — and, since 2026-08, the whole of **§20 UMA 2.0**. §20
-  looks like it belongs on the deferred list and does not: UMA carries its
-  **own** discovery document (`/.well-known/uma2-configuration`, §20.1's named
-  wire reference), the Protection API is ordinary bearer-authenticated REST,
-  and the ticket grant returns an opaque RPT with no `id_token` to validate.
-  One GET and one POST, with no PKCE, no state store and no JWKS interaction.
-  The "designing an OIDC stack for C" objection above is real for §12.7/§14/§15
-  and simply does not apply here, so deferring §20 too would have been a habit
-  rather than a reason.
+- **The optional `OidcStateStore`** (§12.3 rule 1). The core §12 operations are
+  usable without one and the store is a MAY; a C reference implementation with
+  the mandated 10-minute TTL, single-use `consume`, and lazy (never
+  timer-driven) expiry is a follow-up.
 
 ## License
 

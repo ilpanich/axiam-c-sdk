@@ -9,6 +9,50 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **§12 OIDC relying party, §12.7 logout, §14 device grant, §15 token exchange —
+  the contract-1.11 port.** These four were deferred in this SDK through
+  contract 1.10; [§12.6](CONTRACT.md) reverses that and they ship together.
+
+  `axiam_oidc_discover/begin/exchange/refresh`, `axiam_login_client_credentials`,
+  `axiam_introspect`, `axiam_revoke`, `axiam_sso_start/complete`;
+  `axiam_logout_url` and `axiam_verify_logout_token`;
+  `axiam_device_authorize/poll/login`; `axiam_token_exchange`. All in the new
+  `axiam/oidc.h`.
+
+  The deferral was written from persona — this is a device- and IoT-oriented
+  SDK and the browser-redirect flow has no natural home in it — which covered
+  `oidc_begin` and `oidc_exchange` and none of the other seven operations.
+  §14 exists *because* a device cannot show a browser, and §20 had already
+  given this SDK a `/oauth2/token` call, so by 1.10 it was speaking OAuth2 at
+  the token endpoint without §12's discovery cache or ID-token validation. The
+  port removes a divergence rather than adding one.
+
+  What the surface deliberately does not do: it stores no `state`, `nonce` or
+  `code_verifier` (§12.3 rule 1 — the caller keeps them, and the `redirect_uri`
+  too); it has no way to skip ID-token validation, and §12.4 rule 7's
+  all-or-nothing discard means a bad `id_token` takes the access and refresh
+  tokens with it; it adopts no token as the client's own credential; and it
+  does not retry a grant whose credential is single-use (§16.2).
+
+- **`axiam_sensitive_reveal()` — §7 rule 3's single explicit accessor**, now
+  public. §12 returns tokens *to* the caller, and a wrapper a §12 caller can
+  never read makes §12 unusable; contract 1.11's §7 table changes the C row to
+  say so. `axiam_sensitive_to_string()` is unchanged and still answers
+  `"[SENSITIVE]"` whatever the content.
+
+- **`axiam_error_t::id_token_reason`** — the §12.3 rule 3 closed seven-value
+  vocabulary (`invalid_alg`, `unknown_kid`, `invalid_signature`,
+  `invalid_issuer`, `invalid_audience`, `token_expired`, `nonce_mismatch`).
+  A second field rather than a reuse of `oauth_error`: the two carry different
+  vocabularies from different clauses, and §14.2's terminal `expired_token` is
+  nearly a homograph of §12.4 rule 5's `token_expired`.
+
+- **Config:** `axiam_client_config_set_oidc_client_id`,
+  `_set_oidc_client_secret`, `_set_oidc_discovery_ttl` (raised to the
+  5-minute floor), `_set_oidc_clock_skew` (clamped down to 60 s, never up).
+
+- **Examples:** `oidc_login.c`, `device_login.c`, `token_exchange.c`.
+
 - **§20.3 challenge emission from the §11 guard.** `axiam_require_access_uma()` takes an
   `axiam_uma_challenger_t` (realm, `as_uri`, PAT) and an out-parameter; on a denial it mints a
   permission ticket for the action that was refused and writes the formatted
@@ -29,6 +73,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   Paired with the new `examples/uma_resource_server.c` and `examples/uma_client.c`, which run
   both halves — including the trust decision §20.3 keeps in the caller's hands rather than
   auto-exchanging against whatever host a 403 named.
+
+### Changed
+
+- **The JWKS verifier now re-fetches once per cooldown window on an unknown
+  `kid`** (§12.4 rule 2), instead of failing immediately against a warm cache.
+  This fixes key rotation for the §10/§11 guards as well: previously a rotated
+  key was unusable until the 300-second cache TTL expired. The window (60 s)
+  bounds the fetch amplification an attacker could otherwise drive by
+  presenting forged `kid` values — "never re-fetch" and "always re-fetch" are
+  both explicitly forbidden.
+
+- `axiam_oidc_refresh` is governed by its own §9-conformant single-flight
+  guard, keyed on the refresh token's digest. AXIAM rotates refresh tokens, so
+  two threads redeeming one concurrently would produce a winner and an
+  `invalid_grant` for a token that was good a millisecond earlier. Distinct
+  tokens do not contend. §9 rule 5 permits this dedicated instance rather than
+  reusing the §1 cookie-session guard, whose API compares an access token's
+  freshness — a comparison with no meaning for a `refresh_token` grant.
+
+### Notes
+
+- Coverage after this change: **96.3% line, 80.2% branch** against gates of 96
+  and 80. Both pass, but with materially less headroom than the pre-port
+  figures the `coverage.yml` comments were written against — this subsystem
+  checks every allocation, and those guards are one-sided by construction.
+  Worth knowing before the next change lands on the wrong side of the line.
 
 ## [1.0.0-alpha24] - 2026-08-04
 

@@ -46,6 +46,20 @@ typedef struct axiam_error {
      * kinds rather than gaining a fourth.
      */
     char oauth_error[64];
+    /**
+     * The CONTRACT.md §12.3 rule 3 ID-token validation reason code — one of
+     * AXIAM_OIDC_REASON_* (see axiam/oidc.h) — or "" when the failure was not
+     * an ID-token validation failure.
+     *
+     * DELIBERATELY A SECOND FIELD rather than a reuse of `oauth_error`. The two
+     * carry different closed vocabularies from different clauses, and one of
+     * each pair is nearly a homograph of the other: §14.2's terminal
+     * `expired_token` (the device grant ran out) against §12.4 rule 5's
+     * `token_expired` (this ID token is stale). A caller dispatching on a
+     * single field would eventually confuse them; two fields make the question
+     * "which vocabulary am I asking about?" unavoidable.
+     */
+    char id_token_reason[32];
 } axiam_error_t;
 
 /** Map an HTTP status code to an error kind (CONTRACT.md §2 table). */

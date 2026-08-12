@@ -34,6 +34,12 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
     pthread_mutex_init(&c->refresh_mtx, NULL);
     pthread_cond_init(&c->refresh_cond, NULL);
     pthread_mutex_init(&c->jwks_mtx, NULL);
+    /* §12: the discovery cache and the oidc_refresh single-flight get their own
+     * locks. §9 rule 5 permits (and this SDK takes) a dedicated guard for the
+     * OAuth2 token namespace rather than reusing the cookie-session one. */
+    pthread_mutex_init(&c->oidc_config_mtx, NULL);
+    pthread_mutex_init(&c->oidc_refresh_mtx, NULL);
+    pthread_cond_init(&c->oidc_refresh_cond, NULL);
     c->refresh_result = AXIAM_OK;
 
     /* §16 */
@@ -43,6 +49,8 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
     c->jitter_ctx = &c->rand_seed;
     c->sleep_fn = axiam_default_sleep;
     c->sleep_ctx = NULL;
+    c->clock_fn = axiam_default_clock;
+    c->clock_ctx = NULL;
 
     /* §17: clamps internally; the config keeps the unclamped request so the
      * event below can name it. */
@@ -134,7 +142,13 @@ void axiam_client_close(axiam_client_t *client) {
     jwks_free(client->jwks);
     client->jwks = NULL;
     client->jwks_valid = 0;
+    client->jwks_refetch_cooldown_until = 0;
     pthread_mutex_unlock(&client->jwks_mtx);
+
+    /* §18.1 rule 3: the §12 discovery cache goes with the other handles. It
+     * holds no credential — an endpoint map is not a secret — but leaving it
+     * behind would let a reopened client serve a document it never re-fetched. */
+    axiam_oidc_client_dispose(client);
 
     axiam_memo_clear(&client->memo);
 }
@@ -149,11 +163,15 @@ void axiam_client_free(axiam_client_t *client) {
     free(client->resolved_tenant_id);
     free(client->resolved_org_id);
     axiam_uma_config_dispose(&client->uma_config);
+    axiam_oidc_config_dispose(&client->oidc_config);
     axiam_memo_destroy(&client->memo);
     pthread_mutex_destroy(&client->state_mtx);
     pthread_mutex_destroy(&client->refresh_mtx);
     pthread_cond_destroy(&client->refresh_cond);
     pthread_mutex_destroy(&client->jwks_mtx);
+    pthread_mutex_destroy(&client->oidc_config_mtx);
+    pthread_mutex_destroy(&client->oidc_refresh_mtx);
+    pthread_cond_destroy(&client->oidc_refresh_cond);
     free(client);
 }
 

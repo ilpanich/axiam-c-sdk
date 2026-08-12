@@ -17,3 +17,8 @@ axiam_add_example(telemetry_hook)
 # challenge, and a client that consumes it.
 axiam_add_example(uma_resource_server)
 axiam_add_example(uma_client)
+# The contract-1.11 port (§12.6): the OIDC relying party, the device grant, and
+# token exchange.
+axiam_add_example(oidc_login)
+axiam_add_example(device_login)
+axiam_add_example(token_exchange)
