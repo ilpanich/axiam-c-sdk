@@ -37,6 +37,7 @@ axiam_add_test(test_singleflight test_singleflight.c)
 axiam_add_test(test_refresh_org test_refresh_org.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
 axiam_add_test(test_webhook test_webhook.c)
+axiam_add_test(test_uma test_uma.c)
 
 # ---- D5: §16 retry, §17 decision memo, §18 close(), §19 telemetry.
 # Reaches into internal.h for the injected PRNG / injected sleep seams §16.7

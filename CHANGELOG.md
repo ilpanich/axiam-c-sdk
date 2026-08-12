@@ -26,6 +26,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **UMA 2.0 — Protection API and ticket grant (CONTRACT §20).** New `axiam/uma.h`:
+  `axiam_uma_discover`, `axiam_uma_register_resource`, `axiam_uma_read_resource`,
+  `axiam_uma_update_resource`, `axiam_uma_delete_resource`, `axiam_uma_list_resources`,
+  `axiam_uma_request_ticket`, `axiam_uma_exchange_ticket`, and the two local challenge
+  helpers `axiam_uma_parse_challenge` / `axiam_uma_challenge_header`. Every out-parameter
+  that carries heap memory has a matching `_dispose`/`_free`, and each is safe on a zeroed
+  struct so a caller can dispose unconditionally on the error path.
+
+  **This ships while §12 does not, and that is not an inconsistency.** §12.7, §14 and §15
+  stay deferred because each needs an OIDC stack this SDK does not have. §20 does not: UMA
+  carries its own discovery document, the Protection API is ordinary bearer-authenticated
+  REST, and the ticket grant returns an opaque RPT with nothing to validate.
+
+  The load-bearing rules, all asserted in `tests/test_uma.c`:
+
+  - **`axiam_uma_exchange_ticket` is never retried** — not on `5xx`, not on a transport
+    failure, not on `invalid_grant`. This is the one documented exception to §16, and a
+    security rule rather than a performance one: the ticket is consumed *before* the
+    exchange is evaluated, so a retry is a second redemption — the concurrency case whose
+    measured residual `ilpanich/axiam#302` records.
+  - **`axiam_uma_parse_challenge` performs no exchange.** The `as_uri` names an
+    authorization server the caller has not chosen to trust.
+  - **The RPT is never adopted**, and `axiam_uma_rpt_t` has no refresh-token member.
+  - **`axiam_uma_update_resource` replaces the scope list rather than merging it** — no
+    read-modify-write, so omitting a scope removes it.
+  - **An absent PAT, ticket, `claim_token`, client secret, or a slug-only tenant is refused
+    client-side**, with no wire call, so a request that could not have succeeded never
+    spends a ticket.
+
+  The grant's form body carries four secrets and is scrubbed with `axiam_secure_zero`
+  before release (§7), rather than left in a freed heap block.
+
 - **Bounded read-only retry (CONTRACT §16).** `check_access`, `can`,
   `batch_check` and the JWKS fetch now retry a transient failure: 3 attempts
   total, 200 ms base, 5 s cap, **full jitter** over `[0, backoff]`, and
@@ -103,6 +135,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   valgrind sweep reports 0 errors and 0 definite leaks.
 
 ### Changed
+
+- Re-vendored `CONTRACT.md` at **1.10** and `openapi.json` (the server's `/uma2/*` surface).
+- `axiam_error_t` gained `oauth_error[64]`, empty for every failure that is not an OAuth2
+  protocol error. §20.4 requires dispatching on the body's `error` field rather than the
+  HTTP status — `access_denied` answers `403` on the ticket grant where RFC 8628's answers
+  `400` — so the code has to reach the caller. The contract models it as an
+  `OAuthProtocolError` sub-type of the authentication error; C has no subtyping, so the
+  kind stays `AXIAM_ERR_AUTH` and the code lands in the new field, leaving the §2 taxonomy
+  at three kinds rather than gaining a fourth. **This changes `sizeof(axiam_error_t)`**, so
+  callers must recompile; the struct is caller-allocated and pre-1.0, so no ABI promise is
+  broken.
 
 - **Re-vendored `CONTRACT.md` and `openapi.json`** from `ilpanich/axiam` at
   contract 1.7. Of the sections 1.7 adds, only §11 rule 9 is implemented here;

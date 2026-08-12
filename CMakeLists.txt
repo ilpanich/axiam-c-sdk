@@ -53,6 +53,7 @@ set(AXIAM_SOURCES
     src/jwks.c
     src/guard.c
     src/webhook.c
+    src/uma.c
     src/version.c)
 
 # Compile the SDK sources once into an object library shared by both variants.

@@ -24,6 +24,7 @@ void axiam_error_reset(axiam_error_t *err) {
     err->kind = AXIAM_OK;
     err->message[0] = '\0';
     err->transport_cause = 0;
+    err->oauth_error[0] = '\0';
 }
 
 void axiam_error_set(axiam_error_t *err, axiam_error_kind_t kind, long cause,
@@ -31,6 +32,10 @@ void axiam_error_set(axiam_error_t *err, axiam_error_kind_t kind, long cause,
     if (!err) return;
     err->kind = kind;
     err->transport_cause = cause;
+    /* Cleared on every set: an `oauth_error` left over from an earlier failure
+     * on the same struct would read as a code the current one never carried.
+     * The §20 grant fills it back in after calling this. */
+    err->oauth_error[0] = '\0';
     if (msg) {
         /* Copy + guarantee NUL-termination; message must never carry a token. */
         strncpy(err->message, msg, sizeof(err->message) - 1);

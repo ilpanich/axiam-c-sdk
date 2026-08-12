@@ -148,6 +148,7 @@ void axiam_client_free(axiam_client_t *client) {
     free(client->csrf_token);
     free(client->resolved_tenant_id);
     free(client->resolved_org_id);
+    axiam_uma_config_dispose(&client->uma_config);
     axiam_memo_destroy(&client->memo);
     pthread_mutex_destroy(&client->state_mtx);
     pthread_mutex_destroy(&client->refresh_mtx);
