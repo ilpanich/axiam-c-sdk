@@ -70,10 +70,58 @@ axiam_guard_status_t axiam_require_auth(axiam_client_t *client,
     return st; /* ALLOW / UNAUTHENTICATED / UNAVAILABLE */
 }
 
-axiam_guard_status_t axiam_require_access(axiam_client_t *client,
-                                          const axiam_headers_t *headers,
-                                          const char *action, const char *resource_id,
-                                          const char *scope) {
+/*
+ * Mints one ticket for the pair that was just refused and formats the challenge,
+ * or returns NULL when that fails.
+ *
+ * The requested scope is the AXIAM *action* (§20.2): asking for anything else
+ * would offer the caller authority other than the one they were denied, and
+ * would step outside the grants the engine just evaluated — deny rules included.
+ *
+ * Every failure returns NULL deliberately. A PAT that expired, a Protection API
+ * that is down, a resource that declares none of the requested scopes — none of
+ * these change the answer to the request, which was already "no". Letting them
+ * turn a deny into a 503 would give the outage a second consequence; letting
+ * them turn it into an allow would be a security bug.
+ */
+static char *mint_challenge(axiam_client_t *client,
+                            const axiam_uma_challenger_t *challenger,
+                            const char *action, const char *resource_id) {
+    if (!challenger || !challenger->realm || !challenger->as_uri || !challenger->pat) {
+        return NULL;
+    }
+
+    const char *scopes[1];
+    scopes[0] = action;
+    axiam_uma_permission_t permission;
+    permission.resource_id = resource_id;
+    permission.scopes = scopes;
+    permission.scope_count = 1;
+
+    axiam_sensitive_t *ticket = NULL;
+    axiam_error_t err;
+    if (axiam_uma_request_ticket(client, challenger->pat, &permission, 1, &ticket, &err)
+            != AXIAM_OK || !ticket) {
+        return NULL;
+    }
+
+    char *header = axiam_uma_challenge_header(challenger->realm, challenger->as_uri, ticket);
+    axiam_sensitive_free(ticket);
+    return header;
+}
+
+/*
+ * The whole of require_access, with the §20.3 challenge as an optional extra on
+ * the deny path. axiam_require_access() is this with no challenger; the public
+ * axiam_require_access_uma() is this with one. One body, so the two entry points
+ * cannot drift on the outcome mapping.
+ */
+static axiam_guard_status_t require_access_impl(axiam_client_t *client,
+                                                const axiam_headers_t *headers,
+                                                const char *action, const char *resource_id,
+                                                const char *scope,
+                                                const axiam_uma_challenger_t *challenger,
+                                                char **out_challenge) {
     if (!client) return AXIAM_GUARD_UNAVAILABLE;
     /* §11.2(3): unresolvable/empty resource id is a 400, never a silent allow. */
     if (!resource_id || resource_id[0] == '\0') return AXIAM_GUARD_BAD_REQUEST;
@@ -109,7 +157,29 @@ axiam_guard_status_t axiam_require_access(axiam_client_t *client,
         out = AXIAM_GUARD_UNAVAILABLE; /* §11.2(5): fail closed on network error */
     }
     axiam_check_result_dispose(&res);
+
+    if (out == AXIAM_GUARD_DENIED && challenger && out_challenge) {
+        *out_challenge = mint_challenge(client, challenger, action, resource_id);
+    }
     return out;
+}
+
+axiam_guard_status_t axiam_require_access(axiam_client_t *client,
+                                          const axiam_headers_t *headers,
+                                          const char *action, const char *resource_id,
+                                          const char *scope) {
+    return require_access_impl(client, headers, action, resource_id, scope, NULL, NULL);
+}
+
+axiam_guard_status_t axiam_require_access_uma(axiam_client_t *client,
+                                              const axiam_headers_t *headers,
+                                              const char *action, const char *resource_id,
+                                              const char *scope,
+                                              const axiam_uma_challenger_t *challenger,
+                                              char **out_challenge) {
+    if (out_challenge) *out_challenge = NULL;
+    return require_access_impl(client, headers, action, resource_id, scope,
+                               challenger, out_challenge);
 }
 
 axiam_guard_status_t axiam_require_role(axiam_client_t *client,

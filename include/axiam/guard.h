@@ -22,6 +22,7 @@
 
 #include "axiam/client.h"
 #include "axiam/transport.h"
+#include "axiam/uma.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,6 +77,76 @@ axiam_guard_status_t axiam_require_role(axiam_client_t *client,
                                         const axiam_headers_t *headers,
                                         const char *const *roles,
                                         size_t n_roles);
+
+/**
+ * A configured `WWW-Authenticate: UMA` challenge emitter (§20.3, emit half).
+ * All members borrowed: the caller owns them and they must outlive the call.
+ *
+ * Pass one to axiam_require_access_uma() and a denial stops being a bare 403:
+ * the guard mints a fresh permission ticket for the pair the caller lacked and
+ * hands back the formatted header, so a UMA-aware client knows where to go for
+ * authority instead of only being told "no".
+ *
+ * OPT-IN, AND DELIBERATELY SO. Emitting a challenge means minting a credential
+ * — a wire call to the Protection API, and a live ticket, produced on a path
+ * the caller did not explicitly request. A guard that did that on every denial
+ * by default would turn each unauthorized request into a Protection API call,
+ * which is a denial-of-service amplifier pointed at your own authorization
+ * server. So axiam_require_access() keeps its existing behaviour untouched and
+ * this is a separate entry point.
+ *
+ * FAILURE IS NOT ESCALATION. If minting fails — the PAT expired, the Protection
+ * API is down, the resource declares none of the requested scopes — the denial
+ * still surfaces as AXIAM_GUARD_DENIED with no challenge. A caller who was
+ * going to be refused is refused either way; letting a Protection API outage
+ * turn a deny into a 503 would hand the outage a second consequence, and
+ * letting it turn into an allow would be a security bug.
+ */
+typedef struct axiam_uma_challenger {
+    /** The protection realm to name in the header. Required. */
+    const char *realm;
+    /**
+     * The authorization server to send the caller to — normally this
+     * deployment's issuer, read from axiam_uma_discover() rather than
+     * concatenated by hand. Required.
+     */
+    const char *as_uri;
+    /**
+     * A Protection API Token: a *client-credentials* token carrying the
+     * `uma_protection` scope (§20.2 rule 1). A user token cannot stand in — a
+     * minted ticket is bound to the client_id that minted it. Required.
+     */
+    const axiam_sensitive_t *pat;
+} axiam_uma_challenger_t;
+
+/**
+ * §11 require_access, with §20.3 challenge emission on a denial.
+ *
+ * Identical to axiam_require_access() in every outcome; additionally, when the
+ * result is AXIAM_GUARD_DENIED and `challenger` is non-NULL, mints one ticket
+ * for (resource_id, action) and writes the formatted `WWW-Authenticate` value
+ * to *out_challenge as a malloc'd string the caller frees.
+ *
+ * The requested UMA scope is the AXIAM *action*: asking for anything else would
+ * offer the caller authority other than the one they were denied, and would
+ * step outside the grants the engine just evaluated — deny rules included.
+ *
+ * The ticket is a live credential for its 60 seconds (§20.6): send the string
+ * as a header, and do not log it.
+ *
+ * @param challenger    May be NULL, in which case this behaves exactly as
+ *                      axiam_require_access() and mints nothing.
+ * @param out_challenge May be NULL. Set to a malloc'd header value only on a
+ *                      denial with a challenger and a successful mint;
+ *                      otherwise set to NULL. Free with free().
+ */
+axiam_guard_status_t axiam_require_access_uma(axiam_client_t *client,
+                                              const axiam_headers_t *headers,
+                                              const char *action,
+                                              const char *resource_id,
+                                              const char *scope,
+                                              const axiam_uma_challenger_t *challenger,
+                                              char **out_challenge);
 
 /* --- §11 convenience macros (C analog of annotations). --- */
 
