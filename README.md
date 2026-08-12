@@ -151,7 +151,7 @@ Strict server verification is **always on** and cannot be disabled — there is 
 | §7   | Opaque `axiam_sensitive_t`, `[SENSITIVE]` rendering, no raw getter | `sensitive.h` |
 | §9   | Single-flight refresh (`pthread_mutex_t` + condvar); no retry loop | `client.c` |
 | §10  | `axiam_middleware`/guard: `axiam_require_auth` extracts + verifies session | `guard.h` |
-| §11  | `axiam_require_access/require_role` + `AXIAM_REQUIRE_*` macros | `guard.h` |
+| §11  | `axiam_require_access/require_role` + `AXIAM_REQUIRE_*` macros; `axiam_require_access_uma` adds the §20.3 challenge on a denial | `guard.h` |
 | §11 r9 | `reason_code` on every decision (`AXIAM_REASON_CODE_*`); guard behaviour unchanged | `client.h` |
 | §13  | `axiam_webhook_verify` — HMAC-SHA256 signed-timestamp verification | `webhook.h` |
 | §16  | Bounded read-only retry: 3 attempts, 200 ms base, 5 s cap, full jitter, `Retry-After` as a floor; `axiam_client_config_set_retry_enabled` | `retry.c`, `client.c` |
@@ -286,6 +286,43 @@ Three things this field deliberately is **not**:
 Enforcement is unchanged: `axiam_require_access` returns `AXIAM_GUARD_DENIED`
 (403) for both refusals. The clause is about reporting, and the guard must not
 vary its behaviour on the code.
+
+### Emitting a UMA challenge from the §11 guard (§20.3)
+
+`axiam_require_access_uma()` is `axiam_require_access()` plus one thing: on a denial, with a
+challenger configured, it mints a permission ticket for the pair that was refused and hands
+back the formatted `WWW-Authenticate` value.
+
+```c
+axiam_uma_challenger_t challenger = { "invoices", uma_cfg.issuer, pat };
+
+char *challenge = NULL;
+axiam_guard_status_t st = axiam_require_access_uma(
+    client, headers, "invoices:read", resource_id, NULL, &challenger, &challenge);
+
+if (st == AXIAM_GUARD_DENIED && challenge) {
+    /* Send it; do not log it — it carries a live ticket (§20.6). */
+    add_response_header("WWW-Authenticate", challenge);
+}
+free(challenge);
+```
+
+Two properties are deliberate, and both are asserted by counting Protection API calls:
+
+- **Opt-in.** Emitting a challenge means minting a credential. A guard that did that on every
+  denial by default would put a Protection API call — and a live ticket — behind every
+  unauthorized request, which is a denial-of-service amplifier pointed at your own
+  authorization server. `axiam_require_access()` is untouched, and a NULL challenger mints
+  nothing. An allow mints nothing either.
+- **A minting failure is not an escalation.** An expired PAT or an unreachable Protection API
+  still yields `AXIAM_GUARD_DENIED` with `*out_challenge` left NULL — never a 503, and never
+  an allow.
+
+The requested UMA scope is the AXIAM **action**, so the ticket asks for exactly the authority
+that was refused and the engine's deny rules keep applying to whatever RPT comes back.
+
+Both halves run in [`examples/uma_resource_server.c`](examples/uma_resource_server.c) and
+[`examples/uma_client.c`](examples/uma_client.c).
 
 ## Webhook signature verification (§13)
 

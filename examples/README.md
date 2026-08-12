@@ -10,6 +10,8 @@ end-to-end requires a reachable AXIAM server at the configured base URL.
 | [`login_mfa.c`](login_mfa.c)  | Two-phase `axiam_login` / `axiam_verify_mfa` flow (CONTRACT.md §1, §5, §5.1). |
 | [`rest_authz.c`](rest_authz.c) | REST authorization: `axiam_check_access`, `axiam_can`, `axiam_batch_check` (§1). |
 | [`telemetry_hook.c`](telemetry_hook.c) | Metrics without a metrics dependency: §19 hooks, the §16 retry signal, and the §19.2 rule 6 clamp warning. |
+| [`uma_resource_server.c`](uma_resource_server.c) | UMA 2.0 (§20), emit half: register a resource, guard it, answer a denial with `WWW-Authenticate: UMA`. |
+| [`uma_client.c`](uma_client.c) | The other half: parse the challenge, make the **trust decision** §20.3 keeps in the caller's hands, then exchange the ticket for an RPT. |
 
 ## Organization context (§5.1)
 

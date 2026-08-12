@@ -13,3 +13,7 @@ endfunction()
 axiam_add_example(login_mfa)
 axiam_add_example(rest_authz)
 axiam_add_example(telemetry_hook)
+# The §20.3 pair: a resource server that emits the WWW-Authenticate: UMA
+# challenge, and a client that consumes it.
+axiam_add_example(uma_resource_server)
+axiam_add_example(uma_client)

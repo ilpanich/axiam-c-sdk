@@ -5,6 +5,31 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [Unreleased]
+
+### Added
+
+- **§20.3 challenge emission from the §11 guard.** `axiam_require_access_uma()` takes an
+  `axiam_uma_challenger_t` (realm, `as_uri`, PAT) and an out-parameter; on a denial it mints a
+  permission ticket for the action that was refused and writes the formatted
+  `WWW-Authenticate: UMA` value there for the caller to send and free.
+
+  It is a **separate entry point** rather than a change to `axiam_require_access()` because
+  emitting a challenge means minting a credential: a guard that did it by default would turn
+  every unauthorized request into a Protection API call, which is a denial-of-service amplifier
+  pointed at your own authorization server. An allow mints nothing, and neither does a NULL or
+  half-configured challenger. And a **minting failure is not an escalation** — an expired PAT or
+  an unreachable Protection API still yields `AXIAM_GUARD_DENIED` with the out-parameter left
+  NULL, never a 503 and never an allow. Both are asserted by counting Protection API calls.
+
+  Internally both entry points share one body, so the two cannot drift on the outcome mapping.
+  The requested UMA scope is the AXIAM *action*, so the ticket asks for exactly the authority
+  just refused and the engine's deny rules keep applying to whatever RPT comes back.
+
+  Paired with the new `examples/uma_resource_server.c` and `examples/uma_client.c`, which run
+  both halves — including the trust decision §20.3 keeps in the caller's hands rather than
+  auto-exchanging against whatever host a 403 named.
+
 ## [1.0.0-alpha24] - 2026-08-04
 
 ### Added

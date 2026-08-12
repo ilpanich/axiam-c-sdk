@@ -89,6 +89,15 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_reason_code COMMAND test_reason_code)
 
+# The §20.3 emit half wired into the §11 guard (axiam_require_access_uma).
+add_executable(test_uma_challenge test_uma_challenge.c)
+target_include_directories(test_uma_challenge PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_uma_challenge PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_uma_challenge PRIVATE --coverage)
+endif()
+add_test(NAME test_uma_challenge COMMAND test_uma_challenge)
+
 # ---- C2 branch-coverage depth (round 2): crypto-dependent branch sweeps ----
 add_executable(test_guard_branches test_guard_branches.c)
 target_include_directories(test_guard_branches PRIVATE ${AXIAM_TEST_INCLUDES})
