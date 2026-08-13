@@ -381,6 +381,29 @@ void test_the_subject_token_type_is_never_inferred_from_the_token(void) {
     axiam_client_free(c);
 }
 
+void test_an_empty_subject_token_type_falls_back_to_the_default(void) {
+    /* An empty string is not a token type. Passing it through would drop the
+     * field entirely — oidc_form_add omits empty values (§12.1) — and a request
+     * with NO subject_token_type is malformed, not a same-domain exchange. So
+     * empty is treated exactly like NULL. */
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"narrow\",\"issued_token_type\":\"" AXIAM_TOKEN_TYPE_ACCESS_TOKEN "\","
+        "\"token_type\":\"Bearer\",\"expires_in\":300}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_sensitive_t *subject = axiam_sensitive_new("subject-token");
+    axiam_exchanged_token_t t;
+    TEST_ASSERT_EQUAL(AXIAM_OK, exchange_typed(c, subject, "", NULL, &t, &err));
+
+    TEST_ASSERT_NOT_NULL(strstr(last_token_body(), "subject_token_type=" ENC_ACCESS_TYPE));
+
+    axiam_exchanged_token_dispose(&t);
+    axiam_sensitive_free(subject);
+    axiam_client_free(c);
+}
+
 void test_an_actor_token_with_an_external_subject_token_is_refused_without_retry(void) {
     g_oidc.token_script[0] = (oidc_answer_t){400,
         "{\"error\":\"invalid_request\",\"error_description\":"
@@ -686,6 +709,7 @@ int main(void) {
     /* §15.7 — external-IdP subject tokens (X4). */
     RUN_TEST(test_an_external_subject_token_type_is_sent_verbatim);
     RUN_TEST(test_the_subject_token_type_is_never_inferred_from_the_token);
+    RUN_TEST(test_an_empty_subject_token_type_falls_back_to_the_default);
     RUN_TEST(test_an_actor_token_with_an_external_subject_token_is_refused_without_retry);
     RUN_TEST(test_a_refused_subject_token_type_is_never_retried_as_another);
     RUN_TEST(test_the_issuer_not_configured_description_reaches_the_caller_intact);
