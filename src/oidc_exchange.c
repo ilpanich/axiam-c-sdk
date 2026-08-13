@@ -34,6 +34,19 @@ axiam_error_kind_t axiam_token_exchange(axiam_client_t *client,
         axiam_error_set(err, AXIAM_ERR_AUTH, 0, "token_exchange requires a subject_token");
         return AXIAM_ERR_AUTH;
     }
+    /*
+     * §15.1: subject_token_type is required and has no default. C cannot demand
+     * a struct member at compile time, so the demand lands here — client-side,
+     * with no wire call, rather than sending …:access_token on the caller's
+     * behalf and letting the server refuse a token they never described.
+     */
+    if (!params->subject_token_type || !params->subject_token_type[0]) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "token_exchange requires subject_token_type: pass "
+                        "AXIAM_TOKEN_TYPE_ACCESS_TOKEN for an AXIAM access token, "
+                        "or AXIAM_TOKEN_TYPE_JWT for a trusted external issuer's JWT");
+        return AXIAM_ERR_AUTH;
+    }
     const char *client_id = oidc_require_client_id(client, "token_exchange", err);
     if (!client_id) return AXIAM_ERR_AUTH;
     /* §15.1: the exchanging client authenticates — unlike §14's device, this is
@@ -57,10 +70,7 @@ axiam_error_kind_t axiam_token_exchange(axiam_client_t *client,
      * know, and a guess here is the difference between a request that is refused
      * and one that is silently reinterpreted.
      */
-    oidc_form_add(&form, "subject_token_type",
-                  (params->subject_token_type && params->subject_token_type[0])
-                      ? params->subject_token_type
-                      : AXIAM_TOKEN_TYPE_ACCESS_TOKEN);
+    oidc_form_add(&form, "subject_token_type", params->subject_token_type);
     /*
      * §15.2 rule 1. The presence of an actor token selects DELEGATION; its
      * absence selects IMPERSONATION. Two different operations with different

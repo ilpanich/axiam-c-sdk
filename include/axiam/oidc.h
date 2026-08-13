@@ -91,8 +91,9 @@ extern "C" {
 /** grant_type of the RFC 8693 token exchange (§15.1). */
 #define AXIAM_TOKEN_EXCHANGE_GRANT_TYPE "urn:ietf:params:oauth:grant-type:token-exchange"
 /**
- * The `actor_token_type` this SDK sends, and the `subject_token_type` it sends
- * when the caller names none — an AXIAM-issued access token (§15.1).
+ * The `actor_token_type` this SDK sends, and the `subject_token_type` a caller
+ * names for the same-domain exchange of §15.1. There is no default: the type
+ * is a required member of axiam_token_exchange_params_t.
  */
 #define AXIAM_TOKEN_TYPE_ACCESS_TOKEN "urn:ietf:params:oauth:token-type:access_token"
 /**
@@ -774,18 +775,25 @@ typedef struct axiam_token_exchange_params {
     /** Tenant UUID for `?tenant_id=`; NULL falls back to the client's. */
     const char *tenant_id;
     /**
-     * What kind of token `subject_token` is (§15.7).
+     * What kind of token `subject_token` is. REQUIRED (§15.1).
      *
-     * NULL sends AXIAM_TOKEN_TYPE_ACCESS_TOKEN, the same-domain exchange of
-     * §15.1. To exchange a token from a TRUSTED EXTERNAL ISSUER, name it
-     * explicitly — normally AXIAM_TOKEN_TYPE_JWT.
+     * There is no default. C cannot make a struct member mandatory at compile
+     * time, so a NULL or empty value fails CLIENT-SIDE with no wire call — the
+     * same way a missing client secret does — rather than sending a type the
+     * caller never chose.
+     *
+     * Pass AXIAM_TOKEN_TYPE_ACCESS_TOKEN for the same-domain exchange of
+     * §15.1, or AXIAM_TOKEN_TYPE_JWT for a trusted external issuer's JWT
+     * (§15.7).
      *
      * This SDK never reads `subject_token` to decide the value: which kind of
      * token the caller holds is only the caller's to know, AXIAM refuses
      * refresh and ID token types by name, and a refusal is never retried as a
      * different type.
      *
-     * Last in the struct so that adding it did not move any existing member.
+     * Last in the struct so that adding it did not move any existing member —
+     * which also means a caller who does not recompile still gets the loud
+     * client-side refusal rather than a silently different request.
      */
     const char *subject_token_type;
 } axiam_token_exchange_params_t;
