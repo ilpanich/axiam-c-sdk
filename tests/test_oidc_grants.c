@@ -287,6 +287,217 @@ static axiam_error_kind_t exchange(axiam_client_t *c, const axiam_sensitive_t *s
     return axiam_token_exchange(c, &p, out, err);
 }
 
+/* ------------------------------------------------------------------ */
+/* §15.7 external-IdP subject tokens (X4)                             */
+/*                                                                    */
+/* No new operation: the same axiam_token_exchange carries a partner  */
+/* IdP's token. What changes is which subject tokens the server       */
+/* accepts and what its refusals mean, so these tests are about not   */
+/* getting in the way of either.                                      */
+/* ------------------------------------------------------------------ */
+
+/* A token minted by a partner's IdP. Opaque to the SDK — deliberately not a
+ * well-formed JWT, because nothing here may decode it. */
+#define EXTERNAL_SUBJECT_TOKEN "partner-idp-subject-token"
+
+/* The one normative error_description (§15.7). It means "fix the AXIAM trust
+ * configuration", not "fix your token". */
+#define ISSUER_NOT_CONFIGURED \
+    "the subject token's issuer is not configured for token exchange"
+
+/* Percent-encoded as form_append_encoded emits them: only alphanumerics and
+ * -._~ survive, so every URN colon becomes %3A. */
+#define ENC_JWT_TYPE "urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Ajwt"
+#define ENC_ACCESS_TYPE "urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token"
+
+/* exchange(), plus the §15.7 subject_token_type. */
+static axiam_error_kind_t exchange_typed(axiam_client_t *c, const axiam_sensitive_t *subject,
+                                         const char *subject_token_type,
+                                         const axiam_sensitive_t *actor,
+                                         axiam_exchanged_token_t *out, axiam_error_t *err) {
+    axiam_token_exchange_params_t p = {0};
+    p.subject_token = subject;
+    p.subject_token_type = subject_token_type;
+    p.actor_token = actor;
+    return axiam_token_exchange(c, &p, out, err);
+}
+
+/* The body of the last /oauth2/token request, or "". */
+static const char *last_token_body(void) {
+    int i = oidc_last_call("/oauth2/token");
+    return i < 0 ? "" : g_oidc.bodies[i];
+}
+
+void test_an_external_subject_token_type_is_sent_verbatim(void) {
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"narrow\",\"issued_token_type\":\"" AXIAM_TOKEN_TYPE_ACCESS_TOKEN "\","
+        "\"token_type\":\"Bearer\",\"expires_in\":300,\"scope\":\"read:orders\"}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_sensitive_t *subject = axiam_sensitive_new(EXTERNAL_SUBJECT_TOKEN);
+    axiam_exchanged_token_t t;
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      exchange_typed(c, subject, AXIAM_TOKEN_TYPE_JWT, NULL, &t, &err));
+
+    /* The caller named …:jwt, so …:jwt goes on the wire. §15.7: the SDK must
+     * not inspect the subject token to pick this, and must not override it. */
+    TEST_ASSERT_NOT_NULL(strstr(last_token_body(), "subject_token_type=" ENC_JWT_TYPE));
+    /* Delegation across a trust boundary is unsupported; nothing may add one. */
+    TEST_ASSERT_FALSE(oidc_body_has_field("/oauth2/token", "actor_token"));
+
+    /* The cross-domain path is not a different result shape, and §15.2
+     * rules 6-7 still hold. */
+    TEST_ASSERT_EQUAL_STRING("narrow", axiam_sensitive_reveal(t.access_token));
+    TEST_ASSERT_EQUAL_STRING(AXIAM_TOKEN_TYPE_ACCESS_TOKEN, t.issued_token_type);
+    TEST_ASSERT_EQUAL_STRING("read:orders", t.scope);
+
+    axiam_exchanged_token_dispose(&t);
+    axiam_sensitive_free(subject);
+    axiam_client_free(c);
+}
+
+void test_the_subject_token_type_is_never_inferred_from_the_token(void) {
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"narrow\",\"issued_token_type\":\"" AXIAM_TOKEN_TYPE_ACCESS_TOKEN "\","
+        "\"token_type\":\"Bearer\",\"expires_in\":300}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    /* A subject token that *looks* exactly like a JWT. An SDK that sniffed the
+     * token would send …:jwt here; §15.7 says it must not look, so the caller's
+     * silence still means the §15.1 same-domain default. */
+    axiam_sensitive_t *subject = axiam_sensitive_new(
+        "eyJhbGciOiJFZERTQSJ9.eyJpc3MiOiJodHRwczovL3BhcnRuZXIuZXhhbXBsZS8ifQ.sig");
+    axiam_exchanged_token_t t;
+    TEST_ASSERT_EQUAL(AXIAM_OK, exchange_typed(c, subject, NULL, NULL, &t, &err));
+
+    TEST_ASSERT_NOT_NULL(strstr(last_token_body(), "subject_token_type=" ENC_ACCESS_TYPE));
+
+    axiam_exchanged_token_dispose(&t);
+    axiam_sensitive_free(subject);
+    axiam_client_free(c);
+}
+
+void test_an_actor_token_with_an_external_subject_token_is_refused_without_retry(void) {
+    g_oidc.token_script[0] = (oidc_answer_t){400,
+        "{\"error\":\"invalid_request\",\"error_description\":"
+        "\"actor_token is not supported for an external subject token\"}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_sensitive_t *subject = axiam_sensitive_new(EXTERNAL_SUBJECT_TOKEN);
+    axiam_sensitive_t *actor = axiam_sensitive_new("actor-token");
+    axiam_exchanged_token_t t;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      exchange_typed(c, subject, AXIAM_TOKEN_TYPE_JWT, actor, &t, &err));
+
+    TEST_ASSERT_EQUAL_STRING("invalid_request", err.oauth_error);
+    /* §15.7: no retry, and no rewriting. Dropping the actor token and
+     * re-sending would turn a delegation the caller asked for into an
+     * impersonation they did not. */
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+    TEST_ASSERT_TRUE(oidc_body_has_field("/oauth2/token", "actor_token"));
+    TEST_ASSERT_NOT_NULL(strstr(last_token_body(), "subject_token_type=" ENC_JWT_TYPE));
+
+    axiam_sensitive_free(actor);
+    axiam_sensitive_free(subject);
+    axiam_client_free(c);
+}
+
+void test_a_refused_subject_token_type_is_never_retried_as_another(void) {
+    /* A refresh token is a re-authentication credential and an ID token is an
+     * assertion to a client about a login; neither is a bearer credential for
+     * an API, so both are refused BY NAME. Retrying as …:jwt would present one
+     * as if it were. */
+    static const char *refused[] = {
+        "urn:ietf:params:oauth:token-type:refresh_token",
+        "urn:ietf:params:oauth:token-type:id_token",
+    };
+    static const char *encoded[] = {
+        "urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Arefresh_token",
+        "urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aid_token",
+    };
+
+    for (size_t i = 0; i < 2; i++) {
+        oidc_reset();
+        g_oidc.token_script[0] = (oidc_answer_t){400,
+            "{\"error\":\"invalid_request\",\"error_description\":"
+            "\"unsupported subject_token_type\"}", 0};
+        g_oidc.token_script_len = 1;
+
+        axiam_client_t *c = oidc_make_client();
+        axiam_error_t err;
+        axiam_sensitive_t *subject = axiam_sensitive_new(EXTERNAL_SUBJECT_TOKEN);
+        axiam_exchanged_token_t t;
+        TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                          exchange_typed(c, subject, refused[i], NULL, &t, &err));
+
+        TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+        char expect[128];
+        snprintf(expect, sizeof(expect), "subject_token_type=%s", encoded[i]);
+        TEST_ASSERT_NOT_NULL(strstr(last_token_body(), expect));
+
+        axiam_sensitive_free(subject);
+        axiam_client_free(c);
+    }
+}
+
+void test_the_issuer_not_configured_description_reaches_the_caller_intact(void) {
+    g_oidc.token_script[0] = (oidc_answer_t){400,
+        "{\"error\":\"invalid_grant\",\"error_description\":\"" ISSUER_NOT_CONFIGURED "\"}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_sensitive_t *subject = axiam_sensitive_new(EXTERNAL_SUBJECT_TOKEN);
+    axiam_exchanged_token_t t;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      exchange_typed(c, subject, AXIAM_TOKEN_TYPE_JWT, NULL, &t, &err));
+
+    TEST_ASSERT_EQUAL_STRING("invalid_grant", err.oauth_error);
+    /* This is the ONLY distinguishable external failure, and the whole point of
+     * it is that an integrator can tell "fix the AXIAM trust config" from "fix
+     * your token". Truncating or rewording it destroys that. §2 builds the
+     * message as "<error>: <error_description>". */
+    TEST_ASSERT_NOT_NULL(strstr(err.message, ISSUER_NOT_CONFIGURED));
+
+    axiam_sensitive_free(subject);
+    axiam_client_free(c);
+}
+
+void test_no_helper_re_exchanges_an_externally_exchanged_token(void) {
+    /* Tokens minted from an external subject token carry ext_exchange, and BOTH
+     * exchange paths refuse a subject token bearing it: exchanges do not
+     * compose. The SDK's part is to never feed a result back in by itself. */
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"narrow\",\"issued_token_type\":\"" AXIAM_TOKEN_TYPE_ACCESS_TOKEN "\","
+        "\"token_type\":\"Bearer\",\"expires_in\":300,\"scope\":\"read:orders\"}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_sensitive_t *subject = axiam_sensitive_new(EXTERNAL_SUBJECT_TOKEN);
+    axiam_exchanged_token_t t;
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      exchange_typed(c, subject, AXIAM_TOKEN_TYPE_JWT, NULL, &t, &err));
+
+    /* Exactly one exchange happened: nothing looped the result back in. */
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+    /* §15.2 rule 5 restated for the cross-domain path: had the result been
+     * adopted, the next exchange would carry it as a *subject* token, which is
+     * exactly the re-exchange §15.7 forbids, arrived at by accident. */
+    TEST_ASSERT_EQUAL_INT(0, c->authenticated);
+    TEST_ASSERT_EQUAL_STRING("narrow", axiam_sensitive_reveal(t.access_token));
+
+    axiam_exchanged_token_dispose(&t);
+    axiam_sensitive_free(subject);
+    axiam_client_free(c);
+}
+
 void test_a_delegation_narrows_scopes_and_reports_what_was_granted(void) {
     g_oidc.token_script[0] = (oidc_answer_t){200,
         "{\"access_token\":\"narrow\",\"issued_token_type\":\"" AXIAM_TOKEN_TYPE_ACCESS_TOKEN "\","
@@ -472,5 +683,12 @@ int main(void) {
     RUN_TEST(test_a_cross_tenant_subject_token_answers_invalid_grant_unrefined);
     RUN_TEST(test_the_exchanged_token_is_not_adopted_and_carries_no_refresh_token);
     RUN_TEST(test_token_exchange_refuses_a_public_client_with_no_wire_call);
+    /* §15.7 — external-IdP subject tokens (X4). */
+    RUN_TEST(test_an_external_subject_token_type_is_sent_verbatim);
+    RUN_TEST(test_the_subject_token_type_is_never_inferred_from_the_token);
+    RUN_TEST(test_an_actor_token_with_an_external_subject_token_is_refused_without_retry);
+    RUN_TEST(test_a_refused_subject_token_type_is_never_retried_as_another);
+    RUN_TEST(test_the_issuer_not_configured_description_reaches_the_caller_intact);
+    RUN_TEST(test_no_helper_re_exchanges_an_externally_exchanged_token);
     return UNITY_END();
 }
