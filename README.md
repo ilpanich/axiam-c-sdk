@@ -440,6 +440,40 @@ Worked examples: [`examples/oidc_login.c`](examples/oidc_login.c),
 [`examples/device_login.c`](examples/device_login.c),
 [`examples/token_exchange.c`](examples/token_exchange.c).
 
+### §15.7 — external-IdP subject tokens
+
+The same call exchanges a token minted by a **trusted external IdP** — a
+partner's Entra, Okta or Keycloak — for an AXIAM token scoped to what the
+resolved AXIAM user may actually do. There is no separate operation:
+
+```c
+axiam_token_exchange_params_t p = {0};
+p.subject_token      = partner_token;
+p.subject_token_type = AXIAM_TOKEN_TYPE_JWT;   /* named, never guessed */
+p.audience           = "https://orders.internal";
+
+axiam_exchanged_token_t t;
+axiam_token_exchange(client, &p, &t, &err);
+```
+
+- **`subject_token_type` is yours to state.** The SDK never decodes the subject
+  token to pick it, and never overrides what you named. NULL still means
+  `AXIAM_TOKEN_TYPE_ACCESS_TOKEN`, the same-domain exchange of §15.1. The member
+  is last in the struct, so adding it moved nothing.
+- **No actor token.** Delegation across a trust boundary is unsupported in v1;
+  sending one is `invalid_request`, which the SDK will not work around by
+  dropping it and re-sending.
+- **One refusal is distinguishable.** `invalid_grant` whose description is `the
+  subject token's issuer is not configured for token exchange` means *fix the
+  AXIAM trust configuration*. Every other `invalid_grant` means *fix your
+  token*, and is deliberately generic. §2 builds `err.message` as
+  `"<error>: <error_description>"`.
+- **Forward the result as-is.** It carries an `ext_exchange` claim naming the
+  partner issuer; never strip it, and never read it as an authorization input.
+  It also cannot be exchanged again — exchanges do not compose.
+
+The operator guide is `docs/api/federated-token-exchange.md`.
+
 **§7 rule 3 — the one explicit accessor.** §12 returns tokens *to* the caller,
 so `axiam_sensitive_reveal()` is public as of contract 1.11: a wrapper a §12
 caller can never read makes §12 unusable. `axiam_sensitive_to_string()` remains

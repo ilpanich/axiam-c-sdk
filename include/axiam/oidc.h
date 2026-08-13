@@ -90,8 +90,19 @@ extern "C" {
 #define AXIAM_DEVICE_CODE_GRANT_TYPE "urn:ietf:params:oauth:grant-type:device_code"
 /** grant_type of the RFC 8693 token exchange (§15.1). */
 #define AXIAM_TOKEN_EXCHANGE_GRANT_TYPE "urn:ietf:params:oauth:grant-type:token-exchange"
-/** The RFC 8693 token type this SDK sends and expects on both sides (§15.1). */
+/**
+ * The `actor_token_type` this SDK sends, and the `subject_token_type` it sends
+ * when the caller names none — an AXIAM-issued access token (§15.1).
+ */
 #define AXIAM_TOKEN_TYPE_ACCESS_TOKEN "urn:ietf:params:oauth:token-type:access_token"
+/**
+ * A JWT from a trusted external issuer — the cross-domain exchange of §15.7.
+ *
+ * Pass it as axiam_token_exchange_params_t::subject_token_type to exchange a
+ * partner IdP's token. AXIAM also accepts AXIAM_TOKEN_TYPE_ACCESS_TOKEN for an
+ * external issuer, and refuses refresh and ID token types BY NAME.
+ */
+#define AXIAM_TOKEN_TYPE_JWT "urn:ietf:params:oauth:token-type:jwt"
 /** The Back-Channel Logout 1.0 §2.4 event key §12.7.3 rule 3 requires. */
 #define AXIAM_LOGOUT_EVENT_KEY "http://schemas.openid.net/event/backchannel-logout"
 
@@ -762,6 +773,21 @@ typedef struct axiam_token_exchange_params {
     const char *resource; /**< Optional. */
     /** Tenant UUID for `?tenant_id=`; NULL falls back to the client's. */
     const char *tenant_id;
+    /**
+     * What kind of token `subject_token` is (§15.7).
+     *
+     * NULL sends AXIAM_TOKEN_TYPE_ACCESS_TOKEN, the same-domain exchange of
+     * §15.1. To exchange a token from a TRUSTED EXTERNAL ISSUER, name it
+     * explicitly — normally AXIAM_TOKEN_TYPE_JWT.
+     *
+     * This SDK never reads `subject_token` to decide the value: which kind of
+     * token the caller holds is only the caller's to know, AXIAM refuses
+     * refresh and ID token types by name, and a refusal is never retried as a
+     * different type.
+     *
+     * Last in the struct so that adding it did not move any existing member.
+     */
+    const char *subject_token_type;
 } axiam_token_exchange_params_t;
 
 /**

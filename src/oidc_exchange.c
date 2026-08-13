@@ -51,7 +51,16 @@ axiam_error_kind_t axiam_token_exchange(axiam_client_t *client,
     oidc_form_init(&form);
     oidc_form_add(&form, "grant_type", AXIAM_TOKEN_EXCHANGE_GRANT_TYPE);
     oidc_form_add(&form, "subject_token", subject);
-    oidc_form_add(&form, "subject_token_type", AXIAM_TOKEN_TYPE_ACCESS_TOKEN);
+    /*
+     * Whatever the caller named, verbatim. The subject token is NEVER decoded to
+     * pick this (§15.7): which kind of token the caller holds is the caller's to
+     * know, and a guess here is the difference between a request that is refused
+     * and one that is silently reinterpreted.
+     */
+    oidc_form_add(&form, "subject_token_type",
+                  (params->subject_token_type && params->subject_token_type[0])
+                      ? params->subject_token_type
+                      : AXIAM_TOKEN_TYPE_ACCESS_TOKEN);
     /*
      * §15.2 rule 1. The presence of an actor token selects DELEGATION; its
      * absence selects IMPERSONATION. Two different operations with different
