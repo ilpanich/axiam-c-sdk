@@ -7,6 +7,52 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (contract 1.13): `axiam_token_exchange_params_t::subject_token_type` is now
+  required.** It shipped optional, defaulting to `…:access_token` when NULL. That satisfied
+  §15.7's "never inspect the subject token" while leaving the rule it serves unenforced: an
+  optional member with a default *is* a default the SDK applies whenever the caller says
+  nothing. §15.1 now makes it required.
+
+  C cannot demand a struct member at compile time, so the demand lands at the call: a NULL or
+  empty `subject_token_type` returns `AXIAM_ERR_AUTH` **client-side, with no wire call**, with a
+  message naming the member and both macros. A test covers NULL and `""` — the shape a
+  zero-initialised params struct actually has — and asserts zero token calls.
+
+  **Migration** — one line, naming what you were previously getting by silence:
+
+  ```c
+  axiam_token_exchange_params_t p = {0};
+  p.subject_token      = subject;
+  p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;  /* <- add this */
+  ```
+
+  The member stays **last** in the struct, so nothing moved and a caller who does not recompile
+  gets the loud client-side refusal rather than a silently different request.
+
+### Fixed
+
+- **The §9 single-flight tests no longer bet on a clock.** Both burst tests spawned eight
+  workers against a flight the fake transport delayed by 60 ms, then asserted `token_calls == 1`
+  — that the last worker joined the flight the first one opened. The `pthread_barrier` already
+  guaranteed all eight were *running*; what no fixed delay can guarantee is that they have
+  reached the *guard* before the leader finishes. Under valgrind, or on a runner with fewer
+  cores than threads, the leader returns first and a follower opens a second flight — a failure
+  that says nothing about the guard.
+
+  The leader now waits for arrivals instead: each worker bumps `gate_arrived` on its way into
+  `axiam_oidc_refresh`, and the transport holds the leader until `gate_expect` workers have
+  entered. The 60 ms delay stays as slack for a worker that has entered but not yet parked.
+  Nothing weakens: if the guard were broken the followers would reach the transport and
+  `token_calls` would say so; a late arrival finds the count satisfied, so nothing deadlocks;
+  and the wait is bounded at 10 s so a real regression fails the assertion rather than hanging.
+
+  Ported from the same fix in the C++ SDK (`ilpanich/axiam-cplusplus-sdk#21`), where this
+  surfaced as a CI failure. It had not yet bitten here — which is the reason to fix it now
+  rather than after it does. Verified with 4/4 clean runs of `test_oidc_singleflight` under
+  valgrind pinned to a single core with `taskset`.
+
 ### Added
 
 - **§15.7 external-IdP subject tokens (X4).** `axiam_token_exchange()` can now exchange a token

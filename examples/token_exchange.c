@@ -79,6 +79,11 @@ int main(void) {
     const char *scopes[] = {"invoices:read"};
     axiam_token_exchange_params_t params = {0};
     params.subject_token = subject;
+    /* Required (§15.1), with no default: only you know what kind of token you
+     * are holding. This one is an AXIAM access token; a partner IdP's JWT would
+     * be AXIAM_TOKEN_TYPE_JWT (§15.7). Leaving it unset fails client-side with
+     * no wire call rather than sending a type you did not choose. */
+    params.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     params.actor_token = actor;
     params.scopes = scopes;
     params.scope_count = 1;

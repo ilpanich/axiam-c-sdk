@@ -449,17 +449,20 @@ resolved AXIAM user may actually do. There is no separate operation:
 ```c
 axiam_token_exchange_params_t p = {0};
 p.subject_token      = partner_token;
-p.subject_token_type = AXIAM_TOKEN_TYPE_JWT;   /* named, never guessed */
+p.subject_token_type = AXIAM_TOKEN_TYPE_JWT;   /* required; named, never guessed */
 p.audience           = "https://orders.internal";
 
 axiam_exchanged_token_t t;
 axiam_token_exchange(client, &p, &t, &err);
 ```
 
-- **`subject_token_type` is yours to state.** The SDK never decodes the subject
-  token to pick it, and never overrides what you named. NULL still means
-  `AXIAM_TOKEN_TYPE_ACCESS_TOKEN`, the same-domain exchange of §15.1. The member
-  is last in the struct, so adding it moved nothing.
+- **`subject_token_type` is yours to state, and is required** (§15.1). The SDK
+  never decodes the subject token to pick it, and never overrides what you
+  named. There is no default: a NULL or empty value fails client-side with no
+  wire call, because a default would be the SDK choosing for you. Pass
+  `AXIAM_TOKEN_TYPE_ACCESS_TOKEN` for the same-domain exchange. The member is
+  last in the struct, so adding it moved nothing — and a caller who does not
+  recompile gets the loud refusal rather than a silently different request.
 - **No actor token.** Delegation across a trust boundary is unsupported in v1;
   sending one is `invalid_request`, which the SDK will not work around by
   dropping it and re-sending.

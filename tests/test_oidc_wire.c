@@ -237,6 +237,7 @@ void test_a_token_exchange_response_with_no_body_is_refused(void) {
     axiam_sensitive_t *subject = axiam_sensitive_new("s");
     axiam_sensitive_t *empty = axiam_sensitive_new("");
     axiam_token_exchange_params_t p = {0};
+    p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     p.subject_token = subject;
     /* An EMPTY actor token is not an actor token: it must not flip the request
      * from impersonation to delegation (§15.2 rule 1). */
@@ -339,6 +340,7 @@ void test_a_discovery_failure_stops_every_operation_that_depends_on_it(void) {
     ep.redirect_uri = OIDC_REDIRECT_URI;
     ep.nonce = "n";
     axiam_token_exchange_params_t xp = {0};
+    xp.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     xp.subject_token = tok;
 
     TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_oidc_exchange(c, &ep, &set, &err));

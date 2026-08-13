@@ -119,6 +119,7 @@ void test_a_null_client_is_refused_rather_than_dereferenced(void) {
     axiam_introspection_result_t ir;
     axiam_sensitive_t *tok = axiam_sensitive_new("t");
     axiam_token_exchange_params_t xp = {0};
+    xp.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     xp.subject_token = tok;
 
     TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_oidc_discover(NULL, &cfg, &err));
@@ -157,6 +158,7 @@ void test_every_entry_point_refuses_a_closed_client(void) {
     ep.redirect_uri = OIDC_REDIRECT_URI;
     ep.nonce = "n";
     axiam_token_exchange_params_t xp = {0};
+    xp.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     xp.subject_token = tok;
 
     TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_oidc_discover(c, &cfg, &err));
@@ -438,6 +440,7 @@ void test_a_malformed_token_exchange_response_is_refused(void) {
     axiam_error_t err;
     axiam_sensitive_t *subject = axiam_sensitive_new("s");
     axiam_token_exchange_params_t p = {0};
+    p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     p.subject_token = subject;
     p.audience = "https://svc.test";
     p.resource = "https://svc.test/api";
@@ -469,6 +472,7 @@ void test_missing_credentials_are_refused_before_any_request(void) {
     TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_device_poll(c, NULL, NULL, &set, &err));
 
     axiam_token_exchange_params_t xp = {0};
+    xp.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_token_exchange(c, &xp, &xt, &err));
 
     TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_verify_logout_token(c, NULL, &vl, &err));
@@ -592,6 +596,7 @@ void test_a_slug_only_client_cannot_reach_any_of_the_five_scoped_operations(void
     axiam_exchanged_token_t xt;
     axiam_device_authorization_t da;
     axiam_token_exchange_params_t xp = {0};
+    xp.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     xp.subject_token = tok;
 
     TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_oidc_refresh(c, tok, NULL, NULL, &set, &err));
@@ -655,6 +660,7 @@ void test_a_form_body_larger_than_the_initial_buffer_is_built_intact(void) {
     axiam_sensitive_t *subject = axiam_sensitive_new(big);
     const char *scopes[] = {"scope-one", "scope-two", "scope-three"};
     axiam_token_exchange_params_t p = {0};
+    p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     p.subject_token = subject;
     p.scopes = scopes;
     p.scope_count = 3;

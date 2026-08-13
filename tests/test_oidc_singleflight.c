@@ -43,6 +43,26 @@ typedef struct {
     /* When set, the token endpoint refuses — the flight then has to share a
      * FAILURE with every waiter, which is the other half of §9 rule 2. */
     int refuse;
+    /*
+     * The coalescing window, made deterministic.
+     *
+     * The barrier below already guarantees all N workers are RUNNING before any
+     * of them calls. What it cannot guarantee is that they have reached the
+     * GUARD before the leader's flight finishes — and a fixed usleep() is a bet
+     * that they do. Under valgrind, or on a runner with fewer cores than
+     * threads, that bet loses: the leader returns first, a follower opens a
+     * second flight, and token_calls is 2 for a reason that has nothing to do
+     * with the guard being wrong.
+     *
+     * So the leader also waits for `gate_expect` workers to have ENTERED the
+     * operation, which each signals by bumping `gate_arrived` on its way in. If
+     * the guard works, followers park and never reach the transport; if it were
+     * broken they would arrive here too, and token_calls would say so. A late
+     * arrival finds the count already satisfied, so nothing deadlocks, and the
+     * single-threaded tests leave gate_expect at 0 and are unaffected.
+     */
+    int gate_expect;
+    int gate_arrived;
     char token_body[4096];
     char jwks_body[2048];
 } sf_state_t;
@@ -69,10 +89,21 @@ static int sf_transport(void *ctx, const axiam_http_request_t *req,
         pthread_mutex_lock(&st->mtx);
         st->token_calls++;
         int refuse = st->refuse;
+        int expect = st->gate_expect;
         pthread_mutex_unlock(&st->mtx);
-        /* Widen the coalescing window, exactly as the §9 cookie-refresh test
-         * does — without it the leader can finish before a follower arrives and
-         * the test would pass for the wrong reason. */
+        if (expect > 0) {
+            /* Bounded at ~10s, so a genuine regression fails the assertion
+             * rather than hanging the suite until the job times out. */
+            for (int waited = 0; waited < 10000; waited++) {
+                pthread_mutex_lock(&st->mtx);
+                int arrived = st->gate_arrived;
+                pthread_mutex_unlock(&st->mtx);
+                if (arrived >= expect) break;
+                usleep(1000);
+            }
+        }
+        /* Slack on top of the gate, for a worker that has entered the operation
+         * but not yet parked on the guard. */
         usleep(60 * 1000);
         if (refuse) {
             resp_fill(resp, 400, "{\"error\":\"invalid_grant\"}", NULL);
@@ -127,11 +158,20 @@ void setUp(void) {
 }
 void tearDown(void) { pthread_mutex_destroy(&g.mtx); }
 
+/* Signal that this worker has entered the operation under test — see
+ * sf_state_t::gate_expect. */
+static void sf_gate_arrive(void) {
+    pthread_mutex_lock(&g.mtx);
+    g.gate_arrived++;
+    pthread_mutex_unlock(&g.mtx);
+}
+
 /* Every worker presents the SAME refresh token. */
 static void *same_token_worker(void *arg) {
     (void)arg;
     axiam_sensitive_t *token = axiam_sensitive_new("the-one-refresh-token");
     pthread_barrier_wait(&g_barrier);
+    sf_gate_arrive();
     axiam_error_t err;
     axiam_oidc_token_set_t set;
     axiam_error_kind_t k = axiam_oidc_refresh(g_client, token, NULL, NULL, &set, &err);
@@ -153,6 +193,7 @@ static void *failing_worker(void *arg) {
     (void)arg;
     axiam_sensitive_t *token = axiam_sensitive_new("the-spent-refresh-token");
     pthread_barrier_wait(&g_barrier);
+    sf_gate_arrive();
     axiam_error_t err;
     axiam_oidc_token_set_t set;
     axiam_error_kind_t k = axiam_oidc_refresh(g_client, token, NULL, NULL, &set, &err);
@@ -169,6 +210,7 @@ static void *distinct_token_worker(void *arg) {
     snprintf(value, sizeof(value), "refresh-token-%d", (int)(intptr_t)arg);
     axiam_sensitive_t *token = axiam_sensitive_new(value);
     pthread_barrier_wait(&g_barrier);
+    sf_gate_arrive();
     axiam_error_t err;
     axiam_oidc_token_set_t set;
     axiam_error_kind_t k = axiam_oidc_refresh(g_client, token, NULL, NULL, &set, &err);
@@ -178,6 +220,10 @@ static void *distinct_token_worker(void *arg) {
 }
 
 static void run_workers(void *(*fn)(void *)) {
+    pthread_mutex_lock(&g.mtx);
+    g.gate_expect = N_THREADS;
+    g.gate_arrived = 0;
+    pthread_mutex_unlock(&g.mtx);
     pthread_barrier_init(&g_barrier, NULL, N_THREADS);
     pthread_t th[N_THREADS];
     for (int i = 0; i < N_THREADS; i++)
@@ -188,6 +234,9 @@ static void run_workers(void *(*fn)(void *)) {
         TEST_ASSERT_EQUAL_INT(0, (int)(intptr_t)r);
     }
     pthread_barrier_destroy(&g_barrier);
+    pthread_mutex_lock(&g.mtx);
+    g.gate_expect = 0;
+    pthread_mutex_unlock(&g.mtx);
 }
 
 void test_concurrent_refreshes_of_one_token_make_exactly_one_wire_call(void) {

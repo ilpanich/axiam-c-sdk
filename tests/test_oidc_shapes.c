@@ -347,6 +347,7 @@ void test_null_entries_in_the_scope_list_are_skipped(void) {
     axiam_sensitive_t *subject = axiam_sensitive_new("s");
     const char *scopes[] = {"read", NULL, "write"};
     axiam_token_exchange_params_t p = {0};
+    p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     p.subject_token = subject;
     p.scopes = scopes;
     p.scope_count = 3;
@@ -598,6 +599,7 @@ void test_every_operation_tolerates_a_null_error_out_parameter(void) {
         axiam_device_login(c, NULL, NULL, NULL, NULL, &set, NULL));
 
     axiam_token_exchange_params_t xp = {0};
+    xp.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
     xp.subject_token = tok;
     TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_token_exchange(c, &xp, &xt, NULL));
     TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_verify_logout_token(c, "a.b.c", &vl, NULL));
