@@ -11,7 +11,7 @@ Identity and Authorization Management). It provides authentication, token
 refresh, and authorization checks over the AXIAM REST API, plus a
 framework-agnostic route guard and declarative authorization helpers.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and §20 (including §6.1 mTLS, §12.7 logout, and the §11 rule 9 decision reason codes).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and §20, §21 (including §6.1 mTLS, §12.7 logout, and the §11 rule 9 decision reason codes).**
 >
 > gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
