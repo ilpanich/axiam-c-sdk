@@ -561,26 +561,40 @@ axiam_error_kind_t axiam_jwt_verify_certificate_binding(
  * is `static` to that translation unit — duplicating twelve lines beats
  * widening an internal helper's linkage across the library.
  *
- * A 32-byte digest encodes to exactly 43 characters. */
-static char *thumbprint_b64url(const unsigned char *data, size_t len) {
+ * Specialised to a 32-byte SHA-256 digest — which encodes to exactly 43
+ * characters — rather than written as a general encoder.
+ *
+ * That is deliberate. The only caller is the x5t#S256 thumbprint, so `len % 3
+ * == 2` is invariant, and a general encoder's "one trailing byte" branch would
+ * be PERMANENTLY unreachable: dead code that a branch-coverage gate correctly
+ * declines to count as covered, and that no test could ever honestly reach.
+ * Fixing the size removes every conditional from the hot loop as a bonus. */
+#define THUMBPRINT_DIGEST_LEN 32u
+#define THUMBPRINT_B64URL_LEN 43u
+
+static char *thumbprint_b64url(const unsigned char digest[THUMBPRINT_DIGEST_LEN]) {
     static const char alphabet[] =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    size_t out_len = (len * 4 + 2) / 3;
-    char *out = malloc(out_len + 1);
+
+    char *out = malloc(THUMBPRINT_B64URL_LEN + 1);
     if (!out) return NULL;
 
     size_t o = 0;
-    for (size_t i = 0; i < len; i += 3) {
-        unsigned v = (unsigned)data[i] << 16;
-        size_t remaining = len - i;
-        if (remaining > 1) v |= (unsigned)data[i + 1] << 8;
-        if (remaining > 2) v |= (unsigned)data[i + 2];
-
+    /* 30 of the 32 bytes are ten whole 3-byte groups -> 40 characters. */
+    for (size_t i = 0; i < 30; i += 3) {
+        unsigned v = ((unsigned)digest[i] << 16) | ((unsigned)digest[i + 1] << 8) |
+                     (unsigned)digest[i + 2];
         out[o++] = alphabet[(v >> 18) & 0x3f];
         out[o++] = alphabet[(v >> 12) & 0x3f];
-        if (remaining > 1) out[o++] = alphabet[(v >> 6) & 0x3f];
-        if (remaining > 2) out[o++] = alphabet[v & 0x3f];
+        out[o++] = alphabet[(v >> 6) & 0x3f];
+        out[o++] = alphabet[v & 0x3f];
     }
+    /* The trailing 2 bytes -> 3 characters, and no '=' padding. */
+    unsigned v = ((unsigned)digest[30] << 16) | ((unsigned)digest[31] << 8);
+    out[o++] = alphabet[(v >> 18) & 0x3f];
+    out[o++] = alphabet[(v >> 12) & 0x3f];
+    out[o++] = alphabet[(v >> 6) & 0x3f];
+
     out[o] = '\0';
     return out;
 }
@@ -596,6 +610,6 @@ char *axiam_certificate_thumbprint_s256(const unsigned char *der,
              EVP_DigestUpdate(ctx, der, der_len) == 1 &&
              EVP_DigestFinal_ex(ctx, digest, &len) == 1;
     EVP_MD_CTX_free(ctx);
-    if (!ok || len != 32) return NULL;  /* SHA-256 is 32 bytes */
-    return thumbprint_b64url(digest, len);
+    if (!ok || len != THUMBPRINT_DIGEST_LEN) return NULL;
+    return thumbprint_b64url(digest);
 }

@@ -119,6 +119,36 @@ static void test_thumbprint_null_der_is_null(void) {
     TEST_ASSERT_NULL(axiam_certificate_thumbprint_s256(NULL, 0));
 }
 
+/*
+ * A JSON `null` cnf reads as ABSENT, not as an unverifiable constraint: a
+ * serializer that emits nulls for missing fields must not turn every token
+ * into a rejection.
+ */
+static void test_null_cnf_reads_as_unbound(void) {
+    axiam_error_t err = {0};
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      axiam_jwt_verify_certificate_binding(
+                          "{\"sub\":\"u\",\"cnf\":null}", NULL, &err));
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      axiam_jwt_verify_certificate_binding(
+                          "{\"sub\":\"u\",\"cnf\":null}", TP, &err));
+}
+
+/*
+ * A presented thumbprint of the WRONG LENGTH must be refused by the
+ * length short-circuit rather than by the byte loop. Both fixtures above are
+ * 43 characters, so without this case that branch is never taken.
+ */
+static void test_wrong_length_thumbprint_is_refused(void) {
+    axiam_error_t err = {0};
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      axiam_jwt_verify_certificate_binding(BOUND, "short", &err));
+    TEST_ASSERT_EQUAL(
+        AXIAM_ERR_AUTH,
+        axiam_jwt_verify_certificate_binding(
+            BOUND, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cMxxxxxxxx", &err));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_unbound_token_accepted_with_or_without_a_certificate);
@@ -129,5 +159,7 @@ int main(void) {
     RUN_TEST(test_malformed_inputs_fail_closed);
     RUN_TEST(test_thumbprint_is_unpadded_base64url);
     RUN_TEST(test_thumbprint_null_der_is_null);
+    RUN_TEST(test_null_cnf_reads_as_unbound);
+    RUN_TEST(test_wrong_length_thumbprint_is_refused);
     return UNITY_END();
 }
