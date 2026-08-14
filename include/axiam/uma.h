@@ -244,8 +244,9 @@ typedef struct axiam_uma_exchange_params {
  *    is a security rule rather than a performance one: the ticket is consumed
  *    BEFORE the request is evaluated, so a failed exchange has already spent
  *    it, and a retry is a second redemption — exactly the concurrent redemption
- *    whose measured residual ilpanich/axiam#302 records. The property holds
- *    structurally: this call never enters the §16 retry loop.
+ *    a server whose storage engine this SDK cannot attest may admit twice
+ *    (ilpanich/axiam#302). The property holds structurally: this call never
+ *    enters the §16 retry loop.
  *  - No defaulted claim_token (rule 2). Defaulting it to the resource server's
  *    own PAT would mint an RPT for the resource server rather than for the
  *    user. An absent one is refused client-side, with no wire call, so a
