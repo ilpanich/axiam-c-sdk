@@ -53,6 +53,8 @@ axiam_add_test(test_util_branches test_util_branches.c)
 axiam_add_test(test_json_build test_json_build.c)
 
 # Crypto-dependent tests link the JWT fixture.
+axiam_add_test(test_rule9_binding test_rule9_binding.c)
+
 add_executable(test_jwks test_jwks.c)
 target_include_directories(test_jwks PRIVATE ${AXIAM_TEST_INCLUDES})
 target_link_libraries(test_jwks PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)

@@ -463,3 +463,139 @@ static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
     else free(claims);
     return AXIAM_OK;
 }
+
+/* ------------------------------------------------------------------------
+ * CONTRACT.md §10.1 rule 9 — sender-constrained (certificate-bound) tokens
+ * (contract 1.15, RFC 8705 §3 / RFC 7800).
+ *
+ * A token carrying `cnf` is NOT a bearer token. Accepting one without proving
+ * the caller holds the named key converts it straight back into one,
+ * discarding the whole protection the operator turned on — which is why this
+ * is a rule and not a recommendation.
+ * ---------------------------------------------------------------------- */
+
+/* Constant-time string comparison.
+ *
+ * The thumbprint is usually public — it derives from a certificate sent in the
+ * clear during the handshake — so this is defence in depth. It matters most
+ * for a self-signed client, where the registered thumbprint is the whole
+ * credential. Length inequality short-circuits, leaking only the length; both
+ * operands are fixed-length base64url SHA-256 digests when well-formed. */
+static int ct_streq(const char *a, const char *b) {
+    size_t la = strlen(a), lb = strlen(b);
+    if (la != lb) return 0;
+    unsigned char diff = 0;
+    for (size_t i = 0; i < la; i++)
+        diff |= (unsigned char)a[i] ^ (unsigned char)b[i];
+    return diff == 0;
+}
+
+axiam_error_kind_t axiam_jwt_verify_certificate_binding(
+    const char *claims_json, const char *presented_thumbprint,
+    axiam_error_t *err) {
+    if (!claims_json) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "no claims to check");
+        return AXIAM_ERR_AUTH;
+    }
+
+    cJSON *root = cJSON_Parse(claims_json);
+    if (!root) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token claims");
+        return AXIAM_ERR_AUTH;
+    }
+
+    const cJSON *cnf = cJSON_GetObjectItemCaseSensitive(root, "cnf");
+    if (!cnf || cJSON_IsNull(cnf)) {
+        /* An ordinary bearer token. Accepted with or without a certificate —
+         * rule 9 constrains tokens that CLAIM a constraint; it does not make
+         * certificates mandatory, and treating it otherwise would break every
+         * deployment that does not use mTLS. */
+        cJSON_Delete(root);
+        return AXIAM_OK;
+    }
+
+    if (!cJSON_IsObject(cnf)) {
+        cJSON_Delete(root);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "token cnf claim is malformed");
+        return AXIAM_ERR_AUTH;
+    }
+
+    const cJSON *x5t = cJSON_GetObjectItemCaseSensitive(cnf, "x5t#S256");
+    if (!cJSON_IsString(x5t) || !x5t->valuestring || !x5t->valuestring[0]) {
+        /* A confirmation naming a method this SDK cannot check — a DPoP `jkt`,
+         * say. That is an UNVERIFIABLE constraint, never NO constraint. Read
+         * the other way, a sender-constrained token silently degrades to a
+         * bearer token the day a newer AXIAM issues a confirmation this SDK
+         * predates. Fail closed. */
+        cJSON_Delete(root);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "token carries a cnf confirmation naming a method this "
+                        "SDK cannot verify");
+        return AXIAM_ERR_AUTH;
+    }
+
+    if (!presented_thumbprint || !presented_thumbprint[0]) {
+        cJSON_Delete(root);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "token is certificate-bound but no client certificate "
+                        "was presented");
+        return AXIAM_ERR_AUTH;
+    }
+
+    int ok = ct_streq(x5t->valuestring, presented_thumbprint);
+    cJSON_Delete(root);
+    if (!ok) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "token is bound to a different client certificate than "
+                        "the one presented");
+        return AXIAM_ERR_AUTH;
+    }
+    return AXIAM_OK;
+}
+
+/* Base64URL WITHOUT padding (RFC 4648 §5 alphabet, RFC 7515 §2 rules).
+ *
+ * Unpadded is not a style choice: RFC 7515 §2 defines base64url in JOSE as
+ * omitting `=`, and a padded value will not compare equal to what AXIAM put in
+ * the token. Written here rather than reused from oidc.c's PKCE helper, which
+ * is `static` to that translation unit — duplicating twelve lines beats
+ * widening an internal helper's linkage across the library.
+ *
+ * A 32-byte digest encodes to exactly 43 characters. */
+static char *thumbprint_b64url(const unsigned char *data, size_t len) {
+    static const char alphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    size_t out_len = (len * 4 + 2) / 3;
+    char *out = malloc(out_len + 1);
+    if (!out) return NULL;
+
+    size_t o = 0;
+    for (size_t i = 0; i < len; i += 3) {
+        unsigned v = (unsigned)data[i] << 16;
+        size_t remaining = len - i;
+        if (remaining > 1) v |= (unsigned)data[i + 1] << 8;
+        if (remaining > 2) v |= (unsigned)data[i + 2];
+
+        out[o++] = alphabet[(v >> 18) & 0x3f];
+        out[o++] = alphabet[(v >> 12) & 0x3f];
+        if (remaining > 1) out[o++] = alphabet[(v >> 6) & 0x3f];
+        if (remaining > 2) out[o++] = alphabet[v & 0x3f];
+    }
+    out[o] = '\0';
+    return out;
+}
+
+char *axiam_certificate_thumbprint_s256(const unsigned char *der,
+                                        size_t der_len) {
+    if (!der) return NULL;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (!ctx) return NULL;
+    int ok = EVP_DigestInit_ex(ctx, EVP_sha256(), NULL) == 1 &&
+             EVP_DigestUpdate(ctx, der, der_len) == 1 &&
+             EVP_DigestFinal_ex(ctx, digest, &len) == 1;
+    EVP_MD_CTX_free(ctx);
+    if (!ok || len != 32) return NULL;  /* SHA-256 is 32 bytes */
+    return thumbprint_b64url(digest, len);
+}

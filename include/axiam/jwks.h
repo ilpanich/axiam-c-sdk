@@ -20,6 +20,8 @@
 #ifndef AXIAM_JWKS_H
 #define AXIAM_JWKS_H
 
+#include <stddef.h>  /* size_t, for the §10.1 rule 9 thumbprint helper */
+
 #include "axiam/client.h"
 #include "axiam/error.h"
 
@@ -98,6 +100,63 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client,
                                        unsigned flags,
                                        char **out_claims_json,
                                        axiam_error_t *err);
+
+/**
+ * CONTRACT.md §10.1 rule 9 — enforce a token's sender constraint against the
+ * certificate the caller presented on THIS connection (RFC 8705 §3 / RFC 7800,
+ * contract 1.15).
+ *
+ * A token carrying `cnf` is NOT a bearer token. Accepting one without proving
+ * the caller holds the named key converts it straight back into one,
+ * discarding the whole protection the operator turned on.
+ *
+ * `claims_json` is the payload axiam_jwt_verify() handed back.
+ * `presented_thumbprint` is the RFC 8705 §3.1 `x5t#S256` of the peer
+ * certificate on this connection, or NULL when there is none;
+ * axiam_certificate_thumbprint_s256() computes it from DER bytes.
+ *
+ *   token's cnf              presented              result
+ *   absent                   anything               AXIAM_OK (a bearer token)
+ *   x5t#S256                 equal                  AXIAM_OK
+ *   x5t#S256                 different, or NULL     AXIAM_ERR_AUTH
+ *   present, no x5t#S256     anything               AXIAM_ERR_AUTH
+ *
+ * The first row is why adopting this rule breaks nothing: an UNBOUND token is
+ * still accepted whether or not a certificate is present. Rule 9 constrains
+ * tokens that claim a constraint; it does not make certificates mandatory.
+ *
+ * The last row is the one that is easy to get wrong. A `cnf` naming a
+ * confirmation method this SDK cannot check is an UNVERIFIABLE constraint,
+ * never NO constraint — read the other way, a sender-constrained token
+ * silently degrades to a bearer token the day a newer AXIAM issues a
+ * confirmation this SDK predates.
+ *
+ * The thumbprint must come from the transport — SSL_get_peer_certificate() and
+ * i2d_X509(), or a value a TRUSTED terminating proxy forwarded over a channel
+ * the application controls. Never from a caller-settable request header: a
+ * forgeable input makes the whole mechanism decorative.
+ *
+ * axiam_jwt_verify() deliberately does NOT apply this rule: it has no
+ * transport to ask. A resource server accepting bound tokens must call both.
+ */
+axiam_error_kind_t axiam_jwt_verify_certificate_binding(
+    const char *claims_json,
+    const char *presented_thumbprint,
+    axiam_error_t *err);
+
+/**
+ * Compute the RFC 8705 §3.1 `x5t#S256` thumbprint of a DER client
+ * certificate: base64url-encoded SHA-256, WITHOUT padding.
+ *
+ * Unpadded is not a style choice — RFC 7515 §2 defines base64url in JOSE as
+ * omitting `=`, and a padded value will not compare equal to what AXIAM put in
+ * the token.
+ *
+ * Returns a heap string the caller frees with free(), or NULL on allocation or
+ * digest failure.
+ */
+char *axiam_certificate_thumbprint_s256(const unsigned char *der,
+                                        size_t der_len);
 
 #ifdef __cplusplus
 }
