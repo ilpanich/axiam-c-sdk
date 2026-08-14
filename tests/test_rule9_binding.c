@@ -7,6 +7,7 @@
  * matters most: rule 9 must not become "every caller must present a
  * certificate", which would break every deployment that does not use mTLS.
  */
+#include <stdlib.h>  /* free() for the heap thumbprint */
 #include <string.h>
 
 #include "axiam/axiam.h"
