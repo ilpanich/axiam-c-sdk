@@ -7,6 +7,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Fixed
+
+- **CONTRACT.md §10.1 rule 9 conjunction fix, and the §21.7.3 declining posture
+  documented (contract 1.16).**
+
+  A `cnf` naming **both** a certificate and a DPoP `jkt` was previously accepted
+  on the matching certificate alone, ignoring the `jkt` entirely. Two named
+  constraints are a **conjunction**, and this SDK declines §21.7.2 proof
+  verification — so it can establish one half and must not answer for the whole.
+  Such a token is now refused. The old behaviour would let a caller holding the
+  certificate but **not** the DPoP key through a door the operator bolted twice.
+
+  Pure `jkt`-bound tokens were already refused and remain so. The README now
+  documents the declining posture, completing §21.7.3's three obligations
+  (reject, document, test).
+
+  Not a breaking change for certificate-only deployments: a token naming only
+  `x5t#S256` behaves exactly as before, and an unbound token is still accepted
+  with or without a certificate.
+
 ### Added
 
 - **CONTRACT.md §10.1 rule 9 — sender-constrained (certificate-bound) access tokens**

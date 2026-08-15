@@ -26,6 +26,11 @@ static const char *BOUND =
 static const char *DPOPISH =
     "{\"sub\":\"u\",\"tenant_id\":\"t\",\"exp\":9999999999,"
     "\"cnf\":{\"jkt\":\"0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I\"}}";
+/* A cnf naming BOTH methods — a conjunction this SDK can only half-check. */
+static const char *BOTH_BOUND =
+    "{\"sub\":\"u\",\"tenant_id\":\"t\",\"exp\":9999999999,"
+    "\"cnf\":{\"x5t#S256\":\"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM\","
+    "\"jkt\":\"0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I\"}}";
 
 void setUp(void) {}
 void tearDown(void) {}
@@ -149,6 +154,26 @@ static void test_wrong_length_thumbprint_is_refused(void) {
             BOUND, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cMxxxxxxxx", &err));
 }
 
+/*
+ * A `cnf` naming BOTH a certificate and a DPoP key is a CONJUNCTION (contract
+ * 1.16): both constraints must hold. This SDK declines §21.7.2 proof
+ * verification (§21.9), so it can establish one half and must not answer for
+ * the whole.
+ *
+ * The regression this guards: accepting on the matching certificate alone —
+ * "check whichever we can" — would let a caller holding the certificate but
+ * NOT the DPoP key through a door the operator bolted twice.
+ */
+static void test_both_bound_token_is_refused_even_with_the_right_certificate(void) {
+    axiam_error_t err = {0};
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      axiam_jwt_verify_certificate_binding(BOTH_BOUND, TP, &err));
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      axiam_jwt_verify_certificate_binding(BOTH_BOUND, NULL, &err));
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      axiam_jwt_verify_certificate_binding(BOTH_BOUND, OTHER_TP, &err));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_unbound_token_accepted_with_or_without_a_certificate);
@@ -161,5 +186,6 @@ int main(void) {
     RUN_TEST(test_thumbprint_null_der_is_null);
     RUN_TEST(test_null_cnf_reads_as_unbound);
     RUN_TEST(test_wrong_length_thumbprint_is_refused);
+    RUN_TEST(test_both_bound_token_is_refused_even_with_the_right_certificate);
     return UNITY_END();
 }

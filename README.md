@@ -440,6 +440,35 @@ Worked examples: [`examples/oidc_login.c`](examples/oidc_login.c),
 [`examples/device_login.c`](examples/device_login.c),
 [`examples/token_exchange.c`](examples/token_exchange.c).
 
+### Sender-constrained tokens and DPoP (§10.1 rule 9, §21.7.3)
+
+A token carrying a `cnf` claim is **not** a bearer token: it names a key, and
+accepting it without proving the caller holds that key converts it straight
+back into one. ``axiam_jwt_verify_certificate_binding()`` applies §10.1 rule 9.
+
+**This SDK deliberately declines §21.7.2 DPoP proof verification** (recorded in
+the contract's §21.9 per-SDK table). Its role here is resource-server-side
+validation, and it ships no JOSE implementation covering PS256/ES256/EdDSA that
+could verify a proof without adding a dependency this contract does not
+otherwise require.
+
+Declining is a supported answer, and §21.7.3 defines it as exactly three
+obligations — all three are met here:
+
+1. **`jkt`-bound tokens are rejected**, never accepted as bearer tokens. That
+   includes a `cnf` naming **both** a certificate and a DPoP key: two
+   constraints is a conjunction, so a token this SDK can only half-check is
+   refused outright rather than admitted on the certificate alone. "Check
+   whichever we can" would let a caller holding the certificate but not the
+   DPoP key through a door the operator bolted twice.
+2. **This section says so** — you are reading it.
+3. **The negative tests are present**: see ``tests/test_rule9_binding.c``.
+
+What declining does *not* mean is shipping a stub that reports "verified". If
+your deployment issues DPoP-bound tokens, guard those endpoints with an SDK
+whose §21.9 row says it verifies proofs (Rust, Go, Python, TypeScript, …), or
+verify the proof ahead of this SDK and pass only the certificate half here.
+
 ### §15.7 — external-IdP subject tokens
 
 The same call exchanges a token minted by a **trusted external IdP** — a

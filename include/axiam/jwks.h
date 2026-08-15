@@ -111,6 +111,11 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client,
  * discarding the whole protection the operator turned on.
  *
  * `claims_json` is the payload axiam_jwt_verify() handed back.
+ * The last two rows are the §21.7.3 declining posture (§21.9): this SDK does
+ * not verify DPoP proofs, so a `jkt`-bound token is REFUSED rather than
+ * accepted as a bearer token. A `cnf` naming BOTH methods is a conjunction —
+ * this function can establish one half and must not answer for the whole.
+ *
  * `presented_thumbprint` is the RFC 8705 §3.1 `x5t#S256` of the peer
  * certificate on this connection, or NULL when there is none;
  * axiam_certificate_thumbprint_s256() computes it from DER bytes.
@@ -119,6 +124,8 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client,
  *   absent                   anything               AXIAM_OK (a bearer token)
  *   x5t#S256                 equal                  AXIAM_OK
  *   x5t#S256                 different, or NULL     AXIAM_ERR_AUTH
+ *   x5t#S256 AND jkt         anything               AXIAM_ERR_AUTH
+ *   jkt only                 anything               AXIAM_ERR_AUTH
  *   present, no x5t#S256     anything               AXIAM_ERR_AUTH
  *
  * The first row is why adopting this rule breaks nothing: an UNBOUND token is
