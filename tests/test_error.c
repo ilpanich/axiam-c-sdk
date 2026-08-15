@@ -71,6 +71,22 @@ static void test_kind_str_unknown_default(void) {
     TEST_ASSERT_EQUAL_STRING("unknown", axiam_error_kind_str((axiam_error_kind_t)999));
 }
 
+/* src/error.c:7 — `status >= 200 && status < 300`. Every existing case has
+ * status >= 200; a sub-200 status never exercised the first operand's false
+ * arm at all. */
+static void test_status_mapping_below_200(void) {
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_error_kind_from_http_status(100));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_error_kind_from_http_status(0));
+}
+
+/* src/error.c:17 — `status >= 500 && status < 600`. Every existing case is
+ * either < 500 or inside [500,600); nothing exercises "500 or above, but not
+ * in that range" (the second operand's false arm). */
+static void test_status_mapping_above_599(void) {
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_error_kind_from_http_status(600));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_error_kind_from_http_status(700));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_status_mapping);
@@ -80,5 +96,7 @@ int main(void) {
     RUN_TEST(test_status_mapping_redirect_fallthrough);
     RUN_TEST(test_set_with_null_message);
     RUN_TEST(test_kind_str_unknown_default);
+    RUN_TEST(test_status_mapping_below_200);
+    RUN_TEST(test_status_mapping_above_599);
     return UNITY_END();
 }

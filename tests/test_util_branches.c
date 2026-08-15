@@ -65,6 +65,40 @@ static void test_http_response_dispose_null(void) {
     axiam_http_response_dispose(NULL); /* must not crash */
 }
 
+static void test_secure_zero_null(void) {
+    axiam_secure_zero(NULL, 8); /* src/util.c:27, false arm never exercised elsewhere */
+}
+
+/* --- axiam_url_is_secure (src/config.c only reaches it with a non-NULL,
+ * non-empty base_url, so a handful of its own edge cases — a NULL argument,
+ * an empty authority, an unterminated IPv6 literal, a same-length-but-wrong
+ * scheme — are never exercised through that caller and are covered directly
+ * here instead, via internal.h. */
+
+static void test_url_is_secure_null(void) {
+    TEST_ASSERT_EQUAL_INT(0, axiam_url_is_secure(NULL));
+}
+
+static void test_url_is_secure_five_char_scheme_that_is_not_https(void) {
+    /* src/util.c:54 — scheme_len == 5 but strncasecmp() against "https"
+     * fails, so the compound condition's second operand actually runs and
+     * returns false, rather than short-circuiting on the length check alone. */
+    TEST_ASSERT_EQUAL_INT(0, axiam_url_is_secure("httpx://iam.example.com"));
+}
+
+static void test_url_is_secure_empty_authority(void) {
+    /* src/util.c:73 — host_len == 0, so the IPv6-bracket check's first
+     * operand is false and the second is never evaluated. */
+    TEST_ASSERT_EQUAL_INT(0, axiam_url_is_secure("http://"));
+    TEST_ASSERT_EQUAL_INT(0, axiam_url_is_secure("http://:8080"));
+}
+
+static void test_url_is_secure_unterminated_ipv6_literal(void) {
+    /* src/util.c:74-75 — host starts with '[' but no ']' ever appears, so
+     * `close` is NULL and the bracket is NOT stripped from host_len. */
+    TEST_ASSERT_EQUAL_INT(0, axiam_url_is_secure("http://[::1"));
+}
+
 /* --- axiam_b64url_decode --- */
 
 static void test_b64url_decode_null_input(void) {
@@ -141,6 +175,52 @@ static void test_b64url_decode_dash_and_underscore_alphabet(void) {
     free(out);
 }
 
+static void test_b64url_decode_lowercase_alphabet(void) {
+    /* b64url_val's 'a'-'z' arm (src/util.c:130) — every prior test used only
+     * uppercase, digits, '-' and '_'. */
+    size_t out_len = 0;
+    unsigned char *out = axiam_b64url_decode("abcd", 4, &out_len);
+    TEST_ASSERT_NOT_NULL(out);
+    TEST_ASSERT_EQUAL_UINT(3, out_len);
+    free(out);
+}
+
+static void test_b64url_decode_empty_string(void) {
+    /* src/util.c:140 — the padding-strip while loop's own false arm: an
+     * empty (non-NULL) input never enters the loop at all. */
+    size_t out_len = 999;
+    unsigned char *out = axiam_b64url_decode("", 0, &out_len);
+    TEST_ASSERT_NOT_NULL(out);
+    TEST_ASSERT_EQUAL_UINT(0, out_len);
+    free(out);
+}
+
+static void test_b64url_decode_invalid_char_each_operand_full_block(void) {
+    /* src/util.c:154 — `a<0 || b<0 || c<0 || d<0` for a full 4-char block.
+     * The existing suite only ever fails on the THIRD char; independently
+     * fail on the first, second and fourth so every `||` operand is actually
+     * evaluated and taken at least once. */
+    size_t out_len = 0;
+    TEST_ASSERT_NULL(axiam_b64url_decode("!BCD", 4, &out_len)); /* a<0 */
+    TEST_ASSERT_NULL(axiam_b64url_decode("A!CD", 4, &out_len)); /* b<0 */
+    TEST_ASSERT_NULL(axiam_b64url_decode("ABC!", 4, &out_len)); /* d<0 */
+}
+
+static void test_b64url_decode_invalid_char_each_operand_remainder_two(void) {
+    /* src/util.c:164 — `a<0 || b<0` for the 2-char tail. The existing test
+     * fails on 'a', short-circuiting before 'b' is ever checked. */
+    size_t out_len = 0;
+    TEST_ASSERT_NULL(axiam_b64url_decode("ABCDA!", 6, &out_len)); /* b<0 */
+}
+
+static void test_b64url_decode_invalid_char_each_operand_remainder_three(void) {
+    /* src/util.c:171 — `a<0 || b<0 || c<0` for the 3-char tail. The existing
+     * test fails on 'a'; cover 'b' and 'c' too. */
+    size_t out_len = 0;
+    TEST_ASSERT_NULL(axiam_b64url_decode("ABCDA!A", 7, &out_len)); /* b<0 */
+    TEST_ASSERT_NULL(axiam_b64url_decode("ABCDAA!", 7, &out_len)); /* c<0 */
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_strdup0_null);
@@ -151,6 +231,11 @@ int main(void) {
     RUN_TEST(test_kv_append_null_key_is_noop);
     RUN_TEST(test_kv_append_null_value_stored_as_empty_string);
     RUN_TEST(test_http_response_dispose_null);
+    RUN_TEST(test_secure_zero_null);
+    RUN_TEST(test_url_is_secure_null);
+    RUN_TEST(test_url_is_secure_five_char_scheme_that_is_not_https);
+    RUN_TEST(test_url_is_secure_empty_authority);
+    RUN_TEST(test_url_is_secure_unterminated_ipv6_literal);
     RUN_TEST(test_b64url_decode_null_input);
     RUN_TEST(test_b64url_decode_strips_padding);
     RUN_TEST(test_b64url_decode_invalid_length_remainder_one);
@@ -160,5 +245,10 @@ int main(void) {
     RUN_TEST(test_b64url_decode_valid_remainder_two_and_three);
     RUN_TEST(test_b64url_decode_null_out_len);
     RUN_TEST(test_b64url_decode_dash_and_underscore_alphabet);
+    RUN_TEST(test_b64url_decode_lowercase_alphabet);
+    RUN_TEST(test_b64url_decode_empty_string);
+    RUN_TEST(test_b64url_decode_invalid_char_each_operand_full_block);
+    RUN_TEST(test_b64url_decode_invalid_char_each_operand_remainder_two);
+    RUN_TEST(test_b64url_decode_invalid_char_each_operand_remainder_three);
     return UNITY_END();
 }
