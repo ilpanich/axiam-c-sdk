@@ -521,6 +521,18 @@ Out of scope for v1.0, tracked as follow-ups:
   surface is transport-agnostic and can gain a gRPC dispatcher later.
 - **§8 AMQP HMAC consumer.** The contract's §8 AMQP obligations do not list C
   among the required consumer languages; no AMQP surface is shipped.
+- **§22 reactor runtime.** No `reactor_serve` here, for the same reason: §22.11
+  defers the *runtime helper* on Swift, C and C++ because there is no vendorable
+  AMQP client for these targets. **That is a scope decision about the helper, not
+  a statement that reactors are unavailable to you.** §22.1–§22.8 is a wire
+  protocol, so an integrator hand-rolling a reactor against a third-party AMQP
+  client MUST satisfy every normative rule in it — the §8 v2 verification set on
+  the event, the signed reply shape with its omission rules (note that
+  `hmac_signature` serializes as **`null`** inside a reactor body rather than
+  being omitted as it is in §8's own two message types), the per-event
+  mutable-field allow-lists, and §22.7's hot-path exclusion. The §22.13 vectors
+  are the conformance surface and need no SDK to run against. Read
+  [§22 and §22.11 of `CONTRACT.md`](CONTRACT.md) before writing one.
 - **The optional `OidcStateStore`** (§12.3 rule 1). The core §12 operations are
   usable without one and the store is a MAY; a C reference implementation with
   the mandated 10-minute TTL, single-use `consume`, and lazy (never
