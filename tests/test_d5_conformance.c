@@ -384,6 +384,42 @@ static void test_which_failures_retry(void) {
     TEST_ASSERT_EQUAL_INT(0, axiam_retry_should_retry(0, 400));
     TEST_ASSERT_EQUAL_INT(0, axiam_retry_should_retry(0, 404));
     TEST_ASSERT_EQUAL_INT(0, axiam_retry_should_retry(0, 409));
+    /* src/retry.c:59 — `status >= 500 && status <= 599`. 599 already covers
+     * the upper INCLUSIVE bound; 600 covers the true-then-false arm the
+     * existing cases never reach (every non-5xx case here is < 500). */
+    TEST_ASSERT_EQUAL_INT(0, axiam_retry_should_retry(0, 600));
+}
+
+static void test_retry_after_header_edge_cases(void) {
+    /* src/retry.c:80 — `errno != 0` (ERANGE on overflow); a delta-seconds
+     * value too large for `long` sets errno without strtol otherwise
+     * refusing the string. */
+    TEST_ASSERT_EQUAL_INT(-1, axiam_retry_after_ms("99999999999999999999999999999999"));
+    /* src/retry.c:98 — an HTTP-date more than an hour out clamps rather than
+     * being honoured verbatim (mirrors the delta-seconds clamp already
+     * covered by "999999" in test_retry_after_header_parsing). */
+    time_t far_future = time(NULL) + 7200;
+    struct tm gm;
+    gmtime_r(&far_future, &gm);
+    char header[64];
+    strftime(header, sizeof(header), "%a, %d %b %Y %H:%M:%S GMT", &gm);
+    TEST_ASSERT_EQUAL_INT(3600000, axiam_retry_after_ms(header));
+}
+
+static void test_default_sleep_and_jitter_and_clock(void) {
+    /* src/retry.c:112 — axiam_default_sleep's `ms <= 0` guard; the real
+     * nanosleep() path is exercised implicitly by every retrying test above,
+     * so only the no-op arm needs a direct call. */
+    axiam_default_sleep(NULL, 0);
+    axiam_default_sleep(NULL, -5);
+
+    unsigned int seed = 1;
+    double j = axiam_default_jitter(&seed);
+    TEST_ASSERT_TRUE(j >= 0.0 && j <= 1.0);
+
+    time_t before = time(NULL);
+    time_t now = axiam_default_clock(NULL);
+    TEST_ASSERT_TRUE(now >= before);
 }
 
 /* ------------------------------------------------------------------ */
@@ -575,6 +611,29 @@ static void test_an_entry_expires_at_the_ttl(void) {
     double until = axiam_now_ms() + 2.0;
     while (axiam_now_ms() < until) { }
     TEST_ASSERT_EQUAL_INT(0, axiam_memo_get(&m, "k", &got));
+    axiam_memo_destroy(&m);
+}
+
+/* src/memo.c:104-121 (unlink_key): every case above unlinks a list of ONE
+ * entry, so `cur` is always the head and `prev` stays NULL the whole walk
+ * (the "else" arm at :112). Expiring a NON-head entry is what reaches the
+ * `prev->next = cur->next` arm at :110. */
+static void test_expiring_a_non_head_entry_unlinks_mid_list(void) {
+    axiam_memo_t m;
+    axiam_memo_init(&m, 1); /* 1 ms TTL for both entries */
+    axiam_check_result_t stored = {1, NULL, NULL};
+    axiam_memo_put(&m, "k-head", &stored);
+    axiam_memo_put(&m, "k-second", &stored); /* insertion order: head, second */
+
+    axiam_check_result_t got;
+    memset(&got, 0, sizeof(got));
+    double until = axiam_now_ms() + 2.0;
+    while (axiam_now_ms() < until) { }
+    /* "k-second" sits at the list's TAIL, behind "k-head" — unlinking it on
+     * expiry walks past a non-matching head entry first, so `prev` is
+     * non-NULL when the match is found. */
+    TEST_ASSERT_EQUAL_INT(0, axiam_memo_get(&m, "k-second", &got));
+    TEST_ASSERT_EQUAL_INT(1, (int)axiam_memo_count(&m)); /* only k-head remains */
     axiam_memo_destroy(&m);
 }
 
@@ -807,6 +866,21 @@ static void test_an_uninstalled_dispatcher_is_inert(void) {
     axiam_telemetry_config_clamped(&t, "s", "r", "e", "ref");
 }
 
+static void noop_telemetry_hook(void *ctx, const axiam_telemetry_event_t *ev) {
+    (void)ctx;
+    (void)ev;
+}
+
+/* src/telemetry.c:21 — `!axiam_telemetry_installed(t) || !ev`. Above, `t`
+ * itself is never installed, so the first operand is already false and the
+ * second (`!ev`) is never evaluated. Here the dispatcher IS installed, so a
+ * NULL event has to be refused by the second operand instead. */
+static void test_emit_with_installed_hook_and_null_event_is_a_noop(void) {
+    axiam_telemetry_t t = {noop_telemetry_hook, NULL};
+    TEST_ASSERT_EQUAL_INT(1, axiam_telemetry_installed(&t));
+    axiam_telemetry_emit(&t, NULL); /* must not dereference NULL */
+}
+
 int main(void) {
     UNITY_BEGIN();
 
@@ -825,6 +899,8 @@ int main(void) {
     RUN_TEST(test_retry_after_accepts_an_http_date);
     RUN_TEST(test_retry_after_header_reaches_the_wait);
     RUN_TEST(test_which_failures_retry);
+    RUN_TEST(test_retry_after_header_edge_cases);
+    RUN_TEST(test_default_sleep_and_jitter_and_clock);
 
     RUN_TEST(test_the_memo_is_off_by_default);
     RUN_TEST(test_a_repeat_inside_the_ttl_makes_no_second_wire_call);
@@ -836,6 +912,7 @@ int main(void) {
     RUN_TEST(test_the_memo_evicts_rather_than_growing_without_bound);
     RUN_TEST(test_the_memo_is_cleared_on_a_credential_change);
     RUN_TEST(test_an_entry_expires_at_the_ttl);
+    RUN_TEST(test_expiring_a_non_head_entry_unlinks_mid_list);
 
     RUN_TEST(test_close_is_idempotent);
     RUN_TEST(test_close_issues_no_network_request);
@@ -849,6 +926,7 @@ int main(void) {
     RUN_TEST(test_a_clamped_setting_is_reported_not_swallowed);
     RUN_TEST(test_a_value_inside_its_limit_reports_nothing);
     RUN_TEST(test_an_uninstalled_dispatcher_is_inert);
+    RUN_TEST(test_emit_with_installed_hook_and_null_event_is_a_noop);
 
     return UNITY_END();
 }

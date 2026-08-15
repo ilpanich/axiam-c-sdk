@@ -211,3 +211,20 @@ add_test(NAME test_oidc_shapes COMMAND test_oidc_shapes)
 # Wire-level oddities in the shared request builder, plus the discovery failure
 # every one of the nine operations has to surface rather than proceed past.
 axiam_add_test(test_oidc_wire test_oidc_wire.c)
+
+# ---- Allocation-failure guards, across src/ ----
+#
+# Wraps malloc/calloc/realloc at link time (GNU ld --wrap) so tests can make
+# the Nth allocation in a call graph fail on demand and assert the guarded
+# code reports failure instead of crashing. Scoped to this ONE executable —
+# --wrap only rewrites symbol references resolved in this link, so every
+# other test binary keeps calling the real allocator untouched.
+add_executable(test_alloc_failures test_alloc_failures.c)
+target_include_directories(test_alloc_failures PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_alloc_failures PRIVATE ${AXIAM_TEST_LINK})
+target_link_options(test_alloc_failures PRIVATE
+    -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_alloc_failures PRIVATE --coverage)
+endif()
+add_test(NAME test_alloc_failures COMMAND test_alloc_failures)
