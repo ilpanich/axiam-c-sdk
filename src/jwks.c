@@ -534,6 +534,23 @@ axiam_error_kind_t axiam_jwt_verify_certificate_binding(
         return AXIAM_ERR_AUTH;
     }
 
+    /* A `cnf` naming BOTH a certificate and a DPoP key is a CONJUNCTION
+     * (contract 1.16): both constraints must hold. This SDK declines §21.7.2
+     * proof verification, so it can establish one half and must not answer for
+     * the whole — accepting on the certificate alone is exactly the "check
+     * whichever we can" the rule forbids, and it would let a caller holding
+     * the certificate but NOT the DPoP key through a door the operator bolted
+     * twice. */
+    const cJSON *jkt = cJSON_GetObjectItemCaseSensitive(cnf, "jkt");
+    if (cJSON_IsString(jkt) && jkt->valuestring && jkt->valuestring[0]) {
+        cJSON_Delete(root);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "token names both a certificate and a DPoP key; both "
+                        "must hold, and this SDK cannot verify DPoP proofs "
+                        "(CONTRACT.md §21.7.3)");
+        return AXIAM_ERR_AUTH;
+    }
+
     if (!presented_thumbprint || !presented_thumbprint[0]) {
         cJSON_Delete(root);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0,
