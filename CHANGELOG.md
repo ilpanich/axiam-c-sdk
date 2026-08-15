@@ -9,6 +9,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- **README now points at CONTRACT.md §22.11 (the deferred reactor runtime).**
+  §22.11 carries a SHOULD that these READMEs point at it "so an integrator finds
+  the wire chapter rather than concluding reactors are unavailable" — this SDK
+  ships no `reactor_serve`, but §22.1–§22.8 binds a hand-rolled integrator on it
+  in full, and the §22.13 vectors are the conformance surface. Documentation
+  only: no code change, and **no §22 conformance claim** — §22.11's MUST NOT
+  forbids claiming the chapter while shipping no runtime, and the conformance
+  statement is untouched.
+
 - **Re-vendored `CONTRACT.md` (1.17 → 1.19) and `openapi.json` from
   `ilpanich/axiam@main`.** The vendored copies had drifted; both are now
   byte-identical to the upstream artifacts. **No code change** — nothing in
