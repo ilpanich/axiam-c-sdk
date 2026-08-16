@@ -182,8 +182,48 @@ static void test_keys_field_not_an_array(void) {
     axiam_client_free(c);
 }
 
+/*
+ * A token that is not three dot-separated parts cannot even have its algorithm
+ * established, so §12.3 rule 3 folds both shapes into `invalid_alg`. The
+ * no-dot-at-all case was already covered; the ONE-dot case ("header.payload",
+ * a JWS with its signature simply truncated away) reaches a separate guard,
+ * and an implementation that only checked for the first dot would accept it
+ * and then read the signature segment off the end of the string.
+ */
+static void test_token_with_a_single_dot_is_refused(void) {
+    char *token = NULL, *jwks = NULL;
+    jwt_make("k1", "{\"sub\":\"u\"}", &token, &jwks);
+    g.jwks_body = jwks;
+    axiam_client_t *c = make_client();
+
+    /* Truncate at the LAST dot, leaving exactly "header.payload". */
+    char *last = strrchr(token, '.');
+    TEST_ASSERT_NOT_NULL(last);
+    *last = '\0';
+
+    axiam_error_t err;
+    axiam_error_kind_t k = axiam_jwt_verify(c, token, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, k);
+    /* Refused before any key lookup: a malformed token must not cost a fetch. */
+    TEST_ASSERT_EQUAL_INT(0, g.jwks_calls);
+
+    free(token); free(jwks);
+    axiam_client_free(c);
+}
+
+static void test_token_with_no_dot_at_all_is_refused(void) {
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_kind_t k = axiam_jwt_verify(c, "not-a-jwt-at-all", NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, k);
+    TEST_ASSERT_EQUAL_INT(0, g.jwks_calls);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
+    RUN_TEST(test_token_with_a_single_dot_is_refused);
+    RUN_TEST(test_token_with_no_dot_at_all_is_refused);
     RUN_TEST(test_x_value_invalid_base64url_is_skipped);
     RUN_TEST(test_x_value_short_key_material_is_skipped);
     RUN_TEST(test_x_value_oversized_key_material_is_skipped);

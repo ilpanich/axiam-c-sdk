@@ -28,6 +28,10 @@
 #include "internal.h"
 #include "oidc_internal.h"
 #include "test_util.h"
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+
+#include "jwt_fixture.h"
 #include "oidc_test_util.h"
 
 extern void *__real_malloc(size_t size);
@@ -421,6 +425,745 @@ static void test_oidc_config_copy_alloc_failure_sweep(void) {
              src.id_token_signing_alg_values_supported_count);
 }
 
+/* ------------------------------------------------------------------ */
+/* §12.1 oidc_begin — the three random draws and the URL build         */
+/* ------------------------------------------------------------------ */
+
+static void test_oidc_begin_alloc_failure_sweep(void) {
+    /* src/oidc.c:526-533 (any of state / nonce / verifier / challenge failing
+     * to allocate, which must free the other three rather than leak a
+     * half-built request) and :594-596 (the assembled URL and the Sensitive
+     * wrapping the verifier). §12.1 makes oidc_begin network-free, so the
+     * sweep needs only a discovered document, fetched once up front. */
+    oidc_reset();
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_oidc_config_t cfg;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, NULL));
+
+    for (long i = 1; i <= 30; i++) {
+        axiam_authorization_request_t req;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_oidc_begin(c, &cfg, OIDC_REDIRECT_URI, "profile",
+                                                &req, NULL);
+        alloc_fail_reset();
+        /* Either it built everything, or it reported OOM — never a request
+         * with a URL but no verifier, which a caller would send and then be
+         * unable to complete. */
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(req.url);
+            TEST_ASSERT_NOT_NULL(req.code_verifier);
+            axiam_authorization_request_dispose(&req);
+        } else {
+            TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, k);
+        }
+    }
+
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §12.1 oidc_exchange — the shared grant POST and the token-set parse */
+/* ------------------------------------------------------------------ */
+
+static void test_oidc_exchange_alloc_failure_sweep(void) {
+    /* src/oidc.c:613-619 (oidc_post_grant's poisoned-form and URL guards) and
+     * :635-636 (the response-body strdup), plus src/oidc_validate.c:452-458
+     * (the parsed token set's all-or-nothing check). Drives the REAL §12.1
+     * exchange through the shared scripted transport. */
+    oidc_reset();
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"the-access-token\",\"token_type\":\"Bearer\","
+        "\"expires_in\":900,\"refresh_token\":\"the-refresh-token\","
+        "\"scope\":\"openid profile\"}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *verifier = axiam_sensitive_new("the-verifier");
+    TEST_ASSERT_NOT_NULL(verifier);
+
+    for (long i = 1; i <= 70; i++) {
+        axiam_oidc_exchange_params_t p = {0};
+        p.code = "the-code";
+        p.code_verifier = verifier;
+        p.redirect_uri = OIDC_REDIRECT_URI;
+        p.nonce = "the-nonce";
+
+        axiam_oidc_token_set_t set;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_oidc_exchange(c, &p, &set, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            /* §12.4 all-or-nothing: a success carries both members. */
+            TEST_ASSERT_NOT_NULL(set.access_token);
+            TEST_ASSERT_NOT_NULL(set.token_type);
+            axiam_oidc_token_set_dispose(&set);
+        }
+    }
+
+    axiam_sensitive_free(verifier);
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §12.4 id_token validation — the signed-token branch of the parse    */
+/* ------------------------------------------------------------------ */
+
+static void test_oidc_exchange_id_token_alloc_failure_sweep(void) {
+    /* src/oidc_validate.c:348-352 (build_claims' raw_claims_json strdup),
+     * :380-386 (the payload that could not be parsed) and :389-394
+     * (build_claims failing inside the OK branch), plus src/jwks.c:448-454 —
+     * the "payload decoded but its buffer could not be allocated" arm, which
+     * is only reachable with a signature that actually verifies. */
+    oidc_reset();
+    char payload[512];
+    long long now = (long long)time(NULL);
+    snprintf(payload, sizeof(payload),
+             "{\"iss\":\"" OIDC_ISSUER "\",\"aud\":\"" OIDC_CLIENT_ID "\","
+             "\"sub\":\"user-1\",\"exp\":%lld,\"iat\":%lld,\"nonce\":\"the-nonce\","
+             "\"email\":\"a@b.test\",\"roles\":[\"admin\"]}",
+             now + 900, now - 5);
+
+    char *token = NULL, *jwks = NULL;
+    TEST_ASSERT_EQUAL_INT(0, jwt_make(OIDC_KID, payload, &token, &jwks));
+    g_oidc.jwks_body = jwks;
+
+    static char body[8192];
+    snprintf(body, sizeof(body),
+             "{\"access_token\":\"the-access-token\",\"token_type\":\"Bearer\","
+             "\"expires_in\":900,\"id_token\":\"%s\"}", token);
+    g_oidc.token_script[0] = (oidc_answer_t){200, body, 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *verifier = axiam_sensitive_new("the-verifier");
+
+    for (long i = 1; i <= 120; i++) {
+        axiam_oidc_exchange_params_t p = {0};
+        p.code = "the-code";
+        p.code_verifier = verifier;
+        p.redirect_uri = OIDC_REDIRECT_URI;
+        p.nonce = "the-nonce";
+
+        axiam_oidc_token_set_t set;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_oidc_exchange(c, &p, &set, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            /* §12.4 rule 7: an id_token that was accepted always arrives
+             * alongside the claims parsed out of it, never one without the
+             * other. */
+            TEST_ASSERT_NOT_NULL(set.access_token);
+            if (set.id_claims) TEST_ASSERT_NOT_NULL(set.id_token);
+            axiam_oidc_token_set_dispose(&set);
+        }
+    }
+
+    axiam_sensitive_free(verifier);
+    axiam_client_free(c);
+    free(token);
+    free(jwks);
+    g_oidc.jwks_body = NULL;
+}
+
+/* ------------------------------------------------------------------ */
+/* §12.5 oidc_refresh — the single-flight leader path                  */
+/* ------------------------------------------------------------------ */
+
+static void test_oidc_refresh_alloc_failure_sweep(void) {
+    /* src/oidc_refresh.c:106-112 (take_outcome's copy of the flight result
+     * into the caller's out-parameter) and :169-174 (the flight record's own
+     * calloc, which must unlock the mutex before returning — a leaked lock
+     * here would deadlock every later refresh rather than fail this one). */
+    oidc_reset();
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"rotated-access\",\"token_type\":\"Bearer\","
+        "\"expires_in\":900,\"refresh_token\":\"rotated-refresh\"}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *rt = axiam_sensitive_new("the-refresh-token");
+    TEST_ASSERT_NOT_NULL(rt);
+
+    for (long i = 1; i <= 70; i++) {
+        axiam_oidc_token_set_t set;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_oidc_refresh(c, rt, NULL, NULL, &set, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_oidc_token_set_dispose(&set);
+        /* Whatever happened, the flight table must be usable again: a
+         * subsequent refresh still completes. */
+    }
+
+    axiam_oidc_token_set_t after;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_refresh(c, rt, NULL, NULL, &after, NULL));
+    axiam_oidc_token_set_dispose(&after);
+
+    axiam_sensitive_free(rt);
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §14 device authorization grant                                     */
+/* ------------------------------------------------------------------ */
+
+static void device_display_noop(void *ctx, const axiam_device_authorization_t *a) {
+    (void)ctx;
+    (void)a;
+}
+
+static void test_device_authorize_alloc_failure_sweep(void) {
+    /* src/oidc_device.c:78-84 (the endpoint URL the POST needs) and :130-136
+     * (the parsed authorization's all-or-nothing check — a grant missing its
+     * device_code or user_code is unusable and must not be handed back). */
+    oidc_reset();
+    g_oidc.device_answer = (oidc_answer_t){200,
+        "{\"device_code\":\"dc-1\",\"user_code\":\"WDJB-MJHT\","
+        "\"verification_uri\":\"https://api.test/device\","
+        "\"verification_uri_complete\":\"https://api.test/device?user_code=WDJB-MJHT\","
+        "\"expires_in\":600,\"interval\":5}", 0};
+
+    axiam_client_t *c = oidc_make_client_ex(OIDC_CLIENT_ID, NULL, AXIAM_TEST_TENANT_ID, NULL);
+    TEST_ASSERT_NOT_NULL(c);
+
+    for (long i = 1; i <= 60; i++) {
+        axiam_device_authorization_t da;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_device_authorize(c, "openid", NULL, &da, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(da.device_code);
+            TEST_ASSERT_NOT_NULL(da.user_code);
+            TEST_ASSERT_NOT_NULL(da.verification_uri);
+            axiam_device_authorization_dispose(&da);
+        }
+    }
+
+    axiam_client_free(c);
+}
+
+static void test_device_login_alloc_failure_sweep(void) {
+    /* src/oidc_device.c:230-236 — the second discovery, taken AFTER the
+     * authorization was already obtained. Its failure arm has to dispose that
+     * authorization rather than return with it still owned by nobody. */
+    oidc_reset();
+    g_oidc.device_answer = (oidc_answer_t){200,
+        "{\"device_code\":\"dc-1\",\"user_code\":\"WDJB-MJHT\","
+        "\"verification_uri\":\"https://api.test/device\","
+        "\"expires_in\":600,\"interval\":1}", 0};
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"at\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client_ex(OIDC_CLIENT_ID, NULL, AXIAM_TEST_TENANT_ID, NULL);
+    TEST_ASSERT_NOT_NULL(c);
+
+    for (long i = 1; i <= 80; i++) {
+        axiam_oidc_client_dispose(c); /* force the discovery cache cold */
+        axiam_oidc_token_set_t set;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_device_login(c, "openid", NULL,
+                                                  device_display_noop, NULL, &set, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_oidc_token_set_dispose(&set);
+    }
+
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §15 token exchange (RFC 8693)                                      */
+/* ------------------------------------------------------------------ */
+
+static void test_token_exchange_alloc_failure_sweep(void) {
+    /* src/oidc_exchange.c:98-104 (the joined `scope` string, whose failure
+     * must poison the form rather than send a request with the scopes
+     * silently dropped) and :160-166 (the result's all-or-nothing check). */
+    oidc_reset();
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"exchanged-token\","
+        "\"issued_token_type\":\"urn:ietf:params:oauth:token-type:access_token\","
+        "\"token_type\":\"Bearer\",\"expires_in\":900,\"scope\":\"read write\"}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *subject = axiam_sensitive_new("subject-token-value");
+    TEST_ASSERT_NOT_NULL(subject);
+    const char *scopes[] = {"read", "write", "admin"};
+
+    for (long i = 1; i <= 70; i++) {
+        axiam_token_exchange_params_t p = {0};
+        p.subject_token = subject;
+        p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
+        p.scopes = scopes;
+        p.scope_count = 3;
+        p.audience = "https://downstream.test";
+
+        axiam_exchanged_token_t out;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_token_exchange(c, &p, &out, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(out.access_token);
+            TEST_ASSERT_NOT_NULL(out.issued_token_type);
+            TEST_ASSERT_NOT_NULL(out.token_type);
+            axiam_exchanged_token_dispose(&out);
+        }
+    }
+
+    axiam_sensitive_free(subject);
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §12.1 federation SSO — the two JSON-bodied endpoints                */
+/* ------------------------------------------------------------------ */
+
+static void test_sso_start_and_complete_alloc_failure_sweep(void) {
+    /* src/oidc.c:939-944 (the base-URL + path join both SSO calls share),
+     * :978-983 and :996-1001 (sso_start's request object and its serialised
+     * body), :1042-1047 and :1050-1055 (the same pair for sso_complete). */
+    oidc_reset();
+    g_oidc.sso_start_answer = (oidc_answer_t){200,
+        "{\"authorize_url\":\"https://idp.test/authorize?x=1\","
+        "\"state\":\"the-state\",\"expires_in_secs\":600}", 0};
+    g_oidc.sso_complete_answer = (oidc_answer_t){200,
+        "{\"user_id\":\"user-1\",\"session_id\":\"session-1\","
+        "\"expires_in\":900,\"redirect_uri\":\"https://app.test/home\"}", 0};
+
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+
+    for (long i = 1; i <= 40; i++) {
+        axiam_sso_start_result_t s;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_sso_start(c, "fed-config-1",
+                                               "https://app.test/callback", &s, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_sso_start_result_dispose(&s);
+    }
+
+    for (long i = 1; i <= 40; i++) {
+        axiam_sso_complete_result_t s;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_sso_complete(c, "the-code", "the-state", &s, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_sso_complete_result_dispose(&s);
+    }
+
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §12.7.3 verify_logout_token                                        */
+/* ------------------------------------------------------------------ */
+
+static void test_verify_logout_token_alloc_failure_sweep(void) {
+    /* src/oidc_logout.c:130-135 (a payload that could not be parsed — here
+     * because its buffer could not be allocated) and :206-212 (the verified
+     * token's all-or-nothing check: a result claiming a `sid` the caller
+     * cannot read is worse than a reported failure). */
+    oidc_reset();
+    char payload[512];
+    long long now = (long long)time(NULL);
+    snprintf(payload, sizeof(payload),
+             "{\"iss\":\"" OIDC_ISSUER "\",\"aud\":\"" OIDC_CLIENT_ID "\","
+             "\"sid\":\"session-1\",\"sub\":\"user-1\",\"jti\":\"jti-1\","
+             "\"iat\":%lld,\"exp\":%lld,"
+             "\"events\":{\"" AXIAM_LOGOUT_EVENT_KEY "\":{}}}",
+             now - 5, now + 120);
+
+    char *token = NULL, *jwks = NULL;
+    TEST_ASSERT_EQUAL_INT(0, jwt_make(OIDC_KID, payload, &token, &jwks));
+    g_oidc.jwks_body = jwks;
+
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+
+    for (long i = 1; i <= 90; i++) {
+        axiam_verified_logout_token_t t;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_verify_logout_token(c, token, &t, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(t.issuer);
+            /* §12.7.3 rule 5: a verified token always names something. */
+            TEST_ASSERT_TRUE(t.sid != NULL || t.subject != NULL);
+            axiam_verified_logout_token_dispose(&t);
+        }
+    }
+
+    axiam_client_free(c);
+    free(token);
+    free(jwks);
+    g_oidc.jwks_body = NULL;
+}
+
+/* ------------------------------------------------------------------ */
+/* §12.1 introspect / revoke — the fallback-path endpoint join         */
+/* ------------------------------------------------------------------ */
+
+static void test_introspect_and_revoke_alloc_failure_sweep(void) {
+    /* src/oidc.c:816-821 — the endpoint URL both operations build, either
+     * from the discovered endpoint or by joining the fallback path onto the
+     * base URL. */
+    oidc_reset();
+    g_oidc.introspect_answer = (oidc_answer_t){200,
+        "{\"active\":true,\"sub\":\"user-1\",\"scope\":\"openid\"}", 0};
+    g_oidc.revoke_answer = (oidc_answer_t){200, "", 0};
+
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *tok = axiam_sensitive_new("the-access-token");
+    TEST_ASSERT_NOT_NULL(tok);
+
+    for (long i = 1; i <= 50; i++) {
+        axiam_introspection_result_t intro;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_introspect(c, tok, NULL, NULL, &intro, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_introspection_result_dispose(&intro);
+    }
+
+    for (long i = 1; i <= 40; i++) {
+        alloc_fail_after(i);
+        (void)axiam_revoke(c, tok, NULL, NULL, NULL);
+        alloc_fail_reset();
+    }
+
+    axiam_sensitive_free(tok);
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §20 UMA 2.0                                                        */
+/* ------------------------------------------------------------------ */
+
+#define UMA_ALLOC_DISCOVERY_BODY                                               \
+    "{\"issuer\":\"" OIDC_BASE "\","                                           \
+    "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","                       \
+    "\"permission_endpoint\":\"" OIDC_BASE "/uma2/perm\","                     \
+    "\"resource_registration_endpoint\":\"" OIDC_BASE "/uma2/rreg/resource_set\"," \
+    "\"jwks_uri\":\"" OIDC_BASE "/.well-known/jwks.json\","                    \
+    "\"permission_ticket_lifetime\":60}"
+
+/* A resource set carrying every optional member, so the sweep reaches each
+ * strdup in parse_resource_set() rather than stopping at the first absent
+ * field. */
+#define UMA_ALLOC_RESOURCE_BODY                                                \
+    "{\"_id\":\"99999999-8888-7777-6666-555555555555\","                       \
+    "\"name\":\"invoice-42\",\"type\":\"urn:axiam:invoice\","                  \
+    "\"resource_scopes\":[\"read\",\"write\",\"share\"]}"
+
+static int uma_alloc_transport(void *ctx, const axiam_http_request_t *req,
+                               axiam_http_response_t *resp) {
+    (void)ctx;
+    const char *url = req->url ? req->url : "";
+    if (strstr(url, "/.well-known/uma2-configuration")) {
+        resp_fill(resp, 200, UMA_ALLOC_DISCOVERY_BODY, NULL);
+        return 0;
+    }
+    if (strstr(url, "/uma2/rreg/resource_set")) {
+        /* The listing is the only one that answers with a bare array. */
+        if (req->method && strcmp(req->method, "GET") == 0 &&
+            !strstr(url, "resource_set/")) {
+            resp_fill(resp, 200,
+                      "[\"11111111-1111-1111-1111-111111111111\","
+                      "\"22222222-2222-2222-2222-222222222222\"]", NULL);
+            return 0;
+        }
+        resp_fill(resp, 200, UMA_ALLOC_RESOURCE_BODY, NULL);
+        return 0;
+    }
+    if (strstr(url, "/uma2/perm")) {
+        resp_fill(resp, 200, "{\"ticket\":\"the-permission-ticket\"}", NULL);
+        return 0;
+    }
+    if (strstr(url, "/oauth2/token")) {
+        resp_fill(resp, 200,
+                  "{\"access_token\":\"the-rpt\",\"token_type\":\"Bearer\","
+                  "\"expires_in\":300}", NULL);
+        return 0;
+    }
+    resp_fill(resp, 404, "{}", NULL);
+    return 0;
+}
+
+static axiam_client_t *uma_alloc_make_client(void) {
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, OIDC_BASE);
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
+    axiam_client_config_set_oidc_client_id(cfg, OIDC_CLIENT_ID);
+    axiam_client_config_set_oidc_client_secret(cfg, OIDC_CLIENT_SECRET);
+    axiam_client_config_set_transport(cfg, uma_alloc_transport, NULL);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    return c;
+}
+
+static void test_uma_discover_alloc_failure_sweep(void) {
+    /* src/uma.c:203-212 (parse_uma_config's all-or-nothing check on the three
+     * endpoints the profile requires), :219-228 (config_copy) and the two
+     * cache arms at :241-250 and :265-272 — the fresh-cache copy that serves a
+     * hit, and the post-fetch copy that populates the cache. The latter's
+     * failure arm is deliberately NOT an error: a cache that could not be
+     * filled is simply not filled, and the caller's own copy still succeeds. */
+    axiam_client_t *c = uma_alloc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+
+    for (long i = 1; i <= 60; i++) {
+        axiam_uma_config_t cfg;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_uma_discover(c, &cfg, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(cfg.token_endpoint);
+            TEST_ASSERT_NOT_NULL(cfg.permission_endpoint);
+            TEST_ASSERT_NOT_NULL(cfg.resource_registration_endpoint);
+            axiam_uma_config_dispose(&cfg);
+        }
+    }
+
+    /* Now with a WARM cache, so the sweep lands on the copy that serves the
+     * hit rather than on the parse. */
+    axiam_uma_config_t primed;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_uma_discover(c, &primed, NULL));
+    axiam_uma_config_dispose(&primed);
+    for (long i = 1; i <= 12; i++) {
+        axiam_uma_config_t cfg;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_uma_discover(c, &cfg, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_uma_config_dispose(&cfg);
+    }
+
+    axiam_client_free(c);
+}
+
+static void test_uma_resource_registration_alloc_failure_sweep(void) {
+    /* src/uma.c:341-352 (the scopes array and each scope strdup in
+     * parse_resource_set), :357-365 (its all-or-nothing check), :394-402 (the
+     * per-id URL the read/update/delete calls build) and :597-606 (the
+     * listing's id array). */
+    axiam_client_t *c = uma_alloc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *pat = axiam_sensitive_new("pat-token-value");
+    TEST_ASSERT_NOT_NULL(pat);
+    const char *scopes[] = {"read", "write", "share"};
+
+    for (long i = 1; i <= 60; i++) {
+        axiam_uma_resource_set_t rs;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_uma_register_resource(c, pat, "invoice-42",
+                                                           "urn:axiam:invoice",
+                                                           scopes, 3, &rs, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(rs.name);
+            axiam_uma_resource_set_dispose(&rs);
+        }
+    }
+
+    for (long i = 1; i <= 40; i++) {
+        axiam_uma_resource_set_t rs;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_uma_read_resource(
+            c, pat, "99999999-8888-7777-6666-555555555555", &rs, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_uma_resource_set_dispose(&rs);
+    }
+
+    for (long i = 1; i <= 50; i++) {
+        axiam_uma_resource_set_t rs;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_uma_update_resource(
+            c, pat, "99999999-8888-7777-6666-555555555555", "invoice-43",
+            "urn:axiam:invoice", scopes, 3, &rs, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_uma_resource_set_dispose(&rs);
+    }
+
+    for (long i = 1; i <= 30; i++) {
+        alloc_fail_after(i);
+        (void)axiam_uma_delete_resource(c, pat,
+                                        "99999999-8888-7777-6666-555555555555", NULL);
+        alloc_fail_reset();
+    }
+
+    for (long i = 1; i <= 40; i++) {
+        char **ids = NULL;
+        size_t count = 0;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_uma_list_resources(c, pat, &ids, &count, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_uma_string_array_free(ids, count);
+    }
+
+    axiam_sensitive_free(pat);
+    axiam_client_free(c);
+}
+
+static void test_uma_ticket_and_rpt_alloc_failure_sweep(void) {
+    /* src/uma.c:651-660 (the Sensitive wrapping the minted ticket — §20.6
+     * makes it a credential for its whole 60-second life, so a handle that
+     * could not be allocated must be reported, never returned unwrapped),
+     * :783-795 (the token URL and the grant form, which carries four secrets)
+     * and :840-849 (the RPT's all-or-nothing check). */
+    axiam_client_t *c = uma_alloc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *pat = axiam_sensitive_new("pat-token-value");
+    const char *scopes[] = {"read", "write"};
+    axiam_uma_permission_t perms[1];
+    perms[0].resource_id = "99999999-8888-7777-6666-555555555555";
+    perms[0].scopes = scopes;
+    perms[0].scope_count = 2;
+
+    for (long i = 1; i <= 60; i++) {
+        axiam_sensitive_t *ticket = NULL;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_uma_request_ticket(c, pat, perms, 1, &ticket, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(ticket);
+            axiam_sensitive_free(ticket);
+        } else {
+            TEST_ASSERT_NULL(ticket);
+        }
+    }
+
+    axiam_sensitive_t *ticket = axiam_sensitive_new("the-permission-ticket");
+    axiam_sensitive_t *claim = axiam_sensitive_new("claim-token-value");
+    axiam_sensitive_t *secret = axiam_sensitive_new(OIDC_CLIENT_SECRET);
+    TEST_ASSERT_NOT_NULL(ticket);
+
+    for (long i = 1; i <= 60; i++) {
+        axiam_uma_exchange_params_t p = {0};
+        p.ticket = ticket;
+        p.claim_token = claim;
+        p.client_id = OIDC_CLIENT_ID;
+        p.client_secret = secret;
+
+        axiam_uma_rpt_t rpt;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_uma_exchange_ticket(c, &p, &rpt, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(rpt.access_token);
+            TEST_ASSERT_NOT_NULL(rpt.token_type);
+            axiam_uma_rpt_dispose(&rpt);
+        }
+    }
+
+    axiam_sensitive_free(ticket);
+    axiam_sensitive_free(claim);
+    axiam_sensitive_free(secret);
+    axiam_sensitive_free(pat);
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §17 decision memo, §21 webhook, §8 check_access body                */
+/* ------------------------------------------------------------------ */
+
+static int authz_allow_transport(void *ctx, const axiam_http_request_t *req,
+                                 axiam_http_response_t *resp) {
+    (void)ctx;
+    (void)req;
+    resp_fill(resp, 200,
+              "{\"allowed\":true,\"reason\":\"role grant\",\"reason_code\":\"role\"}", NULL);
+    return 0;
+}
+
+static void test_memo_store_alloc_failure_is_silent(void) {
+    /* src/memo.c:159-166 — the memo is an OPTIMISATION, so an entry that
+     * could not be allocated is dropped rather than surfaced. The assertion is
+     * therefore that check_access still SUCCEEDS under the failure, and that
+     * a later decision is still correct: a memo left half-built by a failed
+     * store would answer the next lookup with a truncated key. */
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, "https://iam.example.com");
+    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_client_config_set_decision_memo_ttl(cfg, 60000);
+    axiam_client_config_set_transport(cfg, authz_allow_transport, NULL);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    TEST_ASSERT_NOT_NULL(c);
+
+    for (long i = 1; i <= 60; i++) {
+        axiam_check_result_t r;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_check_access(c, "read", "res-1", NULL, NULL, &r, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_check_result_dispose(&r);
+    }
+
+    axiam_check_result_t r;
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      axiam_check_access(c, "read", "res-1", NULL, NULL, &r, NULL));
+    TEST_ASSERT_TRUE(r.allowed);
+    axiam_check_result_dispose(&r);
+
+    axiam_client_free(c);
+}
+
+static void test_webhook_verify_headers_body_malloc_failure(void) {
+    /* src/webhook.c:224-229 — the copy of the delivered body. A verify that
+     * cannot own the body must report failure rather than hand back an event
+     * whose `body` is NULL, which every caller would then dereference. */
+    static const char SECRET[] = "whsec-test-value";
+    axiam_sensitive_t *secret = axiam_sensitive_new(SECRET);
+    TEST_ASSERT_NOT_NULL(secret);
+
+    const char *body = "{\"id\":\"evt-1\",\"type\":\"user.created\"}";
+    long long ts = (long long)time(NULL);
+
+    char signed_payload[512];
+    int n = snprintf(signed_payload, sizeof(signed_payload), "%lld.%s", ts, body);
+    TEST_ASSERT_TRUE(n > 0 && (size_t)n < sizeof(signed_payload));
+
+    unsigned char mac[EVP_MAX_MD_SIZE];
+    unsigned int mac_len = 0;
+    TEST_ASSERT_NOT_NULL(HMAC(EVP_sha256(), SECRET, (int)strlen(SECRET),
+                              (const unsigned char *)signed_payload, (size_t)n,
+                              mac, &mac_len));
+    char hex[65];
+    for (unsigned int i = 0; i < mac_len; i++) snprintf(hex + 2 * i, 3, "%02x", mac[i]);
+
+    char sig_header[160];
+    snprintf(sig_header, sizeof(sig_header), "t=%lld,v1=%s", ts, hex);
+    char ts_header[32];
+    snprintf(ts_header, sizeof(ts_header), "%lld", ts);
+
+    axiam_kv_t *headers = NULL;
+    headers = axiam_kv_append(headers, "X-Axiam-Timestamp", ts_header);
+    headers = axiam_kv_append(headers, "X-Axiam-Signature", sig_header);
+    headers = axiam_kv_append(headers, "X-Axiam-Event", "user.created");
+    headers = axiam_kv_append(headers, "X-Axiam-Delivery", "delivery-1");
+    TEST_ASSERT_NOT_NULL(headers);
+
+    for (long i = 1; i <= 20; i++) {
+        axiam_webhook_event_t ev;
+        alloc_fail_after(i);
+        axiam_webhook_status_t k = axiam_webhook_verify_headers(secret, headers, body,
+                                                                strlen(body), 300, &ev);
+        alloc_fail_reset();
+        if (k == AXIAM_WEBHOOK_OK) {
+            TEST_ASSERT_NOT_NULL(ev.body);
+            axiam_webhook_event_dispose(&ev);
+        }
+    }
+
+    axiam_kv_free(headers);
+    axiam_sensitive_free(secret);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_sensitive_new_bytes_calloc_failure);
@@ -438,5 +1181,20 @@ int main(void) {
     RUN_TEST(test_oidc_endpoint_with_tenant_malloc_failure);
     RUN_TEST(test_oidc_token_set_copy_alloc_failure_sweep);
     RUN_TEST(test_oidc_config_copy_alloc_failure_sweep);
+    RUN_TEST(test_oidc_begin_alloc_failure_sweep);
+    RUN_TEST(test_oidc_exchange_alloc_failure_sweep);
+    RUN_TEST(test_oidc_exchange_id_token_alloc_failure_sweep);
+    RUN_TEST(test_oidc_refresh_alloc_failure_sweep);
+    RUN_TEST(test_device_authorize_alloc_failure_sweep);
+    RUN_TEST(test_device_login_alloc_failure_sweep);
+    RUN_TEST(test_token_exchange_alloc_failure_sweep);
+    RUN_TEST(test_sso_start_and_complete_alloc_failure_sweep);
+    RUN_TEST(test_verify_logout_token_alloc_failure_sweep);
+    RUN_TEST(test_introspect_and_revoke_alloc_failure_sweep);
+    RUN_TEST(test_uma_discover_alloc_failure_sweep);
+    RUN_TEST(test_uma_resource_registration_alloc_failure_sweep);
+    RUN_TEST(test_uma_ticket_and_rpt_alloc_failure_sweep);
+    RUN_TEST(test_memo_store_alloc_failure_is_silent);
+    RUN_TEST(test_webhook_verify_headers_body_malloc_failure);
     return UNITY_END();
 }

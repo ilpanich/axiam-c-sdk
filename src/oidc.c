@@ -825,7 +825,10 @@ static axiam_error_kind_t oidc_token_admin_call(
     oidc_form_add(&form, "client_id", client_id);
     oidc_form_add(&form, "client_secret", secret);
 
-    axiam_http_response_t resp;
+    /* Zero-initialised for the same reason as in src/oidc_device.c: a poisoned
+     * form skips the POST, after which the transport-error arm below still
+     * reads and disposes resp. An indeterminate one is a wild free. */
+    axiam_http_response_t resp = {0};
     /* §16.2 lists introspection as eligible — it is a read ABOUT a token and
      * mints nothing. Revocation is a mutation and its caller passes 0. */
     int rc = form.failed ? -1
