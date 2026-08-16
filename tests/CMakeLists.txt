@@ -221,7 +221,11 @@ axiam_add_test(test_oidc_wire test_oidc_wire.c)
 # other test binary keeps calling the real allocator untouched.
 add_executable(test_alloc_failures test_alloc_failures.c)
 target_include_directories(test_alloc_failures PRIVATE ${AXIAM_TEST_INCLUDES})
-target_link_libraries(test_alloc_failures PRIVATE ${AXIAM_TEST_LINK})
+# axiam_jwtfix: the §12.4 / §12.7.3 sweeps drive a REAL signature verification,
+# because the "payload verified but its buffer could not be allocated" arms in
+# src/jwks.c and src/oidc_logout.c sit downstream of a successful verify and are
+# unreachable with an unsigned fixture.
+target_link_libraries(test_alloc_failures PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
 target_link_options(test_alloc_failures PRIVATE
     -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc)
 if(AXIAM_ENABLE_COVERAGE)

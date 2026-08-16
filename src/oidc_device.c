@@ -66,7 +66,18 @@ axiam_error_kind_t axiam_device_authorize(axiam_client_t *client, const char *sc
     oidc_form_add(&form, "scope", scope);
 
     char *url = oidc_endpoint_with_tenant(config.device_authorization_endpoint, tenant);
-    axiam_http_response_t resp;
+    /*
+     * ZERO-INITIALISED, and that is load-bearing rather than defensive. The
+     * POST below is skipped whenever the URL or the form could not be
+     * allocated, and in the `url != NULL && form.failed` case the OOM guard
+     * further down does NOT return early — control reaches the transport-error
+     * arm, which reads resp.transport_err/transport_msg and then disposes
+     * resp. With an indeterminate resp that is a wild free of stack garbage.
+     * Zeroing makes the skipped-POST path indistinguishable from a transport
+     * that returned nothing: status 0 selects the network-failure arm, and
+     * axiam_http_response_dispose() is documented safe on a zeroed struct.
+     */
+    axiam_http_response_t resp = {0};
     /* §16.2 names `device_authorize` ineligible: it mints a device code, and a
      * silent retry would strand a first one the user might already be typing. */
     int rc = (url && !form.failed) ? oidc_post(client, url, "application/x-www-form-urlencoded",
