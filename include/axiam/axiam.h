@@ -30,9 +30,9 @@ extern "C" {
 #define AXIAM_VERSION_MINOR 0
 #define AXIAM_VERSION_PATCH 0
 /** Full version string, including the pre-release qualifier. */
-#define AXIAM_VERSION "1.0.0-alpha24"
+#define AXIAM_VERSION "1.0.0-alpha25"
 
-/** Returns the compiled-in version string (e.g. "1.0.0-alpha24"). */
+/** Returns the compiled-in version string (e.g. "1.0.0-alpha25"). */
 const char *axiam_version(void);
 
 #ifdef __cplusplus

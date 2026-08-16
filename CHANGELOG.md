@@ -5,6 +5,33 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [1.0.0-alpha25] - 2026-08-16
+
+### Added
+
+- Subject_token_type is required (contract 1.13)
+- §15.7 — external-IdP subject tokens at the exchange (X4)
+- §12, §12.7, §14 and §15 — the ported deferral (contract 1.11) (#20)
+- §20.3 — emit a UMA challenge from the §11 guard (#19)
+- §20 UMA 2.0 — Protection API and ticket grant (#18)
+- §16 retry, §17 decision memo, §18 close(), §19 telemetry (D5)
+- §11 rule 9 decision reason codes; contract 1.7 re-sync (D6) (#16)
+
+### Changed
+
+- Widen the branch-coverage margin above the 80% floor
+- Point at CONTRACT.md §22.11, the deferred reactor runtime (#28)
+- Re-vendor CONTRACT.md 1.19 and openapi.json from main (R5.8) (#27)
+- Contract 1.15 — §10.1 rule 9, sender-constrained access tokens (#25)
+- Retire the "measured residual" justification (contract 1.14)
+- Re-sync to contract 1.14 (#302 closed)
+- Make the §9 single-flight tests wait for arrivals, not a clock
+- Cover the empty subject_token_type branch (§15.7)
+
+### Fixed
+
+- Refuse both-bound tokens; document the §21.7.3 declining posture (#26)
+
 ## [Unreleased]
 
 ### Changed
