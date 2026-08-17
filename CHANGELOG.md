@@ -5,6 +5,14 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [1.0.0-alpha27] - 2026-08-17
+
+### Changed
+
+- Re-vendor CONTRACT.md 1.23 (§8b rules 7 and 8)
+- Re-vendor CONTRACT.md 1.22 and openapi.json from the server repo
+- Drive the SDK's allocation-failure arms, and fix two wild frees they exposed
+
 ## [1.0.0-alpha25] - 2026-08-16
 
 ### Added
