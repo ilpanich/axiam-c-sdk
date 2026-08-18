@@ -44,6 +44,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Re-vendor `openapi.json` at 1.0.0-alpha27 — the copy was pinned at alpha26 and
+  failing the cross-repo artifact-drift gate
 - **README now points at CONTRACT.md §22.11 (the deferred reactor runtime).**
   §22.11 carries a SHOULD that these READMEs point at it "so an integrator finds
   the wire chapter rather than concluding reactors are unavailable" — this SDK
