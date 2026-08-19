@@ -32,7 +32,9 @@ jobs:
       - name: Configure
         env:
           CC: ${{ matrix.cc }}
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON
+        # Examples are built here too, so a public-header change that breaks one
+        # fails the merge gate rather than a consumer's first `cmake --build`.
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON -DAXIAM_BUILD_EXAMPLES=ON
 
       - name: Build
         run: cmake --build build -j

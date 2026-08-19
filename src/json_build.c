@@ -82,3 +82,36 @@ char *axiam_build_batch_body(const axiam_check_input_t *checks, size_t n) {
     }
     return print_and_free(root);
 }
+
+/* POST /api/v1/auth/srp/challenge (CONTRACT.md §23.5).
+ *
+ * The same tenant/org resolution as axiam_build_login_body, so the two login
+ * paths cannot drift — and deliberately NO `password` field: it has no business
+ * on this request, which is the whole point of the exchange. */
+char *axiam_build_srp_challenge_body(const char *user, const char *client_public,
+                                     const axiam_client_config_t *cfg) {
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return NULL;
+    cJSON_AddStringToObject(root, "username_or_email", user ? user : "");
+    cJSON_AddStringToObject(root, "client_public", client_public ? client_public : "");
+    if (cfg) {
+        if (cfg->tenant_id && cfg->tenant_id[0])
+            cJSON_AddStringToObject(root, "tenant_id", cfg->tenant_id);
+        else if (cfg->tenant_slug && cfg->tenant_slug[0])
+            cJSON_AddStringToObject(root, "tenant_slug", cfg->tenant_slug);
+        if (cfg->org_id && cfg->org_id[0])
+            cJSON_AddStringToObject(root, "org_id", cfg->org_id);
+        else if (cfg->org_slug && cfg->org_slug[0])
+            cJSON_AddStringToObject(root, "org_slug", cfg->org_slug);
+    }
+    return print_and_free(root);
+}
+
+/* POST /api/v1/auth/srp/verify (CONTRACT.md §23.5). */
+char *axiam_build_srp_verify_body(const char *srp_session, const char *client_proof) {
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return NULL;
+    cJSON_AddStringToObject(root, "srp_session", srp_session ? srp_session : "");
+    cJSON_AddStringToObject(root, "client_proof", client_proof ? client_proof : "");
+    return print_and_free(root);
+}

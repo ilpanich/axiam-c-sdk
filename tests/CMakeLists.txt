@@ -40,6 +40,12 @@ axiam_add_test(test_webhook test_webhook.c)
 axiam_add_test(test_uma test_uma.c)
 axiam_add_test(test_uma_branches test_uma_branches.c)
 
+# ---- §23 SRP: the cross-language vectors and the protocol refusals.
+# Reaches into internal.h for the arithmetic seam — asserting on M1 alone would
+# satisfy neither §23.7 rule 1 (every intermediate) nor rule 4 (group constants).
+axiam_add_test(test_srp_vectors test_srp_vectors.c)
+axiam_add_test(test_srp_login test_srp_login.c)
+
 # ---- D5: §16 retry, §17 decision memo, §18 close(), §19 telemetry.
 # Reaches into internal.h for the injected PRNG / injected sleep seams §16.7
 # requires; the assertions themselves go through the public check_access
