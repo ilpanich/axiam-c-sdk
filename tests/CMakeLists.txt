@@ -44,6 +44,7 @@ axiam_add_test(test_uma_branches test_uma_branches.c)
 # Reaches into internal.h for the arithmetic seam — asserting on M1 alone would
 # satisfy neither §23.7 rule 1 (every intermediate) nor rule 4 (group constants).
 axiam_add_test(test_srp_vectors test_srp_vectors.c)
+axiam_add_test(test_srp_login test_srp_login.c)
 
 # ---- D5: §16 retry, §17 decision memo, §18 close(), §19 telemetry.
 # Reaches into internal.h for the injected PRNG / injected sleep seams §16.7

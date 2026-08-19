@@ -493,6 +493,82 @@ static void test_enrollment_refuses_an_unknown_group(void) {
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, err.kind);
 }
 
+static void test_enrollment_refuses_missing_arguments(void) {
+    /* Never called this way by the SDK. Asserted so that a NULL becomes a
+     * refusal a caller can act on rather than a crash inside the KDF. */
+    axiam_srp_enrollment_t e;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
+                          axiam_srp_enrollment(NULL, "pw", NULL, NULL, &e, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
+                          axiam_srp_enrollment("alice", NULL, NULL, NULL, &e, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
+                          axiam_srp_enrollment("alice", "pw", NULL, NULL, NULL, &err));
+}
+
+static void test_enrollment_defaults_to_argon2id_at_axiam_costs(void) {
+    /* With no parameters at all the enrolment must reach for AXIAM's own
+     * Argon2id costs rather than silently enrolling under something weaker.
+     *
+     * On an OpenSSL without ARGON2ID (< 3.2) that request is REFUSED — §23.8,
+     * and the refusal names the KDF rather than substituting PBKDF2, which
+     * would produce a verifier no later login could satisfy. Both outcomes are
+     * conformant; which one this build takes depends on its libcrypto. */
+    axiam_srp_enrollment_t e;
+    axiam_error_t err;
+    axiam_error_kind_t k = axiam_srp_enrollment("alice", "pw", NULL, NULL, &e, &err);
+
+    if (axiam_srp_argon2_available()) {
+        TEST_ASSERT_EQUAL_INT(AXIAM_OK, k);
+        TEST_ASSERT_EQUAL_STRING(AXIAM_SRP_KDF_ARGON2ID, e.kdf);
+        TEST_ASSERT_EQUAL_UINT(19456u, e.memory_kib);
+        TEST_ASSERT_EQUAL_UINT(2u, e.iterations);
+        TEST_ASSERT_EQUAL_UINT(1u, e.parallelism);
+        /* The default group is the widest, not the narrowest. */
+        TEST_ASSERT_EQUAL_STRING(AXIAM_SRP_GROUP_4096, e.group);
+        axiam_srp_enrollment_dispose(&e);
+    } else {
+        TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, k);
+        TEST_ASSERT_NOT_NULL(strstr(err.message, "cannot perform"));
+        /* Nothing half-built is handed back. */
+        TEST_ASSERT_NULL(e.verifier);
+        TEST_ASSERT_NULL(e.salt);
+    }
+}
+
+static void test_enrollment_refuses_a_kdf_this_build_cannot_perform(void) {
+    axiam_srp_enrollment_t e;
+    axiam_error_t err;
+    axiam_srp_kdf_params_t params = { "scrypt", 1, 0, 0 };
+    TEST_ASSERT_EQUAL_INT(
+        AXIAM_ERR_NETWORK,
+        axiam_srp_enrollment("alice", "pw", AXIAM_SRP_GROUP_2048, &params, &e, &err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "cannot perform"));
+    TEST_ASSERT_NULL(e.verifier);
+}
+
+static void test_enrollment_fills_in_the_pbkdf2_default_cost(void) {
+    /* A caller that names PBKDF2 without a cost gets OWASP's 600k rather than
+     * zero iterations, and the Argon2id-only fields are cleared so the
+     * enrolment cannot claim a memory cost it never used. */
+    axiam_srp_enrollment_t e;
+    axiam_error_t err;
+    axiam_srp_kdf_params_t params = { AXIAM_SRP_KDF_PBKDF2, 0, 4096, 4 };
+    TEST_ASSERT_EQUAL_INT(
+        AXIAM_OK,
+        axiam_srp_enrollment("alice", "pw", AXIAM_SRP_GROUP_2048, &params, &e, &err));
+    TEST_ASSERT_EQUAL_UINT(600000u, e.iterations);
+    TEST_ASSERT_EQUAL_UINT(0u, e.memory_kib);
+    TEST_ASSERT_EQUAL_UINT(0u, e.parallelism);
+    TEST_ASSERT_EQUAL_STRING(AXIAM_SRP_GROUP_2048, e.group);
+    TEST_ASSERT_EQUAL_INT(64, (int)strlen(e.salt));
+    TEST_ASSERT_EQUAL_INT(512, (int)strlen(e.verifier));
+    axiam_srp_enrollment_dispose(&e);
+    /* Dispose is idempotent: a caller that disposes twice must not double-free. */
+    axiam_srp_enrollment_dispose(&e);
+    axiam_srp_enrollment_dispose(NULL);
+}
+
 static void test_availability_probes(void) {
     /* §23.1 puts the probe in every SDK's vocabulary. Here it is unconditional:
      * BN_mod_exp and PKCS5_PBKDF2_HMAC are in every OpenSSL this SDK links. */
@@ -524,6 +600,10 @@ int main(void) {
     RUN_TEST(test_server_proof_comparison);
     RUN_TEST(test_enrollment_is_reproducible_from_its_own_salt);
     RUN_TEST(test_enrollment_refuses_an_unknown_group);
+    RUN_TEST(test_enrollment_refuses_missing_arguments);
+    RUN_TEST(test_enrollment_defaults_to_argon2id_at_axiam_costs);
+    RUN_TEST(test_enrollment_refuses_a_kdf_this_build_cannot_perform);
+    RUN_TEST(test_enrollment_fills_in_the_pbkdf2_default_cost);
     RUN_TEST(test_availability_probes);
     int rc = UNITY_END();
     cJSON_Delete(g_vectors);
