@@ -11,6 +11,9 @@ function(axiam_add_example name)
 endfunction()
 
 axiam_add_example(login_mfa)
+# CONTRACT.md §23: the SRP-6a exchange, the two ways it can be unavailable, and
+# the verifier the server cannot compute for itself.
+axiam_add_example(srp_login)
 axiam_add_example(rest_authz)
 axiam_add_example(telemetry_hook)
 # The §20.3 pair: a resource server that emits the WWW-Authenticate: UMA

@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.16)
 # conanfile.py, README and the AXIAM_VERSION macro.
 project(axiam_c_sdk
     VERSION 1.0.0
-    DESCRIPTION "AXIAM C SDK — REST client conforming to CONTRACT.md §1–§7, §9–§11, §13 (incl. §6.1 mTLS)"
+    DESCRIPTION "AXIAM C SDK — REST client conforming to CONTRACT.md §1–§7, §9–§11, §13, §23 (incl. §6.1 mTLS)"
     HOMEPAGE_URL "https://github.com/ilpanich/axiam-c-sdk"
     LANGUAGES C)
 
@@ -60,6 +60,7 @@ set(AXIAM_SOURCES
     src/oidc_device.c
     src/oidc_exchange.c
     src/oidc_logout.c
+    src/srp.c
     src/version.c)
 
 # Compile the SDK sources once into an object library shared by both variants.

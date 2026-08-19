@@ -17,6 +17,7 @@
 
 #include "axiam/axiam.h"
 #include "axiam/oidc.h"
+#include "axiam/srp.h"
 #include "axiam/uma.h"
 
 #ifdef __cplusplus
@@ -365,5 +366,70 @@ char *axiam_build_batch_body(const axiam_check_input_t *checks, size_t n);
 #ifdef __cplusplus
 }
 #endif
+
+
+/* ------------------------------------------------------------------------
+ * SRP-6a (CONTRACT.md §23) — src/srp.c
+ *
+ * The arithmetic lives in srp.c and performs no I/O; the two HTTP calls that
+ * use it are axiam_login_srp() in client.c. These declarations are the seam
+ * between them, and are internal: nothing here is part of the public ABI.
+ * ---------------------------------------------------------------------- */
+
+/** One RFC 5054 group. The moduli themselves stay private to srp.c. */
+typedef struct {
+    const char *wire_name;   /**< e.g. "rfc5054_4096". */
+    const char *modulus_hex; /**< N, uppercase hex. */
+    unsigned    generator;   /**< g. */
+    int         byte_len;    /**< Modulus width in bytes — the PAD() width. */
+} srp_group_t;
+
+/** One exchange's client half: the ephemeral a, held between the two calls. */
+typedef struct {
+    const srp_group_t *group;
+    struct bignum_st *n;
+    struct bignum_st *g;
+    struct bignum_st *a_priv;
+    char *a_pub_hex; /**< A = g^a mod N, PAD()ed, lowercase hex. */
+} srp_session_t;
+
+/** Resolve a wire group name; NULL for one this SDK does not implement. */
+const srp_group_t *axiam_srp_group_from_wire(const char *wire_name);
+
+/** Start an exchange. fixed_a_hex is for the §23.7 vectors only; pass NULL. */
+int axiam_srp_session_begin(srp_session_t *s, const srp_group_t *group,
+                            const char *fixed_a_hex);
+
+/** Release and zeroize a session. Safe on a zeroed struct. */
+void axiam_srp_session_dispose(srp_session_t *s);
+
+/** Complete an exchange: 0 on success, -1 on unusable server values, -2 internal. */
+int axiam_srp_session_finish(const srp_session_t *s, const char *identity,
+                             const char *salt_hex, const char *b_pub_hex,
+                             const unsigned char x[32],
+                             char **out_m1_hex, char **out_m2_hex);
+
+/** x = KDF(identity ":" password, salt): 0 ok, -1 unsupported KDF, -2 internal. */
+int axiam_srp_derive_x(const char *identity, const char *password,
+                       const unsigned char *salt, size_t salt_len,
+                       const axiam_srp_kdf_params_t *params,
+                       unsigned char out[32]);
+
+/** Constant-time M2 comparison (§23.3 rule 6). */
+int axiam_srp_verify_server_proof(const char *expected, const char *actual);
+
+/** Lowercase hex of `len` bytes; caller frees. */
+char *axiam_srp_hex(const unsigned char *bytes, size_t len);
+
+/** Hex decode; NULL for anything that is not valid hex. Caller frees. */
+unsigned char *axiam_srp_unhex(const char *hex, size_t *out_len);
+
+/** POST /api/v1/auth/srp/challenge body — the login body minus `password`,
+ *  plus `client_public` (§23.5). */
+char *axiam_build_srp_challenge_body(const char *user, const char *client_public,
+                                     const axiam_client_config_t *cfg);
+
+/** POST /api/v1/auth/srp/verify body (§23.5). */
+char *axiam_build_srp_verify_body(const char *srp_session, const char *client_proof);
 
 #endif /* AXIAM_INTERNAL_H */

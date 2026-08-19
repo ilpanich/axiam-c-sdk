@@ -11,7 +11,7 @@ Identity and Authorization Management). It provides authentication, token
 refresh, and authorization checks over the AXIAM REST API, plus a
 framework-agnostic route guard and declarative authorization helpers.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19 and §20, §21 (including §6.1 mTLS, §12.7 logout, and the §11 rule 9 decision reason codes).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21 and §23 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and the §23 SRP-6a login path — conditional on OpenSSL ≥ 3.2 for Argon2id, see below).**
 >
 > gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
@@ -28,7 +28,8 @@ framework-agnostic route guard and declarative authorization helpers.
 
 - CMake ≥ 3.16, a C11 compiler (gcc/clang).
 - libcurl development headers (`libcurl4-openssl-dev`).
-- OpenSSL ≥ 1.1.1 / 3.x development headers (`libssl-dev`).
+- OpenSSL ≥ 1.1.1 / 3.x development headers (`libssl-dev`). **OpenSSL ≥ 3.2 for
+  Argon2id** under §23 SRP — see below; everything else works on 1.1.1.
 - POSIX threads (`pthread`).
 
 ## Install
@@ -362,6 +363,148 @@ axiam_sensitive_free(secret);
 
 `axiam_webhook_verify()` takes the `X-Axiam-Signature` value directly, and
 `axiam_webhook_verify_at()` injects `now` for deterministic tests.
+
+## Secure Remote Password (§23)
+
+`axiam_login_srp()` proves the password to the server without the password — or
+anything from which it can be cheaply recovered — ever crossing the wire. The
+server stores a **verifier** `v = g^x mod N` instead of a password hash, and
+what travels is `A` and a proof, neither of which is useful without that
+verifier.
+
+```c
+axiam_login_result_t login = {0};
+axiam_error_t err;
+axiam_error_kind_t kind = axiam_login_srp(client, "alice", password, &login, &err);
+```
+
+It takes the same arguments as `axiam_login()` and fills the same
+`axiam_login_result_t`, MFA branch included, so switching a tenant to SRP needs
+no change to how the result is handled. A runnable end-to-end example, including
+the fallback and the enrolment call, is
+[`examples/srp_login.c`](examples/srp_login.c).
+
+### What this buys, and what it does not
+
+SRP closes holes TLS 1.3 does not:
+
+- a TLS-terminating reverse proxy, ingress controller, CDN or service mesh sees
+  every plaintext password today; under SRP it sees `A` and `M1`;
+- an accidental request-body log, a heap dump or a crash reporter can no longer
+  capture a plaintext password, because the server never has one;
+- a leaked verifier database still costs a full KDF evaluation per candidate
+  password, exactly as a leaked Argon2id database does.
+
+It does **not** protect against a compromised AXIAM server, and this SDK does
+not claim it does.
+
+### Conditional on your OpenSSL: Argon2id needs 3.2
+
+The arithmetic is `BN_mod_exp`, available in every OpenSSL this SDK links
+against, and PBKDF2-HMAC-SHA256 comes from `PKCS5_PBKDF2_HMAC`, likewise. But
+**Argon2id arrives as an `EVP_KDF` only in OpenSSL 3.2**, and it is what a
+default-configured AXIAM tenant names.
+
+```c
+if (!axiam_srp_argon2_available()) { /* this build cannot serve an argon2id tenant */ }
+```
+
+`axiam_srp_argon2_available()` fetches the KDF rather than reading a version
+macro, because a macro answers for the headers this was *compiled* against
+rather than the libcrypto it is *running* against, and those differ routinely
+where OpenSSL is shared. When the KDF is absent, `axiam_login_srp()` returns
+`AXIAM_ERR_NETWORK` naming it — it never substitutes PBKDF2, which would derive
+a different `x` and surface as "invalid password", the single most misleading
+failure this code could produce.
+
+`axiam_srp_available()` is the §23.1 capability probe and is unconditional here;
+the Argon2 probe is the one that can say no.
+
+### Tenant policy, and the errors that are not credential failures
+
+`srp_mode` is an organization baseline a tenant may tighten:
+
+| mode | `axiam_login()` | `axiam_login_srp()` |
+|---|---|---|
+| `disabled` (default) | works | `AXIAM_ERR_NETWORK` — the endpoint answers `404` |
+| `optional` | works | works |
+| `required` | `AXIAM_ERR_AUTHZ` (`srp_required`) | works |
+
+Neither is `AXIAM_ERR_AUTH`:
+
+- `AXIAM_ERR_NETWORK` from `axiam_login_srp()` means *this tenant does not offer
+  SRP*, or *this build cannot do the KDF it named* — a property of the tenant or
+  the build, never of any user. Fall back to `axiam_login()`.
+- `AXIAM_ERR_AUTHZ` from `axiam_login()` means *this tenant refuses password
+  login*. The credentials were never examined. Telling a user their perfectly
+  good password is invalid is the failure this mapping exists to prevent.
+
+`required` refuses **every** principal in the tenant, not only the enrolled
+ones. Splitting the response on whether an account has a verifier would turn
+`/auth/login` into an enumeration oracle costing one junk password per name. It
+also means `required` locks out anyone not yet enrolled: a verifier needs the
+plaintext password, and a stored Argon2id hash is not invertible, so nobody can
+be enrolled retroactively. Operators turn it on last, after a password-reset
+campaign.
+
+### Enrolment
+
+The server cannot compute a verifier, so any request that **sets** a password
+has to carry one. `axiam_srp_enrollment()` produces the `srp` object for
+`POST /api/v1/users`, `/auth/password/change`, `/auth/reset/confirm` and
+`/admin/bootstrap`:
+
+```c
+axiam_srp_enrollment_t enrolment;
+axiam_srp_kdf_params_t params = { AXIAM_SRP_KDF_PBKDF2, 0, 0, 0 };  /* 0 = AXIAM's costs */
+if (axiam_srp_enrollment("alice", new_password, NULL, &params, &enrolment, &err) == AXIAM_OK) {
+    /* ... attach enrolment's fields as the request's `srp` member ... */
+    axiam_srp_enrollment_dispose(&enrolment);   /* zeroizes salt and verifier */
+}
+```
+
+The identity must be the account's **username**: `x` is derived over
+`identity ":" password` using the identity the challenge endpoint hands back, so
+a verifier enrolled against an email address can never satisfy a login. For the
+same reason, **renaming a user invalidates their verifier** — the server clears
+it, and the user re-enrols at their next password change.
+
+The salt is 32 fresh bytes from `RAND_bytes` on every call, and
+`axiam_srp_enrollment_dispose()` zeroizes both salt and verifier before freeing
+them: §23.3 rule 12 keeps them out of logs, and there is no reason to leave them
+in freed memory either.
+
+### Cost
+
+`axiam_login_srp()` runs the tenant's KDF: Argon2id at 19 MiB and t=2 by
+default, which is tens to hundreds of milliseconds of CPU plus that memory, per
+login attempt. That cost is the point — it is what makes a leaked verifier no
+cheaper to attack than a leaked Argon2id hash. It is synchronous and blocking;
+size your request handling accordingly, since `axiam_login()` has no such cost.
+
+### Cryptographic parameters
+
+RFC 5054 Appendix A groups `rfc5054_2048`, `rfc5054_3072` and `rfc5054_4096`
+(the AXIAM default), embedded as constants. A modulus is **never** accepted from
+the server — a server-supplied `N` is a server-supplied trapdoor — and a group
+this SDK does not recognise is refused rather than guessed.
+
+Two deliberate divergences from RFC 5054, both AXIAM-wide: `H` is **SHA-256**,
+not SHA-1; and `x` is a **memory-hard KDF output**, not a bare hash, because RFC
+5054's bare-hash `x` would make a leaked verifier *cheaper* to attack offline
+than the Argon2id hashes AXIAM already stores.
+
+### Zeroization
+
+§23.3 rule 8 requires clearing what can be cleared, and C is a language where it
+can be. `x`, `S`, `K` and the joined `identity ":" password` are
+`OPENSSL_cleanse`d before release; every `BIGNUM` derived from the password uses
+`BN_clear_free` rather than `BN_free`; the request bodies carrying `A`, `M1` and
+`srp_session` go through the same scrubbing free the password path already used.
+The suite runs clean under ASan, UBSan and valgrind with leak checking on.
+
+The one thing this SDK cannot clear is the `const char *password` you hand it —
+that memory is yours.
 
 ## Building & testing
 
