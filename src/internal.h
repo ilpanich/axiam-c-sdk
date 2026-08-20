@@ -17,7 +17,7 @@
 
 #include "axiam/axiam.h"
 #include "axiam/oidc.h"
-#include "axiam/srp.h"
+#include "axiam/opaque.h"
 #include "axiam/uma.h"
 
 #ifdef __cplusplus
@@ -369,67 +369,132 @@ char *axiam_build_batch_body(const axiam_check_input_t *checks, size_t n);
 
 
 /* ------------------------------------------------------------------------
- * SRP-6a (CONTRACT.md §23) — src/srp.c
+ * OPAQUE, RFC 9807 (CONTRACT.md §23) — src/opaque.c
  *
- * The arithmetic lives in srp.c and performs no I/O; the two HTTP calls that
- * use it are axiam_login_srp() in client.c. These declarations are the seam
+ * §23.1 forbids this SDK from implementing OPAQUE, so what is here is a
+ * binding: `libaxiam_opaque_ffi` resolved with dlopen(), and the exchange
+ * lifecycle around it. The two HTTP calls that use it are axiam_login_opaque()
+ * and axiam_opaque_enrollment() in client.c. These declarations are the seam
  * between them, and are internal: nothing here is part of the public ABI.
  * ---------------------------------------------------------------------- */
 
-/** One RFC 5054 group. The moduli themselves stay private to srp.c. */
-typedef struct {
-    const char *wire_name;   /**< e.g. "rfc5054_4096". */
-    const char *modulus_hex; /**< N, uppercase hex. */
-    unsigned    generator;   /**< g. */
-    int         byte_len;    /**< Modulus width in bytes — the PAD() width. */
-} srp_group_t;
+/**
+ * The `libaxiam_opaque_ffi` C ABI, as a vtable.
+ *
+ * A struct of function pointers rather than direct calls, for one reason: it
+ * is what a test can substitute. There is no cryptography in this SDK to test,
+ * so what the suite exercises is everything above the ABI — single-use
+ * exchanges, the key-stretching function the SERVER named being the one used,
+ * which failure means what, and what goes on the wire. Requiring the real
+ * shared library would give a suite that runs only where a per-platform
+ * release asset happens to be installed, and would be testing `opaque-ke`
+ * rather than this SDK.
+ *
+ * Ownership, which is the same on every entry point:
+ *  - every `char *` returned is Rust-allocated and must be released with
+ *    `string_free` exactly once, on the failure paths as well as the success
+ *    ones;
+ *  - `last_error` returns a BORROWED string and must NOT be freed;
+ *  - a state handle is CONSUMED by its `*_finish`, success or failure, and is
+ *    released by `*_free` only when the exchange was abandoned.
+ */
+typedef struct axiam_opaque_native {
+    int (*available)(void);
+    const char *(*last_error)(void);
+    void (*string_free)(char *ptr);
+    void *(*ksf_argon2id)(unsigned memory_kib, unsigned iterations, unsigned parallelism);
+    void *(*ksf_scrypt)(unsigned char log_n, unsigned r, unsigned p);
+    void (*ksf_free)(void *ksf);
+    void *(*registration_start)(const char *password, char **out_request);
+    char *(*registration_finish)(void *state, const char *password,
+                                 const char *registration_response, const void *ksf,
+                                 char **out_export_key);
+    void (*registration_free)(void *state);
+    void *(*login_start)(const char *password, char **out_ke1);
+    char *(*login_finish)(void *state, const char *password, const char *ke2,
+                          const void *ksf, char **out_session_key, char **out_export_key);
+    void (*login_free)(void *state);
+} axiam_opaque_native_t;
 
-/** One exchange's client half: the ephemeral a, held between the two calls. */
-typedef struct {
-    const srp_group_t *group;
-    struct bignum_st *n;
-    struct bignum_st *g;
-    struct bignum_st *a_priv;
-    char *a_pub_hex; /**< A = g^a mod N, PAD()ed, lowercase hex. */
-} srp_session_t;
+/**
+ * The loaded library, or NULL when it is absent.
+ *
+ * Memoized, failure included: retrying dlopen() on every login is a per-request
+ * filesystem walk for a file that is not going to appear.
+ */
+const axiam_opaque_native_t *axiam_opaque_native(void);
 
-/** Resolve a wire group name; NULL for one this SDK does not implement. */
-const srp_group_t *axiam_srp_group_from_wire(const char *wire_name);
+/** Install a binding, bypassing the loader. Test-only. */
+void axiam_opaque_native_set_for_tests(const axiam_opaque_native_t *native);
 
-/** Start an exchange. fixed_a_hex is for the §23.7 vectors only; pass NULL. */
-int axiam_srp_session_begin(srp_session_t *s, const srp_group_t *group,
-                            const char *fixed_a_hex);
+/** Forget the memoized load. Test-only. */
+void axiam_opaque_native_reset_for_tests(void);
 
-/** Release and zeroize a session. Safe on a zeroed struct. */
-void axiam_srp_session_dispose(srp_session_t *s);
+/** One in-flight exchange. The state handle is single-use. */
+typedef struct axiam_opaque_exchange {
+    const axiam_opaque_native_t *lib;
+    void *state;          /**< NULL once spent or closed. */
+    char *first_message;  /**< RegistrationRequest or KE1, hex; caller-owned. */
+    int is_login;         /**< Selects the free/finish pair AND the failure kind. */
+} axiam_opaque_exchange_t;
 
-/** Complete an exchange: 0 on success, -1 on unusable server values, -2 internal. */
-int axiam_srp_session_finish(const srp_session_t *s, const char *identity,
-                             const char *salt_hex, const char *b_pub_hex,
-                             const unsigned char x[32],
-                             char **out_m1_hex, char **out_m2_hex);
+/** Blind `password` to open an enrolment: AXIAM_OK, or NETWORK with `err` set. */
+axiam_error_kind_t axiam_opaque_start_registration(axiam_opaque_exchange_t *x,
+                                                   const char *password,
+                                                   axiam_error_t *err);
 
-/** x = KDF(identity ":" password, salt): 0 ok, -1 unsupported KDF, -2 internal. */
-int axiam_srp_derive_x(const char *identity, const char *password,
-                       const unsigned char *salt, size_t salt_len,
-                       const axiam_srp_kdf_params_t *params,
-                       unsigned char out[32]);
+/** Blind `password` to open a login: AXIAM_OK, or NETWORK with `err` set. */
+axiam_error_kind_t axiam_opaque_start_login(axiam_opaque_exchange_t *x,
+                                            const char *password,
+                                            axiam_error_t *err);
 
-/** Constant-time M2 comparison (§23.3 rule 6). */
-int axiam_srp_verify_server_proof(const char *expected, const char *actual);
+/**
+ * Release an exchange that was never finished, and its first message.
+ *
+ * Idempotent, and a no-op on the handle once a finish has spent it. Calling it
+ * on every path is what keeps a refused key-stretching function from leaking a
+ * native allocation per login attempt.
+ */
+void axiam_opaque_exchange_close(axiam_opaque_exchange_t *x);
 
-/** Lowercase hex of `len` bytes; caller frees. */
-char *axiam_srp_hex(const unsigned char *bytes, size_t len);
+/**
+ * Complete an exchange, returning the hex RegistrationRecord or KE3.
+ *
+ * `peer_message` is the server's RegistrationResponse or KE2. The key-stretching
+ * handle is built BEFORE the state is spent — see the comment in the definition
+ * for why the order is load-bearing.
+ *
+ * A refused key-stretching function is AXIAM_ERR_NETWORK. A login whose envelope
+ * does not open is AXIAM_ERR_AUTH; the enrolment equivalent is
+ * AXIAM_ERR_NETWORK, because there is no credential being checked there.
+ */
+axiam_error_kind_t axiam_opaque_exchange_finish(axiam_opaque_exchange_t *x,
+                                                const char *password,
+                                                const char *peer_message,
+                                                const axiam_opaque_ksf_params_t *ksf,
+                                                char **out_hex,
+                                                axiam_error_t *err);
 
-/** Hex decode; NULL for anything that is not valid hex. Caller frees. */
-unsigned char *axiam_srp_unhex(const char *hex, size_t *out_len);
+/**
+ * Build the native key-stretching handle from what the SERVER named.
+ *
+ * Returns NULL with `err` set for an unrecognised function, a cost the named
+ * function needs but the server omitted, or a cost outside the band this SDK
+ * will act on. Release the result with `lib->ksf_free`.
+ */
+void *axiam_opaque_ksf_build(const axiam_opaque_native_t *lib,
+                             const axiam_opaque_ksf_params_t *ksf,
+                             axiam_error_t *err);
 
-/** POST /api/v1/auth/srp/challenge body — the login body minus `password`,
- *  plus `client_public` (§23.5). */
-char *axiam_build_srp_challenge_body(const char *user, const char *client_public,
-                                     const axiam_client_config_t *cfg);
+/** POST /api/v1/auth/opaque/login/start body (§23.5) — no `password` field. */
+char *axiam_build_opaque_login_start_body(const char *user, const char *ke1,
+                                          const axiam_client_config_t *cfg);
 
-/** POST /api/v1/auth/srp/verify body (§23.5). */
-char *axiam_build_srp_verify_body(const char *srp_session, const char *client_proof);
+/** POST /api/v1/auth/opaque/register/start body (§23.5) — names no account. */
+char *axiam_build_opaque_register_start_body(const char *registration_request,
+                                             const axiam_client_config_t *cfg);
+
+/** POST /api/v1/auth/opaque/login/finish body (§23.5). */
+char *axiam_build_opaque_login_finish_body(const char *opaque_session, const char *ke3);
 
 #endif /* AXIAM_INTERNAL_H */

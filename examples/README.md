@@ -8,6 +8,7 @@ end-to-end requires a reachable AXIAM server at the configured base URL.
 | Example | Shows |
 |---------|-------|
 | [`login_mfa.c`](login_mfa.c)  | Two-phase `axiam_login` / `axiam_verify_mfa` flow (CONTRACT.md §1, §5, §5.1). |
+| [`opaque_login.c`](opaque_login.c) | The §23 OPAQUE (RFC 9807) exchange: which failures may fall back to `axiam_login()` and which must not, and the registration record the server cannot build for itself. |
 | [`rest_authz.c`](rest_authz.c) | REST authorization: `axiam_check_access`, `axiam_can`, `axiam_batch_check` (§1). |
 | [`telemetry_hook.c`](telemetry_hook.c) | Metrics without a metrics dependency: §19 hooks, the §16 retry signal, and the §19.2 rule 6 clamp warning. |
 | [`uma_resource_server.c`](uma_resource_server.c) | UMA 2.0 (§20), emit half: register a resource, guard it, answer a denial with `WWW-Authenticate: UMA`. |
@@ -58,7 +59,10 @@ Connection details are read from the environment (with the defaults shown):
 | `AXIAM_ORG_SLUG`    | `acme`                                     |
 | `AXIAM_EMAIL`       | `user@example.com`                         |
 | `AXIAM_PASSWORD`    | `changeme`                                 |
-| `AXIAM_TOTP_CODE`   | `000000` (login_mfa only)                  |
+| `AXIAM_TOTP_CODE`   | `000000` (login_mfa, opaque_login)         |
+| `AXIAM_USERNAME`    | `alice` (opaque_login)                     |
+| `AXIAM_NEW_PASSWORD` | unset — set it to make `opaque_login` also build a registration record |
+| `AXIAM_OPAQUE_LIBRARY` | full path to `libaxiam_opaque_ffi` when it is not already on the loader path (opaque_login) |
 | `AXIAM_RESOURCE_ID` | `00000000-0000-0000-0000-000000000000` (rest_authz only) |
 | `AXIAM_TENANT_ID`   | `11111111-1111-1111-1111-111111111111` (the §12/§14/§15 examples — a **UUID**, because five of the nine §12 operations put the tenant in a query parameter that a slug cannot satisfy) |
 | `AXIAM_OIDC_CLIENT_ID` / `AXIAM_OIDC_CLIENT_SECRET` | the relying party's registration (the secret is omitted for a public client, which is what `device_login` runs as) |

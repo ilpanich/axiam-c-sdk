@@ -60,7 +60,7 @@ set(AXIAM_SOURCES
     src/oidc_device.c
     src/oidc_exchange.c
     src/oidc_logout.c
-    src/srp.c
+    src/opaque.c
     src/version.c)
 
 # Compile the SDK sources once into an object library shared by both variants.
@@ -71,7 +71,11 @@ target_include_directories(axiam_obj PUBLIC
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cjson)
-target_link_libraries(axiam_obj PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL Threads::Threads)
+# ${CMAKE_DL_LIBS} is dlopen/dlsym: src/opaque.c resolves libaxiam_opaque_ffi at
+# RUN time rather than link time (CONTRACT.md §23.1), so a consumer who never
+# uses OPAQUE is not made to link the shared library — and axiam_opaque_available()
+# can honestly answer 0. Empty on glibc >= 2.34, where libdl folded into libc.
+target_link_libraries(axiam_obj PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL Threads::Threads ${CMAKE_DL_LIBS})
 
 if(AXIAM_ENABLE_COVERAGE)
     target_compile_options(axiam_obj PRIVATE --coverage -O0 -g)
@@ -90,7 +94,7 @@ if(AXIAM_BUILD_SHARED)
     target_include_directories(axiam PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-    target_link_libraries(axiam PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL Threads::Threads)
+    target_link_libraries(axiam PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL Threads::Threads ${CMAKE_DL_LIBS})
     if(AXIAM_ENABLE_COVERAGE)
         target_link_options(axiam PUBLIC --coverage)
     endif()
@@ -106,7 +110,7 @@ if(AXIAM_BUILD_STATIC)
     target_include_directories(axiam_static PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-    target_link_libraries(axiam_static PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL Threads::Threads)
+    target_link_libraries(axiam_static PUBLIC CURL::libcurl OpenSSL::Crypto OpenSSL::SSL Threads::Threads ${CMAKE_DL_LIBS})
     if(NOT AXIAM_BUILD_SHARED)
         add_library(axiam::axiam ALIAS axiam_static)
     endif()

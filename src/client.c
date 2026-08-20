@@ -573,43 +573,75 @@ axiam_error_kind_t axiam_login(axiam_client_t *client, const char *username_or_e
 }
 
 /* ------------------------------------------------------------------------
- * Secure Remote Password (CONTRACT.md §23)
+ * OPAQUE, RFC 9807 (CONTRACT.md §23)
+ *
+ * Two round trips per operation, and no group-guessing dance: SRP had to guess
+ * a group before the server named one and restart the exchange if it guessed
+ * wrong, whereas KE1 does not depend on the key-stretching function.
  * ---------------------------------------------------------------------- */
 
-/* The group an exchange opens in before the server has named one.
- *
- * The challenge response names the group, but A has to be computed BEFORE that
- * response exists — so the first attempt guesses, and the exchange restarts if
- * the server names another. The guess is AXIAM's own default, so the restart is
- * the exceptional path rather than the normal one. */
-#define SRP_OPENING_GROUP AXIAM_SRP_GROUP_4096
+#define PATH_OPAQUE_LOGIN_START "/api/v1/auth/opaque/login/start"
+#define PATH_OPAQUE_LOGIN_FINISH "/api/v1/auth/opaque/login/finish"
+#define PATH_OPAQUE_REGISTER_START "/api/v1/auth/opaque/register/start"
 
-/* Reads a string member of a parsed challenge, or "" when absent. */
-static const char *srp_json_str(const cJSON *root, const char *name) {
+/* Reads a string member of a parsed response, or "" when absent. */
+static const char *opaque_json_str(const cJSON *root, const char *name) {
     const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, name);
     return (item && cJSON_IsString(item) && item->valuestring) ? item->valuestring : "";
 }
 
-static unsigned srp_json_uint(const cJSON *root, const char *name) {
+/* Reads an optional unsigned cost.
+ *
+ * The `has_` flag is the point: a field that does not apply to the named
+ * function is ABSENT, not zero (§23.4 rule 5), and reading a missing memory_kib
+ * as 0 would stretch at the wrong cost and fail against a record that is
+ * perfectly good. */
+static void opaque_json_cost(const cJSON *root, const char *name, int *has, unsigned *out) {
     const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, name);
-    return (item && cJSON_IsNumber(item) && item->valuedouble > 0)
-               ? (unsigned)item->valuedouble
-               : 0u;
+    if (item && cJSON_IsNumber(item) && item->valuedouble >= 0) {
+        *has = 1;
+        *out = (unsigned)item->valuedouble;
+    } else {
+        *has = 0;
+        *out = 0;
+    }
 }
 
-/* One challenge round trip. Returns 0 with *out_root owned by the caller, or
- * fills `err` and returns non-zero. */
-static int srp_challenge(axiam_client_t *client, const char *username_or_email,
-                         const srp_session_t *session, cJSON **out_root,
-                         axiam_error_t *err) {
+/* The key-stretching function and cost the server named for THIS exchange.
+ *
+ * Never cached across exchanges and never defaulted locally (§23.4 rule 2): a
+ * credential enrolled under one cost keeps working after a tenant raises its
+ * policy, so a client that guessed would derive a different randomized password
+ * and report "invalid password" for one that is entirely correct.
+ *
+ * The returned struct borrows `ksf` from `root`, which therefore has to outlive
+ * it. */
+static void opaque_read_ksf(const cJSON *root, axiam_opaque_ksf_params_t *out) {
+    memset(out, 0, sizeof(*out));
+    out->ksf = opaque_json_str(root, "ksf");
+    opaque_json_cost(root, "memory_kib", &out->has_memory_kib, &out->memory_kib);
+    opaque_json_cost(root, "iterations", &out->has_iterations, &out->iterations);
+    opaque_json_cost(root, "parallelism", &out->has_parallelism, &out->parallelism);
+    opaque_json_cost(root, "log_n", &out->has_log_n, &out->log_n);
+    opaque_json_cost(root, "r", &out->has_r, &out->r);
+    opaque_json_cost(root, "p", &out->has_p, &out->p);
+}
+
+/* One `*_/start` round trip. Returns 0 with *out_root owned by the caller, or
+ * fills `err` and returns non-zero.
+ *
+ * Shared by both OPAQUE paths so the meaning of a failure cannot drift between
+ * them. `what` names the endpoint in the malformed-response message only. */
+static int opaque_start(axiam_client_t *client, const char *path, char *body,
+                        const char *what, cJSON **out_root, axiam_error_t *err) {
     *out_root = NULL;
-    char *body = axiam_build_srp_challenge_body(username_or_email, session->a_pub_hex, client->cfg);
     if (!body) { axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory"); return -1; }
 
     axiam_http_response_t resp;
-    int rc = transport_once(client, "POST", "/api/v1/auth/srp/challenge", body, 1, &resp);
-    /* The challenge body carries A, which §23.3 rule 12 keeps out of logs; the
-     * same free_scrubbed the password path uses keeps it out of freed memory. */
+    int rc = transport_once(client, "POST", path, body, 1, &resp);
+    /* The body carries KE1 or a RegistrationRequest — both derived from the
+     * password, and both §23 material — so the same free_scrubbed the password
+     * path uses keeps them out of freed memory. */
     free_scrubbed(body);
     if (rc != 0 || resp.status == 0) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
@@ -619,19 +651,21 @@ static int srp_challenge(axiam_client_t *client, const char *username_or_email,
     }
 
     if (resp.status == 404) {
-        /* 404 is a property of the tenant ("SRP is off here"), not of the user,
-         * and not a credential failure — so a caller can fall back to
+        /* 404 is a property of the tenant ("OPAQUE is off here"), not of the
+         * user, and not a credential failure — so a caller can fall back to
          * axiam_login() without mistaking it for a bad password. */
         axiam_error_set(err, AXIAM_ERR_NETWORK, 404,
-                        "SRP: this tenant does not offer Secure Remote Password "
-                        "(srp_mode is disabled); use axiam_login() instead");
+                        "OPAQUE: this tenant does not offer OPAQUE (opaque_mode is disabled); "
+                        "use axiam_login() instead");
         axiam_http_response_dispose(&resp);
         return -1;
     }
     if (resp.status != 200) {
         axiam_error_kind_t kind = axiam_error_kind_from_http_status(resp.status);
         if (kind == AXIAM_OK) kind = AXIAM_ERR_AUTH;
-        axiam_error_set(err, kind, resp.status, "SRP challenge failed");
+        char msg[128];
+        snprintf(msg, sizeof(msg), "OPAQUE: %s failed", what);
+        axiam_error_set(err, kind, resp.status, msg);
         axiam_http_response_dispose(&resp);
         return -1;
     }
@@ -639,16 +673,18 @@ static int srp_challenge(axiam_client_t *client, const char *username_or_email,
     cJSON *root = resp.body ? cJSON_Parse(resp.body) : NULL;
     axiam_http_response_dispose(&resp);
     if (!root) {
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "SRP: the challenge response was not JSON");
+        char msg[128];
+        snprintf(msg, sizeof(msg), "OPAQUE: the %s response was not the shape §23 defines", what);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
         return -1;
     }
     *out_root = root;
     return 0;
 }
 
-axiam_error_kind_t axiam_login_srp(axiam_client_t *client, const char *username_or_email,
-                                   const char *password, axiam_login_result_t *out,
-                                   axiam_error_t *err) {
+axiam_error_kind_t axiam_login_opaque(axiam_client_t *client, const char *username_or_email,
+                                      const char *password, axiam_login_result_t *out,
+                                      axiam_error_t *err) {
     axiam_error_reset(err);
     if (out) memset(out, 0, sizeof(*out));
     if (!client || !username_or_email || !password) {
@@ -658,149 +694,130 @@ axiam_error_kind_t axiam_login_srp(axiam_client_t *client, const char *username_
     if (client_is_closed(client)) return closed_error(err);
     axiam_memo_clear(&client->memo); /* §17.1 rule 9 */
 
-    const srp_group_t *group = axiam_srp_group_from_wire(SRP_OPENING_GROUP);
-    srp_session_t session;
-    if (!group || axiam_srp_session_begin(&session, group, NULL) != 0) {
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "SRP: could not start an exchange");
-        return AXIAM_ERR_NETWORK;
-    }
+    axiam_opaque_exchange_t x;
+    axiam_error_kind_t kind = axiam_opaque_start_login(&x, password, err);
+    if (kind != AXIAM_OK) return kind;
 
-    cJSON *challenge = NULL;
-    if (srp_challenge(client, username_or_email, &session, &challenge, err) != 0) {
-        axiam_srp_session_dispose(&session);
+    cJSON *started = NULL;
+    if (opaque_start(client, PATH_OPAQUE_LOGIN_START,
+                     axiam_build_opaque_login_start_body(username_or_email, x.first_message,
+                                                         client->cfg),
+                     "login/start", &started, err) != 0) {
+        /* A no-op once finish has spent the handle; the point is the paths
+         * where it has not — a refused KSF, a malformed response, a non-200
+         * start. Without it a misconfigured tenant leaks a native allocation
+         * once per login attempt. */
+        axiam_opaque_exchange_close(&x);
         return err->kind;
     }
 
-    /* The server named a group other than the one A was computed in, so the
-     * exchange has to restart. Rare — the opening guess is AXIAM's own default
-     * — but a tenant on a narrower group must work rather than fail. */
-    const char *named_name = srp_json_str(challenge, "group");
-    const srp_group_t *named = axiam_srp_group_from_wire(named_name);
-    if (!named) {
-        /* §23.4: refuse rather than guess. AXIAM_ERR_NETWORK, not
-         * AXIAM_ERR_AUTH — a client capability gap reported as a credential
-         * failure would send a user to reset a working password. */
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
-                        "SRP: the server named a group this SDK does not implement");
-        cJSON_Delete(challenge);
-        axiam_srp_session_dispose(&session);
-        return AXIAM_ERR_NETWORK;
-    }
-    if (named != group) {
-        cJSON_Delete(challenge);
-        challenge = NULL;
-        axiam_srp_session_dispose(&session);
-        if (axiam_srp_session_begin(&session, named, NULL) != 0) {
-            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "SRP: could not restart the exchange");
-            return AXIAM_ERR_NETWORK;
-        }
-        if (srp_challenge(client, username_or_email, &session, &challenge, err) != 0) {
-            axiam_srp_session_dispose(&session);
-            return err->kind;
-        }
-    }
-
-    /* The identity comes from the SERVER, never from what the human typed
-     * (§23.3 rule 2): a user may sign in with a username or an email while only
-     * one of the two is bound into x. */
-    const char *identity = srp_json_str(challenge, "identity");
-    const char *salt_hex = srp_json_str(challenge, "salt");
-    const char *b_pub_hex = srp_json_str(challenge, "b_pub");
-    const char *srp_session_token = srp_json_str(challenge, "srp_session");
-
-    axiam_srp_kdf_params_t kdf;
-    kdf.kdf = srp_json_str(challenge, "kdf");
-    kdf.iterations = srp_json_uint(challenge, "iterations");
-    kdf.memory_kib = srp_json_uint(challenge, "memory_kib");
-    kdf.parallelism = srp_json_uint(challenge, "parallelism");
-
-    size_t salt_len = 0;
-    unsigned char *salt = axiam_srp_unhex(salt_hex, &salt_len);
-    if (!salt) {
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "SRP: the server's salt is not valid hex");
-        cJSON_Delete(challenge);
-        axiam_srp_session_dispose(&session);
+    const char *ke2 = opaque_json_str(started, "ke2");
+    if (!ke2[0]) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "OPAQUE: login/start returned no `ke2`");
+        cJSON_Delete(started);
+        axiam_opaque_exchange_close(&x);
         return AXIAM_ERR_NETWORK;
     }
 
-    unsigned char x[32];
-    int drc = axiam_srp_derive_x(identity, password, salt, salt_len, &kdf, x);
-    free(salt);
-    if (drc != 0) {
-        /* An unimplemented KDF is AXIAM_ERR_NETWORK and names itself: this
-         * build cannot serve this tenant, which is not the user's problem.
-         * Substituting the other KDF would derive a different x and surface as
-         * "invalid password" — the most misleading failure available here. */
-        char msg[256];
-        snprintf(msg, sizeof(msg),
-                 drc == -1 ? "SRP: this build does not implement KDF '%s'"
-                           : "SRP: key derivation failed for KDF '%s'",
-                 kdf.kdf ? kdf.kdf : "");
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
-        cJSON_Delete(challenge);
-        axiam_srp_session_dispose(&session);
-        return AXIAM_ERR_NETWORK;
-    }
+    axiam_opaque_ksf_params_t ksf;
+    opaque_read_ksf(started, &ksf);
 
-    char *m1_hex = NULL, *expected_m2_hex = NULL;
-    int frc = axiam_srp_session_finish(&session, identity, salt_hex, b_pub_hex, x,
-                                       &m1_hex, &expected_m2_hex);
-    OPENSSL_cleanse(x, sizeof(x));
-    if (frc != 0) {
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
-                        frc == -1 ? "SRP: the server sent an unusable public value"
-                                  : "SRP: the exchange could not be completed");
-        cJSON_Delete(challenge);
-        axiam_srp_session_dispose(&session);
-        return AXIAM_ERR_NETWORK;
+    char *ke3 = NULL;
+    kind = axiam_opaque_exchange_finish(&x, password, ke2, &ksf, &ke3, err);
+    char *session = strdup(opaque_json_str(started, "opaque_session"));
+    cJSON_Delete(started);
+    axiam_opaque_exchange_close(&x);
+    if (kind != AXIAM_OK) {
+        /* §23.4 rule 7: nothing goes to login/finish once the envelope has
+         * failed to open. `out` stays zeroed. */
+        free(session);
+        return kind;
     }
-
-    char *body = axiam_build_srp_verify_body(srp_session_token, m1_hex);
-    cJSON_Delete(challenge);
-    axiam_srp_session_dispose(&session);
-    if (!body) {
-        free(m1_hex);
-        free_scrubbed(expected_m2_hex);
+    if (!session) {
+        free_scrubbed(ke3);
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
         return AXIAM_ERR_NETWORK;
     }
-    free(m1_hex);
+
+    char *body = axiam_build_opaque_login_finish_body(session, ke3);
+    free(session);
+    free_scrubbed(ke3);
+    if (!body) { axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory"); return AXIAM_ERR_NETWORK; }
 
     axiam_http_response_t resp;
-    int rc = transport_once(client, "POST", "/api/v1/auth/srp/verify", body, 1, &resp);
-    free_scrubbed(body); /* §23.3 rule 12: srp_session is bearer-equivalent. */
+    int rc = transport_once(client, "POST", PATH_OPAQUE_LOGIN_FINISH, body, 1, &resp);
+    free_scrubbed(body); /* the opaque_session handle is bearer-equivalent. */
     if (rc != 0 || resp.status == 0) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
                         resp.transport_msg ? resp.transport_msg : "network failure");
         axiam_http_response_dispose(&resp);
-        free_scrubbed(expected_m2_hex);
         return AXIAM_ERR_NETWORK;
     }
 
-    /* Mutual authentication (§23.3 rule 6), checked BEFORE the response is
-     * parsed into a session or reported. A rogue server that cannot prove
-     * itself must not get the chance to collect an MFA code either. */
-    if (resp.status == 200 || resp.status == 202) {
-        cJSON *wire = resp.body ? cJSON_Parse(resp.body) : NULL;
-        const char *server_proof = wire ? srp_json_str(wire, "server_proof") : "";
-        int proven = axiam_srp_verify_server_proof(expected_m2_hex, server_proof);
-        if (wire) cJSON_Delete(wire);
-        if (!proven) {
-            axiam_error_set(err, AXIAM_ERR_AUTH, 0,
-                            "SRP: the server failed to prove it holds this account's verifier");
-            axiam_http_response_dispose(&resp);
-            free_scrubbed(expected_m2_hex);
-            /* `out` is left zeroed: an endpoint that cannot prove it holds the
-             * verifier is not the server it claims to be, so there is no
-             * session to hand back. */
-            return AXIAM_ERR_AUTH;
-        }
-    }
-    free_scrubbed(expected_m2_hex);
-
-    axiam_error_kind_t kind = parse_login_like(client, &resp, out, err);
+    /* Identical adoption to axiam_login(): the union is the same, so the
+     * session state, the cached user and the MFA branches are too. An
+     * application must be able to keep one result handler when a tenant moves
+     * to OPAQUE, which it cannot if a branch is missing here. */
+    kind = parse_login_like(client, &resp, out, err);
     axiam_http_response_dispose(&resp);
     return kind;
+}
+
+axiam_error_kind_t axiam_opaque_enrollment(axiam_client_t *client, const char *password,
+                                           axiam_opaque_enrollment_t *out,
+                                           axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (out) memset(out, 0, sizeof(*out));
+    if (!client || !password || !out) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (client_is_closed(client)) return closed_error(err);
+
+    axiam_opaque_exchange_t x;
+    axiam_error_kind_t kind = axiam_opaque_start_registration(&x, password, err);
+    if (kind != AXIAM_OK) return kind;
+
+    cJSON *started = NULL;
+    if (opaque_start(client, PATH_OPAQUE_REGISTER_START,
+                     axiam_build_opaque_register_start_body(x.first_message, client->cfg),
+                     "register/start", &started, err) != 0) {
+        axiam_opaque_exchange_close(&x);
+        return err->kind;
+    }
+
+    const char *response = opaque_json_str(started, "registration_response");
+    if (!response[0]) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "OPAQUE: register/start returned no `registration_response`");
+        cJSON_Delete(started);
+        axiam_opaque_exchange_close(&x);
+        return AXIAM_ERR_NETWORK;
+    }
+
+    axiam_opaque_ksf_params_t ksf;
+    opaque_read_ksf(started, &ksf);
+
+    char *record = NULL;
+    kind = axiam_opaque_exchange_finish(&x, password, response, &ksf, &record, err);
+    char *session = strdup(opaque_json_str(started, "opaque_session"));
+    cJSON_Delete(started);
+    axiam_opaque_exchange_close(&x);
+    if (kind != AXIAM_OK) {
+        free(session);
+        return kind;
+    }
+    if (!session) {
+        free_scrubbed(record);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    /* All-or-nothing: a half-built enrolment would be worse than an error,
+     * because the caller would send a record with no session to bind it to. */
+    out->opaque_session = session;
+    out->registration_record = record;
+    return AXIAM_OK;
 }
 
 axiam_error_kind_t axiam_verify_mfa(axiam_client_t *client, const char *challenge_token,

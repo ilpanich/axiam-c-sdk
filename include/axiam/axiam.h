@@ -19,7 +19,7 @@
 #include "axiam/jwks.h"
 #include "axiam/guard.h"
 #include "axiam/oidc.h"
-#include "axiam/srp.h"
+#include "axiam/opaque.h"
 #include "axiam/uma.h"
 #include "axiam/webhook.h"
 

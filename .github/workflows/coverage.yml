@@ -53,10 +53,19 @@ jobs:
           # gates sit ~1.4pp and ~2.2pp under those MEASURED numbers, the same
           # margin discipline the previous ratchet used.
           #
-          # The 22 still-uncovered lines are failures of primitives this suite
+          # The still-uncovered lines are failures of primitives this suite
           # cannot induce in-process (HMAC/EVP key load returning NULL, libcurl
           # handle init failing) plus two thread-race telemetry arms. Add the
           # test rather than lowering the number.
+          #
+          # The §23 OPAQUE port kept that discipline rather than spending the
+          # headroom: src/opaque.c is a dlopen() binding to a per-platform
+          # release asset no runner has, which in most of the eleven SDKs is
+          # simply an uncoverable file. Here tests/opaque_stub.c is built as a
+          # real MODULE library exporting the twelve symbols and loaded through
+          # AXIAM_OPAQUE_LIBRARY, so resolution, the post-load availability
+          # check and the ownership rules run against a genuine dynamic object
+          # — src/opaque.c measures 100% lines with no exclusion.
           gcovr --root . --filter 'src/' \
             --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
             --print-summary \
