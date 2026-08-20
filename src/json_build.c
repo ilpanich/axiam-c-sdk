@@ -11,22 +11,27 @@ static char *print_and_free(cJSON *root) {
     return s;
 }
 
+/* The tenant/org resolution every login-shaped body shares, so the paths
+ * cannot drift. */
+static void add_scope_fields(cJSON *root, const axiam_client_config_t *cfg) {
+    if (!cfg) return;
+    if (cfg->tenant_id && cfg->tenant_id[0])
+        cJSON_AddStringToObject(root, "tenant_id", cfg->tenant_id);
+    else if (cfg->tenant_slug && cfg->tenant_slug[0])
+        cJSON_AddStringToObject(root, "tenant_slug", cfg->tenant_slug);
+    if (cfg->org_id && cfg->org_id[0])
+        cJSON_AddStringToObject(root, "org_id", cfg->org_id);
+    else if (cfg->org_slug && cfg->org_slug[0])
+        cJSON_AddStringToObject(root, "org_slug", cfg->org_slug);
+}
+
 char *axiam_build_login_body(const char *user, const char *password,
                              const axiam_client_config_t *cfg) {
     cJSON *root = cJSON_CreateObject();
     if (!root) return NULL;
     cJSON_AddStringToObject(root, "username_or_email", user ? user : "");
     cJSON_AddStringToObject(root, "password", password ? password : "");
-    if (cfg) {
-        if (cfg->tenant_id && cfg->tenant_id[0])
-            cJSON_AddStringToObject(root, "tenant_id", cfg->tenant_id);
-        else if (cfg->tenant_slug && cfg->tenant_slug[0])
-            cJSON_AddStringToObject(root, "tenant_slug", cfg->tenant_slug);
-        if (cfg->org_id && cfg->org_id[0])
-            cJSON_AddStringToObject(root, "org_id", cfg->org_id);
-        else if (cfg->org_slug && cfg->org_slug[0])
-            cJSON_AddStringToObject(root, "org_slug", cfg->org_slug);
-    }
+    add_scope_fields(root, cfg);
     return print_and_free(root);
 }
 
@@ -83,35 +88,42 @@ char *axiam_build_batch_body(const axiam_check_input_t *checks, size_t n) {
     return print_and_free(root);
 }
 
-/* POST /api/v1/auth/srp/challenge (CONTRACT.md §23.5).
+/* POST /api/v1/auth/opaque/login/start (CONTRACT.md §23.5).
  *
- * The same tenant/org resolution as axiam_build_login_body, so the two login
- * paths cannot drift — and deliberately NO `password` field: it has no business
- * on this request, which is the whole point of the exchange. */
-char *axiam_build_srp_challenge_body(const char *user, const char *client_public,
-                                     const axiam_client_config_t *cfg) {
+ * Note what is absent: `password`. Not sending it is the entire point of the
+ * exchange, and a field that does not exist cannot be added back by accident.
+ * `ke1` is a blinded group element, useless without the tenant's OPRF seed. */
+char *axiam_build_opaque_login_start_body(const char *user, const char *ke1,
+                                          const axiam_client_config_t *cfg) {
     cJSON *root = cJSON_CreateObject();
     if (!root) return NULL;
     cJSON_AddStringToObject(root, "username_or_email", user ? user : "");
-    cJSON_AddStringToObject(root, "client_public", client_public ? client_public : "");
-    if (cfg) {
-        if (cfg->tenant_id && cfg->tenant_id[0])
-            cJSON_AddStringToObject(root, "tenant_id", cfg->tenant_id);
-        else if (cfg->tenant_slug && cfg->tenant_slug[0])
-            cJSON_AddStringToObject(root, "tenant_slug", cfg->tenant_slug);
-        if (cfg->org_id && cfg->org_id[0])
-            cJSON_AddStringToObject(root, "org_id", cfg->org_id);
-        else if (cfg->org_slug && cfg->org_slug[0])
-            cJSON_AddStringToObject(root, "org_slug", cfg->org_slug);
-    }
+    cJSON_AddStringToObject(root, "ke1", ke1 ? ke1 : "");
+    add_scope_fields(root, cfg);
     return print_and_free(root);
 }
 
-/* POST /api/v1/auth/srp/verify (CONTRACT.md §23.5). */
-char *axiam_build_srp_verify_body(const char *srp_session, const char *client_proof) {
+/* POST /api/v1/auth/opaque/register/start (CONTRACT.md §23.5).
+ *
+ * This one names no account at all — not even a username. A record binds to a
+ * credential identifier the SERVER chooses, which is why a later rename cannot
+ * invalidate a credential, and why the SRP enrolment's `identity` argument has
+ * no successor. */
+char *axiam_build_opaque_register_start_body(const char *registration_request,
+                                             const axiam_client_config_t *cfg) {
     cJSON *root = cJSON_CreateObject();
     if (!root) return NULL;
-    cJSON_AddStringToObject(root, "srp_session", srp_session ? srp_session : "");
-    cJSON_AddStringToObject(root, "client_proof", client_proof ? client_proof : "");
+    cJSON_AddStringToObject(root, "registration_request",
+                            registration_request ? registration_request : "");
+    add_scope_fields(root, cfg);
+    return print_and_free(root);
+}
+
+/* POST /api/v1/auth/opaque/login/finish (CONTRACT.md §23.5). */
+char *axiam_build_opaque_login_finish_body(const char *opaque_session, const char *ke3) {
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return NULL;
+    cJSON_AddStringToObject(root, "opaque_session", opaque_session ? opaque_session : "");
+    cJSON_AddStringToObject(root, "ke3", ke3 ? ke3 : "");
     return print_and_free(root);
 }

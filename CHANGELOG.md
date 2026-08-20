@@ -5,6 +5,50 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [Unreleased]
+
+### Added
+
+- OPAQUE (RFC 9807) login and enrolment (CONTRACT §23): `axiam_login_opaque()`
+  and `axiam_opaque_enrollment()`, plus `axiam_opaque_available()` for choosing
+  the password path up front. `axiam_login_opaque()` fills the same
+  `axiam_login_result_t` as `axiam_login()`, MFA-required and MFA-setup branches
+  included.
+- `include/axiam/opaque.h`, `src/opaque.c`, `examples/opaque_login.c`,
+  `tests/test_opaque_binding.c` and `tests/test_opaque_login.c`.
+
+### Removed
+
+- **BREAKING** — SRP-6a. `axiam_login_srp()`, `axiam_srp_enrollment()`,
+  `axiam_srp_available()`, `axiam_srp_argon2_available()`,
+  `include/axiam/srp.h`, `src/srp.c` and `srp-test-vectors.json` are all gone.
+  AXIAM's server-side SRP endpoints are removed in the same release, so keeping
+  the client would leave a function that only ever returns 404.
+
+### Changed
+
+- **BREAKING** — the OPAQUE protocol is NOT implemented in this SDK. CONTRACT
+  §23.1 forbids it, so `src/opaque.c` is a `dlopen`/`dlsym` binding to
+  `libaxiam_opaque_ffi` — the same implementation the AXIAM server links,
+  published as a per-platform asset on the axiam-opaque release page. It is
+  resolved at RUN time, so a consumer who never uses OPAQUE needs nothing extra
+  at build time and `axiam_opaque_available()` can honestly answer 0. Put the
+  library on the loader path or point `AXIAM_OPAQUE_LIBRARY` at it.
+- **Your OpenSSL version no longer decides which tenants work.** Argon2id
+  arrives as an `EVP_KDF` only in OpenSSL 3.2, so the SRP path had to refuse a
+  default-configured (`argon2id`) tenant on anything older — operators either
+  upgraded OpenSSL or weakened the tenant to `pbkdf2_sha256`. Key stretching now
+  happens inside the native library, so OpenSSL 1.1.1 serves every tenant and
+  `axiam_srp_argon2_available()` has no successor.
+- `axiam_opaque_enrollment()` takes a client and performs I/O — one
+  `register/start` round trip — where `axiam_srp_enrollment()` was pure. OPAQUE's
+  envelope is sealed under the server's oblivious PRF, so there is no offline
+  computation that produces a valid record. It also loses the `identity`
+  argument: a record binds to a credential identifier the server chooses, so
+  passing an email where a username was wanted can no longer produce an unusable
+  credential, and **renaming a user no longer invalidates it**.
+- `${CMAKE_DL_LIBS}` added to the link line (empty on glibc ≥ 2.34).
+
 ## [1.0.0-alpha31] - 2026-08-20
 
 ### Changed

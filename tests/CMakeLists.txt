@@ -40,11 +40,36 @@ axiam_add_test(test_webhook test_webhook.c)
 axiam_add_test(test_uma test_uma.c)
 axiam_add_test(test_uma_branches test_uma_branches.c)
 
-# ---- §23 SRP: the cross-language vectors and the protocol refusals.
-# Reaches into internal.h for the arithmetic seam — asserting on M1 alone would
-# satisfy neither §23.7 rule 1 (every intermediate) nor rule 4 (group constants).
-axiam_add_test(test_srp_vectors test_srp_vectors.c)
-axiam_add_test(test_srp_login test_srp_login.c)
+# ---- §23 OPAQUE ----------------------------------------------------------
+#
+# A REAL shared library exporting the twelve libaxiam_opaque_ffi symbols, so
+# src/opaque.c's dlopen()/dlsym() resolution is exercised against a genuine
+# dynamic object rather than jumped over. It performs no cryptography — its
+# whole job is to be a library that loads. MODULE rather than SHARED because
+# nothing links it; it is only ever dlopen()ed.
+add_library(axiam_opaque_stub MODULE ${CMAKE_CURRENT_SOURCE_DIR}/opaque_stub.c)
+set_target_properties(axiam_opaque_stub PROPERTIES PREFIX "lib")
+
+# The same source with one export renamed: a library that loads and is missing
+# a symbol, which the loader must refuse rather than half-adopt.
+add_library(axiam_opaque_stub_incomplete MODULE ${CMAKE_CURRENT_SOURCE_DIR}/opaque_stub.c)
+target_compile_definitions(axiam_opaque_stub_incomplete PRIVATE AXIAM_OPAQUE_STUB_INCOMPLETE)
+set_target_properties(axiam_opaque_stub_incomplete PROPERTIES PREFIX "lib")
+
+# ---- §23 OPAQUE: the binding and the protocol refusals.
+# Reaches into internal.h for the native-vtable seam. §23.1 forbids this SDK
+# from implementing OPAQUE, so there is no cryptography to test and no
+# cross-language vector suite to run — what these cover is everything above the
+# ABI, driven by a fake vtable that records frees and outstanding handles.
+axiam_add_test(test_opaque_binding test_opaque_binding.c)
+axiam_add_test(test_opaque_login test_opaque_login.c)
+
+# The stub paths reach the binding test as compile definitions rather than
+# argv, so the suite stays runnable by `ctest` with no arguments.
+add_dependencies(test_opaque_binding axiam_opaque_stub axiam_opaque_stub_incomplete)
+target_compile_definitions(test_opaque_binding PRIVATE
+    AXIAM_OPAQUE_STUB_PATH="$<TARGET_FILE:axiam_opaque_stub>"
+    AXIAM_OPAQUE_STUB_INCOMPLETE_PATH="$<TARGET_FILE:axiam_opaque_stub_incomplete>")
 
 # ---- D5: §16 retry, §17 decision memo, §18 close(), §19 telemetry.
 # Reaches into internal.h for the injected PRNG / injected sleep seams §16.7

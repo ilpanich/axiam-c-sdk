@@ -33,6 +33,10 @@
 
 #include "jwt_fixture.h"
 #include "oidc_test_util.h"
+#include "opaque_fake.h"
+
+/* The fake OPAQUE library's counters, defined once per test binary. */
+fake_opaque_t g_fake_opaque;
 
 extern void *__real_malloc(size_t size);
 extern void *__real_calloc(size_t nmemb, size_t size);
@@ -1081,33 +1085,39 @@ static int authz_allow_transport(void *ctx, const axiam_http_request_t *req,
 }
 
 /* ------------------------------------------------------------------ */
-/* src/srp.c + src/client.c (CONTRACT.md §23)                         */
+/* src/opaque.c + src/client.c (CONTRACT.md §23)                      */
 /* ------------------------------------------------------------------ */
 
-/* A challenge that is well-formed enough to reach every allocation on the
- * login path: a group this SDK implements, a KDF it can perform, a hex salt,
- * and a B that is not congruent to zero. The proof it eventually gets back is
- * wrong, which is fine — the M2 check is downstream of every allocation the
- * sweep is here to exercise. `iterations` is 1 so the sweep stays fast. */
-static const char *SRP_ALLOC_CHALLENGE =
-    "{\"srp_session\":\"s1\",\"identity\":\"alice\","
-    "\"salt\":\"000102030405060708090a0b0c0d0e0f"
-    "101112131415161718191a1b1c1d1e1f\","
-    "\"group\":\"" AXIAM_SRP_GROUP_4096 "\",\"kdf\":\"" AXIAM_SRP_KDF_PBKDF2 "\","
-    "\"iterations\":1,\"b_pub\":\"02\"}";
+/* A start response well-formed enough to reach every allocation on both OPAQUE
+ * paths: a session handle, a peer message, and a key-stretching function this
+ * SDK can ask for at costs inside the accepted bands. */
+static const char *OPAQUE_ALLOC_LOGIN_START =
+    "{\"opaque_session\":\"s1\",\"ke2\":\"6b6532\",\"ksf\":\"" AXIAM_OPAQUE_KSF_ARGON2ID "\","
+    "\"memory_kib\":19456,\"iterations\":2,\"parallelism\":1}";
 
-static int srp_alloc_transport(void *ctx, const axiam_http_request_t *req,
-                               axiam_http_response_t *resp) {
+static const char *OPAQUE_ALLOC_REGISTER_START =
+    "{\"opaque_session\":\"s1\",\"registration_response\":\"726573\","
+    "\"ksf\":\"" AXIAM_OPAQUE_KSF_ARGON2ID "\",\"memory_kib\":19456,\"iterations\":2,"
+    "\"parallelism\":1}";
+
+static int opaque_alloc_transport(void *ctx, const axiam_http_request_t *req,
+                                  axiam_http_response_t *resp) {
     (void)ctx;
     const char *url = req->url ? req->url : "";
-    if (strstr(url, "/auth/srp/challenge")) {
-        resp_fill(resp, 200, SRP_ALLOC_CHALLENGE, NULL);
+    if (strstr(url, "/auth/opaque/login/start")) {
+        resp_fill(resp, 200, OPAQUE_ALLOC_LOGIN_START, NULL);
         return 0;
     }
-    if (strstr(url, "/auth/srp/verify")) {
+    if (strstr(url, "/auth/opaque/register/start")) {
+        resp_fill(resp, 200, OPAQUE_ALLOC_REGISTER_START, NULL);
+        return 0;
+    }
+    if (strstr(url, "/auth/opaque/login/finish")) {
         resp_fill(resp, 200,
                   "{\"session_id\":\"33333333-3333-3333-3333-333333333333\","
-                  "\"expires_in\":900,\"server_proof\":\"00\"}",
+                  "\"expires_in\":900,"
+                  "\"user\":{\"id\":\"u-1\",\"username\":\"alice\",\"email\":\"a@x.io\","
+                  "\"tenant_id\":\"" AXIAM_TEST_TENANT_ID "\"}}",
                   NULL);
         return 0;
     }
@@ -1115,68 +1125,74 @@ static int srp_alloc_transport(void *ctx, const axiam_http_request_t *req,
     return 0;
 }
 
-static axiam_client_t *srp_alloc_make_client(void) {
+static axiam_client_t *opaque_alloc_make_client(void) {
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, OIDC_BASE);
     axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
-    axiam_client_config_set_transport(cfg, srp_alloc_transport, NULL);
+    axiam_client_config_set_transport(cfg, opaque_alloc_transport, NULL);
     axiam_error_t err;
     axiam_client_t *c = axiam_client_new(cfg, &err);
     axiam_client_config_free(cfg);
     return c;
 }
 
-static void test_srp_enrollment_alloc_failure_sweep(void) {
-    /* src/srp.c:590-617 — the BN_CTX, the padded verifier buffer and the four
-     * strdup/hex allocations the enrolment hands back, plus the :613 arm where
-     * some of them succeeded and the enrolment has to be torn back down rather
-     * than returned half-built. A partly-filled enrolment would be worse than
-     * an error: the caller would send a verifier with no salt. */
-    axiam_srp_kdf_params_t params = { AXIAM_SRP_KDF_PBKDF2, 1, 0, 0 };
-    for (long i = 1; i <= 40; i++) {
-        axiam_srp_enrollment_t e;
-        axiam_error_t err;
-        alloc_fail_after(i);
-        axiam_error_kind_t k =
-            axiam_srp_enrollment("alice", "pw", AXIAM_SRP_GROUP_2048, &params, &e, &err);
-        alloc_fail_reset();
-        if (k == AXIAM_OK) {
-            /* All-or-nothing: every member is there, or none is. */
-            TEST_ASSERT_NOT_NULL(e.group);
-            TEST_ASSERT_NOT_NULL(e.kdf);
-            TEST_ASSERT_NOT_NULL(e.salt);
-            TEST_ASSERT_NOT_NULL(e.verifier);
-            axiam_srp_enrollment_dispose(&e);
-        } else {
-            TEST_ASSERT_NULL(e.verifier);
-            TEST_ASSERT_NULL(e.salt);
-        }
-    }
-}
-
-static void test_srp_login_alloc_failure_sweep(void) {
-    /* src/client.c:606-607 (the challenge body), :758-766 (the verify body,
-     * whose failure arm has to free both proofs) and src/srp.c's hex/session
-     * allocations in between. Nothing here may crash or double-free, and no
-     * failure may be reported as AXIAM_OK. */
-    axiam_client_t *c = srp_alloc_make_client();
+static void test_opaque_login_alloc_failure_sweep(void) {
+    /* src/opaque.c's take()/start() copies, src/client.c's two request bodies
+     * and the strdup of the session handle, and cJSON's own allocations in
+     * between. Nothing here may crash, double-free, or report AXIAM_OK for a
+     * run that did not authenticate.
+     *
+     * The leak check is the assertion that carries the weight: an allocation
+     * failure part-way through must still leave the native exchange released,
+     * because a caller cannot reach a state handle the SDK dropped. */
+    fake_opaque_install();
+    axiam_client_t *c = opaque_alloc_make_client();
     TEST_ASSERT_NOT_NULL(c);
 
     for (long i = 1; i <= 60; i++) {
         axiam_login_result_t res;
         axiam_error_t err;
         alloc_fail_after(i);
-        axiam_error_kind_t k = axiam_login_srp(c, "alice", "pw", &res, &err);
+        axiam_error_kind_t k = axiam_login_opaque(c, "alice", "pw", &res, &err);
         alloc_fail_reset();
-        /* The fake's M2 is deliberately wrong, so a run that survives every
-         * allocation still ends in the mutual-authentication refusal — never
-         * in a session. */
-        TEST_ASSERT_NOT_EQUAL(AXIAM_OK, k);
-        TEST_ASSERT_FALSE(res.authenticated);
+        if (k != AXIAM_OK) TEST_ASSERT_FALSE(res.authenticated);
         axiam_login_result_dispose(&res);
+        TEST_ASSERT_FALSE_MESSAGE(fake_opaque_leaked(),
+                                  "an allocation failure stranded a native handle");
     }
 
     axiam_client_free(c);
+    axiam_opaque_native_reset_for_tests();
+}
+
+static void test_opaque_enrollment_alloc_failure_sweep(void) {
+    /* All-or-nothing, the same property the SRP enrolment sweep asserted: every
+     * member is there or none is. A partly-filled enrolment would be worse than
+     * an error — the caller would send a record with no session to bind it to. */
+    fake_opaque_install();
+    axiam_client_t *c = opaque_alloc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+
+    for (long i = 1; i <= 50; i++) {
+        axiam_opaque_enrollment_t e;
+        axiam_error_t err;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_opaque_enrollment(c, "pw", &e, &err);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(e.opaque_session);
+            TEST_ASSERT_NOT_NULL(e.registration_record);
+            axiam_opaque_enrollment_dispose(&e);
+        } else {
+            TEST_ASSERT_NULL(e.opaque_session);
+            TEST_ASSERT_NULL(e.registration_record);
+        }
+        TEST_ASSERT_FALSE_MESSAGE(fake_opaque_leaked(),
+                                  "an allocation failure stranded a native handle");
+    }
+
+    axiam_client_free(c);
+    axiam_opaque_native_reset_for_tests();
 }
 
 static void test_memo_store_alloc_failure_is_silent(void) {
@@ -1293,8 +1309,8 @@ int main(void) {
     RUN_TEST(test_uma_discover_alloc_failure_sweep);
     RUN_TEST(test_uma_resource_registration_alloc_failure_sweep);
     RUN_TEST(test_uma_ticket_and_rpt_alloc_failure_sweep);
-    RUN_TEST(test_srp_enrollment_alloc_failure_sweep);
-    RUN_TEST(test_srp_login_alloc_failure_sweep);
+    RUN_TEST(test_opaque_login_alloc_failure_sweep);
+    RUN_TEST(test_opaque_enrollment_alloc_failure_sweep);
     RUN_TEST(test_memo_store_alloc_failure_is_silent);
     RUN_TEST(test_webhook_verify_headers_body_malloc_failure);
     return UNITY_END();

@@ -11,7 +11,7 @@ Identity and Authorization Management). It provides authentication, token
 refresh, and authorization checks over the AXIAM REST API, plus a
 framework-agnostic route guard and declarative authorization helpers.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21 and §23 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and the §23 SRP-6a login path — conditional on OpenSSL ≥ 3.2 for Argon2id, see below).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21 and §23 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below).**
 >
 > gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
@@ -28,9 +28,13 @@ framework-agnostic route guard and declarative authorization helpers.
 
 - CMake ≥ 3.16, a C11 compiler (gcc/clang).
 - libcurl development headers (`libcurl4-openssl-dev`).
-- OpenSSL ≥ 1.1.1 / 3.x development headers (`libssl-dev`). **OpenSSL ≥ 3.2 for
-  Argon2id** under §23 SRP — see below; everything else works on 1.1.1.
+- OpenSSL ≥ 1.1.1 / 3.x development headers (`libssl-dev`). The §23 SRP path
+  used to need **≥ 3.2 for Argon2id**; OPAQUE does not — key stretching happens
+  inside `libaxiam_opaque_ffi`, so 1.1.1 now serves every tenant.
 - POSIX threads (`pthread`).
+- `dlopen`/`dlsym` (`${CMAKE_DL_LIBS}`, empty on glibc ≥ 2.34). Used to resolve
+  the optional OPAQUE library at run time; nothing needs to be installed at
+  build time.
 
 ## Install
 
@@ -364,144 +368,241 @@ axiam_sensitive_free(secret);
 `axiam_webhook_verify()` takes the `X-Axiam-Signature` value directly, and
 `axiam_webhook_verify_at()` injects `now` for deterministic tests.
 
-## Secure Remote Password (§23)
+## OPAQUE — RFC 9807 (§23)
 
-`axiam_login_srp()` proves the password to the server without the password — or
-anything from which it can be cheaply recovered — ever crossing the wire. The
-server stores a **verifier** `v = g^x mod N` instead of a password hash, and
-what travels is `A` and a proof, neither of which is useful without that
-verifier.
+`axiam_login_opaque()` proves the password to the server without the password —
+or anything from which it can be cheaply recovered — ever crossing the wire. The
+server stores a **registration record** sealed under a tenant-scoped oblivious
+PRF instead of a password hash, and what travels is a blinded group element and
+a MAC, neither of which is useful without that record *and* the tenant's OPRF
+seed.
 
 ```c
 axiam_login_result_t login = {0};
 axiam_error_t err;
-axiam_error_kind_t kind = axiam_login_srp(client, "alice", password, &login, &err);
+axiam_error_kind_t kind = axiam_login_opaque(client, "alice", password, &login, &err);
 ```
 
 It takes the same arguments as `axiam_login()` and fills the same
-`axiam_login_result_t`, MFA branch included, so switching a tenant to SRP needs
-no change to how the result is handled. A runnable end-to-end example, including
-the fallback and the enrolment call, is
-[`examples/srp_login.c`](examples/srp_login.c).
+`axiam_login_result_t`, MFA branch included, so switching a tenant to OPAQUE
+needs no change to how the result is handled. A runnable end-to-end example,
+including the fallback and the enrolment call, is
+[`examples/opaque_login.c`](examples/opaque_login.c).
 
 ### What this buys, and what it does not
 
-SRP closes holes TLS 1.3 does not:
+OPAQUE closes holes TLS 1.3 does not:
 
 - a TLS-terminating reverse proxy, ingress controller, CDN or service mesh sees
-  every plaintext password today; under SRP it sees `A` and `M1`;
+  every plaintext password today; under OPAQUE it sees `KE1` and `KE3`;
 - an accidental request-body log, a heap dump or a crash reporter can no longer
   capture a plaintext password, because the server never has one;
-- a leaked verifier database still costs a full KDF evaluation per candidate
-  password, exactly as a leaked Argon2id database does.
+- **a stolen record database is not offline-crackable on its own.** This is the
+  substantive gain over the SRP-6a this replaces. An SRP verifier is
+  `g^x mod N` with a public salt: anyone holding the database can grind
+  candidate passwords locally, at one KDF evaluation each. An OPAQUE record is
+  sealed under the tenant's OPRF seed, so an attacker who takes the records and
+  not the seed has nothing to grind against at all. The property is called
+  pre-computation resistance and SRP does not have it.
 
 It does **not** protect against a compromised AXIAM server, and this SDK does
 not claim it does.
 
-### Conditional on your OpenSSL: Argon2id needs 3.2
+### This SDK does not implement OPAQUE, and that is the design
 
-The arithmetic is `BN_mod_exp`, available in every OpenSSL this SDK links
-against, and PBKDF2-HMAC-SHA256 comes from `PKCS5_PBKDF2_HMAC`, likewise. But
-**Argon2id arrives as an `EVP_KDF` only in OpenSSL 3.2**, and it is what a
-default-configured AXIAM tenant names.
+CONTRACT.md §23.1 forbids it. OPAQUE needs an oblivious PRF, `hash_to_curve`,
+`expand_message_xmd`, an envelope construction and a three-message authenticated
+key exchange; eleven independent implementations of that is eleven chances to be
+subtly and silently wrong, in a way test vectors do not catch because the wrong
+answer is still a well-formed group element.
 
-```c
-if (!axiam_srp_argon2_available()) { /* this build cannot serve an argon2id tenant */ }
+So this SDK binds **`libaxiam_opaque_ffi`**, the C ABI of the same audited
+`opaque-ke` core the AXIAM server runs. There is no cryptography in
+`src/opaque.c`.
+
+The library is a **per-platform release asset** of
+[`ilpanich/axiam-opaque`](https://github.com/ilpanich/axiam-opaque), resolved
+with `dlopen()` at **run time** rather than linked. A consumer who never uses
+OPAQUE therefore needs nothing extra — and `axiam_opaque_available()` can
+honestly answer `0`. Install the library where the dynamic loader looks, or
+point `AXIAM_OPAQUE_LIBRARY` at it:
+
+```sh
+export AXIAM_OPAQUE_LIBRARY=/usr/local/lib/libaxiam_opaque_ffi.so
 ```
 
-`axiam_srp_argon2_available()` fetches the KDF rather than reading a version
-macro, because a macro answers for the headers this was *compiled* against
-rather than the libcrypto it is *running* against, and those differ routinely
-where OpenSSL is shared. When the KDF is absent, `axiam_login_srp()` returns
-`AXIAM_ERR_NETWORK` naming it — it never substitutes PBKDF2, which would derive
-a different `x` and surface as "invalid password", the single most misleading
-failure this code could produce.
+```c
+if (!axiam_opaque_available()) { /* ask BEFORE collecting a password */ }
+```
 
-`axiam_srp_available()` is the §23.1 capability probe and is unconditional here;
-the Argon2 probe is the one that can say no.
+### Your OpenSSL version no longer decides which tenants work
+
+SRP was **conditional** here, and awkwardly so. The arithmetic was `BN_mod_exp`,
+available everywhere, but **Argon2id arrives as an `EVP_KDF` only in OpenSSL
+3.2** — and it is what a default-configured AXIAM tenant names. A build against
+an older libcrypto had to refuse such a tenant outright (substituting PBKDF2
+would derive a different `x` and surface as "invalid password"), so operators
+either upgraded OpenSSL or weakened the tenant to `pbkdf2_sha256`.
+
+That is gone. Key stretching happens inside `libaxiam_opaque_ffi`, so this SDK
+serves `argon2id` and `scrypt` tenants against any OpenSSL it links, and
+`axiam_srp_argon2_available()` has no successor because it has no question left
+to answer.
+
+One condition remains, and it is honest rather than hidden:
+`axiam_opaque_available()` reports whether the shared library is present. Unlike
+the `axiam_srp_available()` it replaces — which returned `1` unconditionally
+while an `argon2id` tenant still failed at login — a `1` here **is** a promise
+that every tenant will work.
+
+### The server names the cost, every time
+
+The `*_/start` response names the key-stretching function and its parameters for
+**that exchange**. This SDK never caches them across exchanges and never
+defaults them locally:
+
+| rule | what it means here |
+|---|---|
+| §23.4 rule 2 | costs come from the server per exchange — a credential enrolled under one cost keeps working after a tenant raises its policy, so a client that guessed would derive a different randomized password and report "invalid password" for a correct one |
+| §23.4 rule 3 | an unrecognised `ksf` is **refused**, never substituted |
+| §23.4 rule 5 | a cost field that does not apply to the named function is **absent, not zero** — which is why every cost in `axiam_opaque_ksf_params_t` carries a `has_` flag rather than using `0` as a sentinel |
+| §23.4 rule 7 | nothing is sent to `login/finish` once the envelope fails to open |
+
+Costs are additionally range-checked here, so a refusal names the field:
+
+| field | accepted band |
+|---|---|
+| `memory_kib` | 8192 – 1048576 (8 MiB – 1 GiB) |
+| `iterations` | 1 – 10 |
+| `parallelism` | 1 – 16 |
+| `log_n` | 14 – 20 |
+| `r`, `p` | 1 – 16 |
+
+A server is trusted to name its own policy, not to name a cost that would wedge
+every device an account owns. The library range-checks too; doing it here as
+well means the error says which field.
+
+### One round trip, and no server-proof step
+
+SRP had to guess a group before the server named one, and restart the exchange
+if it guessed wrong. `KE1` does not depend on the key-stretching function, so
+there is no such dance.
+
+And where the old §23.3 rule 6 had to mandate an `M2` check **in capitals** —
+because an SDK that skipped it implemented only half the protocol and no test
+would notice — RFC 9807's AKE authenticates the server during the handshake.
+Opening `KE2` *is* the proof that the server holds the record. Mutual
+authentication is no longer something a client can forget.
 
 ### Tenant policy, and the errors that are not credential failures
 
-`srp_mode` is an organization baseline a tenant may tighten:
+`opaque_mode` is an organization baseline a tenant may tighten:
 
-| mode | `axiam_login()` | `axiam_login_srp()` |
+| mode | `axiam_login()` | `axiam_login_opaque()` |
 |---|---|---|
-| `disabled` (default) | works | `AXIAM_ERR_NETWORK` — the endpoint answers `404` |
+| `disabled` (default) | works | `AXIAM_ERR_NETWORK` — the start endpoints answer `404` |
 | `optional` | works | works |
-| `required` | `AXIAM_ERR_AUTHZ` (`srp_required`) | works |
+| `required` | `AXIAM_ERR_AUTHZ` (`opaque_required`) | works |
 
 Neither is `AXIAM_ERR_AUTH`:
 
-- `AXIAM_ERR_NETWORK` from `axiam_login_srp()` means *this tenant does not offer
-  SRP*, or *this build cannot do the KDF it named* — a property of the tenant or
-  the build, never of any user. Fall back to `axiam_login()`.
+- `AXIAM_ERR_NETWORK` from `axiam_login_opaque()` means *this tenant does not
+  offer OPAQUE*, *`libaxiam_opaque_ffi` is not installed*, *the server named a
+  key-stretching function this SDK cannot ask for*, or *the response was not the
+  shape §23 defines* — a property of the tenant, the build or the deployment,
+  never of any user. Fall back to `axiam_login()`.
 - `AXIAM_ERR_AUTHZ` from `axiam_login()` means *this tenant refuses password
   login*. The credentials were never examined. Telling a user their perfectly
   good password is invalid is the failure this mapping exists to prevent.
 
+`AXIAM_ERR_AUTH` from `axiam_login_opaque()` means the envelope did not open: a
+wrong password, an account that does not exist, or a server that does not hold
+the record — indistinguishable by design, and the whole credential check now
+that both halves of mutual authentication live in it. **Do not retry it over
+`axiam_login()`**: that hands the plaintext to an endpoint that has just failed
+to prove itself.
+
 `required` refuses **every** principal in the tenant, not only the enrolled
-ones. Splitting the response on whether an account has a verifier would turn
+ones. Splitting the response on whether an account has a record would turn
 `/auth/login` into an enumeration oracle costing one junk password per name. It
-also means `required` locks out anyone not yet enrolled: a verifier needs the
+also means `required` locks out anyone not yet enrolled: a record needs the
 plaintext password, and a stored Argon2id hash is not invertible, so nobody can
 be enrolled retroactively. Operators turn it on last, after a password-reset
 campaign.
 
 ### Enrolment
 
-The server cannot compute a verifier, so any request that **sets** a password
-has to carry one. `axiam_srp_enrollment()` produces the `srp` object for
-`POST /api/v1/users`, `/auth/password/change`, `/auth/reset/confirm` and
-`/admin/bootstrap`:
+The server cannot build a registration record, so any request that **sets** a
+password has to carry one. `axiam_opaque_enrollment()` produces the `opaque`
+object for `POST /api/v1/users`, `/auth/password/change`, `/auth/reset/confirm`
+and `/admin/bootstrap`:
 
 ```c
-axiam_srp_enrollment_t enrolment;
-axiam_srp_kdf_params_t params = { AXIAM_SRP_KDF_PBKDF2, 0, 0, 0 };  /* 0 = AXIAM's costs */
-if (axiam_srp_enrollment("alice", new_password, NULL, &params, &enrolment, &err) == AXIAM_OK) {
-    /* ... attach enrolment's fields as the request's `srp` member ... */
-    axiam_srp_enrollment_dispose(&enrolment);   /* zeroizes salt and verifier */
+axiam_opaque_enrollment_t enrolment;
+if (axiam_opaque_enrollment(client, new_password, &enrolment, &err) == AXIAM_OK) {
+    /* ... attach opaque_session + registration_record as the `opaque` member ... */
+    axiam_opaque_enrollment_dispose(&enrolment);   /* zeroizes the record */
 }
 ```
 
-The identity must be the account's **username**: `x` is derived over
-`identity ":" password` using the identity the challenge endpoint hands back, so
-a verifier enrolled against an email address can never satisfy a login. For the
-same reason, **renaming a user invalidates their verifier** — the server clears
-it, and the user re-enrols at their next password change.
+Three things differ from the `axiam_srp_enrollment()` it replaces, and all three
+are improvements:
 
-The salt is 32 fresh bytes from `RAND_bytes` on every call, and
-`axiam_srp_enrollment_dispose()` zeroizes both salt and verifier before freeing
-them: §23.3 rule 12 keeps them out of logs, and there is no reason to leave them
-in freed memory either.
+- **It takes a client and performs I/O** — one `register/start` round trip.
+  OPAQUE's envelope is sealed under the server's oblivious PRF, so there is no
+  offline computation that produces a valid record. The SRP version was pure.
+- **There is no `identity` argument.** SRP derived `x` over
+  `identity ":" password` using the identity the challenge endpoint handed back,
+  so passing an email where a username was wanted produced a verifier no login
+  could ever satisfy — and **renaming a user invalidated their verifier**, which
+  the server had to clear. An OPAQUE record binds to a credential identifier the
+  server chooses. A rename is now just a rename.
+- **There is no `group` and no `params`.** Those come from the `register/start`
+  response, so a caller cannot pick a cost the server will not honour.
+
+`registration_record` is credential material: never log it.
+`axiam_opaque_enrollment_dispose()` `OPENSSL_cleanse`s it before freeing.
 
 ### Cost
 
-`axiam_login_srp()` runs the tenant's KDF: Argon2id at 19 MiB and t=2 by
-default, which is tens to hundreds of milliseconds of CPU plus that memory, per
-login attempt. That cost is the point — it is what makes a leaked verifier no
-cheaper to attack than a leaked Argon2id hash. It is synchronous and blocking;
-size your request handling accordingly, since `axiam_login()` has no such cost.
+`axiam_login_opaque()` runs the tenant's key-stretching function: Argon2id at
+19 MiB and t=2 by default, which is tens to hundreds of milliseconds of CPU plus
+that memory, per login attempt. That cost is the point — it is what makes a
+stolen record expensive to attack even by someone holding the OPRF seed. It is
+synchronous and blocking; size your request handling accordingly, since
+`axiam_login()` has no such cost.
 
 ### Cryptographic parameters
 
-RFC 5054 Appendix A groups `rfc5054_2048`, `rfc5054_3072` and `rfc5054_4096`
-(the AXIAM default), embedded as constants. A modulus is **never** accepted from
-the server — a server-supplied `N` is a server-supplied trapdoor — and a group
-this SDK does not recognise is refused rather than guessed.
+`OPAQUE-3DH` over **ristretto255**, with **SHA-512**, **HKDF-SHA-512** and
+**HMAC-SHA-512**. The ciphersuite is fixed in `libaxiam_opaque_ffi`; it is not
+negotiated and is deliberately **not** read from the server, because a
+server-selected ciphersuite is a downgrade channel.
 
-Two deliberate divergences from RFC 5054, both AXIAM-wide: `H` is **SHA-256**,
-not SHA-1; and `x` is a **memory-hard KDF output**, not a bare hash, because RFC
-5054's bare-hash `x` would make a leaked verifier *cheaper* to attack offline
-than the Argon2id hashes AXIAM already stores.
+The bundled RFC 5054 group constants are gone with the arithmetic, and so is the
+"never accept a modulus from the server" rule they needed.
+
+### Handle lifetime
+
+An exchange owns one native allocation. It is single-use — a finish spends it —
+and `axiam_opaque_exchange_close()` is idempotent, so calling it on every path
+is a no-op on success and the thing that prevents a leak on every failure path:
+a refused key-stretching function, a malformed response, a non-200 start.
+
+The key-stretching handle is built **before** the exchange state is spent, and
+the order is load-bearing: built the other way round, a server that names a cost
+outside the accepted band would leave the state unreachable — a leaked native
+allocation once per login attempt, and the steady state for a misconfigured
+tenant. Two tests pin the ordering.
 
 ### Zeroization
 
-§23.3 rule 8 requires clearing what can be cleared, and C is a language where it
-can be. `x`, `S`, `K` and the joined `identity ":" password` are
-`OPENSSL_cleanse`d before release; every `BIGNUM` derived from the password uses
-`BN_clear_free` rather than `BN_free`; the request bodies carrying `A`, `M1` and
-`srp_session` go through the same scrubbing free the password path already used.
-The suite runs clean under ASan, UBSan and valgrind with leak checking on.
+§23.4 rule 8 requires clearing what can be cleared, and C is a language where it
+can be. `KE1`, the `RegistrationRequest`, `KE3` and the registration record are
+`OPENSSL_cleanse`d before release, and the request bodies carrying them go
+through the same scrubbing free the password path already used. The sensitive
+derivations themselves happen and are cleared on the Rust side of the ABI. The
+suite runs clean under ASan, UBSan and valgrind with leak checking on.
 
 The one thing this SDK cannot clear is the `const char *password` you hand it —
 that memory is yours.
@@ -518,6 +619,17 @@ The HTTP transport is a function-pointer seam (`axiam_transport_fn`); tests driv
 the whole logic layer through an in-memory fake, plus one real-libcurl
 integration test against an in-process HTTP server. Test PKI is generated at
 runtime (OpenSSL CLI, CTest fixture) and never committed.
+
+The §23 OPAQUE binding gets the same treatment twice over. `tests/opaque_fake.h`
+substitutes a vtable through an internal seam to exercise the exchange
+lifecycle, the key-stretching selection and the error taxonomy; and
+`tests/opaque_stub.c` is built as a **real shared library** exporting the twelve
+`libaxiam_opaque_ffi` symbols and loaded through `AXIAM_OPAQUE_LIBRARY`, so the
+`dlopen`/`dlsym` resolution itself runs against a genuine dynamic object. Most
+SDKs cannot cover that path at all without shipping a per-platform binary; C
+can, so `src/opaque.c` measures 100% of lines with no exclusion. Neither
+artifact performs any cryptography — §23.1 puts all of it in the shared
+library — and no `libaxiam_opaque_ffi` is needed to run the suite.
 
 Coverage:
 
