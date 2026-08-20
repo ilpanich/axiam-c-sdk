@@ -48,6 +48,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   passing an email where a username was wanted can no longer produce an unusable
   credential, and **renaming a user no longer invalidates it**.
 - `${CMAKE_DL_LIBS}` added to the link line (empty on glibc ≥ 2.34).
+- Re-vendor `openapi.json` at **1.0.0-alpha32**, matching the server. The
+  content was already byte-identical in every path and schema; only
+  `info.version` differed, which is what the cross-repo artifact-drift gate
+  reports as `STALE`.
 
 ## [1.0.0-alpha31] - 2026-08-20
 
