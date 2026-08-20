@@ -40,7 +40,7 @@ framework-agnostic route guard and declarative authorization helpers.
 include(FetchContent)
 FetchContent_Declare(axiam-c-sdk
   GIT_REPOSITORY https://github.com/ilpanich/axiam-c-sdk.git
-  GIT_TAG v1.0.0-alpha29)
+  GIT_TAG v1.0.0-alpha30)
 FetchContent_MakeAvailable(axiam-c-sdk)
 
 target_link_libraries(my_app PRIVATE axiam::axiam)
@@ -64,7 +64,7 @@ vcpkg install axiam-c-sdk --overlay-ports=./ports
 ### Conan
 
 ```sh
-conan create . --version=1.0.0-alpha29
+conan create . --version=1.0.0-alpha30
 ```
 
 ## Quickstart
