@@ -96,82 +96,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - §20 UMA 2.0 — Protection API and ticket grant (#18)
 - §16 retry, §17 decision memo, §18 close(), §19 telemetry (D5)
 - §11 rule 9 decision reason codes; contract 1.7 re-sync (D6) (#16)
-
-### Changed
-
-- Widen the branch-coverage margin above the 80% floor
-- Point at CONTRACT.md §22.11, the deferred reactor runtime (#28)
-- Re-vendor CONTRACT.md 1.19 and openapi.json from main (R5.8) (#27)
-- Contract 1.15 — §10.1 rule 9, sender-constrained access tokens (#25)
-- Retire the "measured residual" justification (contract 1.14)
-- Re-sync to contract 1.14 (#302 closed)
-- Make the §9 single-flight tests wait for arrivals, not a clock
-- Cover the empty subject_token_type branch (§15.7)
-
-### Fixed
-
-- Refuse both-bound tokens; document the §21.7.3 declining posture (#26)
-
-## [Unreleased]
-
-### Changed
-
-- Re-vendor `openapi.json` at 1.0.0-alpha27 — the copy was pinned at alpha26 and
-  failing the cross-repo artifact-drift gate
-- **README now points at CONTRACT.md §22.11 (the deferred reactor runtime).**
-  §22.11 carries a SHOULD that these READMEs point at it "so an integrator finds
-  the wire chapter rather than concluding reactors are unavailable" — this SDK
-  ships no `reactor_serve`, but §22.1–§22.8 binds a hand-rolled integrator on it
-  in full, and the §22.13 vectors are the conformance surface. Documentation
-  only: no code change, and **no §22 conformance claim** — §22.11's MUST NOT
-  forbids claiming the chapter while shipping no runtime, and the conformance
-  statement is untouched.
-
-- **Re-vendored `CONTRACT.md` (1.17 → 1.19) and `openapi.json` from
-  `ilpanich/axiam@main`.** The vendored copies had drifted; both are now
-  byte-identical to the upstream artifacts. **No code change** — nothing in
-  1.18 or 1.19 binds this SDK's implemented surface.
-  - **§22 Reactors — AMQP extension actors (contract 1.18).** A new chapter
-    describing external allow/deny/mutate actors on the AMQP bus. [§22.11](CONTRACT.md)
-    defers the *runtime helper* (`reactor_serve`) in Swift, C and C++ for the
-    same reason [§8](CONTRACT.md) has never listed them among the SDKs that speak AMQP:
-    there is no vendorable AMQP client for these targets. §22.1–§22.8 still
-    bind a hand-rolled integrator in full. This SDK ships no reactor runtime
-    and is exactly as conformant as it was under 1.17.
-  - **SDK-Q10 closed (contract 1.19)** — the gRPC decision gains `reason`
-    (field 4) and deprecates `deny_reason`, converging on the REST shape this
-    SDK already speaks. This SDK is REST-only, so nothing moves:
-    `axiam_check_result_t` already exposes exactly `allowed` + `reason_code` +
-    `reason` and has never carried a `resource_type`, which is the shape
-    [§11.2](CONTRACT.md) rule 9's amendment now makes canonical for both transports.
-  - `openapi.json` picks up the X5.1 server surface (`dpop_bound_access_tokens`,
-    `dpop_require_nonce`, `jwks`/`jwks_uri` on client registration,
-    `private_key_jwt` as a client-auth method, `CnfClaim.jkt`) and the reactor
-    registration health counters (`recent_timeout_count`, `recent_veto_count`).
-    No paths added or removed, no schemas added or removed.
-
-### Fixed
-
-- **CONTRACT.md §10.1 rule 9 conjunction fix, and the §21.7.3 declining posture
-  documented (contract 1.16).**
-
-  A `cnf` naming **both** a certificate and a DPoP `jkt` was previously accepted
-  on the matching certificate alone, ignoring the `jkt` entirely. Two named
-  constraints are a **conjunction**, and this SDK declines §21.7.2 proof
-  verification — so it can establish one half and must not answer for the whole.
-  Such a token is now refused. The old behaviour would let a caller holding the
-  certificate but **not** the DPoP key through a door the operator bolted twice.
-
-  Pure `jkt`-bound tokens were already refused and remain so. The README now
-  documents the declining posture, completing §21.7.3's three obligations
-  (reject, document, test).
-
-  Not a breaking change for certificate-only deployments: a token naming only
-  `x5t#S256` behaves exactly as before, and an unbound token is still accepted
-  with or without a certificate.
-
-### Added
-
 - **CONTRACT.md §10.1 rule 9 — sender-constrained (certificate-bound) access tokens**
   (contract 1.15, RFC 8705 §3 / RFC 7800). A token carrying `cnf` is **not** a bearer
   token; accepting one without proving the caller holds the named key converts it back
@@ -192,70 +116,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 - **CONTRACT.md §21** — the FAPI 2.0 posture as an SDK sees it. Only rule 9 is normative
   for this SDK.
-
-### Changed
-
-- **Re-sync vendored `CONTRACT.md` / `openapi.json` to contract 1.15.**
-
-
-### Changed
-
-- **Re-sync vendored `CONTRACT.md` to contract 1.14** — documentation only, no code change.
-  §20.2 rule 6 (a permission ticket MUST NOT be retried) cited a "measured residual
-  (ilpanich/axiam#302) … roughly 1 in 640" as its second reason. That residual is closed: the
-  server now decides the ticket race with a transaction its storage engine arbitrates plus a
-  redemption nonce read back after the commit. **The rule is unchanged, and this SDK's
-  behaviour is unchanged** — `uma_exchange_ticket` stays excluded from every automatic retry
-  path. What changed is the reasoning: the first reason (a spent ticket makes the retry
-  useless) always stood alone, and the second now rests on what an SDK can actually know —
-  it is talking to a server whose storage engine it cannot attest, and the guarantee is
-  conditional on that engine being persistent.
-- **BREAKING (contract 1.13): `axiam_token_exchange_params_t::subject_token_type` is now
-  required.** It shipped optional, defaulting to `…:access_token` when NULL. That satisfied
-  §15.7's "never inspect the subject token" while leaving the rule it serves unenforced: an
-  optional member with a default *is* a default the SDK applies whenever the caller says
-  nothing. §15.1 now makes it required.
-
-  C cannot demand a struct member at compile time, so the demand lands at the call: a NULL or
-  empty `subject_token_type` returns `AXIAM_ERR_AUTH` **client-side, with no wire call**, with a
-  message naming the member and both macros. A test covers NULL and `""` — the shape a
-  zero-initialised params struct actually has — and asserts zero token calls.
-
-  **Migration** — one line, naming what you were previously getting by silence:
-
-  ```c
-  axiam_token_exchange_params_t p = {0};
-  p.subject_token      = subject;
-  p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;  /* <- add this */
-  ```
-
-  The member stays **last** in the struct, so nothing moved and a caller who does not recompile
-  gets the loud client-side refusal rather than a silently different request.
-
-### Fixed
-
-- **The §9 single-flight tests no longer bet on a clock.** Both burst tests spawned eight
-  workers against a flight the fake transport delayed by 60 ms, then asserted `token_calls == 1`
-  — that the last worker joined the flight the first one opened. The `pthread_barrier` already
-  guaranteed all eight were *running*; what no fixed delay can guarantee is that they have
-  reached the *guard* before the leader finishes. Under valgrind, or on a runner with fewer
-  cores than threads, the leader returns first and a follower opens a second flight — a failure
-  that says nothing about the guard.
-
-  The leader now waits for arrivals instead: each worker bumps `gate_arrived` on its way into
-  `axiam_oidc_refresh`, and the transport holds the leader until `gate_expect` workers have
-  entered. The 60 ms delay stays as slack for a worker that has entered but not yet parked.
-  Nothing weakens: if the guard were broken the followers would reach the transport and
-  `token_calls` would say so; a late arrival finds the count satisfied, so nothing deadlocks;
-  and the wait is bounded at 10 s so a real regression fails the assertion rather than hanging.
-
-  Ported from the same fix in the C++ SDK (`ilpanich/axiam-cplusplus-sdk#21`), where this
-  surfaced as a CI failure. It had not yet bitten here — which is the reason to fix it now
-  rather than after it does. Verified with 4/4 clean runs of `test_oidc_singleflight` under
-  valgrind pinned to a single core with `taskset`.
-
-### Added
-
 - **§15.7 external-IdP subject tokens (X4).** `axiam_token_exchange()` can now exchange a token
   minted by a trusted external IdP — a partner's Entra, Okta or Keycloak — for an AXIAM token
   scoped to what the resolved AXIAM user may actually do. No new operation: the same call, plus
@@ -349,6 +209,79 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Widen the branch-coverage margin above the 80% floor
+- Point at CONTRACT.md §22.11, the deferred reactor runtime (#28)
+- Re-vendor CONTRACT.md 1.19 and openapi.json from main (R5.8) (#27)
+- Contract 1.15 — §10.1 rule 9, sender-constrained access tokens (#25)
+- Retire the "measured residual" justification (contract 1.14)
+- Re-sync to contract 1.14 (#302 closed)
+- Make the §9 single-flight tests wait for arrivals, not a clock
+- Cover the empty subject_token_type branch (§15.7)
+- Re-vendor `openapi.json` at 1.0.0-alpha27 — the copy was pinned at alpha26 and
+  failing the cross-repo artifact-drift gate
+- **README now points at CONTRACT.md §22.11 (the deferred reactor runtime).**
+  §22.11 carries a SHOULD that these READMEs point at it "so an integrator finds
+  the wire chapter rather than concluding reactors are unavailable" — this SDK
+  ships no `reactor_serve`, but §22.1–§22.8 binds a hand-rolled integrator on it
+  in full, and the §22.13 vectors are the conformance surface. Documentation
+  only: no code change, and **no §22 conformance claim** — §22.11's MUST NOT
+  forbids claiming the chapter while shipping no runtime, and the conformance
+  statement is untouched.
+
+- **Re-vendored `CONTRACT.md` (1.17 → 1.19) and `openapi.json` from
+  `ilpanich/axiam@main`.** The vendored copies had drifted; both are now
+  byte-identical to the upstream artifacts. **No code change** — nothing in
+  1.18 or 1.19 binds this SDK's implemented surface.
+  - **§22 Reactors — AMQP extension actors (contract 1.18).** A new chapter
+    describing external allow/deny/mutate actors on the AMQP bus. [§22.11](CONTRACT.md)
+    defers the *runtime helper* (`reactor_serve`) in Swift, C and C++ for the
+    same reason [§8](CONTRACT.md) has never listed them among the SDKs that speak AMQP:
+    there is no vendorable AMQP client for these targets. §22.1–§22.8 still
+    bind a hand-rolled integrator in full. This SDK ships no reactor runtime
+    and is exactly as conformant as it was under 1.17.
+  - **SDK-Q10 closed (contract 1.19)** — the gRPC decision gains `reason`
+    (field 4) and deprecates `deny_reason`, converging on the REST shape this
+    SDK already speaks. This SDK is REST-only, so nothing moves:
+    `axiam_check_result_t` already exposes exactly `allowed` + `reason_code` +
+    `reason` and has never carried a `resource_type`, which is the shape
+    [§11.2](CONTRACT.md) rule 9's amendment now makes canonical for both transports.
+  - `openapi.json` picks up the X5.1 server surface (`dpop_bound_access_tokens`,
+    `dpop_require_nonce`, `jwks`/`jwks_uri` on client registration,
+    `private_key_jwt` as a client-auth method, `CnfClaim.jkt`) and the reactor
+    registration health counters (`recent_timeout_count`, `recent_veto_count`).
+    No paths added or removed, no schemas added or removed.
+- **Re-sync vendored `CONTRACT.md` / `openapi.json` to contract 1.15.**
+- **Re-sync vendored `CONTRACT.md` to contract 1.14** — documentation only, no code change.
+  §20.2 rule 6 (a permission ticket MUST NOT be retried) cited a "measured residual
+  (ilpanich/axiam#302) … roughly 1 in 640" as its second reason. That residual is closed: the
+  server now decides the ticket race with a transaction its storage engine arbitrates plus a
+  redemption nonce read back after the commit. **The rule is unchanged, and this SDK's
+  behaviour is unchanged** — `uma_exchange_ticket` stays excluded from every automatic retry
+  path. What changed is the reasoning: the first reason (a spent ticket makes the retry
+  useless) always stood alone, and the second now rests on what an SDK can actually know —
+  it is talking to a server whose storage engine it cannot attest, and the guarantee is
+  conditional on that engine being persistent.
+- **BREAKING (contract 1.13): `axiam_token_exchange_params_t::subject_token_type` is now
+  required.** It shipped optional, defaulting to `…:access_token` when NULL. That satisfied
+  §15.7's "never inspect the subject token" while leaving the rule it serves unenforced: an
+  optional member with a default *is* a default the SDK applies whenever the caller says
+  nothing. §15.1 now makes it required.
+
+  C cannot demand a struct member at compile time, so the demand lands at the call: a NULL or
+  empty `subject_token_type` returns `AXIAM_ERR_AUTH` **client-side, with no wire call**, with a
+  message naming the member and both macros. A test covers NULL and `""` — the shape a
+  zero-initialised params struct actually has — and asserts zero token calls.
+
+  **Migration** — one line, naming what you were previously getting by silence:
+
+  ```c
+  axiam_token_exchange_params_t p = {0};
+  p.subject_token      = subject;
+  p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;  /* <- add this */
+  ```
+
+  The member stays **last** in the struct, so nothing moved and a caller who does not recompile
+  gets the loud client-side refusal rather than a silently different request.
 - **The JWKS verifier now re-fetches once per cooldown window on an unknown
   `kid`** (§12.4 rule 2), instead of failing immediately against a warm cache.
   This fixes key rotation for the §10/§11 guards as well: previously a rotated
@@ -365,6 +298,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   reusing the §1 cookie-session guard, whose API compares an access token's
   freshness — a comparison with no meaning for a `refresh_token` grant.
 
+### Fixed
+
+- Refuse both-bound tokens; document the §21.7.3 declining posture (#26)
+- **CONTRACT.md §10.1 rule 9 conjunction fix, and the §21.7.3 declining posture
+  documented (contract 1.16).**
+
+  A `cnf` naming **both** a certificate and a DPoP `jkt` was previously accepted
+  on the matching certificate alone, ignoring the `jkt` entirely. Two named
+  constraints are a **conjunction**, and this SDK declines §21.7.2 proof
+  verification — so it can establish one half and must not answer for the whole.
+  Such a token is now refused. The old behaviour would let a caller holding the
+  certificate but **not** the DPoP key through a door the operator bolted twice.
+
+  Pure `jkt`-bound tokens were already refused and remain so. The README now
+  documents the declining posture, completing §21.7.3's three obligations
+  (reject, document, test).
+
+  Not a breaking change for certificate-only deployments: a token naming only
+  `x5t#S256` behaves exactly as before, and an unbound token is still accepted
+  with or without a certificate.
+- **The §9 single-flight tests no longer bet on a clock.** Both burst tests spawned eight
+  workers against a flight the fake transport delayed by 60 ms, then asserted `token_calls == 1`
+  — that the last worker joined the flight the first one opened. The `pthread_barrier` already
+  guaranteed all eight were *running*; what no fixed delay can guarantee is that they have
+  reached the *guard* before the leader finishes. Under valgrind, or on a runner with fewer
+  cores than threads, the leader returns first and a follower opens a second flight — a failure
+  that says nothing about the guard.
+
+  The leader now waits for arrivals instead: each worker bumps `gate_arrived` on its way into
+  `axiam_oidc_refresh`, and the transport holds the leader until `gate_expect` workers have
+  entered. The 60 ms delay stays as slack for a worker that has entered but not yet parked.
+  Nothing weakens: if the guard were broken the followers would reach the transport and
+  `token_calls` would say so; a late arrival finds the count satisfied, so nothing deadlocks;
+  and the wait is bounded at 10 s so a real regression fails the assertion rather than hanging.
+
+  Ported from the same fix in the C++ SDK (`ilpanich/axiam-cplusplus-sdk#21`), where this
+  surfaced as a CI failure. It had not yet bitten here — which is the reason to fix it now
+  rather than after it does. Verified with 4/4 clean runs of `test_oidc_singleflight` under
+  valgrind pinned to a single core with `taskset`.
+
 ### Notes
 
 - Coverage after this change: **96.3% line, 80.2% branch** against gates of 96
@@ -378,22 +351,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 
 - Conform local token verification to CONTRACT §10.1
-
-### Changed
-
-- Add the §10.1 rule-8 guardrail regression tests (#15)
-- Device (mTLS) tokens now carry aud=axiam:m2m (#14)
-- Service accounts can use login_client_credentials (#13)
-- Add ASan+UBSan and valgrind gates (§13.4 observation 10 / §12.6.1) (#12)
-
-### Fixed
-
-- Enforce token lifetime and tenant binding, require https, wrap MFA tokens
-
-## [Unreleased]
-
-### Added
-
 - **UMA 2.0 — Protection API and ticket grant (CONTRACT §20).** New `axiam/uma.h`:
   `axiam_uma_discover`, `axiam_uma_register_resource`, `axiam_uma_read_resource`,
   `axiam_uma_update_resource`, `axiam_uma_delete_resource`, `axiam_uma_list_resources`,
@@ -501,9 +458,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   every test binary under valgrind with `--error-exitcode=9 --leak-check=full`.
   Verified locally before wiring: 23/23 tests pass under the sanitizers, and the
   valgrind sweep reports 0 errors and 0 definite leaks.
+- **T-145 / CONTRACT §13 — webhook signature verification.** New `axiam/webhook.h`:
+  `axiam_webhook_verify()`, `axiam_webhook_verify_at()` (a `now` seam for tests) and
+  `axiam_webhook_verify_headers()` (which also yields the event type and the
+  `X-Axiam-Delivery` dedup key). HMAC-SHA256 over `<timestamp>.<raw_body>`,
+  constant-time comparison over the decoded MAC bytes (explicit volatile
+  accumulator — no `memcmp`, no early return), two-sided 300s freshness window,
+  typed statuses that never carry the expected signature.
+- `axiam_jwt_verify_ex()` with the `AXIAM_JWT_VERIFY_*` policy flags, for callers
+  that deliberately want a weaker check than the strict default.
+- `axiam_verify_mfa_sensitive()`, which takes the Sensitive challenge token straight
+  from `axiam_login_result_t`.
 
 ### Changed
 
+- Add the §10.1 rule-8 guardrail regression tests (#15)
+- Device (mTLS) tokens now carry aud=axiam:m2m (#14)
+- Service accounts can use login_client_credentials (#13)
+- Add ASan+UBSan and valgrind gates (§13.4 observation 10 / §12.6.1) (#12)
 - Re-vendored `CONTRACT.md` at **1.10** and `openapi.json` (the server's `/uma2/*` surface).
 - `axiam_error_t` gained `oauth_error[64]`, empty for every failure that is not an OAuth2
   protocol error. §20.4 requires dispatching on the body's `error` field rather than the
@@ -520,19 +492,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   §12.7 (logout), §14 (device grant) and §15 (token exchange) all build on a
   §12 OIDC relying-party layer this SDK does not have, and are recorded under
   Scope / follow-ups in the README rather than half-shipped.
+- **Source-breaking:** `axiam_login_result_t.challenge_token` and `.setup_token` are
+  now `axiam_sensitive_t *` instead of `char *`. Pass them to the new
+  `axiam_verify_mfa_sensitive()`; `axiam_verify_mfa()` still accepts a raw string.
+- **Behaviour-breaking:** a client used for route guarding must be configured with
+  `axiam_client_config_set_tenant_id()` (the token's `tenant_id` claim is a UUID and
+  a slug cannot be compared against it). A slug-only client that has not completed a
+  login has no tenant binding available and refuses every token.
+- **Behaviour-breaking (opt-in): configuring an expected issuer or audience tightens
+  acceptance.** A client built with `axiam_client_config_set_expected_issuer()` or
+  `..._set_expected_audience()` refuses tokens that previously passed — including
+  tokens that carry no `iss`/`aud` claim at all, which fail closed rather than
+  being treated as "nothing to check". Clients that set neither (the default)
+  behave exactly as before. `AXIAM_JWT_VERIFY_STRICT`'s numeric value changed
+  because it gained `AXIAM_JWT_VERIFY_ISSUER_AUDIENCE`; recompile against the new
+  header rather than relying on a cached literal.
+- Vendored `CONTRACT.md` re-synced with the new §13 (webhook signature verification)
+  and §10.1 (minimum local-verification set).
 
-### Notes
+### Fixed
 
-- **§13.4 observation 8 was mistaken; no change was needed.** It recorded that
-  this SDK's §10.1 negative-test set "looks incomplete — `tests/test_jwt_claims.c`
-  covers the `exp` cases but not evidently the rest". Auditing the file against
-  the mandated list shows the set is **complete**, and each case is substantive
-  rather than nominal: expired, absent `exp`, non-numeric `exp`, future `nbf`,
-  malformed `nbf`, foreign tenant, absent `tenant_id`, `alg: none`, and an
-  HS-signed token bearing the org's EdDSA `kid` — plus issuer and audience
-  mismatches, which §10.1 requires only where the SDK supports that
-  configuration. The tenant and `alg` cases additionally assert at all three
-  guard entry points and that the authz server is never consulted.
+- Enforce token lifetime and tenant binding, require https, wrap MFA tokens
 
 ### Security
 
@@ -569,39 +549,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   scrubbed before being freed, and the Sensitive scrub now uses a volatile write
   the compiler may not elide.
 
-### Added
+### Notes
 
-- **T-145 / CONTRACT §13 — webhook signature verification.** New `axiam/webhook.h`:
-  `axiam_webhook_verify()`, `axiam_webhook_verify_at()` (a `now` seam for tests) and
-  `axiam_webhook_verify_headers()` (which also yields the event type and the
-  `X-Axiam-Delivery` dedup key). HMAC-SHA256 over `<timestamp>.<raw_body>`,
-  constant-time comparison over the decoded MAC bytes (explicit volatile
-  accumulator — no `memcmp`, no early return), two-sided 300s freshness window,
-  typed statuses that never carry the expected signature.
-- `axiam_jwt_verify_ex()` with the `AXIAM_JWT_VERIFY_*` policy flags, for callers
-  that deliberately want a weaker check than the strict default.
-- `axiam_verify_mfa_sensitive()`, which takes the Sensitive challenge token straight
-  from `axiam_login_result_t`.
-
-### Changed
-
-- **Source-breaking:** `axiam_login_result_t.challenge_token` and `.setup_token` are
-  now `axiam_sensitive_t *` instead of `char *`. Pass them to the new
-  `axiam_verify_mfa_sensitive()`; `axiam_verify_mfa()` still accepts a raw string.
-- **Behaviour-breaking:** a client used for route guarding must be configured with
-  `axiam_client_config_set_tenant_id()` (the token's `tenant_id` claim is a UUID and
-  a slug cannot be compared against it). A slug-only client that has not completed a
-  login has no tenant binding available and refuses every token.
-- **Behaviour-breaking (opt-in): configuring an expected issuer or audience tightens
-  acceptance.** A client built with `axiam_client_config_set_expected_issuer()` or
-  `..._set_expected_audience()` refuses tokens that previously passed — including
-  tokens that carry no `iss`/`aud` claim at all, which fail closed rather than
-  being treated as "nothing to check". Clients that set neither (the default)
-  behave exactly as before. `AXIAM_JWT_VERIFY_STRICT`'s numeric value changed
-  because it gained `AXIAM_JWT_VERIFY_ISSUER_AUDIENCE`; recompile against the new
-  header rather than relying on a cached literal.
-- Vendored `CONTRACT.md` re-synced with the new §13 (webhook signature verification)
-  and §10.1 (minimum local-verification set).
+- **§13.4 observation 8 was mistaken; no change was needed.** It recorded that
+  this SDK's §10.1 negative-test set "looks incomplete — `tests/test_jwt_claims.c`
+  covers the `exp` cases but not evidently the rest". Auditing the file against
+  the mandated list shows the set is **complete**, and each case is substantive
+  rather than nominal: expired, absent `exp`, non-numeric `exp`, future `nbf`,
+  malformed `nbf`, foreign tenant, absent `tenant_id`, `alg: none`, and an
+  HS-signed token bearing the org's EdDSA `kid` — plus issuer and audience
+  mismatches, which §10.1 requires only where the SDK supports that
+  configuration. The tenant and `alg` cases additionally assert at all three
+  guard entry points and that the authz server is never consulted.
 
 ## [1.0.0-alpha23] - 2026-08-02
 
@@ -632,11 +591,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Changed
 
 - Adopt CONTRACT 1.3; defer gRPC get_user_info
-
-## [Unreleased]
-
-### Changed
-
 - Adopt CONTRACT.md 1.3: the new gRPC-only `axiam_get_user_info` operation (CONTRACT §1.1) is
   documented as a deferred follow-up (this SDK ships no gRPC transport in v1) and the
   vendored contract copy is re-synced. Per §1.1 the REST `/oauth2/userinfo` endpoint is not substituted.
@@ -660,13 +614,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Make version string test resilient to pre-release suffix changes (#3)
 
 ## [1.0.0-alpha10] - 2026-07-18
-
-### Changed
-
-- Resolve tenant_id/org_id from access-token claim for the refresh body (#2)
-- Publish API docs to gh-pages branch
-
-## [Unreleased]
 
 ### Added
 
@@ -700,6 +647,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   package config, and a CPack `.tar.gz`; vcpkg overlay port and Conan recipe.
 - CI: build (gcc + clang), CTest, TLS-bypass grep gate, recipe validation,
   tag-on-main gate, release upload; Doxygen Pages; gcov/lcov → Coveralls.
+
+### Changed
+
+- Resolve tenant_id/org_id from access-token claim for the refresh body (#2)
+- Publish API docs to gh-pages branch
 
 ### Deferred
 
