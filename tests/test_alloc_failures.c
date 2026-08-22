@@ -25,6 +25,7 @@
 
 #include "unity.h"
 #include "axiam/account.h"
+#include "axiam/reactor.h"
 #include "axiam/axiam.h"
 #include "axiam/webauthn.h"
 #include "internal.h"
@@ -1612,6 +1613,254 @@ static void test_oidc_par_alloc_failure_sweep(void) {
     axiam_client_free(c);
 }
 
+/* ------------------------------------------------------------------ */
+/* §22 reactor (contract 1.28)                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A minimal validly-signed event, built here rather than loaded from the §22.13
+ * vectors: this suite must not depend on a fixture file, and what the sweep
+ * needs is a body that REACHES the allocations, not one the server signed.
+ * tests/test_reactor.c is where agreement with the server is asserted.
+ */
+#define REACTOR_SWEEP_KEY "reactor-signing-key"
+
+static char *reactor_sweep_event(void) {
+    /* Signed with the same primitive the SDK uses, over the canonical form §22.2
+     * specifies — declared field order, hmac_signature as a null placeholder. */
+    static const char *canonical =
+        "{\"tenant_id\":\"11111111-1111-1111-1111-111111111111\","
+        "\"event\":\"token.pre_issue\","
+        "\"correlation_id\":\"22222222-2222-2222-2222-222222222222\","
+        "\"payload\":{\"sub\":\"alice\"},"
+        "\"timeout_ms\":1000,\"key_version\":2,"
+        "\"nonce\":\"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\","
+        "\"issued_at\":\"%s\",\"hmac_signature\":null}";
+
+    char issued_at[32];
+    time_t now = time(NULL);
+    struct tm tm;
+    gmtime_r(&now, &tm);
+    strftime(issued_at, sizeof(issued_at), "%Y-%m-%dT%H:%M:%SZ", &tm);
+
+    char signed_bytes[512];
+    snprintf(signed_bytes, sizeof(signed_bytes), canonical, issued_at);
+
+    unsigned char mac[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+    HMAC(EVP_sha256(), REACTOR_SWEEP_KEY, (int)strlen(REACTOR_SWEEP_KEY),
+         (const unsigned char *)signed_bytes, strlen(signed_bytes), mac, &len);
+    char hex[EVP_MAX_MD_SIZE * 2 + 1];
+    for (unsigned int i = 0; i < len; i++) snprintf(hex + i * 2, 3, "%02x", mac[i]);
+
+    const char *placeholder = "\"hmac_signature\":null";
+    char *at = strstr(signed_bytes, placeholder);
+    size_t head = (size_t)(at - signed_bytes);
+    size_t need = strlen(signed_bytes) + strlen(hex) + 8;
+    char *wire = __real_malloc(need);
+    if (!wire) return NULL;
+    snprintf(wire, need, "%.*s\"hmac_signature\":\"%s\"%s", (int)head, signed_bytes, hex,
+             at + strlen(placeholder));
+    return wire;
+}
+
+typedef struct {
+    const char *body;
+    int served;
+    int published;
+} reactor_sweep_transport_t;
+
+static int reactor_sweep_next(void *ctx, axiam_reactor_delivery_t *out) {
+    reactor_sweep_transport_t *t = ctx;
+    if (t->served++) return 0;
+    out->body = t->body;
+    out->reply_to = "replies";
+    out->correlation_id = NULL;
+    return 1;
+}
+
+static void reactor_sweep_publish(void *ctx, const char *destination,
+                                  const char *correlation_id, const char *body) {
+    (void)destination;
+    (void)correlation_id;
+    (void)body;
+    ((reactor_sweep_transport_t *)ctx)->published++;
+}
+
+static axiam_reactor_decision_t reactor_sweep_handler(const axiam_reactor_event_t *event,
+                                                      void *ctx) {
+    (void)event;
+    (void)ctx;
+    static const axiam_reactor_patch_entry_t patch[2] = {{"ext.department", "engineering"},
+                                                         {"ext.cost_center", "42"}};
+    return axiam_reactor_mutate(patch, 2);
+}
+
+static void test_reactor_sign_alloc_failure_sweep(void) {
+    /* src/reactor.c's string builder and the reply it assembles. Every failure
+     * must REPORT — a half-built reply is a reply the server cannot verify, and
+     * returning one would turn an allocation failure into a signature failure,
+     * which is the hardest kind to diagnose from the other end. */
+    axiam_sensitive_t *key = axiam_sensitive_new(REACTOR_SWEEP_KEY);
+    TEST_ASSERT_NOT_NULL(key);
+    const axiam_reactor_patch_entry_t patch[2] = {{"ext.department", "engineering"},
+                                                  {"ext.cost_center", "42"}};
+
+    axiam_reactor_decision_t decisions[3];
+    decisions[0] = axiam_reactor_allow_with_step_up();
+    decisions[1] = axiam_reactor_deny("a reason long enough to force the builder to grow "
+                                      "past its first block, with \"quotes\" and \n escapes");
+    decisions[2] = axiam_reactor_mutate(patch, 2);
+    const char *events[3] = {AXIAM_REACTOR_EVENT_LOGIN_POST_AUTH,
+                             AXIAM_REACTOR_EVENT_LOGIN_POST_AUTH,
+                             AXIAM_REACTOR_EVENT_TOKEN_PRE_ISSUE};
+
+    for (int d = 0; d < 3; d++) {
+        for (long i = 1; i <= 40; i++) {
+            alloc_fail_after(i);
+            char *canonical = axiam_reactor_canonical_reply(
+                "22222222-2222-2222-2222-222222222222",
+                "11111111-1111-1111-1111-111111111111", events[d], &decisions[d], "nonce",
+                "2026-07-10T12:00:00Z");
+            alloc_fail_reset();
+            free(canonical);
+
+            alloc_fail_after(i);
+            char *wire = axiam_reactor_build_reply(
+                key, "22222222-2222-2222-2222-222222222222",
+                "11111111-1111-1111-1111-111111111111", events[d], &decisions[d], "nonce",
+                "2026-07-10T12:00:00Z");
+            alloc_fail_reset();
+            if (wire) {
+                /* Whatever came back is a COMPLETE reply or nothing: the MAC is
+                 * present and the placeholder is gone. */
+                TEST_ASSERT_NOT_NULL(strstr(wire, "\"hmac_signature\":\""));
+                TEST_ASSERT_NULL(strstr(wire, "\"hmac_signature\":null"));
+            }
+            free(wire);
+        }
+    }
+    axiam_sensitive_free(key);
+}
+
+static void test_reactor_verify_alloc_failure_sweep(void) {
+    /* The verified event's owned copies are all-or-nothing: a caller handed an
+     * event with a NULL member would dereference it inside its own handler. */
+    axiam_sensitive_t *key = axiam_sensitive_new(REACTOR_SWEEP_KEY);
+    char *body = reactor_sweep_event();
+    TEST_ASSERT_NOT_NULL(body);
+
+    for (long i = 1; i <= 60; i++) {
+        axiam_reactor_verified_t verified;
+        alloc_fail_after(i);
+        axiam_reactor_refusal_t refusal = axiam_reactor_verify_event(
+            key, body, "11111111-1111-1111-1111-111111111111", (long)time(NULL), NULL,
+            &verified);
+        alloc_fail_reset();
+        if (refusal == AXIAM_REACTOR_OK) {
+            TEST_ASSERT_NOT_NULL(verified.event.tenant_id);
+            TEST_ASSERT_NOT_NULL(verified.event.event);
+            TEST_ASSERT_NOT_NULL(verified.event.correlation_id);
+            TEST_ASSERT_NOT_NULL(verified.event.payload_json);
+            TEST_ASSERT_NOT_NULL(verified.event.nonce);
+        }
+        axiam_reactor_verified_dispose(&verified);
+    }
+
+    /* And with a nonce seen-set in play, so its own growth is swept too. */
+    for (long i = 1; i <= 60; i++) {
+        axiam_reactor_nonce_set_t *seen = axiam_reactor_nonce_set_new();
+        axiam_reactor_verified_t verified;
+        alloc_fail_after(i);
+        axiam_reactor_verify_event(key, body, "11111111-1111-1111-1111-111111111111",
+                                   (long)time(NULL), seen, &verified);
+        alloc_fail_reset();
+        axiam_reactor_verified_dispose(&verified);
+        axiam_reactor_nonce_set_free(seen);
+    }
+
+    free(body);
+    axiam_sensitive_free(key);
+}
+
+static void test_reactor_serve_alloc_failure_sweep(void) {
+    /* §22.10 rule 2 under memory pressure: a runtime that cannot build a reply
+     * publishes NOTHING rather than something shorter. The assertion is that the
+     * transport either saw one complete reply or saw none. */
+    axiam_sensitive_t *key = axiam_sensitive_new(REACTOR_SWEEP_KEY);
+    char *body = reactor_sweep_event();
+    TEST_ASSERT_NOT_NULL(body);
+
+    for (long i = 1; i <= 80; i++) {
+        reactor_sweep_transport_t state = {body, 0, 0};
+        axiam_reactor_transport_t transport;
+        transport.ctx = &state;
+        transport.next_delivery = reactor_sweep_next;
+        transport.publish_reply = reactor_sweep_publish;
+
+        axiam_reactor_config_t config;
+        memset(&config, 0, sizeof(config));
+        config.tenant_id = "11111111-1111-1111-1111-111111111111";
+        config.reactor_id = "99999999-9999-9999-9999-999999999999";
+        config.signing_key = key;
+
+        alloc_fail_after(i);
+        axiam_reactor_serve(&config, &transport, reactor_sweep_handler, NULL, NULL);
+        alloc_fail_reset();
+        TEST_ASSERT_TRUE(state.published == 0 || state.published == 1);
+    }
+
+    free(body);
+    axiam_sensitive_free(key);
+}
+
+static void test_reactor_router_and_amqps_alloc_failure_sweep(void) {
+    /* The binder's table and the §8b endpoint's copies. A router that could not
+     * record a binding must REFUSE it: a binding silently dropped is the "typo
+     * discovered as silence" failure §22.14 rule 2 exists to prevent, arrived at
+     * through OOM instead. */
+    for (long i = 1; i <= 30; i++) {
+        alloc_fail_after(i);
+        axiam_reactor_router_t *router = axiam_reactor_router_new();
+        alloc_fail_reset();
+        if (!router) continue;
+
+        for (long j = 1; j <= 12; j++) {
+            axiam_error_t err;
+            alloc_fail_after(j);
+            axiam_error_kind_t k = axiam_reactor_router_on(
+                router, AXIAM_REACTOR_EVENT_TOKEN_PRE_ISSUE, reactor_sweep_handler, NULL, &err);
+            alloc_fail_reset();
+            if (k == AXIAM_OK) {
+                size_t count = 0;
+                axiam_reactor_router_bound_events(router, &count);
+                break;
+            }
+        }
+        axiam_reactor_router_free(router);
+    }
+
+    for (long i = 1; i <= 20; i++) {
+        axiam_amqps_endpoint_t endpoint;
+        axiam_error_t err;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_amqps_endpoint("amqps://broker.internal:5671/prod", "CA",
+                                                    "CERT", "KEY", &endpoint, &err);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            /* All-or-nothing again: a half-copied endpoint would open a
+             * connection with no CA bundle while the caller believes one is set. */
+            TEST_ASSERT_NOT_NULL(endpoint.url);
+            TEST_ASSERT_NOT_NULL(endpoint.host);
+            TEST_ASSERT_NOT_NULL(endpoint.virtual_host);
+            TEST_ASSERT_NOT_NULL(endpoint.ca_pem);
+            TEST_ASSERT_NOT_NULL(endpoint.client_cert_pem);
+            TEST_ASSERT_NOT_NULL(endpoint.client_key_pem);
+        }
+        axiam_amqps_endpoint_dispose(&endpoint);
+    }
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_sensitive_new_bytes_calloc_failure);
@@ -1649,5 +1898,9 @@ int main(void) {
     RUN_TEST(test_webauthn_alloc_failure_sweep);
     RUN_TEST(test_account_alloc_failure_sweep);
     RUN_TEST(test_oidc_par_alloc_failure_sweep);
+    RUN_TEST(test_reactor_sign_alloc_failure_sweep);
+    RUN_TEST(test_reactor_verify_alloc_failure_sweep);
+    RUN_TEST(test_reactor_serve_alloc_failure_sweep);
+    RUN_TEST(test_reactor_router_and_amqps_alloc_failure_sweep);
     return UNITY_END();
 }

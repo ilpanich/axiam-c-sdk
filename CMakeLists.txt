@@ -61,6 +61,7 @@ set(AXIAM_SOURCES
     src/oidc_exchange.c
     src/oidc_logout.c
     src/oidc_par.c
+    src/reactor.c
     src/webauthn.c
     src/account.c
     src/opaque.c

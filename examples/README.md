@@ -19,6 +19,7 @@ end-to-end requires a reachable AXIAM server at the configured base URL.
 | [`webauthn_passkeys.c`](webauthn_passkeys.c) | Passkeys (§24): the six wire operations and §24.6a's JSON bridge — and why there is no ceremony helper here, since a C program has no authenticator and §24.6b rule 2 forbids emulating one. |
 | [`account_lifecycle.c`](account_lifecycle.c) | The calls a user makes about their own account (§25): voluntary and forced TOTP enrolment, email verification, and a password reset that discloses nothing about whether the address exists. |
 | [`par_login.c`](par_login.c) | Pushed authorization requests (§26, RFC 9126): the push answers **201**, and the redirect carries exactly `client_id` and `request_uri`. |
+| [`reactor.c`](reactor.c) | A §22 reactor on the SDK's protocol core (§22.11): the §8b broker-URL guard, the §22.14 binding table, and the runtime driven over a transport skeleton you replace with your own AMQP client |
 
 ## Organization context (§5.1)
 

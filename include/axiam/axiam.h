@@ -23,6 +23,7 @@
 #include "axiam/guard.h"
 #include "axiam/oidc.h"
 #include "axiam/opaque.h"
+#include "axiam/reactor.h"
 #include "axiam/uma.h"
 #include "axiam/webhook.h"
 #include "axiam/webauthn.h"
