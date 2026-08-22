@@ -165,6 +165,16 @@ typedef struct axiam_oidc_config {
     char *end_session_endpoint;
     /** §14.1: where axiam_device_authorize() starts the grant. */
     char *device_authorization_endpoint;
+    /**
+     * §26.1: RFC 9126 pushed authorization request endpoint, where
+     * axiam_oidc_par() pushes.
+     *
+     * NULL when the server does not implement PAR. Its absence is an error at
+     * call time, never a cue to build the URL by concatenation — and for a FAPI
+     * 2.0 client it is fatal rather than a fallback, since §21.1 refuses a
+     * `fapi2` registration that does not set `require_par`.
+     */
+    char *pushed_authorization_request_endpoint;
     char **scopes_supported;
     size_t scopes_supported_count;
     char **response_types_supported;
@@ -846,6 +856,86 @@ void axiam_sso_complete_result_dispose(axiam_sso_complete_result_t *r);
 void axiam_verified_logout_token_dispose(axiam_verified_logout_token_t *t);
 void axiam_device_authorization_dispose(axiam_device_authorization_t *d);
 void axiam_exchanged_token_dispose(axiam_exchanged_token_t *t);
+
+/* ------------------------------------------------------------------ */
+/* §26 — Pushed Authorization Requests (RFC 9126)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What axiam_oidc_par() returns (§26.1).
+ *
+ * The server answered **201** — RFC 9126 §2.2 specifies Created, and a success
+ * predicate written `== 200` would treat every successful push as a failure.
+ *
+ * `state`, `nonce` and `code_verifier` are carried straight through from the
+ * axiam_authorization_request_t that was pushed: §26.2 rule 1 forbids a second
+ * generator, and rule 6 wants exactly one verifier so there is no second place
+ * for the two to disagree.
+ */
+typedef struct axiam_pushed_authorization_request {
+    /**
+     * Where to send the user agent. Carries EXACTLY `client_id` and
+     * `request_uri` — the server refuses a request that mixes a `request_uri`
+     * with inline authorization parameters rather than merging them, because
+     * merging is where parameter confusion lives (§26.2 rule 2).
+     */
+    char *url;
+    /**
+     * The opaque, single-use handle. Behind a Sensitive handle per §26.5:
+     * between the push and the redirect it is a bearer handle to a fully-formed
+     * authorization request, and a log line is the wrong place for it to sit for
+     * the length of that window.
+     */
+    axiam_sensitive_t *request_uri;
+    /** The handle's lifetime in seconds; not advisory (§26.2 rule 3). */
+    long expires_in;
+    /** Compare against the `state` the IdP returns. Not a secret (§12.3 rule 2). */
+    char *state;
+    /** Must equal the ID token's `nonce` claim. Not a secret, for the same reason. */
+    char *nonce;
+    /** The PKCE verifier to pass into axiam_oidc_exchange(). */
+    axiam_sensitive_t *code_verifier;
+} axiam_pushed_authorization_request_t;
+
+/** Release the heap members of a pushed request (not the struct itself). */
+void axiam_pushed_authorization_request_dispose(axiam_pushed_authorization_request_t *p);
+
+/**
+ * POST /oauth2/par?tenant_id=<uuid> (§26.1) — push the authorization request
+ * over the back channel and get an opaque handle to redirect with.
+ *
+ * PAR moves the authorization request off the browser. Instead of putting
+ * `scope`, `redirect_uri`, `state` and the PKCE challenge into a URL the user
+ * agent carries, the client POSTs them straight to AXIAM over an authenticated
+ * channel and puts an opaque `request_uri` in the redirect. What travels
+ * through the browser is then a random string that cannot be edited into
+ * meaning something else.
+ *
+ * REQUIRED FOR A FAPI 2.0 CLIENT: `profile: "fapi2"` refuses a registration
+ * that does not set `require_par`, so such a client cannot authorize any other
+ * way (§21.1).
+ *
+ * NOT RETRIED on a 5xx or a transport failure — it is a POST that creates
+ * server state, so it falls outside §16.2's read-only eligibility exactly as
+ * axiam_oidc_exchange() does. The safe recovery is a fresh push, which costs one
+ * round trip and cannot double-consume anything (§26.2 rule 4).
+ *
+ * @param request     what axiam_oidc_begin() returned. Its state, nonce and
+ *                    PKCE verifier are pushed as-is (§26.2 rule 1).
+ * @param redirect_uri the same redirect URI that will be sent at exchange time.
+ * @param scope       the requested scope; `openid` is added when absent.
+ * @param tenant_id   a tenant override for `?tenant_id=`, or NULL.
+ * @return AXIAM_ERR_AUTH, client-side with NO wire call, when the discovery
+ *         document advertises no PAR endpoint — §12.7.2 rule 1's discipline:
+ *         never synthesise the URL from the issuer.
+ */
+axiam_error_kind_t axiam_oidc_par(axiam_client_t *client,
+                                  const axiam_oidc_config_t *config,
+                                  const axiam_authorization_request_t *request,
+                                  const char *redirect_uri, const char *scope,
+                                  const char *tenant_id,
+                                  axiam_pushed_authorization_request_t *out,
+                                  axiam_error_t *err);
 
 #ifdef __cplusplus
 }

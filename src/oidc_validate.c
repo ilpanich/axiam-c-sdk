@@ -45,6 +45,7 @@ void axiam_oidc_config_dispose(axiam_oidc_config_t *cfg) {
     free(cfg->revocation_endpoint);
     free(cfg->end_session_endpoint);
     free(cfg->device_authorization_endpoint);
+    free(cfg->pushed_authorization_request_endpoint);
     string_array_free(cfg->scopes_supported, cfg->scopes_supported_count);
     string_array_free(cfg->response_types_supported, cfg->response_types_supported_count);
     string_array_free(cfg->id_token_signing_alg_values_supported,
@@ -524,6 +525,8 @@ axiam_error_kind_t oidc_config_copy(const axiam_oidc_config_t *src, axiam_oidc_c
     dst->revocation_endpoint = axiam_strdup0(src->revocation_endpoint);
     dst->end_session_endpoint = axiam_strdup0(src->end_session_endpoint);
     dst->device_authorization_endpoint = axiam_strdup0(src->device_authorization_endpoint);
+    dst->pushed_authorization_request_endpoint =
+        axiam_strdup0(src->pushed_authorization_request_endpoint);
     dst->scopes_supported = string_array_copy(src->scopes_supported, src->scopes_supported_count);
     dst->scopes_supported_count = dst->scopes_supported ? src->scopes_supported_count : 0;
     dst->response_types_supported =
@@ -542,4 +545,17 @@ axiam_error_kind_t oidc_config_copy(const axiam_oidc_config_t *src, axiam_oidc_c
         return AXIAM_ERR_NETWORK;
     }
     return AXIAM_OK;
+}
+
+void axiam_pushed_authorization_request_dispose(axiam_pushed_authorization_request_t *p) {
+    if (!p) return;
+    free(p->url);
+    free(p->state);
+    free(p->nonce);
+    /* Both secrets go through the scrubbing free: the handle is a bearer
+     * credential for the length of the redirect window (§26.5), and the verifier
+     * is secret for its whole lifetime (§12.5). */
+    axiam_sensitive_free(p->request_uri);
+    axiam_sensitive_free(p->code_verifier);
+    memset(p, 0, sizeof(*p));
 }

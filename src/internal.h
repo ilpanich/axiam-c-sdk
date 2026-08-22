@@ -316,6 +316,47 @@ int   axiam_curl_transport(void *ctx, const axiam_http_request_t *req,
 axiam_error_kind_t axiam_client_raw_get(axiam_client_t *c, const char *path,
                                         char **out_body, axiam_error_t *err);
 
+/* ---- Seam for the §24/§25 translation units ----
+ *
+ * webauthn.c and account.c live in their own files to keep client.c readable,
+ * and these are what they reach through — deliberately a named surface rather
+ * than making client.c's statics non-static, so what those units can touch
+ * stays enumerable. */
+
+/**
+ * One request with a raw body, through the same transport every other REST call
+ * uses (so §3 CSRF, §4 cookies, §5 tenant header and §6 TLS all apply).
+ *
+ * `body` is sent EXACTLY as given — no re-encode. That is what §24.0 needs: an
+ * authenticator's signed buffer that round-trips through a JSON model is a
+ * buffer that can come out different.
+ *
+ * Returns 0 when a response arrived (check resp->status), nonzero on transport
+ * failure. The caller disposes `resp` either way.
+ */
+int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *path,
+                          const char *body, axiam_http_response_t *resp);
+
+/** 1 when close() has been called (§18.1 rule 4). */
+int axiam_client_is_shut(axiam_client_t *c);
+/** The §18.1 rule 4 error, so every operation names the same cause. */
+axiam_error_kind_t axiam_client_shut_error(axiam_error_t *err);
+/** §17.1 rule 9: drop every memoized decision. */
+void axiam_client_drop_memo(axiam_client_t *c);
+/** 1 when a prior login/ceremony left this client holding a session. */
+int axiam_client_has_session(axiam_client_t *c);
+/**
+ * The shared LoginSuccessResponse / MfaRequiredResponse / MfaSetupRequired
+ * parser, so §25.2 rule 2's `mfa_setup_confirm` adopts credentials through the
+ * SAME code path `login` does rather than a second one that can drift.
+ */
+axiam_error_kind_t axiam_client_parse_login(axiam_client_t *c, axiam_http_response_t *resp,
+                                            axiam_login_result_t *out, axiam_error_t *err);
+/** Mark the client authenticated after a §24.3 ceremony adoption. */
+void axiam_client_adopt_session(axiam_client_t *c, axiam_http_response_t *resp);
+/** The client's own configuration, for resolving a workspace it was built with. */
+const axiam_client_config_t *axiam_client_config_of(const axiam_client_t *c);
+
 /* ---- §12.4 verification seam (implemented in jwks.c) ---- */
 
 /**
@@ -339,6 +380,12 @@ void axiam_oidc_client_dispose(axiam_client_t *c);
 /* ---- Small helpers ---- */
 char *axiam_strdup0(const char *s); /* strdup that tolerates NULL -> NULL */
 int   axiam_str_ieq(const char *a, const char *b);
+
+/* RFC 3986 percent-encode every byte outside the unreserved set. Returns a
+ * malloc'd string, or NULL on OOM/NULL input. Used wherever a caller-supplied
+ * value goes into a URL: a token spliced in raw can end the query early or land
+ * in the path, and the 404 that produces reads exactly like an expired token. */
+char *axiam_url_encode(const char *s);
 int   axiam_is_pem(const char *s); /* crude "-----BEGIN" check */
 
 /* Overwrite `n` bytes at `p` with zeroes in a way the compiler may not elide

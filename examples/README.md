@@ -16,6 +16,10 @@ end-to-end requires a reachable AXIAM server at the configured base URL.
 | [`oidc_login.c`](oidc_login.c) | The OIDC relying-party flow (§12) and §12.7 logout — and, more to the point, the four values §12.3 rule 1 makes the **caller's** to keep across the redirect. |
 | [`device_login.c`](device_login.c) | RFC 8628 (§14) for a thing with no browser: display the code, then let the SDK run §14.2's polling rules. |
 | [`token_exchange.c`](token_exchange.c) | RFC 8693 (§15): delegation versus impersonation, and the refusals the SDK surfaces rather than works around. |
+| [`webauthn_passkeys.c`](webauthn_passkeys.c) | Passkeys (§24): the six wire operations and §24.6a's JSON bridge — and why there is no ceremony helper here, since a C program has no authenticator and §24.6b rule 2 forbids emulating one. |
+| [`account_lifecycle.c`](account_lifecycle.c) | The calls a user makes about their own account (§25): voluntary and forced TOTP enrolment, email verification, and a password reset that discloses nothing about whether the address exists. |
+| [`par_login.c`](par_login.c) | Pushed authorization requests (§26, RFC 9126): the push answers **201**, and the redirect carries exactly `client_id` and `request_uri`. |
+| [`reactor.c`](reactor.c) | A §22 reactor on the SDK's protocol core (§22.11): the §8b broker-URL guard, the §22.14 binding table, and the runtime driven over a transport skeleton you replace with your own AMQP client |
 
 ## Organization context (§5.1)
 

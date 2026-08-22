@@ -26,3 +26,13 @@ axiam_add_example(uma_client)
 axiam_add_example(oidc_login)
 axiam_add_example(device_login)
 axiam_add_example(token_exchange)
+# Contract 1.28: §24 WebAuthn (the wire operations plus §24.6a's JSON bridge —
+# a C program has no authenticator, so there is no ceremony helper), §25 account
+# lifecycle and MFA enrolment, and §26 pushed authorization requests.
+axiam_add_example(webauthn_passkeys)
+axiam_add_example(account_lifecycle)
+axiam_add_example(par_login)
+# CONTRACT.md §22 (contract 1.28): a reactor on the SDK's protocol core, with the
+# §8b broker-URL guard and the §22.14 binding table. The transport is a skeleton
+# — §22.11 defers the AMQP client and only the AMQP client.
+axiam_add_example(reactor)

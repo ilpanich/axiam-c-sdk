@@ -60,6 +60,14 @@ typedef struct {
 } oidc_answer_t;
 
 typedef struct {
+    /*
+     * The discovery document this run serves. NULL means OIDC_DISCOVERY_BODY.
+     * §26 needs both a server that advertises a PAR endpoint and one that does
+     * not, and the difference between those two IS the assertion — so the
+     * document has to be a per-test input rather than a compile-time constant.
+     */
+    const char *discovery_body;
+
     /* Per-endpoint call counters — the assertions in these suites are counts. */
     int discovery_calls;
     int jwks_calls;
@@ -69,6 +77,7 @@ typedef struct {
     int device_authorize_calls;
     int sso_start_calls;
     int sso_complete_calls;
+    int par_calls;
 
     const char *jwks_body;
     /* One scripted answer per /oauth2/token call, consumed in order; the last
@@ -81,6 +90,7 @@ typedef struct {
     oidc_answer_t revoke_answer;
     oidc_answer_t sso_start_answer;
     oidc_answer_t sso_complete_answer;
+    oidc_answer_t par_answer;
 
     /* Every request that reached the transport, in order. */
     char methods[OIDC_MAX_CALLS][8];
@@ -138,8 +148,15 @@ static int oidc_fake_transport(void *ctx, const axiam_http_request_t *req,
 
     if (strstr(url, "/.well-known/openid-configuration")) {
         g_oidc.discovery_calls++;
-        resp_fill(resp, 200, OIDC_DISCOVERY_BODY, NULL);
+        resp_fill(resp, 200,
+                  g_oidc.discovery_body ? g_oidc.discovery_body : OIDC_DISCOVERY_BODY, NULL);
         return 0;
+    }
+    if (strstr(url, "/oauth2/par")) {
+        g_oidc.par_calls++;
+        /* RFC 9126 §2.2 answers Created, and that is the point of the default:
+         * a success predicate written `== 200` must fail here. */
+        return oidc_answer(&g_oidc.par_answer, 201, "{}", resp);
     }
     if (strstr(url, "/oauth2/jwks")) {
         g_oidc.jwks_calls++;
