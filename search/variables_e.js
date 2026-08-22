@@ -1,0 +1,25 @@
+var searchData=
+[
+  ['r_0',['r',['../structaxiam__opaque__ksf__params.html#aed1f0130a138cf346177275bf2478843',1,'axiam_opaque_ksf_params']]],
+  ['raw_5fclaims_5fjson_1',['raw_claims_json',['../structaxiam__id__token__claims.html#ab77f757cabb6f4fedaa193334a865f4d',1,'axiam_id_token_claims']]],
+  ['reactor_5fid_2',['reactor_id',['../structaxiam__reactor__config.html#a2359a5249d018879e4eb7df25568f99e',1,'axiam_reactor_config']]],
+  ['realm_3',['realm',['../structaxiam__uma__challenger.html#ac39d5298209a55ccc36fba99fb024990',1,'axiam_uma_challenger::realm'],['../structaxiam__uma__challenge.html#a6c88c4e67f5f1df503925b9abc7b3604',1,'axiam_uma_challenge::realm']]],
+  ['reason_4',['reason',['../structaxiam__check__result.html#af8b1d933777f021788d91b798f699155',1,'axiam_check_result::reason'],['../structaxiam__reactor__decision.html#a9340798132acb48483b2eb5168047a57',1,'axiam_reactor_decision::reason'],['../structaxiam__telemetry__event.html#aa5eecb30734a1c3e76e526caddf863e8',1,'axiam_telemetry_event::reason']]],
+  ['reason_5fcode_5',['reason_code',['../structaxiam__check__result.html#a260b333d7c566ae68e96782ec46f36b3',1,'axiam_check_result']]],
+  ['redirect_5furi_6',['redirect_uri',['../structaxiam__sso__complete__result.html#a504481a88210d317ff10dfdf1aa51fb9',1,'axiam_sso_complete_result::redirect_uri'],['../structaxiam__oidc__exchange__params.html#ae1e238f272dab68c5720c68d894a9e7d',1,'axiam_oidc_exchange_params::redirect_uri']]],
+  ['refresh_5frole_7',['refresh_role',['../structaxiam__telemetry__event.html#a1f4f85a88438f439dffed7255848167c',1,'axiam_telemetry_event']]],
+  ['refresh_5ftoken_8',['refresh_token',['../structaxiam__oidc__token__set.html#aa4c75eade50ef4a805f94257db53f5a1',1,'axiam_oidc_token_set::refresh_token'],['../structaxiam__webauthn__login.html#ae5357657e91718c1a63e00fe8a8b3c76',1,'axiam_webauthn_login::refresh_token']]],
+  ['registration_5frecord_9',['registration_record',['../structaxiam__opaque__enrollment.html#a01e398a1f6172b2b3f8e199b4d3babd5',1,'axiam_opaque_enrollment']]],
+  ['reply_5fto_10',['reply_to',['../structaxiam__reactor__delivery.html#ac8451443f1c119df385c67d7c088af52',1,'axiam_reactor_delivery']]],
+  ['request_5furi_11',['request_uri',['../structaxiam__pushed__authorization__request.html#a30dee5b5dd89023fff1fc3131508b1b4',1,'axiam_pushed_authorization_request']]],
+  ['requested_12',['requested',['../structaxiam__telemetry__event.html#aebdfdc8dba9441f9ecad97aab8200415',1,'axiam_telemetry_event']]],
+  ['require_5fmfa_13',['require_mfa',['../structaxiam__reactor__decision.html#a546986e94f4fba32f1ec4e1cd924eac6',1,'axiam_reactor_decision']]],
+  ['resource_14',['resource',['../structaxiam__token__exchange__params.html#a2d487ceaac5f444e0a6533d382e8fe69',1,'axiam_token_exchange_params']]],
+  ['resource_5fid_15',['resource_id',['../structaxiam__check__input.html#a2b3f57dbed23817fc5263bd070834315',1,'axiam_check_input::resource_id'],['../structaxiam__uma__permission.html#aff4e62a3ba484dbc8c026553dce3b5cb',1,'axiam_uma_permission::resource_id']]],
+  ['resource_5fregistration_5fendpoint_16',['resource_registration_endpoint',['../structaxiam__uma__config.html#a2466b45f7799912ed4e547a8281597b5',1,'axiam_uma_config']]],
+  ['response_5ftypes_5fsupported_17',['response_types_supported',['../structaxiam__oidc__config.html#aa9f4fad3f74798256666773979659651',1,'axiam_oidc_config']]],
+  ['response_5ftypes_5fsupported_5fcount_18',['response_types_supported_count',['../structaxiam__oidc__config.html#ae322002f7eb1ffa6f1bf4759b6be5ffb',1,'axiam_oidc_config']]],
+  ['revocation_5fendpoint_19',['revocation_endpoint',['../structaxiam__oidc__config.html#acb4a49e328f71d8812ee995382297217',1,'axiam_oidc_config']]],
+  ['roles_20',['roles',['../structaxiam__id__token__claims.html#a0453f7453a9ee7eb0236b591e6aa14e8',1,'axiam_id_token_claims']]],
+  ['roles_5fcount_21',['roles_count',['../structaxiam__id__token__claims.html#ad5f78ab1602517db1c59f9b499e1e5ea',1,'axiam_id_token_claims']]]
+];

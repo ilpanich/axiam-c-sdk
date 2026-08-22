@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['scope_0',['scope',['../structaxiam__oidc__token__set.html#a805cb703118e8ace4daf4ace73ca7075',1,'axiam_oidc_token_set::scope'],['../structaxiam__check__input.html#a3154093ed0006b7600647af9034b8b20',1,'axiam_check_input::scope'],['../structaxiam__exchanged__token.html#ac2141ac1c85d79ea4ac25d507fd3f1a0',1,'axiam_exchanged_token::scope'],['../structaxiam__introspection__result.html#a31940fe362684fb5446d19e9341a77f6',1,'axiam_introspection_result::scope']]],
+  ['scope_5fcount_1',['scope_count',['../structaxiam__token__exchange__params.html#a3e395974f39d6a00c91372934e814f33',1,'axiam_token_exchange_params::scope_count'],['../structaxiam__uma__resource__set.html#a4e44e5b8ba48b95e44ad8f03258fa6ca',1,'axiam_uma_resource_set::scope_count'],['../structaxiam__uma__permission.html#af3b061b81f77c297765db039ef17ef00',1,'axiam_uma_permission::scope_count']]],
+  ['scopes_2',['scopes',['../structaxiam__token__exchange__params.html#ad129305de202cfdbe1fcbb1398e10330',1,'axiam_token_exchange_params::scopes'],['../structaxiam__uma__resource__set.html#ae40496db9c8803bcf9ec550fd1c3a7be',1,'axiam_uma_resource_set::scopes'],['../structaxiam__uma__permission.html#ae96859f918494b229b2942e7df13872f',1,'axiam_uma_permission::scopes']]],
+  ['scopes_5fsupported_3',['scopes_supported',['../structaxiam__oidc__config.html#a3505d66c44d5c4358a430e60bc744bd9',1,'axiam_oidc_config']]],
+  ['scopes_5fsupported_5fcount_4',['scopes_supported_count',['../structaxiam__oidc__config.html#a486ebe35844b7a351e7bd72f7e1cc446',1,'axiam_oidc_config']]],
+  ['secret_5fbase32_5',['secret_base32',['../structaxiam__mfa__enrollment.html#acf4df45e6d39b32f75dad713c11b9ad3',1,'axiam_mfa_enrollment']]],
+  ['session_5fid_6',['session_id',['../structaxiam__login__result.html#abfc1dfdd367a34e55f22e9dc6537ef83',1,'axiam_login_result::session_id'],['../structaxiam__sso__complete__result.html#a3e92817a1ad5963abc1b5a080830ec2e',1,'axiam_sso_complete_result::session_id'],['../structaxiam__webauthn__login.html#ab43ba9bd8dafd2b6a123b3b65ef4941d',1,'axiam_webauthn_login::session_id']]],
+  ['setting_7',['setting',['../structaxiam__telemetry__event.html#a130f4dfee9f1b8b0c15a5c9396563883',1,'axiam_telemetry_event']]],
+  ['setup_5ftoken_8',['setup_token',['../structaxiam__login__result.html#aefce92c18c008797402034257cfc6217',1,'axiam_login_result']]],
+  ['sid_9',['sid',['../structaxiam__verified__logout__token.html#ad65a1f119911ea0318a3940aa0767611',1,'axiam_verified_logout_token']]],
+  ['signing_5fkey_10',['signing_key',['../structaxiam__reactor__config.html#acc935cb1f10d2bab7447a7cfd18c1e88',1,'axiam_reactor_config']]],
+  ['state_11',['state',['../structaxiam__authorization__request.html#ab51b1ac5b278fca7bd3b273cb016869f',1,'axiam_authorization_request::state'],['../structaxiam__sso__start__result.html#a8f8ae951e312515b62526f6bf3bc5c15',1,'axiam_sso_start_result::state'],['../structaxiam__pushed__authorization__request.html#a2acfcd5ec4951d9a4e8f42ba4a3181d2',1,'axiam_pushed_authorization_request::state']]],
+  ['state_5ftoken_12',['state_token',['../structaxiam__webauthn__challenge.html#ac04ecedc9a911d015cebc24e9a2d30a8',1,'axiam_webauthn_challenge']]],
+  ['status_13',['status',['../structaxiam__telemetry__event.html#a768660287d86afdb6901ce1ab0d551f7',1,'axiam_telemetry_event::status'],['../structaxiam__http__response.html#a08bf2bf38be9060da675555d8f46ee0a',1,'axiam_http_response::status']]],
+  ['subject_14',['subject',['../structaxiam__id__token__claims.html#a115e733a85a9e58dc3dfe30790de6586',1,'axiam_id_token_claims::subject'],['../structaxiam__introspection__result.html#ae2a52ff1b96583790af7bd286060f6cb',1,'axiam_introspection_result::subject'],['../structaxiam__verified__logout__token.html#afa5a6cb7065e770164caafed92a934be',1,'axiam_verified_logout_token::subject']]],
+  ['subject_5fid_15',['subject_id',['../structaxiam__check__input.html#aaea9084f21e24bc50e96f59412c61dec',1,'axiam_check_input']]],
+  ['subject_5ftoken_16',['subject_token',['../structaxiam__token__exchange__params.html#a63c24f8631c361b19b3d8e8b6230ec08',1,'axiam_token_exchange_params']]],
+  ['subject_5ftoken_5ftype_17',['subject_token_type',['../structaxiam__token__exchange__params.html#a259d6b313152bc25d35bec98c121ceb4',1,'axiam_token_exchange_params']]]
+];

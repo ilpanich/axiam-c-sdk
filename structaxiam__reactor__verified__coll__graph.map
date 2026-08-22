@@ -1,0 +1,5 @@
+<map id="axiam_reactor_verified" name="axiam_reactor_verified">
+<area shape="rect" id="Node000001" title="A verified event and the storage its borrowed strings point into." alt="" coords="5,93,177,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__reactor__event.html" title="A delivery that passed every §22.3 check." alt="" coords="11,5,171,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="94,45,94,93,89,93,89,45"/>
+</map>
