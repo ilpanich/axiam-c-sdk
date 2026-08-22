@@ -177,3 +177,28 @@ unsigned char *axiam_b64url_decode(const char *in, size_t in_len, size_t *out_le
     if (out_len) *out_len = o;
     return out;
 }
+
+char *axiam_url_encode(const char *s) {
+    static const char hex[] = "0123456789ABCDEF";
+    if (!s) return NULL;
+    /* Worst case every byte expands to three. */
+    size_t n = strlen(s);
+    char *out = malloc(n * 3 + 1);
+    if (!out) return NULL;
+    size_t at = 0;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char ch = (unsigned char)s[i];
+        int unreserved = (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+                         (ch >= '0' && ch <= '9') || ch == '-' || ch == '.' ||
+                         ch == '_' || ch == '~';
+        if (unreserved) {
+            out[at++] = (char)ch;
+        } else {
+            out[at++] = '%';
+            out[at++] = hex[ch >> 4];
+            out[at++] = hex[ch & 0xF];
+        }
+    }
+    out[at] = '\0';
+    return out;
+}

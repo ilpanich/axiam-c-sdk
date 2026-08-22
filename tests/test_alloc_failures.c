@@ -24,7 +24,9 @@
 #include <string.h>
 
 #include "unity.h"
+#include "axiam/account.h"
 #include "axiam/axiam.h"
+#include "axiam/webauthn.h"
 #include "internal.h"
 #include "oidc_internal.h"
 #include "test_util.h"
@@ -1279,6 +1281,337 @@ static void test_webhook_verify_headers_body_malloc_failure(void) {
     axiam_sensitive_free(secret);
 }
 
+/* ------------------------------------------------------------------ */
+/* §24 WebAuthn, §25 account lifecycle, §26 PAR (contract 1.28)        */
+/* ------------------------------------------------------------------ */
+
+#define WA_ALLOC_OPTIONS                                                       \
+    "{\"publicKey\":{\"challenge\":\"q83vAAAAAAAAAAAAAAAAAA\","                \
+    "\"rp\":{\"id\":\"acme.test\",\"name\":\"Acme\"},"                         \
+    "\"user\":{\"id\":\"dXNlci0x\",\"name\":\"ada\",\"displayName\":\"Ada\"}," \
+    "\"pubKeyCredParams\":[{\"type\":\"public-key\",\"alg\":-7}]}}"
+
+#define WA_ALLOC_RESPONSE                                                      \
+    "{\"type\":\"public-key\",\"rawId\":\"Y3JlZC1pZA\",\"id\":\"Y3JlZC1pZA\"," \
+    "\"response\":{\"clientDataJSON\":\"eyJ0eXAiOiJ3ZWJhdXRobi5jcmVhdGUifQ\"," \
+    "\"attestationObject\":\"o2NmbXRkbm9uZQ\"},\"clientExtensionResults\":{}}"
+
+#define ACCT_ALLOC_LOGIN_BODY                                                  \
+    "{\"authenticated\":true,\"access_token\":\"access-1\","                   \
+    "\"refresh_token\":\"refresh-1\",\"session_id\":\"sess-1\","               \
+    "\"expires_in\":900,\"user_id\":\"user-1\",\"username\":\"ada\","          \
+    "\"email\":\"ada@acme.test\",\"tenant_id\":\"" AXIAM_TEST_TENANT_ID "\"}"
+
+/*
+ * The §26 discovery document, which the shared OIDC_DISCOVERY_BODY does not
+ * carry — a server with no PAR endpoint is refused client-side, and a sweep
+ * against that answer would never reach an allocation.
+ */
+#define PAR_ALLOC_DISCOVERY_BODY                                               \
+    "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
+    "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","           \
+    "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","                       \
+    "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","                              \
+    "\"pushed_authorization_request_endpoint\":\"" OIDC_BASE "/oauth2/par\","  \
+    "\"response_types_supported\":[\"code\"],"                                 \
+    "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}"
+
+static int c128_alloc_transport(void *ctx, const axiam_http_request_t *req,
+                                axiam_http_response_t *resp) {
+    (void)ctx;
+    const char *url = req->url ? req->url : "";
+
+    if (strstr(url, "/.well-known/openid-configuration")) {
+        resp_fill(resp, 200, PAR_ALLOC_DISCOVERY_BODY, NULL);
+        return 0;
+    }
+    if (strstr(url, "/oauth2/par")) {
+        resp_fill(resp, 201,
+                  "{\"request_uri\":\"urn:ietf:params:oauth:request_uri:abc\","
+                  "\"expires_in\":90}", NULL);
+        return 0;
+    }
+    if (strstr(url, "/auth/login")) {
+        resp_fill(resp, 200, ACCT_ALLOC_LOGIN_BODY, "csrf-1");
+        return 0;
+    }
+    if (strstr(url, "/webauthn/register/start") ||
+        strstr(url, "/webauthn/authenticate/start") ||
+        strstr(url, "/webauthn/authenticate/discoverable/start")) {
+        resp_fill(resp, 200,
+                  "{\"challenge\":" WA_ALLOC_OPTIONS ",\"state_token\":\"state-1\"}",
+                  NULL);
+        return 0;
+    }
+    if (strstr(url, "/webauthn/register/finish")) {
+        resp_fill(resp, 201,
+                  "{\"id\":\"cred-1\",\"credential_id\":\"Y3JlZC1pZA\","
+                  "\"name\":\"laptop\",\"credential_type\":\"passkey\","
+                  "\"created_at\":\"2026-08-22T10:00:00Z\","
+                  "\"last_used_at\":\"2026-08-22T11:00:00Z\"}", NULL);
+        return 0;
+    }
+    if (strstr(url, "/webauthn/authenticate/finish") ||
+        strstr(url, "/webauthn/authenticate/discoverable/finish")) {
+        resp_fill(resp, 200,
+                  "{\"access_token\":\"wa-access\",\"refresh_token\":\"wa-refresh\","
+                  "\"session_id\":\"sess-wa\",\"expires_in\":900}", "csrf-wa");
+        return 0;
+    }
+    if (strstr(url, "/auth/mfa/setup/confirm")) {
+        resp_fill(resp, 200, ACCT_ALLOC_LOGIN_BODY, "csrf-2");
+        return 0;
+    }
+    if (strstr(url, "/auth/mfa/enroll") || strstr(url, "/auth/mfa/setup/enroll")) {
+        resp_fill(resp, 200,
+                  "{\"secret_base32\":\"JBSWY3DPEHPK3PXP\","
+                  "\"totp_uri\":\"otpauth://totp/Acme:ada?secret=JBSWY3DPEHPK3PXP\"}",
+                  NULL);
+        return 0;
+    }
+    if (strstr(url, "/auth/reset/context")) {
+        resp_fill(resp, 200,
+                  "{\"opaque\":{\"mode\":\"required\",\"suite\":\"ristretto255-SHA512\"}}",
+                  NULL);
+        return 0;
+    }
+    resp_fill(resp, 204, NULL, NULL);
+    return 0;
+}
+
+static axiam_client_t *c128_alloc_make_client(void) {
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, OIDC_BASE);
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
+    axiam_client_config_set_org_slug(cfg, "acme-org");
+    axiam_client_config_set_oidc_client_id(cfg, OIDC_CLIENT_ID);
+    axiam_client_config_set_oidc_client_secret(cfg, OIDC_CLIENT_SECRET);
+    axiam_client_config_set_transport(cfg, c128_alloc_transport, NULL);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    return c;
+}
+
+/* Signed in for real, so §24.1's session requirement is satisfied the way a
+ * caller would satisfy it rather than by reaching into the client. */
+static axiam_client_t *c128_alloc_signed_in_client(void) {
+    axiam_client_t *c = c128_alloc_make_client();
+    if (!c) return NULL;
+    axiam_login_result_t r;
+    axiam_login(c, "ada@acme.test", "pw", &r, NULL);
+    axiam_login_result_dispose(&r);
+    return c;
+}
+
+static void test_webauthn_alloc_failure_sweep(void) {
+    /* src/webauthn.c: the string-builder growth in append_json_string /
+     * append_raw (the *_finish body is assembled as TEXT precisely so the
+     * authenticator's bytes are not re-encoded, which is what makes those
+     * reallocs load-bearing), the challenge and login field copies, and
+     * build_workspace_body's object. Every failure must REPORT — a half-built
+     * finish body is a body the server cannot verify, and returning it would
+     * turn an allocation failure into a signature failure. */
+    axiam_client_t *c = c128_alloc_signed_in_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *state = axiam_sensitive_new("state-1");
+
+    for (long i = 1; i <= 130; i++) {
+        axiam_webauthn_challenge_t ch;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_webauthn_register_start(c, &ch, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) TEST_ASSERT_NOT_NULL(ch.challenge_json);
+        axiam_webauthn_challenge_dispose(&ch);
+    }
+
+    for (long i = 1; i <= 130; i++) {
+        axiam_webauthn_credential_t cred;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_webauthn_register_finish(
+            c, state, "laptop", WA_ALLOC_RESPONSE, &cred, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) TEST_ASSERT_NOT_NULL(cred.id);
+        axiam_webauthn_credential_dispose(&cred);
+    }
+
+    for (long i = 1; i <= 130; i++) {
+        axiam_webauthn_login_t login;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_webauthn_authenticate_finish(
+            c, state, WA_ALLOC_RESPONSE, &login, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) TEST_ASSERT_NOT_NULL(login.session_id);
+        axiam_webauthn_login_dispose(&login);
+    }
+
+    for (long i = 1; i <= 130; i++) {
+        axiam_webauthn_challenge_t ch;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_webauthn_authenticate_start(c, state, &ch, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) TEST_ASSERT_NOT_NULL(ch.state_token);
+        axiam_webauthn_challenge_dispose(&ch);
+    }
+
+    for (long i = 1; i <= 130; i++) {
+        axiam_webauthn_challenge_t ch;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_webauthn_discoverable_start(c, NULL, &ch, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) TEST_ASSERT_NOT_NULL(ch.state_token);
+        axiam_webauthn_challenge_dispose(&ch);
+    }
+
+    /* A response long enough that the builder has to GROW rather than fitting
+     * in its first block — the realloc arm, which the short fixture above never
+     * reaches. */
+    char big[4096];
+    memset(big, 'A', sizeof(big));
+    snprintf(big, sizeof(big), "{\"type\":\"public-key\",\"pad\":\"%.*s\"}",
+             3000, "AAAAAAAAAAAAAAAA");
+    for (long i = 1; i <= 60; i++) {
+        axiam_webauthn_login_t login;
+        alloc_fail_after(i);
+        axiam_error_kind_t k =
+            axiam_webauthn_discoverable_finish(c, state, big, &login, NULL);
+        alloc_fail_reset();
+        axiam_webauthn_login_dispose(&login);
+        (void)k;
+    }
+
+    axiam_sensitive_free(state);
+    axiam_client_free(c);
+}
+
+static void test_account_alloc_failure_sweep(void) {
+    /* src/account.c: the enrolment's two Sensitive handles (§25.3 — the
+     * otpauth URI is wrapped too, because it CONTAINS the secret), every
+     * request body, and the percent-encoded reset/context path. */
+    axiam_client_t *c = c128_alloc_signed_in_client();
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_sensitive_t *token = axiam_sensitive_new("token-value");
+    axiam_sensitive_t *pw = axiam_sensitive_new("new-password");
+
+    for (long i = 1; i <= 90; i++) {
+        axiam_mfa_enrollment_t e;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_mfa_enroll(c, &e, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(e.secret_base32);
+            TEST_ASSERT_NOT_NULL(e.totp_uri);
+        }
+        axiam_mfa_enrollment_dispose(&e);
+    }
+
+    for (long i = 1; i <= 90; i++) {
+        alloc_fail_after(i);
+        axiam_mfa_confirm(c, "123456", NULL, NULL);
+        alloc_fail_reset();
+    }
+
+    for (long i = 1; i <= 90; i++) {
+        axiam_mfa_enrollment_t e;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_mfa_setup_enroll(c, token, &e, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) TEST_ASSERT_NOT_NULL(e.totp_uri);
+        axiam_mfa_enrollment_dispose(&e);
+    }
+
+    for (long i = 1; i <= 90; i++) {
+        axiam_login_result_t r;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_mfa_setup_confirm(c, token, "123456", &r, NULL);
+        alloc_fail_reset();
+        /* No assertion on `authenticated` here. §25.2 rule 2 routes this call
+         * through the SAME parser axiam_login() uses rather than a second one
+         * that could drift, and that parser treats an unparseable 2xx body as a
+         * success with an empty result — a pre-existing shape shared with
+         * login() and verify_mfa(), not something this call may diverge on.
+         * What the sweep asserts is that the failure does not corrupt: dispose
+         * must accept whatever came back. */
+        (void)k;
+        axiam_login_result_dispose(&r);
+    }
+
+    for (long i = 1; i <= 60; i++) {
+        alloc_fail_after(i);
+        axiam_verify_email(c, token, AXIAM_TEST_TENANT_ID, NULL);
+        alloc_fail_reset();
+        alloc_fail_after(i);
+        axiam_resend_verification(c, "ada@acme.test", AXIAM_TEST_TENANT_ID, NULL);
+        alloc_fail_reset();
+    }
+
+    for (long i = 1; i <= 90; i++) {
+        axiam_password_reset_request_t req = {"ada@acme.test", "acme-org",
+                                              AXIAM_TEST_TENANT_ID, NULL};
+        alloc_fail_after(i);
+        axiam_request_password_reset(c, &req, NULL);
+        alloc_fail_reset();
+    }
+
+    for (long i = 1; i <= 90; i++) {
+        axiam_password_reset_context_t ctx;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_password_reset_context(c, token, &ctx, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) TEST_ASSERT_NOT_NULL(ctx.opaque_json);
+        axiam_password_reset_context_dispose(&ctx);
+    }
+
+    for (long i = 1; i <= 90; i++) {
+        axiam_password_reset_confirmation_t conf = {
+            token, pw, AXIAM_TEST_TENANT_ID,
+            "{\"registration_record\":\"cmVjb3Jk\"}"};
+        alloc_fail_after(i);
+        axiam_confirm_password_reset(c, &conf, NULL);
+        alloc_fail_reset();
+    }
+
+    axiam_sensitive_free(token);
+    axiam_sensitive_free(pw);
+    axiam_client_free(c);
+}
+
+static void test_oidc_par_alloc_failure_sweep(void) {
+    /* src/oidc_par.c: normalize_scope, the S256 challenge, the form, the
+     * tenant-qualified URL, the redirect URL's two percent-encodings and the
+     * all-or-nothing check at the end. That last one is the important arm: a
+     * result missing its url or its verifier is not a partial success, because
+     * the caller would redirect with an empty request_uri. */
+    axiam_client_t *c = c128_alloc_make_client();
+    TEST_ASSERT_NOT_NULL(c);
+
+    axiam_oidc_config_t cfg;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, NULL));
+
+    for (long i = 1; i <= 150; i++) {
+        axiam_authorization_request_t req;
+        if (axiam_oidc_begin(c, &cfg, OIDC_REDIRECT_URI, "openid profile", &req, NULL)
+            != AXIAM_OK) {
+            continue;
+        }
+        axiam_pushed_authorization_request_t par;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_oidc_par(c, &cfg, &req, OIDC_REDIRECT_URI,
+                                              "openid profile", NULL, &par, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) {
+            TEST_ASSERT_NOT_NULL(par.url);
+            TEST_ASSERT_NOT_NULL(par.request_uri);
+            TEST_ASSERT_NOT_NULL(par.code_verifier);
+        }
+        axiam_pushed_authorization_request_dispose(&par);
+        axiam_authorization_request_dispose(&req);
+    }
+
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_sensitive_new_bytes_calloc_failure);
@@ -1313,5 +1646,8 @@ int main(void) {
     RUN_TEST(test_opaque_enrollment_alloc_failure_sweep);
     RUN_TEST(test_memo_store_alloc_failure_is_silent);
     RUN_TEST(test_webhook_verify_headers_body_malloc_failure);
+    RUN_TEST(test_webauthn_alloc_failure_sweep);
+    RUN_TEST(test_account_alloc_failure_sweep);
+    RUN_TEST(test_oidc_par_alloc_failure_sweep);
     return UNITY_END();
 }

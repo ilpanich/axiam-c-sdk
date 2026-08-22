@@ -263,3 +263,14 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_alloc_failures PRIVATE --coverage)
 endif()
 add_test(NAME test_alloc_failures COMMAND test_alloc_failures)
+
+# ---- §24 WebAuthn, §25 account lifecycle, §26 PAR (contract 1.28) ----
+#
+# All three are wire-shape suites: what §24.0 is about is that the server's
+# options and the authenticator's response cross this SDK unchanged, and the
+# only way to assert that is to look at the bytes that went out. test_account
+# additionally counts requests, because §25.2 rule 3 ("mfa_enroll does NOT clear
+# the decision memo") has no other observable.
+axiam_add_test(test_webauthn test_webauthn.c)
+axiam_add_test(test_account test_account.c)
+axiam_add_test(test_oidc_par test_oidc_par.c)

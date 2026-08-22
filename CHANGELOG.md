@@ -26,6 +26,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **WebAuthn / passkeys (CONTRACT §24).** `include/axiam/webauthn.h`,
+  `src/webauthn.c`: the six relying-party wire operations
+  (`axiam_webauthn_register_start` / `_finish`, `_authenticate_start` /
+  `_finish`, `_discoverable_start` / `_finish`) plus §24.6a's JSON bridge —
+  `axiam_webauthn_request_json()` hands out the challenge in the exact form the
+  platform authenticator APIs take, and every `*_finish` accepts the platform's
+  response JSON back as a string, byte for byte. §24.6b's linked-API ceremony
+  helper is deliberately absent: a C program has no authenticator, and rule 2
+  forbids emulating one in software.
+- §24.6b rule 5's failure classification, which is required of every SDK
+  claiming §24 whether or not it ships a ceremony helper:
+  `axiam_webauthn_classify()` and `axiam_webauthn_failure_message()`. The
+  classifier never fails — an unrecognised name, `NULL` included, is
+  `AXIAM_WEBAUTHN_UNKNOWN`.
+- **Account lifecycle and MFA enrolment (CONTRACT §25).**
+  `include/axiam/account.h`, `src/account.c`: nine operations — voluntary
+  enrolment (`axiam_mfa_enroll` / `axiam_mfa_confirm`), forced enrolment
+  (`axiam_mfa_setup_enroll` / `axiam_mfa_setup_confirm`), email verification
+  (`axiam_verify_email`, `axiam_resend_verification`) and the password-reset
+  triple (`axiam_request_password_reset`, `axiam_password_reset_context`,
+  `axiam_confirm_password_reset`). Six of the nine are unauthenticated by
+  design.
+- **Pushed Authorization Requests, RFC 9126 (CONTRACT §26).** `src/oidc_par.c`:
+  `axiam_oidc_par()`, `axiam_pushed_authorization_request_t` and its dispose.
+  `axiam_oidc_config_t` gained `pushed_authorization_request_endpoint`; when the
+  discovery document does not advertise it the call is refused client-side with
+  no wire request, rather than synthesising `/oauth2/par` from the issuer.
+- `examples/webauthn_passkeys.c`, `examples/account_lifecycle.c` and
+  `examples/par_login.c`; `tests/test_webauthn.c` (29), `tests/test_account.c`
+  (27) and `tests/test_oidc_par.c` (19).
+- `axiam_url_encode()` in `src/util.c` — RFC 3986 percent-encoding, needed by
+  the `reset/context` query and the PAR redirect. A reset token spliced into a
+  query raw can end the query early or land in the path, and the 404 that
+  produces reads exactly like an expired token.
 - OPAQUE (RFC 9807) login and enrolment (CONTRACT §23): `axiam_login_opaque()`
   and `axiam_opaque_enrollment()`, plus `axiam_opaque_available()` for choosing
   the password path up front. `axiam_login_opaque()` fills the same
@@ -33,6 +67,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   included.
 - `include/axiam/opaque.h`, `src/opaque.c`, `examples/opaque_login.c`,
   `tests/test_opaque_binding.c` and `tests/test_opaque_login.c`.
+
+### Changed
+
+- `axiam_login()`'s third outcome is now reachable (§25.2 rule 1): a `403`
+  carrying `mfa_setup_required` fills `axiam_login_result_t::mfa_setup_required`
+  and `::setup_token` instead of failing generically. Additive here — the
+  result is a struct rather than a discriminated union, and both fields already
+  existed.
+- `axiam_mfa_setup_confirm()` adopts credentials exactly as `axiam_login()`
+  does, through the same parser rather than a second one that could drift on
+  what "adopted" means, and clears the §17 decision memo. `axiam_mfa_enroll()`
+  deliberately does **not** clear it (§25.2 rule 3): the subject has not
+  changed, and discarding a warm memo on an unrelated profile action costs a
+  round trip on every check that follows.
+- Both halves of an MFA enrolment are `axiam_sensitive_t` (§25.3). The
+  `otpauth://` URI *contains* the secret, so wrapping `secret_base32` and
+  leaving the URI a plain string would wrap nothing — the URI is the field that
+  actually gets logged, because it is the one a caller passes to a QR renderer.
+- Re-vendored `CONTRACT.md` at 1.28 and `openapi.json`.
 
 ### Removed
 

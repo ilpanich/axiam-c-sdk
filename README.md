@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21 and §23 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, and the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§19, §20, §21, §23 and §24–§26 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's six wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
@@ -769,6 +769,187 @@ caller can never read makes §12 unusable. `axiam_sensitive_to_string()` remains
 what diagnostics call, and still answers `"[SENSITIVE]"` whatever the content.
 Call the accessor at the point of use — building one header, one form field —
 and never let the result reach a log or a serialization sink.
+
+## §24 WebAuthn / passkeys
+
+The six relying-party wire operations plus [§24.6a](CONTRACT.md)'s JSON bridge.
+What is **not** here is §24.6b's linked-API ceremony helper, and the reason is
+not effort: a C program has no authenticator. There is no platform API to link
+on the targets this SDK serves, and §24.6b rule 2 forbids emulating one in
+software — a "credential" held in process memory is not a second factor.
+
+That is a statement about convenience, not capability. The bridge is the whole
+interface, and it is enough for every integration this SDK actually sees: an
+embedded gateway fronting a browser, a native app talking to a C service, a test
+harness driving a virtual authenticator.
+
+```c
+axiam_webauthn_challenge_t challenge;
+axiam_webauthn_register_start(client, &challenge, &err);   /* needs a session */
+
+/* §24.6a rule 1: the INNER options object. The `publicKey` wrapper belongs to
+ * the DOM's CredentialCreationOptions; the platform JSON APIs do not want it. */
+char *request_json = axiam_webauthn_request_json(&challenge);
+char *response = your_platform_runs_the_ceremony(request_json);   /* verbatim */
+free(request_json);
+
+axiam_webauthn_credential_t credential;
+axiam_webauthn_register_finish(client, challenge.state_token, "Ada's laptop",
+                               response, &credential, &err);
+```
+
+**The server owns the options, and the SDK owns nothing (§24.0).** Nothing in
+this surface defaults a field, validates one, or re-encodes a buffer. The
+challenge arrives as JSON text and leaves as JSON text; the authenticator's
+response is spliced into the request body without being parsed into a model and
+printed back out. A signed buffer that makes a round trip through a JSON model is
+a signed buffer that can come out different — member order shifts, large integers
+round through a double — and the server's signature check is what notices. The
+one thing checked client-side is that the response IS a JSON object, because the
+SDK will not POST a body it already knows the server cannot verify.
+
+**Two ceremonies, not one with a flag (§24.2).**
+`axiam_webauthn_authenticate_start()` is a *second factor*: it continues a login
+that answered `mfa_required`, so it requires that login's challenge token.
+`axiam_webauthn_discoverable_start()` is a *primary factor*: nothing precedes it,
+`allowCredentials` comes back empty, and the assertion itself identifies the
+user — which is why it is the one WebAuthn endpoint carrying the workspace
+explicitly, and why it accepts slugs where the five `/oauth2` operations of §12.1
+rule 2 do not. Both `*_finish` calls sign the client in and clear the §17
+decision memo (§24.3).
+
+**Two error cases are not the generic §2 mapping (§24.4).** A `403` on
+`register/finish` carries the tenant's attestation-policy message, and that
+message is surfaced — "register/finish failed" tells the person holding the key
+nothing they can act on. A `503` on `register/start` is **not retried**: it means
+the policy needs FIDO metadata the server cannot reach, which is a configuration
+state, not a transient one.
+
+**The failure classification is required even without a ceremony helper**
+(§24.6b rule 5). Whatever *did* run the ceremony reports its failure as one
+opaque type whose only machine-readable part is a name;
+`axiam_webauthn_classify()` translates it once, and never fails — an
+unrecognised name, including `NULL`, is `AXIAM_WEBAUTHN_UNKNOWN`. Note that
+`AXIAM_WEBAUTHN_CANCELLED` covers **both** an explicit refusal and a silent
+timeout: the spec deliberately refuses to distinguish them, because telling a
+website which one happened leaks whether an authenticator was present. Copy that
+says "you cancelled" is wrong half the time it is shown, and
+`axiam_webauthn_failure_message()` does not say it.
+
+Worked example: [`examples/webauthn_passkeys.c`](examples/webauthn_passkeys.c).
+
+## §25 Account lifecycle and MFA enrolment
+
+Nine operations covering voluntary and forced TOTP enrolment, email
+verification, and the password-reset triple. All nine have been live server
+surface since before §1 was written; what they lacked was an SDK.
+
+**Six of the nine are deliberately unauthenticated.** A user who cannot log in
+is the entire audience for a password reset, and a user whose email is unverified
+may have no session at all.
+
+```c
+axiam_mfa_enrollment_t enrollment;
+axiam_mfa_enroll(client, &enrollment, &err);
+/* BOTH halves are Sensitive (§25.3) — see below. */
+render_qr(axiam_sensitive_reveal(enrollment.totp_uri));
+
+int enabled = 0;
+axiam_mfa_confirm(client, code_the_user_typed, &enabled, &err);
+```
+
+**The otpauth URI is the field that actually leaks (§25.3).** It *contains* the
+secret, so wrapping `secret_base32` and leaving `totp_uri` a plain string wraps
+nothing: the URI is the one you hand to a QR renderer, and therefore the one that
+ends up in a log. Both are `axiam_sensitive_t`.
+
+**`axiam_mfa_enroll()` does not clear the decision memo (§25.2 rule 3).** The
+subject has not changed — offering a factor is a profile action — and discarding
+a warm §17 memo over it costs a round trip on every authorization check that
+follows. `axiam_mfa_setup_confirm()` *does* clear it, because that call **is** the
+completion of a login (§25.2 rule 2) and adopts credentials exactly as
+`axiam_login()` does.
+
+**Login has three outcomes now, not two.** `axiam_login_result_t` already carried
+`mfa_setup_required` and `setup_token`; §25.2 rule 1 is what makes them
+reachable. When the tenant requires MFA and the account has none, the setup token
+**is** the credential for `axiam_mfa_setup_enroll()` and
+`axiam_mfa_setup_confirm()` — there is no session yet.
+
+**There is no one-call enrolment helper, and there must not be** (§25.2 rule 4).
+The human step in the middle — read the QR code, type six digits — is not
+something a helper can wait for.
+
+**Where the tenant goes.** `verify_email`, `resend_verification` and
+`confirm_password_reset` take it as a **body** field. These are not `/oauth2`
+endpoints, so §12.1 rule 2's query-parameter convention does not reach them, and
+putting it in the query earns a `400` that reads exactly like a bad token.
+
+**Password reset discloses nothing (§25.4).**
+`axiam_request_password_reset()` returns `AXIAM_OK` whether or not the address
+exists, and this SDK exposes no way to tell the two apart. Call
+`axiam_password_reset_context()` before choosing a password path: a tenant in
+`opaque_mode: required` refuses a plaintext password, and refuses it *late* — by
+which point the user has typed one. A `404` from that call means unknown, expired
+**or** already-consumed, deliberately indistinguishable; do not invent a
+distinction the server refused to make.
+
+Worked example: [`examples/account_lifecycle.c`](examples/account_lifecycle.c).
+
+## §26 Pushed Authorization Requests (RFC 9126)
+
+PAR moves the authorization request off the browser. Instead of putting `scope`,
+`redirect_uri`, `state` and the PKCE challenge into a URL the user agent
+carries, the client POSTs them straight to AXIAM over an authenticated back
+channel and puts an opaque handle in the redirect. What travels through the
+browser is then a random string that cannot be edited into meaning something
+else. **Required for a FAPI 2.0 client**: `profile: "fapi2"` refuses a
+registration that does not set `require_par` (§21.1).
+
+```c
+axiam_oidc_config_t doc;
+axiam_oidc_discover(client, &doc, &err);
+if (!doc.pushed_authorization_request_endpoint) { /* this server has no PAR */ }
+
+axiam_authorization_request_t req;
+axiam_oidc_begin(client, &doc, redirect_uri, "openid profile", &req, &err);
+
+axiam_pushed_authorization_request_t pushed;
+axiam_oidc_par(client, &doc, &req, redirect_uri, "openid profile", NULL, &pushed, &err);
+/* pushed.url carries exactly client_id and request_uri — nothing else. */
+```
+
+**The server answers `201`, not `200`.** RFC 9126 §2.2 specifies Created, and a
+success predicate written `== 200` treats every successful push as a failure
+while passing every other check.
+
+**The redirect carries exactly two parameters (§26.2 rule 2).** AXIAM refuses a
+request that mixes a `request_uri` with inline authorization parameters rather
+than merging them, because merging is where parameter confusion lives: an
+attacker supplies the inline value they want and lets the pushed copy satisfy
+whichever check reads the other one. Re-adding `scope` "for compatibility"
+restores the attack — which is why any query the *discovered* authorization
+endpoint already carried is dropped here rather than merged.
+
+**One generator, not two (§26.2 rule 1).** The push sends the `state`, `nonce`
+and PKCE pair `axiam_oidc_begin()` produced, and hands them back out on the
+result so the caller has one object to persist. Two sources for those values are
+two things that can disagree, and when they do the failure surfaces at the
+exchange as an opaque `invalid_grant` a long way from the code that caused it.
+
+**Never retried (§26.2 rule 4).** It is a POST that creates server state, so it
+falls outside §16.2's read-only eligibility exactly as `oidc_exchange` does. The
+safe recovery is a fresh push: one round trip, and it cannot double-consume
+anything. The `request_uri` is single-use, short-lived (`expires_in` is not
+advisory) and `Sensitive` — between the push and the redirect it is a bearer
+handle to a fully-formed authorization request.
+
+**Never synthesised.** A server that does not advertise
+`pushed_authorization_request_endpoint` does not have it;
+`axiam_oidc_par()` refuses client-side with no wire call rather than guessing
+`/oauth2/par` and producing a 404 that reads like a broken request.
+
+Worked example: [`examples/par_login.c`](examples/par_login.c).
 
 ## Scope / follow-ups
 

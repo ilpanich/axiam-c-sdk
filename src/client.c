@@ -267,6 +267,31 @@ static int transport_once(axiam_client_t *c, const char *method, const char *pat
     return rc;
 }
 
+int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *path,
+                          const char *body, axiam_http_response_t *resp) {
+    return transport_once(c, method, path, body, 1, resp);
+}
+
+int axiam_client_is_shut(axiam_client_t *c) { return client_is_closed(c); }
+
+axiam_error_kind_t axiam_client_shut_error(axiam_error_t *err) { return closed_error(err); }
+
+void axiam_client_drop_memo(axiam_client_t *c) {
+    if (c) axiam_memo_clear(&c->memo);
+}
+
+const axiam_client_config_t *axiam_client_config_of(const axiam_client_t *c) {
+    return c ? c->cfg : NULL;
+}
+
+int axiam_client_has_session(axiam_client_t *c) {
+    if (!c) return 0;
+    pthread_mutex_lock(&c->state_mtx);
+    int has = c->authenticated;
+    pthread_mutex_unlock(&c->state_mtx);
+    return has;
+}
+
 axiam_error_kind_t axiam_client_raw_get(axiam_client_t *c, const char *path,
                                         char **out_body, axiam_error_t *err) {
     if (out_body) *out_body = NULL;
@@ -538,6 +563,19 @@ static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_respons
     }
     if (root) cJSON_Delete(root);
     return kind;
+}
+
+axiam_error_kind_t axiam_client_parse_login(axiam_client_t *c, axiam_http_response_t *resp,
+                                            axiam_login_result_t *out, axiam_error_t *err) {
+    return parse_login_like(c, resp, out, err);
+}
+
+void axiam_client_adopt_session(axiam_client_t *c, axiam_http_response_t *resp) {
+    if (!c) return;
+    pthread_mutex_lock(&c->state_mtx);
+    c->authenticated = 1;
+    pthread_mutex_unlock(&c->state_mtx);
+    if (resp) resolve_ids_from_login(c, resp);
 }
 
 axiam_error_kind_t axiam_login(axiam_client_t *client, const char *username_or_email,

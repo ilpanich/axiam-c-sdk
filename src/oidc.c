@@ -345,6 +345,10 @@ static axiam_error_kind_t parse_discovery(const char *json, axiam_oidc_config_t 
     out->revocation_endpoint = json_opt(root, "revocation_endpoint");
     out->end_session_endpoint = json_opt(root, "end_session_endpoint");
     out->device_authorization_endpoint = json_opt(root, "device_authorization_endpoint");
+    /* §26.1: optional, so an absent value is a fact about the server rather
+     * than a malformed document. */
+    out->pushed_authorization_request_endpoint =
+        json_opt(root, "pushed_authorization_request_endpoint");
     out->scopes_supported = json_strings(root, "scopes_supported", &out->scopes_supported_count);
     out->response_types_supported =
         json_strings(root, "response_types_supported", &out->response_types_supported_count);
