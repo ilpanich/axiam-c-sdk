@@ -104,6 +104,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Re-vendor `openapi.json` at **1.0.0-alpha38**. The server registered the four
+  GDPR data-subject endpoints (`POST /api/v1/account/export`,
+  `GET /api/v1/account/export/{token}`, `POST /api/v1/account/delete`,
+  `GET /api/v1/auth/account/delete/cancel`), taking the document to 181
+  operations across 121 paths. Purely additive, and no SDK surface changes with
+  it: nothing in this repo is generated from the spec, so the cross-repo
+  artifact-drift gate was the only thing reporting `STALE`.
+
 - `axiam_login()`'s third outcome is now reachable (§25.2 rule 1): a `403`
   carrying `mfa_setup_required` fills `axiam_login_result_t::mfa_setup_required`
   and `::setup_token` instead of failing generically. Additive here — the
