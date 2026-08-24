@@ -164,6 +164,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- **`axiam_login_opaque()` falls back to `axiam_login()` under
+  `opaque_mode: optional` (CONTRACT §23.4 rule 7, contract 1.29).** The
+  `login/start` response gains an optional `mode` field carrying the tenant's
+  `opaque_mode` — `"optional"` or `"required"` — and it is now the only thing
+  that decides what follows a failure to open `KE2`. Under `"optional"` the SDK
+  retries over `POST /api/v1/auth/login` with the same credentials before
+  reporting anything and returns that call's outcome verbatim; under
+  `"required"`, with **no** `mode` field at all (a server older than the field)
+  or with a value this SDK does not recognise, it fails closed with
+  `AXIAM_ERR_AUTH` and puts no plaintext password on the wire. `KE3` is still
+  never sent in either case, and `404` handling is untouched — a tenant with
+  OPAQUE disabled remains the distinguishable `AXIAM_ERR_NETWORK` it was.
+  Without the `optional` clause, enabling `optional` locks out every user of a
+  tenant mid-migration: every account has no registration record the moment an
+  operator turns OPAQUE on, and acquires one only when its password is next
+  set. `mode` is **not** downgrade protection and is not documented as such —
+  a hostile server wanting the plaintext could simply answer `404`.
+- Re-vendored `CONTRACT.md` at **1.29** and `openapi.json` at
+  **1.0.0-alpha40**, byte-identical to the server repository's `sdks/`.
 - **BREAKING** — the OPAQUE protocol is NOT implemented in this SDK. CONTRACT
   §23.1 forbids it, so `src/opaque.c` is a `dlopen`/`dlsym` binding to
   `libaxiam_opaque_ffi` — the same implementation the AXIAM server links,

@@ -654,6 +654,25 @@ static void opaque_json_cost(const cJSON *root, const char *name, int *has, unsi
  *
  * The returned struct borrows `ksf` from `root`, which therefore has to outlive
  * it. */
+/* §23.4 rule 7's dispatch: the tenant's `opaque_mode`, as `login/start` reports
+ * it.
+ *
+ * The field is `"optional"` or `"required"` — never `"disabled"`, which answers
+ * `404` and never reaches here — and it is OPTIONAL on the wire: a server older
+ * than the field sends no `mode` at all. Absent, and any value this SDK does not
+ * recognise, fails closed and is treated as `"required"`.
+ *
+ * This is NOT downgrade protection and must not be documented as such. A hostile
+ * endpoint that wanted the plaintext would answer `404` to login/start and get
+ * the fallback whatever it wrote here. What actually closes that is `required`,
+ * enforced server-side: it refuses `/auth/login` for every principal in the
+ * tenant, before any credential is examined. `mode` is here for the one thing
+ * rule 7 uses it for — telling a mid-migration tenant apart from a closed one.
+ */
+static int opaque_mode_is_optional(const cJSON *root) {
+    return strcmp(opaque_json_str(root, "mode"), "optional") == 0;
+}
+
 static void opaque_read_ksf(const cJSON *root, axiam_opaque_ksf_params_t *out) {
     memset(out, 0, sizeof(*out));
     out->ksf = opaque_json_str(root, "ksf");
@@ -763,12 +782,39 @@ axiam_error_kind_t axiam_login_opaque(axiam_client_t *client, const char *userna
     char *ke3 = NULL;
     kind = axiam_opaque_exchange_finish(&x, password, ke2, &ksf, &ke3, err);
     char *session = strdup(opaque_json_str(started, "opaque_session"));
+    /* Read while `started` is still alive: §23.4 rule 7 dispatches on `mode`,
+     * and ONLY on `mode`. AXIAM_ERR_AUTH is the failure to open KE2 — a wrong
+     * password, an unknown identity, an account with no registration record and
+     * a hostile endpoint, all indistinguishable by design. Every other failure
+     * out of finish() is AXIAM_ERR_NETWORK (a refused KSF, an out-of-band cost,
+     * out of memory), which is a client-side or configuration fault and gets no
+     * fallback: there is no reason to believe a plaintext attempt would fare
+     * any better, and it would put the password on the wire to find out. */
+    int retry_over_password_login =
+        (kind == AXIAM_ERR_AUTH) && opaque_mode_is_optional(started);
     cJSON_Delete(started);
     axiam_opaque_exchange_close(&x);
     if (kind != AXIAM_OK) {
         /* §23.4 rule 7: nothing goes to login/finish once the envelope has
          * failed to open. `out` stays zeroed. */
         free(session);
+        if (retry_over_password_login) {
+            /* `optional` is the mid-migration state, and under it an account
+             * with no record is the ORDINARY case rather than an error: every
+             * account has none the moment an operator enables OPAQUE, and one
+             * appears only when that account next sets a password. Reporting
+             * the failed exchange as final would lock out every user of the
+             * tenant — which would make enabling `optional` indistinguishable
+             * from enabling `required` with nobody enrolled.
+             *
+             * The whole retry is axiam_login(), not a second hand-rolled round
+             * trip: the caller must get one login result type, one session
+             * adoption and one MFA branch whichever path answered. It resets
+             * `err` and re-zeroes `out` itself, so its outcome — success or
+             * failure — is returned verbatim and the OPAQUE error above is
+             * replaced rather than merged into it. */
+            return axiam_login(client, username_or_email, password, out, err);
+        }
         return kind;
     }
     if (!session) {

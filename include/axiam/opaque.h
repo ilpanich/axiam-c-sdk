@@ -158,16 +158,34 @@ int axiam_opaque_available(void);
  * credential failure would send a user off to reset a password that works, and
  * would stop a caller falling back to axiam_login().
  *
- * Returns AXIAM_ERR_AUTH when the envelope does not open — a wrong password, an
- * account that does not exist, and a server that does not hold the record,
- * indistinguishable by design. That single check is the whole of the client's
- * authentication, both halves of the mutual authentication included: RFC 9807's
- * AKE authenticates the server during the handshake, so opening KE2 IS the
- * proof that it holds the record, and the separate M2 step §23.3 rule 6 had to
- * mandate for SRP no longer exists. NOTHING is sent to `login/finish` in that
- * case (§23.4 rule 7), `out` is left empty, and a caller must not retry over
- * axiam_login(): that hands the plaintext to an endpoint that has just failed
- * to prove itself.
+ * A failure to open the envelope — a wrong password, an account that does not
+ * exist, an account with no registration record, and a hostile endpoint, all
+ * indistinguishable by design — is the whole of the client's authentication
+ * check, both halves of the mutual authentication included: RFC 9807's AKE
+ * authenticates the server during the handshake, so opening KE2 IS the proof
+ * that it holds the record, and the separate M2 step §23.3 rule 6 had to mandate
+ * for SRP no longer exists. NOTHING is sent to `login/finish` after it (§23.4
+ * rule 7).
+ *
+ * What happens next is decided by the `mode` field of the `login/start`
+ * response — the tenant's `opaque_mode` — and by nothing else (§23.4 rule 7):
+ *
+ *  - `"required"`, and any response carrying NO `mode` at all (a server older
+ *    than the field), and any value this SDK does not recognise: AXIAM_ERR_AUTH,
+ *    `out` left empty, the exchange over. Nothing is retried over
+ *    axiam_login() — under `required` it would be refused for every principal
+ *    anyway, so it would put a plaintext password on the wire for nothing.
+ *  - `"optional"`: this function retries over axiam_login() with the same
+ *    credentials BEFORE reporting anything, and returns that call's outcome
+ *    verbatim — its success on success, its error on failure. `optional` is the
+ *    mid-migration state: every account starts with no registration record and
+ *    acquires one only when its password is next set, so treating the failed
+ *    exchange as final would lock out every user of the tenant.
+ *
+ * `mode` is NOT downgrade protection, and this SDK does not present it as any:
+ * a hostile server that wanted the plaintext could simply answer 404 and get
+ * the fallback whatever it put there. What closes that is `required`, enforced
+ * server-side before any credential is examined.
  */
 axiam_error_kind_t axiam_login_opaque(axiam_client_t *client,
                                       const char *username_or_email,
