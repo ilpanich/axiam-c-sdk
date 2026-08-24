@@ -7,7 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-alpha43] - 2026-08-24
+
 ### Added
+
+- Compile and test against C23 alongside the C11 floor (#43)
 
 - **C23 is now a built and tested standard, on both gcc and clang.** The CI
   matrix gains a standard axis: it was two compilers at one standard, so the
