@@ -45,14 +45,22 @@ typedef struct {
     int omit_ke2;
     int transport_error_on_start;
     const char *ksf; /* "argon2id" (default) or "scrypt" */
+    /* §23.4 rule 7 / §23.5: the tenant's `opaque_mode`, as login/start reports
+     * it. NULL means the field is absent from the response entirely, which is
+     * what a server older than contract 1.29 sends and is the default here so
+     * every pre-existing case keeps exercising the fail-closed branch. */
+    const char *mode;
+    long plain_login_status;
 
     int login_start_count;
     int login_finish_count;
     int register_start_count;
+    int plain_login_count;
 
     char login_start_body[2048];
     char login_finish_body[2048];
     char register_start_body[2048];
+    char plain_login_body[2048];
 } fake_state_t;
 
 static fake_state_t g_fake;
@@ -90,12 +98,15 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
             return 0;
         }
         ksf_fields(ksf, sizeof(ksf));
-        char body[512];
+        char mode[64] = "";
+        if (g_fake.mode) snprintf(mode, sizeof(mode), ",\"mode\":\"%s\"", g_fake.mode);
+        char body[640];
         if (g_fake.omit_ke2) {
-            snprintf(body, sizeof(body), "{\"opaque_session\":\"handle-42\",%s}", ksf);
+            snprintf(body, sizeof(body), "{\"opaque_session\":\"handle-42\",%s%s}", ksf, mode);
         } else {
             snprintf(body, sizeof(body),
-                     "{\"opaque_session\":\"handle-42\",\"ke2\":\"" WIRE_KE2 "\",%s}", ksf);
+                     "{\"opaque_session\":\"handle-42\",\"ke2\":\"" WIRE_KE2 "\",%s%s}",
+                     ksf, mode);
         }
         resp_fill(resp, 200, body, NULL);
         return 0;
@@ -143,6 +154,28 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
                  "{\"opaque_session\":\"reg-handle\",\"registration_response\":\""
                  WIRE_REGISTRATION_RESPONSE "\",%s}", ksf);
         resp_fill(resp, 200, body, NULL);
+        return 0;
+    }
+
+    /* The plaintext path §23.4 rule 7 falls back to under `optional`. It is
+     * counted rather than merely answered: "no request was made to /auth/login"
+     * is the assertion the `required` and no-`mode` cases turn on, and a fake
+     * that quietly 404s an unexpected call would let a stray plaintext attempt
+     * pass as an authentication failure. */
+    if (strstr(url, "/api/v1/auth/login")) {
+        g_fake.plain_login_count++;
+        snprintf(g_fake.plain_login_body, sizeof(g_fake.plain_login_body), "%s",
+                 req->body ? req->body : "");
+        if (g_fake.plain_login_status && g_fake.plain_login_status != 200) {
+            resp_fill(resp, g_fake.plain_login_status, "{}", NULL);
+            return 0;
+        }
+        resp_fill(resp, 200,
+                  "{\"session_id\":\"44444444-4444-4444-4444-444444444444\","
+                  "\"expires_in\":900,"
+                  "\"user\":{\"id\":\"u-plaintext\",\"username\":\"" TEST_USER "\","
+                  "\"email\":\"a@x.io\",\"tenant_id\":\"" AXIAM_TEST_TENANT_ID "\"}}",
+                  "csrf-abc");
         return 0;
     }
 
@@ -402,6 +435,161 @@ static void test_a_wrong_password_never_reaches_login_finish(void) {
     TEST_ASSERT_FALSE(fake_opaque_leaked());
 }
 
+/* ------------------------------------------------------------------------
+ * §23.4 rule 7 — what a failure to open KE2 means, and `mode` deciding it
+ *
+ * The four cases below are the whole of the rule. `mode` is the ONLY input:
+ * the KE2 failure itself is identical in every one of them (a wrong password,
+ * an unknown identity, an account with no registration record and a hostile
+ * endpoint are indistinguishable by design), so anything else the SDK branched
+ * on would be a fact it does not have.
+ *
+ * The counters are the assertions that matter. `login_finish_count == 0` is
+ * rule 7's first half — KE3 is never sent once the envelope has failed to open
+ * — and `plain_login_count` is its second: exactly one plaintext attempt under
+ * `optional`, and none at all otherwise, because a password put on the wire is
+ * not something a later assertion can take back.
+ * ---------------------------------------------------------------------- */
+
+static void test_optional_retries_over_password_login_and_returns_its_success(void) {
+    /* The mid-migration case, and the reason the rule exists: every account has
+     * no registration record the moment an operator enables OPAQUE and acquires
+     * one only when its password is next set. Treating the failed exchange as
+     * final here would lock out every user of the tenant. */
+    g_fake.mode = "optional";
+    g_fake_opaque.fail[FAKE_LOGIN_FINISH] = 1;
+    axiam_client_t *c = make_client();
+    axiam_login_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_login_opaque(c, TEST_USER, g_password, &res, &err));
+
+    /* The caller gets a login result, not an error dressed as one. */
+    TEST_ASSERT_EQUAL_INT(1, res.authenticated);
+    TEST_ASSERT_EQUAL_STRING("u-plaintext", res.user_id);
+    TEST_ASSERT_EQUAL_STRING(AXIAM_TEST_TENANT_ID, res.tenant_id);
+
+    TEST_ASSERT_EQUAL_INT(1, g_fake.login_start_count);
+    TEST_ASSERT_EQUAL_INT(0, g_fake.login_finish_count); /* no KE3, ever */
+    TEST_ASSERT_EQUAL_INT(1, g_fake.plain_login_count);
+
+    /* Same credentials, not a truncated or re-derived pair. */
+    TEST_ASSERT_NOT_NULL(strstr(g_fake.plain_login_body,
+                                "\"username_or_email\":\"" TEST_USER "\""));
+    char expected[128];
+    snprintf(expected, sizeof(expected), "\"password\":\"%s\"", g_password);
+    TEST_ASSERT_NOT_NULL(strstr(g_fake.plain_login_body, expected));
+
+    axiam_login_result_dispose(&res);
+    axiam_client_free(c);
+    TEST_ASSERT_FALSE(fake_opaque_leaked());
+}
+
+static void test_optional_reports_the_password_logins_failure_when_that_fails_too(void) {
+    /* The fallback's outcome is returned verbatim — its error, from the call
+     * that actually examined the credentials, rather than the OPAQUE one it
+     * replaced. */
+    g_fake.mode = "optional";
+    g_fake.plain_login_status = 401;
+    g_fake_opaque.fail[FAKE_LOGIN_FINISH] = 1;
+    axiam_client_t *c = make_client();
+    axiam_login_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH,
+                          axiam_login_opaque(c, TEST_USER, g_password, &res, &err));
+
+    TEST_ASSERT_EQUAL_INT(0, res.authenticated);
+    TEST_ASSERT_EQUAL_INT(0, g_fake.login_finish_count);
+    TEST_ASSERT_EQUAL_INT(1, g_fake.plain_login_count); /* exactly one, not a loop */
+
+    axiam_login_result_dispose(&res);
+    axiam_client_free(c);
+    TEST_ASSERT_FALSE(fake_opaque_leaked());
+}
+
+static void test_required_never_puts_a_plaintext_password_on_the_wire(void) {
+    /* `required` answers 403 opaque_required for every principal in the tenant,
+     * so a retry could only ever fail — and would have handed the plaintext to
+     * whatever answered login/start to find that out. */
+    g_fake.mode = "required";
+    g_fake_opaque.fail[FAKE_LOGIN_FINISH] = 1;
+    axiam_client_t *c = make_client();
+    axiam_login_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH,
+                          axiam_login_opaque(c, TEST_USER, g_password, &res, &err));
+
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "invalid credentials"));
+    TEST_ASSERT_EQUAL_INT(0, res.authenticated);
+    TEST_ASSERT_EQUAL_INT(0, g_fake.login_finish_count);
+    TEST_ASSERT_EQUAL_INT(0, g_fake.plain_login_count);
+
+    axiam_login_result_dispose(&res);
+    axiam_client_free(c);
+    TEST_ASSERT_FALSE(fake_opaque_leaked());
+}
+
+static void test_a_response_with_no_mode_field_fails_closed(void) {
+    /* A server older than the field. Defaulting the other way would downgrade
+     * every such tenant to a plaintext attempt on the strength of a field it
+     * never sent. */
+    g_fake.mode = NULL;
+    g_fake_opaque.fail[FAKE_LOGIN_FINISH] = 1;
+    axiam_client_t *c = make_client();
+    axiam_login_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH,
+                          axiam_login_opaque(c, TEST_USER, g_password, &res, &err));
+
+    TEST_ASSERT_EQUAL_INT(0, g_fake.login_finish_count);
+    TEST_ASSERT_EQUAL_INT(0, g_fake.plain_login_count);
+
+    axiam_login_result_dispose(&res);
+    axiam_client_free(c);
+    TEST_ASSERT_FALSE(fake_opaque_leaked());
+}
+
+static void test_an_unrecognised_mode_is_treated_as_required(void) {
+    /* Fail closed. A `mode` this SDK does not know is a server newer than it,
+     * and guessing that an unknown policy permits the plaintext fallback is the
+     * one guess with a cost that cannot be undone. */
+    g_fake.mode = "enforced-tuesdays";
+    g_fake_opaque.fail[FAKE_LOGIN_FINISH] = 1;
+    axiam_client_t *c = make_client();
+    axiam_login_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH,
+                          axiam_login_opaque(c, TEST_USER, g_password, &res, &err));
+
+    TEST_ASSERT_EQUAL_INT(0, g_fake.login_finish_count);
+    TEST_ASSERT_EQUAL_INT(0, g_fake.plain_login_count);
+
+    axiam_login_result_dispose(&res);
+    axiam_client_free(c);
+    TEST_ASSERT_FALSE(fake_opaque_leaked());
+}
+
+static void test_optional_does_not_fall_back_for_a_configuration_failure(void) {
+    /* Rule 7 is about the envelope failing to open. A key-stretching function
+     * this SDK cannot ask for is AXIAM_ERR_NETWORK — a client capability gap —
+     * and there is no reason to believe a plaintext attempt would fare better,
+     * so it does not get one even under `optional`. */
+    g_fake.mode = "optional";
+    g_fake.ksf = "bcrypt";
+    axiam_client_t *c = make_client();
+    axiam_login_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
+                          axiam_login_opaque(c, TEST_USER, g_password, &res, &err));
+
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "bcrypt"));
+    TEST_ASSERT_EQUAL_INT(0, g_fake.login_finish_count);
+    TEST_ASSERT_EQUAL_INT(0, g_fake.plain_login_count);
+
+    axiam_login_result_dispose(&res);
+    axiam_client_free(c);
+    TEST_ASSERT_FALSE(fake_opaque_leaked());
+}
+
 static void test_an_unsupported_ksf_is_a_configuration_error_not_a_bad_password(void) {
     g_fake.ksf = "bcrypt";
     axiam_client_t *c = make_client();
@@ -534,6 +722,12 @@ int main(void) {
     RUN_TEST(test_enrolment_reports_a_disabled_tenant_the_same_way);
     RUN_TEST(test_a_401_at_login_start_is_an_auth_error);
     RUN_TEST(test_a_wrong_password_never_reaches_login_finish);
+    RUN_TEST(test_optional_retries_over_password_login_and_returns_its_success);
+    RUN_TEST(test_optional_reports_the_password_logins_failure_when_that_fails_too);
+    RUN_TEST(test_required_never_puts_a_plaintext_password_on_the_wire);
+    RUN_TEST(test_a_response_with_no_mode_field_fails_closed);
+    RUN_TEST(test_an_unrecognised_mode_is_treated_as_required);
+    RUN_TEST(test_optional_does_not_fall_back_for_a_configuration_failure);
     RUN_TEST(test_an_unsupported_ksf_is_a_configuration_error_not_a_bad_password);
     RUN_TEST(test_a_start_response_without_ke2_is_a_malformed_response);
     RUN_TEST(test_a_transport_failure_on_the_start_is_a_network_error);

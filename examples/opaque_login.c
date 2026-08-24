@@ -24,11 +24,12 @@
  *      404, which reaches the caller as AXIAM_ERR_NETWORK and NOT as a
  *      credential failure — so falling back to axiam_login() is correct.
  *   3. AXIAM_ERR_AUTH means the envelope did not open. That is the whole
- *      credential check, and it is NOT a case to retry over axiam_login():
- *      retrying would hand the plaintext to an endpoint that has just failed to
- *      prove it holds the record. RFC 9807's AKE authenticates the server
- *      during the handshake, so there is no separate M2 step of the kind SRP
- *      needed.
+ *      credential check — RFC 9807's AKE authenticates the server during the
+ *      handshake, so there is no separate M2 step of the kind SRP needed — and
+ *      the CALLER must not retry it over axiam_login(). The one retry §23.4
+ *      rule 7 allows is the SDK's own: under opaque_mode: optional
+ *      axiam_login_opaque() has already made it, and what arrives here is that
+ *      attempt's answer. Under required there is no retry to make.
  *   4. A tenant with opaque_mode: required answers /auth/login with
  *      403 opaque_required, which is AXIAM_ERR_AUTHZ. A user whose password is
  *      perfectly good must never be told it is invalid.
@@ -123,8 +124,11 @@ int main(void) {
         }
     } else if (kind == AXIAM_ERR_AUTH) {
         /* The envelope did not open: a wrong password, an account that does not
-         * exist, or a server that does not hold the record — indistinguishable
-         * by design. Nothing was sent to login/finish (§23.4 rule 7). */
+         * exist, an account with no registration record, or a hostile endpoint
+         * — indistinguishable by design. Nothing was sent to login/finish
+         * (§23.4 rule 7), and under opaque_mode: optional the SDK has already
+         * retried over /auth/login, so this is that attempt's answer and there
+         * is nothing left for this program to try. */
         fprintf(stderr, "invalid credentials\n");
         axiam_login_result_dispose(&login);
         axiam_client_free(client);

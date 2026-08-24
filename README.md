@@ -477,7 +477,7 @@ defaults them locally:
 | §23.4 rule 2 | costs come from the server per exchange — a credential enrolled under one cost keeps working after a tenant raises its policy, so a client that guessed would derive a different randomized password and report "invalid password" for a correct one |
 | §23.4 rule 3 | an unrecognised `ksf` is **refused**, never substituted |
 | §23.4 rule 5 | a cost field that does not apply to the named function is **absent, not zero** — which is why every cost in `axiam_opaque_ksf_params_t` carries a `has_` flag rather than using `0` as a sentinel |
-| §23.4 rule 7 | nothing is sent to `login/finish` once the envelope fails to open |
+| §23.4 rule 7 | nothing is sent to `login/finish` once the envelope fails to open, and what happens next is decided by the `login/start` response's `mode` — see below |
 
 Costs are additionally range-checked here, so a refusal names the field:
 
@@ -527,11 +527,43 @@ Neither is `AXIAM_ERR_AUTH`:
   good password is invalid is the failure this mapping exists to prevent.
 
 `AXIAM_ERR_AUTH` from `axiam_login_opaque()` means the envelope did not open: a
-wrong password, an account that does not exist, or a server that does not hold
-the record — indistinguishable by design, and the whole credential check now
-that both halves of mutual authentication live in it. **Do not retry it over
-`axiam_login()`**: that hands the plaintext to an endpoint that has just failed
-to prove itself.
+wrong password, an account that does not exist, an account with no registration
+record, or a hostile endpoint — indistinguishable by design, and the whole
+credential check now that both halves of mutual authentication live in it.
+
+### `mode`, and the one fallback the SDK performs for you (§23.4 rule 7)
+
+The `login/start` response carries an optional `mode` field — the tenant's
+`opaque_mode`, `"optional"` or `"required"` (never `"disabled"`, which answers
+`404`). It is the **only** thing that decides what follows a failure to open
+`KE2`, and `axiam_login_opaque()` acts on it for you:
+
+| `mode` in the response | what `axiam_login_opaque()` does |
+|---|---|
+| `"optional"` | retries over `POST /api/v1/auth/login` with the same credentials **before reporting anything**, and returns that call's outcome verbatim — its success on success, its error on failure |
+| `"required"` | `AXIAM_ERR_AUTH`, exchange over. Nothing is retried |
+| absent (a server older than the field) | as `"required"` — fails closed |
+| a value this SDK does not recognise | as `"required"` — fails closed |
+
+The `optional` clause is not decoration. `optional` is the state a tenant lives
+in for as long as its migration takes: every account has **no** registration
+record the moment an operator enables OPAQUE, and acquires one only when its
+password is next set. An SDK that reported the failed exchange as final would
+lock out every user of the tenant, making `optional` indistinguishable from
+`required` with nobody enrolled.
+
+Note what `mode` is **not**. It is **not downgrade protection**, and this SDK
+does not treat it as any: a hostile server that wanted the plaintext could
+simply answer `404` to `login/start` and get the fallback whatever it wrote
+there. What closes that is `required`, enforced server-side — it refuses
+`/auth/login` for every principal in the tenant, before any credential is
+examined.
+
+Only the credential check falls back. An `AXIAM_ERR_NETWORK` out of the
+exchange — a key-stretching function this SDK cannot ask for, a cost outside
+the accepted band — gets no plaintext retry under any `mode`: it is a client or
+configuration fault, and there is no reason to believe a password on the wire
+would fare better.
 
 `required` refuses **every** principal in the tenant, not only the enrolled
 ones. Splitting the response on whether an account has a record would turn
