@@ -5,6 +5,17 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [1.0.0-alpha41] - 2026-08-24
+
+### Added
+
+- Honour login/start `mode` on a KE2 failure (§23.4 rule 7)
+
+### Changed
+
+- Re-vendor openapi.json for the vault_pki CA custodian (axiam#368)
+- Re-vendor CONTRACT.md at 1.29 and openapi.json at 1.0.0-alpha40
+
 ## [1.0.0-alpha40] - 2026-08-23
 
 ### Changed
