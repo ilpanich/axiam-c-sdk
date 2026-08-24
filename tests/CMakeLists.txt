@@ -28,6 +28,13 @@ function(axiam_add_test name)
 endfunction()
 
 axiam_add_test(test_config test_config.c)
+
+# test_version_policy reads CMakeLists.txt and the CI workflow, so it needs the
+# repository root as an absolute path rather than a guess at the working directory
+# ctest happens to use.
+axiam_add_test(test_version_policy test_version_policy.c)
+target_compile_definitions(test_version_policy
+    PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
 axiam_add_test(test_sensitive test_sensitive.c)
 axiam_add_test(test_error test_error.c)
 axiam_add_test(test_client_auth test_client_auth.c)

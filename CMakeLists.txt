@@ -9,9 +9,28 @@ project(axiam_c_sdk
     HOMEPAGE_URL "https://github.com/ilpanich/axiam-c-sdk"
     LANGUAGES C)
 
-set(CMAKE_C_STANDARD 11)
+# C11 is the DECLARED FLOOR: the standard the SDK promises to compile under, and
+# the one every consumer's toolchain is guaranteed to accept. It is deliberately
+# not the newest — raising it would exclude embedded and long-lived-distro
+# toolchains for no gain the SDK actually needs.
+#
+# Overridable from the command line (`-DCMAKE_C_STANDARD=23`) rather than
+# hardcoded, so CI can compile these exact sources under a newer standard as
+# well. That is not a stylistic nicety: newer C standards REMOVE things and
+# tighten others — K&R declarations are gone in C23, `bool`/`true`/`false`
+# become keywords, and an implicit function declaration is an error rather than
+# a warning. Code that is clean at C11 and broken at C23 compiles silently here
+# and then fails in the build of the first consumer whose project sets a newer
+# standard, which is entirely their prerogative and nothing to do with them.
+#
+# `if(NOT DEFINED ...)` rather than a CACHE entry so the default is unchanged
+# for every existing consumer: pass nothing and this is still a C11 build.
+if(NOT DEFINED CMAKE_C_STANDARD)
+    set(CMAKE_C_STANDARD 11)
+endif()
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+message(STATUS "AXIAM C SDK: compiling against C${CMAKE_C_STANDARD}")
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)

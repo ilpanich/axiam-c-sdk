@@ -37,7 +37,8 @@ framework-agnostic route guard and declarative authorization helpers.
 
 ## Requirements
 
-- CMake ≥ 3.16, a C11 compiler (gcc/clang).
+- CMake ≥ 3.16, a C11 compiler (gcc/clang) — see
+  [Supported C standards](#supported-c-standards).
 - libcurl development headers (`libcurl4-openssl-dev`).
 - OpenSSL ≥ 1.1.1 / 3.x development headers (`libssl-dev`). The §23 SRP path
   used to need **≥ 3.2 for Argon2id**; OPAQUE does not — key stretching happens
@@ -46,6 +47,45 @@ framework-agnostic route guard and declarative authorization helpers.
 - `dlopen`/`dlsym` (`${CMAKE_DL_LIBS}`, empty on glibc ≥ 2.34). Used to resolve
   the optional OPAQUE library at run time; nothing needs to be installed at
   build time.
+
+### Supported C standards
+
+| | Standard | Why this one |
+|---|---|---|
+| **Floor** | C11 | `CMAKE_C_STANDARD` in `CMakeLists.txt`, and what every consumer inherits by default. Exposed as `AXIAM_MIN_C_STANDARD`. Deliberately not newer — raising it would exclude embedded and long-lived-distro toolchains for nothing the SDK needs. |
+| **Newest** | C23 | The newest published standard (ISO/IEC 9899:2024). Exposed as `AXIAM_NEWEST_TESTED_C_STANDARD`. |
+
+C17 is a bug-fix revision of C11 and sits between the two.
+
+**The SDK is built at the floor and additionally compiled and tested at C23**, on
+**both gcc and clang** — four legs in `sdk-ci-c.yml`. In C the upper end deserves
+this more than the version count suggests, because newer standards *remove* things
+rather than only adding them: K&R declarations are gone in C23, `bool`/`true`/`false`
+became keywords, and an implicit function declaration is an error rather than a
+warning. A consumer whose own project sets `-std=c23` — entirely their prerogative —
+would otherwise be the first person to compile this SDK that way.
+
+Nothing changes for you if you build at C11: it is still the default, and
+`cmake -S . -B build` with no flags produces exactly the build it always did. To
+compile against a newer standard, pass it:
+
+```bash
+cmake -S . -B build -DCMAKE_C_STANDARD=23
+```
+
+`<axiam/axiam.h>` refuses a toolchain below the floor with an `#error` at the point
+of inclusion, so an out-of-date compiler produces one message that names the problem
+rather than a cascade of syntax errors that reads like a broken SDK.
+
+> **`__STDC_VERSION__` is not the same on both compilers for a C23 build.** gcc 13
+> has no `-std=c23` at all, so `CMAKE_C_STANDARD 23` selects `-std=c2x` and the
+> compiler reports the pre-ratification `202000L`; clang 18 accepts `-std=c23` and
+> reports `202311L`. Both are correct C23 builds. Compare
+> `AXIAM_NEWEST_TESTED_C_STANDARD` as a lower bound, never for equality.
+
+See [`examples/version_compatibility.c`](./examples/version_compatibility.c) for a
+runnable check, and `tests/test_version_policy.c` for the gate that fails the build
+when `CMakeLists.txt`, the header macros and the CI matrix stop agreeing.
 
 ## Install
 

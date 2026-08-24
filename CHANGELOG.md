@@ -5,6 +5,60 @@ on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 (pre-release qualifier `-alpha9`).
 
+## [Unreleased]
+
+### Added
+
+- **C23 is now a built and tested standard, on both gcc and clang.** The CI
+  matrix gains a standard axis: it was two compilers at one standard, so the
+  compiler axis was covered twice and the language axis not at all. It is now
+  gcc and clang at **C11 and C23** — four legs.
+
+  This matters more in C than a version count suggests. Newer C standards
+  *remove* things rather than only adding them: K&R declarations are gone in
+  C23, `bool`/`true`/`false` became keywords, and an implicit function
+  declaration is an error rather than a warning. A consumer whose own project
+  sets `-std=c23` would otherwise have been the first person to compile this SDK
+  that way.
+
+- **`AXIAM_MIN_C_STANDARD` and `AXIAM_NEWEST_TESTED_C_STANDARD`** in
+  `<axiam/axiam.h>`, plus an `#error` guard that refuses a toolchain below the
+  floor **at the point of inclusion** — one message naming the problem instead of
+  a cascade of syntax errors that reads like a broken SDK.
+
+- **`tests/test_version_policy.c`** — binds `CMAKE_C_STANDARD`, the header macros
+  and the CI matrix together. It also asserts the CMake default stays
+  *overridable*, which is load-bearing: a plain `set()` silently ignores
+  `-DCMAKE_C_STANDARD=23`, and the newest leg would build C11 while reporting
+  green.
+
+- **`examples/version_compatibility.c`** — reports the standard in use against
+  the supported range.
+
+- **A "Supported C standards" section in the README.**
+
+### Changed
+
+- **`CMAKE_C_STANDARD` is now overridable rather than hardcoded.** It was
+  `set(CMAKE_C_STANDARD 11)`, which overrides anything passed on the command
+  line; it is now guarded by `if(NOT DEFINED ...)`. **The default is unchanged** —
+  `cmake -S . -B build` with no flags still produces exactly the C11 build it
+  always did — but `-DCMAKE_C_STANDARD=23` now takes effect, which is what makes
+  the second CI leg possible at all.
+
+  The configure step also prints the standard in effect, so a build's log says
+  which one it used.
+
+### Fixed
+
+- **A C23 build does not report the same `__STDC_VERSION__` on both compilers,
+  and the policy test now accounts for it.** gcc 13 has no `-std=c23`, so
+  `CMAKE_C_STANDARD 23` selects `-std=c2x` and the compiler reports the
+  pre-ratification `202000L`; clang 18 reports the ratified `202311L`. Both are
+  correct C23 builds, so the check is a lower bound rather than an equality —
+  an equality passed on clang and failed on gcc for identical, correct builds.
+  Documented at the macro and in the README.
+
 ## [1.0.0-alpha41] - 2026-08-24
 
 ### Added

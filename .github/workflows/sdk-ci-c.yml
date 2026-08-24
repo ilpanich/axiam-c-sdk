@@ -11,16 +11,40 @@ permissions:
 
 jobs:
   build-test:
-    name: build & test (${{ matrix.cc }})
+    name: build & test (${{ matrix.cc }}, C${{ matrix.std }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
+        # Two axes. The COMPILER axis (gcc, clang) was already here and is
+        # unchanged. The STANDARD axis is new, and is floor + newest: C11 is what
+        # CMakeLists.txt declares and every consumer inherits by default, C23 is
+        # the newest published standard. C17 is a bug-fix revision of C11 and sits
+        # between two green legs.
+        #
+        # The standard axis matters more in C than the version count suggests,
+        # because newer standards REMOVE things rather than only adding them: K&R
+        # declarations are gone in C23, bool/true/false became keywords, and an
+        # implicit function declaration is an error rather than a warning. None of
+        # that is visible from a C11-only build, and a consumer whose own project
+        # sets -std=c23 — entirely their prerogative — would otherwise be the first
+        # person to compile this SDK that way.
+        #
+        # tests/test_version_policy.c fails the build if this list, CMakeLists.txt
+        # and AXIAM_MIN_C_STANDARD stop agreeing.
         include:
           - cc: gcc
             cxx: g++
+            std: 11
           - cc: clang
             cxx: clang++
+            std: 11
+          - cc: gcc
+            cxx: g++
+            std: 23
+          - cc: clang
+            cxx: clang++
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
@@ -34,7 +58,10 @@ jobs:
           CC: ${{ matrix.cc }}
         # Examples are built here too, so a public-header change that breaks one
         # fails the merge gate rather than a consumer's first `cmake --build`.
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON -DAXIAM_BUILD_EXAMPLES=ON
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          -DAXIAM_BUILD_TESTS=ON -DAXIAM_BUILD_EXAMPLES=ON
+          -DCMAKE_C_STANDARD=${{ matrix.std }}
 
       - name: Build
         run: cmake --build build -j
