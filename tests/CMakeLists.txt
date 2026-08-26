@@ -303,4 +303,20 @@ add_test(NAME test_reactor COMMAND test_reactor)
 # transport sits at the BOTTOM of the real client, so a §27.8 violation (an operation
 # opening its own connection) fails these rather than passing them.
 axiam_add_test(test_management_generated test_management_generated.c management_test_util.c)
+axiam_add_test(test_management_semantics test_management_semantics.c management_test_util.c)
+axiam_add_test(test_management_manifest test_management_manifest.c management_test_util.c)
+axiam_add_test(test_management_models_generated test_management_models_generated.c)
+# The §27 allocation-failure sweep. Same --wrap technique as test_alloc_failures above:
+# every generated operation's OOM guard is one-sided by construction, so this drives each
+# of the 146 call graphs with each of the first N allocations failed in turn.
+add_executable(test_management_alloc_generated
+    test_management_alloc_generated.c management_test_util.c)
+target_include_directories(test_management_alloc_generated PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_management_alloc_generated PRIVATE ${AXIAM_TEST_LINK})
+target_link_options(test_management_alloc_generated PRIVATE
+    -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_management_alloc_generated PRIVATE --coverage)
+endif()
+add_test(NAME test_management_alloc_generated COMMAND test_management_alloc_generated)
 

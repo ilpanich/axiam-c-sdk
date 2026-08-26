@@ -74,9 +74,6 @@ long axiam_mgmt_page_total(const cJSON *envelope, long item_count);
 /* The `items`/`data` array of a page envelope, or NULL when neither is present. */
 const cJSON *axiam_mgmt_page_items(const cJSON *envelope);
 
-/* Duplicate a JSON string field, or NULL when absent. Caller frees. */
-char *axiam_mgmt_str(const cJSON *obj, const char *key);
-
 /* Serialize a cJSON body to a malloc'd string and delete the cJSON. NULL-safe. */
 char *axiam_mgmt_render(cJSON *body);
 

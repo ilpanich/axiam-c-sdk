@@ -37,3 +37,9 @@ axiam_add_example(par_login)
 # §8b broker-URL guard and the §22.14 binding table. The transport is a skeleton
 # — §22.11 defers the AMQP client and only the AMQP client.
 axiam_add_example(reactor)
+
+# CONTRACT.md §27 management API.
+axiam_add_example(management_basics)
+axiam_add_example(device_mtls_provisioning)
+axiam_add_example(management_manifest)
+

@@ -201,11 +201,6 @@ char *axiam_mgmt_query(char *path, const char *const *names,
 /* JSON helpers                                                     */
 /* ---------------------------------------------------------------- */
 
-char *axiam_mgmt_str(const cJSON *obj, const char *key) {
-    if (!obj) return NULL;
-    const cJSON *v = cJSON_GetObjectItemCaseSensitive(obj, key);
-    return cJSON_IsString(v) ? axiam_strdup0(v->valuestring) : NULL;
-}
 
 char *axiam_mgmt_render(cJSON *body) {
     if (!body) return NULL;

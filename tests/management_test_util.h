@@ -33,6 +33,15 @@ axiam_client_t *mgmt_signed_in_client(void);
 /** A client that has NOT logged in -- for the rule 1 cases. */
 axiam_client_t *mgmt_anonymous_client(void);
 
+/**
+ * A signed-in client configured with a tenant SLUG and no org or tenant UUID.
+ *
+ * For the routes that substitute an implicit `{org_id}`/`{tenant_id}`: with neither
+ * configured nor resolved, the operation must refuse rather than send an empty path
+ * segment.
+ */
+axiam_client_t *mgmt_unscoped_client(void);
+
 /** The method of the last management request that reached the transport. */
 const char *mgmt_last_method(void);
 

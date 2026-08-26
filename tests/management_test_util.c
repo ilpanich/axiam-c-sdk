@@ -82,11 +82,21 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
     return 0;
 }
 
-static axiam_client_t *make_client(int sign_in) {
+static axiam_client_t *make_client_scoped(int sign_in, int scoped);
+
+static axiam_client_t *make_client(int sign_in) { return make_client_scoped(sign_in, 1); }
+
+static axiam_client_t *make_client_scoped(int sign_in, int scoped) {
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, "https://iam.example.com/");
-    axiam_client_config_set_tenant_id(cfg, "11111111-1111-4111-8111-111111111111");
-    axiam_client_config_set_org_id(cfg, "11111111-1111-4111-8111-111111111111");
+    if (scoped) {
+        axiam_client_config_set_tenant_id(cfg, "11111111-1111-4111-8111-111111111111");
+        axiam_client_config_set_org_id(cfg, "11111111-1111-4111-8111-111111111111");
+    } else {
+        /* A slug is a valid §5 tenant identifier but is NOT a {tenant_id} path segment,
+         * so this client can log in and still have no UUID for §27 to substitute. */
+        axiam_client_config_set_tenant_slug(cfg, "acme");
+    }
     axiam_client_config_set_transport(cfg, fake_transport, NULL);
     axiam_error_t err;
     axiam_client_t *c = axiam_client_new(cfg, &err);
@@ -108,6 +118,7 @@ static axiam_client_t *make_client(int sign_in) {
 
 axiam_client_t *mgmt_signed_in_client(void) { return make_client(1); }
 axiam_client_t *mgmt_anonymous_client(void) { return make_client(0); }
+axiam_client_t *mgmt_unscoped_client(void) { return make_client_scoped(1, 0); }
 
 const char *mgmt_last_method(void) { return g_method; }
 const char *mgmt_last_path(void) { return g_path; }

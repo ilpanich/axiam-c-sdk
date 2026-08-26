@@ -91,7 +91,8 @@ set(AXIAM_SOURCES
     # needing Python to build this library.
     src/management.c
     src/management_models.c
-    src/management_ops.c)
+    src/management_ops.c
+    src/management_manifest.c)
 
 # Compile the SDK sources once into an object library shared by both variants.
 add_library(axiam_obj OBJECT ${AXIAM_SOURCES})
