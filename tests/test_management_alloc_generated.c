@@ -68,7 +68,7 @@ static void test_organizations_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_organization_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_organizations_list(c, NULL, &result, &err);
+        (void) axiam_organizations_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_organization_page_free(result);
         axiam_client_free(c);
@@ -89,7 +89,7 @@ static void test_organizations_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_organization_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_organizations_get(c, NULL, &result, &err);
+        (void) axiam_organizations_get(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_organization_free(result);
         axiam_client_free(c);
@@ -112,7 +112,7 @@ static void test_organizations_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_organization_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_organizations_update(c, NULL, &body, &result, &err);
+        (void) axiam_organizations_update(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_organization_free(result);
         axiam_client_free(c);
@@ -133,7 +133,7 @@ static void test_tenants_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_tenant_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_tenants_list(c, NULL, NULL, &result, &err);
+        (void) axiam_tenants_list(c, NULL, NULL, &result, &err);
         disarm();
         axiam_mgmt_tenant_page_free(result);
         axiam_client_free(c);
@@ -156,7 +156,7 @@ static void test_tenants_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_tenant_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_tenants_create(c, NULL, &body, &result, &err);
+        (void) axiam_tenants_create(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_tenant_free(result);
         axiam_client_free(c);
@@ -177,7 +177,7 @@ static void test_tenants_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_tenant_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_tenant_free(result);
         axiam_client_free(c);
@@ -200,7 +200,7 @@ static void test_tenants_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_tenant_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_tenant_free(result);
         axiam_client_free(c);
@@ -220,7 +220,7 @@ static void test_tenants_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_tenants_delete(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_tenants_delete(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -240,7 +240,7 @@ static void test_users_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_user_response_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_users_list(c, NULL, &result, &err);
+        (void) axiam_users_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_user_response_page_free(result);
         axiam_client_free(c);
@@ -263,7 +263,7 @@ static void test_users_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_user_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_users_create(c, &body, &result, &err);
+        (void) axiam_users_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_user_response_free(result);
         axiam_client_free(c);
@@ -284,7 +284,7 @@ static void test_users_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_user_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_users_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_users_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_user_response_free(result);
         axiam_client_free(c);
@@ -307,7 +307,7 @@ static void test_users_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_user_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_users_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_users_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_user_response_free(result);
         axiam_client_free(c);
@@ -327,7 +327,7 @@ static void test_users_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_users_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_users_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -347,7 +347,7 @@ static void test_users_list_mfa_methods_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_mfa_method_response_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_users_list_mfa_methods(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_users_list_mfa_methods(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_mfa_method_response_list_free(result);
         axiam_client_free(c);
@@ -367,7 +367,7 @@ static void test_users_delete_mfa_method_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_users_delete_mfa_method(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_users_delete_mfa_method(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -386,7 +386,7 @@ static void test_users_reset_mfa_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_users_reset_mfa(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_users_reset_mfa(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -406,7 +406,7 @@ static void test_users_unlock_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_user_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_users_unlock(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_users_unlock(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_user_response_free(result);
         axiam_client_free(c);
@@ -427,7 +427,7 @@ static void test_users_list_roles_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_role_assignment_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_users_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_users_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_role_assignment_list_free(result);
         axiam_client_free(c);
@@ -448,7 +448,7 @@ static void test_groups_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_group_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_groups_list(c, NULL, &result, &err);
+        (void) axiam_groups_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_group_page_free(result);
         axiam_client_free(c);
@@ -471,7 +471,7 @@ static void test_groups_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_group_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_groups_create(c, &body, &result, &err);
+        (void) axiam_groups_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_group_free(result);
         axiam_client_free(c);
@@ -492,7 +492,7 @@ static void test_groups_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_group_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_groups_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_groups_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_group_free(result);
         axiam_client_free(c);
@@ -515,7 +515,7 @@ static void test_groups_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_group_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_groups_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_groups_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_group_free(result);
         axiam_client_free(c);
@@ -535,7 +535,7 @@ static void test_groups_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_groups_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_groups_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -555,7 +555,7 @@ static void test_groups_list_members_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_user_response_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_groups_list_members(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+        (void) axiam_groups_list_members(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
         disarm();
         axiam_mgmt_user_response_page_free(result);
         axiam_client_free(c);
@@ -577,7 +577,7 @@ static void test_groups_add_member_survives_oom(void) {
         axiam_mgmt_add_member_request_t body;
         memset(&body, 0, sizeof(body));
         arm(n);
-        (void) axiam_mgmt_groups_add_member(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+        (void) axiam_groups_add_member(c, "11111111-1111-4111-8111-111111111111", &body, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -596,7 +596,7 @@ static void test_groups_remove_member_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_groups_remove_member(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_groups_remove_member(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -616,7 +616,7 @@ static void test_groups_list_roles_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_role_assignment_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_groups_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_groups_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_role_assignment_list_free(result);
         axiam_client_free(c);
@@ -637,7 +637,7 @@ static void test_roles_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_role_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_roles_list(c, NULL, &result, &err);
+        (void) axiam_roles_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_role_page_free(result);
         axiam_client_free(c);
@@ -660,7 +660,7 @@ static void test_roles_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_role_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_roles_create(c, &body, &result, &err);
+        (void) axiam_roles_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_role_free(result);
         axiam_client_free(c);
@@ -681,7 +681,7 @@ static void test_roles_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_role_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_roles_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_roles_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_role_free(result);
         axiam_client_free(c);
@@ -704,7 +704,7 @@ static void test_roles_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_role_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_roles_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_roles_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_role_free(result);
         axiam_client_free(c);
@@ -724,7 +724,7 @@ static void test_roles_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_roles_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_roles_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -744,7 +744,7 @@ static void test_roles_list_users_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_role_user_assignment_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_roles_list_users(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_roles_list_users(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_role_user_assignment_list_free(result);
         axiam_client_free(c);
@@ -766,7 +766,7 @@ static void test_roles_assign_to_user_survives_oom(void) {
         axiam_mgmt_assign_role_to_user_request_t body;
         memset(&body, 0, sizeof(body));
         arm(n);
-        (void) axiam_mgmt_roles_assign_to_user(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+        (void) axiam_roles_assign_to_user(c, "11111111-1111-4111-8111-111111111111", &body, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -785,7 +785,7 @@ static void test_roles_unassign_from_user_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_roles_unassign_from_user(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
+        (void) axiam_roles_unassign_from_user(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -805,7 +805,7 @@ static void test_roles_list_groups_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_role_group_assignment_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_roles_list_groups(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_roles_list_groups(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_role_group_assignment_list_free(result);
         axiam_client_free(c);
@@ -827,7 +827,7 @@ static void test_roles_assign_to_group_survives_oom(void) {
         axiam_mgmt_assign_role_to_group_request_t body;
         memset(&body, 0, sizeof(body));
         arm(n);
-        (void) axiam_mgmt_roles_assign_to_group(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+        (void) axiam_roles_assign_to_group(c, "11111111-1111-4111-8111-111111111111", &body, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -846,7 +846,7 @@ static void test_roles_unassign_from_group_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_roles_unassign_from_group(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
+        (void) axiam_roles_unassign_from_group(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -866,7 +866,7 @@ static void test_roles_list_permissions_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_resolved_permission_grant_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_roles_list_permissions(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_roles_list_permissions(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_resolved_permission_grant_list_free(result);
         axiam_client_free(c);
@@ -888,7 +888,7 @@ static void test_roles_grant_permission_survives_oom(void) {
         axiam_mgmt_grant_permission_request_t body;
         memset(&body, 0, sizeof(body));
         arm(n);
-        (void) axiam_mgmt_roles_grant_permission(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+        (void) axiam_roles_grant_permission(c, "11111111-1111-4111-8111-111111111111", &body, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -907,7 +907,7 @@ static void test_roles_revoke_permission_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_roles_revoke_permission(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_roles_revoke_permission(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -927,7 +927,7 @@ static void test_permissions_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_permission_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_permissions_list(c, NULL, &result, &err);
+        (void) axiam_permissions_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_permission_page_free(result);
         axiam_client_free(c);
@@ -950,7 +950,7 @@ static void test_permissions_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_permission_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_permissions_create(c, &body, &result, &err);
+        (void) axiam_permissions_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_permission_free(result);
         axiam_client_free(c);
@@ -971,7 +971,7 @@ static void test_permissions_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_permission_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_permissions_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_permissions_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_permission_free(result);
         axiam_client_free(c);
@@ -994,7 +994,7 @@ static void test_permissions_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_permission_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_permissions_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_permissions_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_permission_free(result);
         axiam_client_free(c);
@@ -1014,7 +1014,7 @@ static void test_permissions_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_permissions_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_permissions_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1034,7 +1034,7 @@ static void test_resources_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_resource_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_resources_list(c, NULL, &result, &err);
+        (void) axiam_resources_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_resource_page_free(result);
         axiam_client_free(c);
@@ -1057,7 +1057,7 @@ static void test_resources_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_resource_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_resources_create(c, &body, &result, &err);
+        (void) axiam_resources_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_resource_free(result);
         axiam_client_free(c);
@@ -1078,7 +1078,7 @@ static void test_resources_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_resource_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_resources_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_resources_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_resource_free(result);
         axiam_client_free(c);
@@ -1101,7 +1101,7 @@ static void test_resources_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_resource_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_resources_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_resources_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_resource_free(result);
         axiam_client_free(c);
@@ -1121,7 +1121,7 @@ static void test_resources_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_resources_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_resources_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1141,7 +1141,7 @@ static void test_resources_list_children_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_resource_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_resources_list_children(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_resources_list_children(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_resource_list_free(result);
         axiam_client_free(c);
@@ -1162,7 +1162,7 @@ static void test_resources_list_ancestors_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_resource_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_resources_list_ancestors(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_resources_list_ancestors(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_resource_list_free(result);
         axiam_client_free(c);
@@ -1183,7 +1183,7 @@ static void test_scopes_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_scope_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_scopes_list(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_scopes_list(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_scope_list_free(result);
         axiam_client_free(c);
@@ -1206,7 +1206,7 @@ static void test_scopes_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_scope_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_scopes_create(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_scopes_create(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_scope_free(result);
         axiam_client_free(c);
@@ -1227,7 +1227,7 @@ static void test_scopes_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_scope_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_scopes_get(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_scopes_get(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_scope_free(result);
         axiam_client_free(c);
@@ -1250,7 +1250,7 @@ static void test_scopes_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_scope_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_scopes_update(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_scopes_update(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_scope_free(result);
         axiam_client_free(c);
@@ -1270,7 +1270,7 @@ static void test_scopes_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_scopes_delete(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_scopes_delete(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1290,7 +1290,7 @@ static void test_service_accounts_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_service_account_response_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_service_accounts_list(c, NULL, &result, &err);
+        (void) axiam_service_accounts_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_service_account_response_page_free(result);
         axiam_client_free(c);
@@ -1313,7 +1313,7 @@ static void test_service_accounts_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_service_account_created_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_service_accounts_create(c, &body, &result, &err);
+        (void) axiam_service_accounts_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_service_account_created_response_free(result);
         axiam_client_free(c);
@@ -1334,7 +1334,7 @@ static void test_service_accounts_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_service_account_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_service_accounts_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_service_accounts_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_service_account_response_free(result);
         axiam_client_free(c);
@@ -1357,7 +1357,7 @@ static void test_service_accounts_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_service_account_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_service_account_response_free(result);
         axiam_client_free(c);
@@ -1377,7 +1377,7 @@ static void test_service_accounts_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_service_accounts_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_service_accounts_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1397,7 +1397,7 @@ static void test_service_accounts_rotate_secret_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_rotate_secret_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_service_accounts_rotate_secret(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_service_accounts_rotate_secret(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_rotate_secret_response_free(result);
         axiam_client_free(c);
@@ -1419,7 +1419,7 @@ static void test_service_accounts_bind_certificate_survives_oom(void) {
         axiam_mgmt_bind_certificate_t body;
         memset(&body, 0, sizeof(body));
         arm(n);
-        (void) axiam_mgmt_service_accounts_bind_certificate(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+        (void) axiam_service_accounts_bind_certificate(c, "11111111-1111-4111-8111-111111111111", &body, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1439,7 +1439,7 @@ static void test_certificates_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_certificate_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_certificates_list(c, NULL, &result, &err);
+        (void) axiam_certificates_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_certificate_page_free(result);
         axiam_client_free(c);
@@ -1462,7 +1462,7 @@ static void test_certificates_generate_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_generated_certificate_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_certificates_generate(c, &body, &result, &err);
+        (void) axiam_certificates_generate(c, &body, &result, &err);
         disarm();
         axiam_mgmt_generated_certificate_free(result);
         axiam_client_free(c);
@@ -1483,7 +1483,7 @@ static void test_certificates_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_certificate_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_certificates_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_certificates_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_certificate_free(result);
         axiam_client_free(c);
@@ -1503,7 +1503,7 @@ static void test_certificates_revoke_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_certificates_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_certificates_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1523,7 +1523,7 @@ static void test_ca_certificates_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_ca_certificate_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_list(c, NULL, NULL, &result, &err);
+        (void) axiam_ca_certificates_list(c, NULL, NULL, &result, &err);
         disarm();
         axiam_mgmt_ca_certificate_page_free(result);
         axiam_client_free(c);
@@ -1546,7 +1546,7 @@ static void test_ca_certificates_generate_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_generated_ca_certificate_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_generate(c, NULL, &body, &result, &err);
+        (void) axiam_ca_certificates_generate(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_generated_ca_certificate_free(result);
         axiam_client_free(c);
@@ -1569,7 +1569,7 @@ static void test_ca_certificates_import_ca_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_ca_certificate_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_import_ca(c, NULL, &body, &result, &err);
+        (void) axiam_ca_certificates_import_ca(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_ca_certificate_free(result);
         axiam_client_free(c);
@@ -1590,7 +1590,7 @@ static void test_ca_certificates_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_ca_certificate_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_ca_certificate_free(result);
         axiam_client_free(c);
@@ -1610,7 +1610,7 @@ static void test_ca_certificates_revoke_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_revoke(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_ca_certificates_revoke(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1630,7 +1630,7 @@ static void test_ca_certificates_migrate_custody_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_migrate_custody_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_migrate_custody_response_free(result);
         axiam_client_free(c);
@@ -1653,7 +1653,7 @@ static void test_ca_certificates_set_mtls_trust_anchor_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_mtls_trust_anchor_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_mtls_trust_anchor_response_free(result);
         axiam_client_free(c);
@@ -1674,7 +1674,7 @@ static void test_ca_certificates_list_signing_cas_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_ca_certificate_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_list_signing_cas(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+        (void) axiam_ca_certificates_list_signing_cas(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
         disarm();
         axiam_mgmt_ca_certificate_page_free(result);
         axiam_client_free(c);
@@ -1697,7 +1697,7 @@ static void test_ca_certificates_generate_signing_ca_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_generated_ca_certificate_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_generated_ca_certificate_free(result);
         axiam_client_free(c);
@@ -1720,7 +1720,7 @@ static void test_ca_certificates_sign_signing_ca_csr_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_ca_certificate_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_ca_certificate_free(result);
         axiam_client_free(c);
@@ -1741,7 +1741,7 @@ static void test_pgp_keys_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_pgp_key_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_pgp_keys_list(c, NULL, &result, &err);
+        (void) axiam_pgp_keys_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_pgp_key_page_free(result);
         axiam_client_free(c);
@@ -1764,7 +1764,7 @@ static void test_pgp_keys_generate_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_generated_pgp_key_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_pgp_keys_generate(c, &body, &result, &err);
+        (void) axiam_pgp_keys_generate(c, &body, &result, &err);
         disarm();
         axiam_mgmt_generated_pgp_key_free(result);
         axiam_client_free(c);
@@ -1785,7 +1785,7 @@ static void test_pgp_keys_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_pgp_key_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_pgp_keys_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_pgp_keys_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_pgp_key_free(result);
         axiam_client_free(c);
@@ -1805,7 +1805,7 @@ static void test_pgp_keys_revoke_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_pgp_keys_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_pgp_keys_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1827,7 +1827,7 @@ static void test_pgp_keys_encrypt_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_encrypted_export_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_pgp_keys_encrypt(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_pgp_keys_encrypt(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_encrypted_export_free(result);
         axiam_client_free(c);
@@ -1850,7 +1850,7 @@ static void test_pgp_keys_sign_audit_batch_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_signed_audit_batch_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_pgp_keys_sign_audit_batch(c, &body, &result, &err);
+        (void) axiam_pgp_keys_sign_audit_batch(c, &body, &result, &err);
         disarm();
         axiam_mgmt_signed_audit_batch_free(result);
         axiam_client_free(c);
@@ -1871,7 +1871,7 @@ static void test_webhooks_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_webhook_response_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_webhooks_list(c, NULL, &result, &err);
+        (void) axiam_webhooks_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_webhook_response_page_free(result);
         axiam_client_free(c);
@@ -1894,7 +1894,7 @@ static void test_webhooks_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_webhook_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_webhooks_create(c, &body, &result, &err);
+        (void) axiam_webhooks_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_webhook_response_free(result);
         axiam_client_free(c);
@@ -1915,7 +1915,7 @@ static void test_webhooks_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_webhook_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_webhooks_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_webhooks_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_webhook_response_free(result);
         axiam_client_free(c);
@@ -1938,7 +1938,7 @@ static void test_webhooks_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_webhook_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_webhooks_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_webhooks_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_webhook_response_free(result);
         axiam_client_free(c);
@@ -1958,7 +1958,7 @@ static void test_webhooks_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_webhooks_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_webhooks_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1978,7 +1978,7 @@ static void test_oauth2_clients_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_o_auth2_client_response_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_oauth2_clients_list(c, NULL, &result, &err);
+        (void) axiam_oauth2_clients_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_o_auth2_client_response_page_free(result);
         axiam_client_free(c);
@@ -2001,7 +2001,7 @@ static void test_oauth2_clients_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_o_auth2_client_created_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_oauth2_clients_create(c, &body, &result, &err);
+        (void) axiam_oauth2_clients_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_o_auth2_client_created_response_free(result);
         axiam_client_free(c);
@@ -2022,7 +2022,7 @@ static void test_oauth2_clients_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_o_auth2_client_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_oauth2_clients_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_oauth2_clients_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_o_auth2_client_response_free(result);
         axiam_client_free(c);
@@ -2045,7 +2045,7 @@ static void test_oauth2_clients_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_o_auth2_client_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_o_auth2_client_response_free(result);
         axiam_client_free(c);
@@ -2065,7 +2065,7 @@ static void test_oauth2_clients_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_oauth2_clients_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_oauth2_clients_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2085,7 +2085,7 @@ static void test_federation_list_configs_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_federation_config_response_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_federation_list_configs(c, NULL, &result, &err);
+        (void) axiam_federation_list_configs(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_federation_config_response_page_free(result);
         axiam_client_free(c);
@@ -2108,7 +2108,7 @@ static void test_federation_create_config_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_federation_config_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_federation_create_config(c, &body, &result, &err);
+        (void) axiam_federation_create_config(c, &body, &result, &err);
         disarm();
         axiam_mgmt_federation_config_response_free(result);
         axiam_client_free(c);
@@ -2129,7 +2129,7 @@ static void test_federation_get_config_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_federation_config_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_federation_get_config(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_federation_get_config(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_federation_config_response_free(result);
         axiam_client_free(c);
@@ -2152,7 +2152,7 @@ static void test_federation_update_config_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_federation_config_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_federation_update_config(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_federation_update_config(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_federation_config_response_free(result);
         axiam_client_free(c);
@@ -2172,7 +2172,7 @@ static void test_federation_delete_config_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_federation_delete_config(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_federation_delete_config(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2192,7 +2192,7 @@ static void test_federation_list_user_links_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_federation_link_response_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_federation_list_user_links(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_federation_list_user_links(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_federation_link_response_list_free(result);
         axiam_client_free(c);
@@ -2212,7 +2212,7 @@ static void test_federation_delete_link_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_federation_delete_link(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_federation_delete_link(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2234,7 +2234,7 @@ static void test_federation_oidc_authorize_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_oidc_authorize_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_federation_oidc_authorize(c, &body, &result, &err);
+        (void) axiam_federation_oidc_authorize(c, &body, &result, &err);
         disarm();
         axiam_mgmt_oidc_authorize_response_free(result);
         axiam_client_free(c);
@@ -2257,7 +2257,7 @@ static void test_federation_oidc_callback_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_oidc_callback_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_federation_oidc_callback(c, &body, &result, &err);
+        (void) axiam_federation_oidc_callback(c, &body, &result, &err);
         disarm();
         axiam_mgmt_oidc_callback_response_free(result);
         axiam_client_free(c);
@@ -2278,7 +2278,7 @@ static void test_notification_rules_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_notification_rule_response_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_notification_rules_list(c, NULL, &result, &err);
+        (void) axiam_notification_rules_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_notification_rule_response_page_free(result);
         axiam_client_free(c);
@@ -2301,7 +2301,7 @@ static void test_notification_rules_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_notification_rule_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_notification_rules_create(c, &body, &result, &err);
+        (void) axiam_notification_rules_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_notification_rule_response_free(result);
         axiam_client_free(c);
@@ -2322,7 +2322,7 @@ static void test_notification_rules_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_notification_rule_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_notification_rules_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_notification_rules_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_notification_rule_response_free(result);
         axiam_client_free(c);
@@ -2345,7 +2345,7 @@ static void test_notification_rules_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_notification_rule_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_notification_rules_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_notification_rules_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_notification_rule_response_free(result);
         axiam_client_free(c);
@@ -2365,7 +2365,7 @@ static void test_notification_rules_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_notification_rules_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_notification_rules_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2385,7 +2385,7 @@ static void test_email_config_get_org_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_email_config_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_email_config_get_org(c, NULL, &result, &err);
+        (void) axiam_email_config_get_org(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_email_config_free(result);
         axiam_client_free(c);
@@ -2408,7 +2408,7 @@ static void test_email_config_set_org_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_email_config_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_email_config_set_org(c, NULL, &body, &result, &err);
+        (void) axiam_email_config_set_org(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_email_config_free(result);
         axiam_client_free(c);
@@ -2428,7 +2428,7 @@ static void test_email_config_delete_org_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_email_config_delete_org(c, NULL, &err);
+        (void) axiam_email_config_delete_org(c, NULL, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2448,7 +2448,7 @@ static void test_email_config_test_org_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_email_test_result_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_email_config_test_org(c, NULL, &result, &err);
+        (void) axiam_email_config_test_org(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_email_test_result_free(result);
         axiam_client_free(c);
@@ -2469,7 +2469,7 @@ static void test_email_config_get_tenant_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_email_config_override_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_email_config_get_tenant(c, NULL, &result, &err);
+        (void) axiam_email_config_get_tenant(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_email_config_override_free(result);
         axiam_client_free(c);
@@ -2492,7 +2492,7 @@ static void test_email_config_set_tenant_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_email_config_override_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_email_config_set_tenant(c, NULL, &body, &result, &err);
+        (void) axiam_email_config_set_tenant(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_email_config_override_free(result);
         axiam_client_free(c);
@@ -2512,7 +2512,7 @@ static void test_email_config_delete_tenant_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_email_config_delete_tenant(c, NULL, &err);
+        (void) axiam_email_config_delete_tenant(c, NULL, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2532,7 +2532,7 @@ static void test_email_config_test_tenant_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_email_test_result_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_email_config_test_tenant(c, NULL, &result, &err);
+        (void) axiam_email_config_test_tenant(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_email_test_result_free(result);
         axiam_client_free(c);
@@ -2553,7 +2553,7 @@ static void test_settings_get_org_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_security_settings_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_settings_get_org(c, NULL, &result, &err);
+        (void) axiam_settings_get_org(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_security_settings_free(result);
         axiam_client_free(c);
@@ -2576,7 +2576,7 @@ static void test_settings_set_org_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_security_settings_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_settings_set_org(c, NULL, &body, &result, &err);
+        (void) axiam_settings_set_org(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_security_settings_free(result);
         axiam_client_free(c);
@@ -2597,7 +2597,7 @@ static void test_settings_get_effective_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_security_settings_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_settings_get_effective(c, &result, &err);
+        (void) axiam_settings_get_effective(c, &result, &err);
         disarm();
         axiam_mgmt_security_settings_free(result);
         axiam_client_free(c);
@@ -2620,7 +2620,7 @@ static void test_settings_set_effective_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_security_settings_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_settings_set_effective(c, &body, &result, &err);
+        (void) axiam_settings_set_effective(c, &body, &result, &err);
         disarm();
         axiam_mgmt_security_settings_free(result);
         axiam_client_free(c);
@@ -2641,7 +2641,7 @@ static void test_settings_get_tenant_override_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_tenant_settings_override_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_settings_get_tenant_override(c, NULL, &result, &err);
+        (void) axiam_settings_get_tenant_override(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_tenant_settings_override_free(result);
         axiam_client_free(c);
@@ -2664,7 +2664,7 @@ static void test_settings_set_tenant_override_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_tenant_settings_override_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_settings_set_tenant_override(c, NULL, &body, &result, &err);
+        (void) axiam_settings_set_tenant_override(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_tenant_settings_override_free(result);
         axiam_client_free(c);
@@ -2684,7 +2684,7 @@ static void test_settings_delete_tenant_override_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_settings_delete_tenant_override(c, NULL, &err);
+        (void) axiam_settings_delete_tenant_override(c, NULL, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2704,7 +2704,7 @@ static void test_scim_tokens_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_scim_token_response_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_scim_tokens_list(c, &result, &err);
+        (void) axiam_scim_tokens_list(c, &result, &err);
         disarm();
         axiam_mgmt_scim_token_response_list_free(result);
         axiam_client_free(c);
@@ -2727,7 +2727,7 @@ static void test_scim_tokens_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_create_scim_token_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_scim_tokens_create(c, &body, &result, &err);
+        (void) axiam_scim_tokens_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_create_scim_token_response_free(result);
         axiam_client_free(c);
@@ -2747,7 +2747,7 @@ static void test_scim_tokens_revoke_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_scim_tokens_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_scim_tokens_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2767,7 +2767,7 @@ static void test_reactors_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_reactor_response_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_reactors_list(c, NULL, &result, &err);
+        (void) axiam_reactors_list(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_reactor_response_page_free(result);
         axiam_client_free(c);
@@ -2790,7 +2790,7 @@ static void test_reactors_create_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_reactor_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_reactors_create(c, &body, &result, &err);
+        (void) axiam_reactors_create(c, &body, &result, &err);
         disarm();
         axiam_mgmt_reactor_response_free(result);
         axiam_client_free(c);
@@ -2811,7 +2811,7 @@ static void test_reactors_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_reactor_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_reactors_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        (void) axiam_reactors_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_reactor_response_free(result);
         axiam_client_free(c);
@@ -2834,7 +2834,7 @@ static void test_reactors_update_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_reactor_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        (void) axiam_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
         disarm();
         axiam_mgmt_reactor_response_free(result);
         axiam_client_free(c);
@@ -2854,7 +2854,7 @@ static void test_reactors_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_reactors_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_reactors_delete(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -2874,7 +2874,7 @@ static void test_reactors_list_events_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_reactor_event_descriptor_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_reactors_list_events(c, &result, &err);
+        (void) axiam_reactors_list_events(c, &result, &err);
         disarm();
         axiam_mgmt_reactor_event_descriptor_list_free(result);
         axiam_client_free(c);
@@ -2895,7 +2895,7 @@ static void test_webauthn_policy_get_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_policy_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_webauthn_policy_get(c, NULL, &result, &err);
+        (void) axiam_webauthn_policy_get(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_policy_response_free(result);
         axiam_client_free(c);
@@ -2918,7 +2918,7 @@ static void test_webauthn_policy_set_survives_oom(void) {
         memset(&body, 0, sizeof(body));
         axiam_mgmt_webauthn_attestation_policy_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_webauthn_policy_set(c, NULL, &body, &result, &err);
+        (void) axiam_webauthn_policy_set(c, NULL, &body, &result, &err);
         disarm();
         axiam_mgmt_webauthn_attestation_policy_free(result);
         axiam_client_free(c);
@@ -2939,7 +2939,7 @@ static void test_webauthn_policy_compliance_report_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_compliance_report_entry_list_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_webauthn_policy_compliance_report(c, NULL, &result, &err);
+        (void) axiam_webauthn_policy_compliance_report(c, NULL, &result, &err);
         disarm();
         axiam_mgmt_compliance_report_entry_list_free(result);
         axiam_client_free(c);
@@ -2960,7 +2960,7 @@ static void test_audit_list_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_audit_log_entry_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_audit_list(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
+        (void) axiam_audit_list(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
         disarm();
         axiam_mgmt_audit_log_entry_page_free(result);
         axiam_client_free(c);
@@ -2981,7 +2981,7 @@ static void test_audit_list_system_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_audit_log_entry_page_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_audit_list_system(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
+        (void) axiam_audit_list_system(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
         disarm();
         axiam_mgmt_audit_log_entry_page_free(result);
         axiam_client_free(c);
@@ -3001,7 +3001,7 @@ static void test_privacy_request_export_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_privacy_request_export(c, &err);
+        (void) axiam_privacy_request_export(c, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -3020,7 +3020,7 @@ static void test_privacy_download_export_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_privacy_download_export(c, "11111111-1111-4111-8111-111111111111", &err);
+        (void) axiam_privacy_download_export(c, "11111111-1111-4111-8111-111111111111", &err);
         disarm();
         axiam_client_free(c);
     }
@@ -3039,7 +3039,7 @@ static void test_privacy_request_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_privacy_request_delete(c, &err);
+        (void) axiam_privacy_request_delete(c, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -3058,7 +3058,7 @@ static void test_privacy_cancel_delete_survives_oom(void) {
         if (!c) continue;
         axiam_error_t err;
         arm(n);
-        (void) axiam_mgmt_privacy_cancel_delete(c, NULL, &err);
+        (void) axiam_privacy_cancel_delete(c, NULL, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -3078,7 +3078,7 @@ static void test_platform_health_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_health_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_platform_health(c, &result, &err);
+        (void) axiam_platform_health(c, &result, &err);
         disarm();
         axiam_mgmt_health_response_free(result);
         axiam_client_free(c);
@@ -3099,7 +3099,7 @@ static void test_platform_ready_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_ready_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_platform_ready(c, &result, &err);
+        (void) axiam_platform_ready(c, &result, &err);
         disarm();
         axiam_mgmt_ready_response_free(result);
         axiam_client_free(c);
@@ -3120,7 +3120,7 @@ static void test_platform_mds_status_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_mds_status_response_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_platform_mds_status(c, &result, &err);
+        (void) axiam_platform_mds_status(c, &result, &err);
         disarm();
         axiam_mgmt_mds_status_response_free(result);
         axiam_client_free(c);
@@ -3141,7 +3141,7 @@ static void test_platform_mds_refresh_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_mds_refresh_outcome_t *result = NULL;
         arm(n);
-        (void) axiam_mgmt_platform_mds_refresh(c, &result, &err);
+        (void) axiam_platform_mds_refresh(c, &result, &err);
         disarm();
         axiam_mgmt_mds_refresh_outcome_free(result);
         axiam_client_free(c);

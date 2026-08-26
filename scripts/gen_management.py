@@ -1008,13 +1008,21 @@ def emit_models_source() -> str:
 
 
 def op_symbol(namespace: str, opname: str) -> str:
-    """The flat C name for one operation (27.3).
+    """The flat C name for one operation.
 
-    The namespace lives in the NAME rather than in a receiver:
-    `axiam_mgmt_users_list`, not `client.management().users().list()`. Sorted
-    alphabetically, a completion list groups exactly the way handles would.
+    `axiam_<namespace>_<operation>`, which is the exact shape CONTRACT.md 27.3's
+    per-language table gives C -- its row reads
+    `axiam_service_accounts_rotate_secret(client, id, &out)`. The namespace lives in the
+    NAME rather than in a receiver, and sorted alphabetically a completion list groups
+    exactly the way handles do in the SDKs that have them.
+
+    Deliberately NOT `axiam_mgmt_<ns>_<op>`: an extra segment would be this SDK's own
+    invention in the one place 27.3 spells the symbol out. The MODEL types below keep
+    the `axiam_mgmt_` prefix, because 27.3 governs the operation accessor and says
+    nothing about type names -- and there the prefix earns its keep by separating 145
+    generated types from the SDK's own.
     """
-    return f"axiam_mgmt_{cname(namespace)}_{cname(opname)}"
+    return f"axiam_{cname(namespace)}_{cname(opname)}"
 
 
 def path_params(op: dict[str, Any]) -> list[str]:

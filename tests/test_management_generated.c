@@ -26,7 +26,7 @@ static void test_organizations_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_organization_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_organizations_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_organizations_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -39,7 +39,7 @@ static void test_organizations_list_reaches_its_route_discards_the_result(void) 
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"slug\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_organizations_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_organizations_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -50,7 +50,7 @@ static void test_organizations_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_organization_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_organizations_get(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_organizations_get(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -63,7 +63,7 @@ static void test_organizations_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"slug\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_organizations_get(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_organizations_get(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -74,7 +74,7 @@ static void test_organizations_get_reaches_its_route_rejects_a_wrong_shaped_body
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_organization_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_organizations_get(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_organizations_get(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -84,7 +84,7 @@ static void test_organizations_get_reaches_its_route_rejects_a_wrong_shaped_body
 static void test_organizations_get_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_organizations_get(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_organizations_get(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -102,7 +102,7 @@ static void test_organizations_update_reaches_its_route(void) {
     axiam_mgmt_update_organization_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_organization_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_organizations_update(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_organizations_update(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -117,7 +117,7 @@ static void test_organizations_update_reaches_its_route_discards_the_result(void
     axiam_error_t err;
     axiam_mgmt_update_organization_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_organizations_update(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_organizations_update(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -130,7 +130,7 @@ static void test_organizations_update_reaches_its_route_rejects_a_wrong_shaped_b
     axiam_mgmt_update_organization_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_organization_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_organizations_update(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_organizations_update(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -142,7 +142,7 @@ static void test_organizations_update_reaches_its_route_refuses_without_a_scope(
     axiam_error_t err;
     axiam_mgmt_update_organization_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_organizations_update(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_organizations_update(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -158,7 +158,7 @@ static void test_tenants_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_tenant_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_list(c, NULL, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_tenants_list(c, NULL, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -171,7 +171,7 @@ static void test_tenants_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_list(c, NULL, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_tenants_list(c, NULL, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -180,7 +180,7 @@ static void test_tenants_list_reaches_its_route_discards_the_result(void) {
 static void test_tenants_list_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_list(c, NULL, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_tenants_list(c, NULL, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -198,7 +198,7 @@ static void test_tenants_create_reaches_its_route(void) {
     axiam_mgmt_create_tenant_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_tenant_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_create(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_tenants_create(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -213,7 +213,7 @@ static void test_tenants_create_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_tenant_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_tenants_create(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_tenants_create(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -226,7 +226,7 @@ static void test_tenants_create_reaches_its_route_rejects_a_wrong_shaped_body(vo
     axiam_mgmt_create_tenant_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_tenant_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_create(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_tenants_create(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -238,7 +238,7 @@ static void test_tenants_create_reaches_its_route_refuses_without_a_scope(void) 
     axiam_error_t err;
     axiam_mgmt_create_tenant_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_tenants_create(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_tenants_create(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -254,7 +254,7 @@ static void test_tenants_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_tenant_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -267,7 +267,7 @@ static void test_tenants_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -278,7 +278,7 @@ static void test_tenants_get_reaches_its_route_rejects_a_wrong_shaped_body(void)
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_tenant_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -288,7 +288,7 @@ static void test_tenants_get_reaches_its_route_rejects_a_wrong_shaped_body(void)
 static void test_tenants_get_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -306,7 +306,7 @@ static void test_tenants_update_reaches_its_route(void) {
     axiam_mgmt_update_tenant_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_tenant_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -321,7 +321,7 @@ static void test_tenants_update_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_update_tenant_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -334,7 +334,7 @@ static void test_tenants_update_reaches_its_route_rejects_a_wrong_shaped_body(vo
     axiam_mgmt_update_tenant_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_tenant_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -346,7 +346,7 @@ static void test_tenants_update_reaches_its_route_refuses_without_a_scope(void) 
     axiam_error_t err;
     axiam_mgmt_update_tenant_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -361,7 +361,7 @@ static void test_tenants_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_delete(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_tenants_delete(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -372,7 +372,7 @@ static void test_tenants_delete_reaches_its_route(void) {
 static void test_tenants_delete_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_tenants_delete(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_tenants_delete(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -388,7 +388,7 @@ static void test_users_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_user_response_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_users_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -401,7 +401,7 @@ static void test_users_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_users_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_users_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -414,7 +414,7 @@ static void test_users_create_reaches_its_route(void) {
     axiam_mgmt_create_user_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_user_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_users_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -429,7 +429,7 @@ static void test_users_create_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_user_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_users_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_users_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -442,7 +442,7 @@ static void test_users_create_reaches_its_route_rejects_a_wrong_shaped_body(void
     axiam_mgmt_create_user_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_user_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_users_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -454,7 +454,7 @@ static void test_users_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_user_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_users_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -467,7 +467,7 @@ static void test_users_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_users_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_users_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -478,7 +478,7 @@ static void test_users_get_reaches_its_route_rejects_a_wrong_shaped_body(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_user_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_users_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -492,7 +492,7 @@ static void test_users_update_reaches_its_route(void) {
     axiam_mgmt_update_user_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_user_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_users_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -507,7 +507,7 @@ static void test_users_update_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_update_user_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_users_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_users_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -520,7 +520,7 @@ static void test_users_update_reaches_its_route_rejects_a_wrong_shaped_body(void
     axiam_mgmt_update_user_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_user_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_users_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -531,7 +531,7 @@ static void test_users_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_users_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_users_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -544,7 +544,7 @@ static void test_users_list_mfa_methods_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_mfa_method_response_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_list_mfa_methods(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_users_list_mfa_methods(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -557,7 +557,7 @@ static void test_users_list_mfa_methods_reaches_its_route_discards_the_result(vo
     mgmt_mount(200, "[{\"created_at\": \"example\", \"last_used_at\": \"example\", \"method_id\": \"example\", \"method_type\": \"Totp\", \"name\": \"example\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_users_list_mfa_methods(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_users_list_mfa_methods(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -567,7 +567,7 @@ static void test_users_delete_mfa_method_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_users_delete_mfa_method(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_users_delete_mfa_method(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -579,7 +579,7 @@ static void test_users_reset_mfa_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_users_reset_mfa(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_users_reset_mfa(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -592,7 +592,7 @@ static void test_users_unlock_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_user_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_unlock(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_users_unlock(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -605,7 +605,7 @@ static void test_users_unlock_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_users_unlock(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_users_unlock(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -616,7 +616,7 @@ static void test_users_unlock_reaches_its_route_rejects_a_wrong_shaped_body(void
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_user_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_unlock(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_users_unlock(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -628,7 +628,7 @@ static void test_users_list_roles_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_assignment_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_users_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -641,7 +641,7 @@ static void test_users_list_roles_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_users_list_roles(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_users_list_roles(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -652,7 +652,7 @@ static void test_groups_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_group_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_groups_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -665,7 +665,7 @@ static void test_groups_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_groups_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_groups_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -678,7 +678,7 @@ static void test_groups_create_reaches_its_route(void) {
     axiam_mgmt_create_group_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_group_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_groups_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -693,7 +693,7 @@ static void test_groups_create_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_group_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_groups_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_groups_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -706,7 +706,7 @@ static void test_groups_create_reaches_its_route_rejects_a_wrong_shaped_body(voi
     axiam_mgmt_create_group_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_group_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_groups_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -718,7 +718,7 @@ static void test_groups_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_group_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_groups_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -731,7 +731,7 @@ static void test_groups_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_groups_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_groups_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -742,7 +742,7 @@ static void test_groups_get_reaches_its_route_rejects_a_wrong_shaped_body(void) 
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_group_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_groups_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -756,7 +756,7 @@ static void test_groups_update_reaches_its_route(void) {
     axiam_mgmt_update_group_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_group_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_groups_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -771,7 +771,7 @@ static void test_groups_update_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_update_group_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_groups_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_groups_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -784,7 +784,7 @@ static void test_groups_update_reaches_its_route_rejects_a_wrong_shaped_body(voi
     axiam_mgmt_update_group_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_group_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_groups_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -795,7 +795,7 @@ static void test_groups_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_groups_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_groups_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -808,7 +808,7 @@ static void test_groups_list_members_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_user_response_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_list_members(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_groups_list_members(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -821,7 +821,7 @@ static void test_groups_list_members_reaches_its_route_discards_the_result(void)
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_groups_list_members(c, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_groups_list_members(c, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -833,7 +833,7 @@ static void test_groups_add_member_reaches_its_route(void) {
     axiam_error_t err;
     axiam_mgmt_add_member_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_groups_add_member(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+    axiam_error_kind_t rc = axiam_groups_add_member(c, "11111111-1111-4111-8111-111111111111", &body, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -845,7 +845,7 @@ static void test_groups_remove_member_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_groups_remove_member(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_groups_remove_member(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -858,7 +858,7 @@ static void test_groups_list_roles_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_assignment_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_groups_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -871,7 +871,7 @@ static void test_groups_list_roles_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_groups_list_roles(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_groups_list_roles(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -882,7 +882,7 @@ static void test_roles_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_roles_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -895,7 +895,7 @@ static void test_roles_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -908,7 +908,7 @@ static void test_roles_create_reaches_its_route(void) {
     axiam_mgmt_create_role_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_role_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_roles_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -923,7 +923,7 @@ static void test_roles_create_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_role_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_roles_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -936,7 +936,7 @@ static void test_roles_create_reaches_its_route_rejects_a_wrong_shaped_body(void
     axiam_mgmt_create_role_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_role_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_roles_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -948,7 +948,7 @@ static void test_roles_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_roles_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -961,7 +961,7 @@ static void test_roles_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -972,7 +972,7 @@ static void test_roles_get_reaches_its_route_rejects_a_wrong_shaped_body(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_roles_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -986,7 +986,7 @@ static void test_roles_update_reaches_its_route(void) {
     axiam_mgmt_update_role_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_role_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_roles_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -1001,7 +1001,7 @@ static void test_roles_update_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_update_role_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_roles_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1014,7 +1014,7 @@ static void test_roles_update_reaches_its_route_rejects_a_wrong_shaped_body(void
     axiam_mgmt_update_role_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_role_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_roles_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1025,7 +1025,7 @@ static void test_roles_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_roles_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -1038,7 +1038,7 @@ static void test_roles_list_users_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_user_assignment_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_list_users(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_roles_list_users(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1051,7 +1051,7 @@ static void test_roles_list_users_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_list_users(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_list_users(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1063,7 +1063,7 @@ static void test_roles_assign_to_user_reaches_its_route(void) {
     axiam_error_t err;
     axiam_mgmt_assign_role_to_user_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_roles_assign_to_user(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+    axiam_error_kind_t rc = axiam_roles_assign_to_user(c, "11111111-1111-4111-8111-111111111111", &body, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1075,7 +1075,7 @@ static void test_roles_unassign_from_user_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_unassign_from_user(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_unassign_from_user(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -1088,7 +1088,7 @@ static void test_roles_list_groups_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_group_assignment_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_list_groups(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_roles_list_groups(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1101,7 +1101,7 @@ static void test_roles_list_groups_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_list_groups(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_list_groups(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1113,7 +1113,7 @@ static void test_roles_assign_to_group_reaches_its_route(void) {
     axiam_error_t err;
     axiam_mgmt_assign_role_to_group_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_roles_assign_to_group(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+    axiam_error_kind_t rc = axiam_roles_assign_to_group(c, "11111111-1111-4111-8111-111111111111", &body, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1125,7 +1125,7 @@ static void test_roles_unassign_from_group_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_unassign_from_group(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_unassign_from_group(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -1138,7 +1138,7 @@ static void test_roles_list_permissions_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_resolved_permission_grant_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_roles_list_permissions(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_roles_list_permissions(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1151,7 +1151,7 @@ static void test_roles_list_permissions_reaches_its_route_discards_the_result(vo
     mgmt_mount(200, "[{\"effect\": \"allow\", \"permission\": {\"action\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"scope_ids\": [\"11111111-1111-4111-8111-111111111111\"], \"scopes\": [{\"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}]}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_list_permissions(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_roles_list_permissions(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1163,7 +1163,7 @@ static void test_roles_grant_permission_reaches_its_route(void) {
     axiam_error_t err;
     axiam_mgmt_grant_permission_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_roles_grant_permission(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+    axiam_error_kind_t rc = axiam_roles_grant_permission(c, "11111111-1111-4111-8111-111111111111", &body, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1175,7 +1175,7 @@ static void test_roles_revoke_permission_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_roles_revoke_permission(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_roles_revoke_permission(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -1188,7 +1188,7 @@ static void test_permissions_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_permission_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_permissions_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1201,7 +1201,7 @@ static void test_permissions_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_permissions_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1214,7 +1214,7 @@ static void test_permissions_create_reaches_its_route(void) {
     axiam_mgmt_create_permission_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_permission_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_permissions_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1229,7 +1229,7 @@ static void test_permissions_create_reaches_its_route_discards_the_result(void) 
     axiam_error_t err;
     axiam_mgmt_create_permission_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_permissions_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_permissions_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1242,7 +1242,7 @@ static void test_permissions_create_reaches_its_route_rejects_a_wrong_shaped_bod
     axiam_mgmt_create_permission_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_permission_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_permissions_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1254,7 +1254,7 @@ static void test_permissions_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_permission_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_permissions_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1267,7 +1267,7 @@ static void test_permissions_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"action\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_permissions_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1278,7 +1278,7 @@ static void test_permissions_get_reaches_its_route_rejects_a_wrong_shaped_body(v
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_permission_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_permissions_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1292,7 +1292,7 @@ static void test_permissions_update_reaches_its_route(void) {
     axiam_mgmt_update_permission_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_permission_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_permissions_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -1307,7 +1307,7 @@ static void test_permissions_update_reaches_its_route_discards_the_result(void) 
     axiam_error_t err;
     axiam_mgmt_update_permission_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_permissions_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_permissions_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1320,7 +1320,7 @@ static void test_permissions_update_reaches_its_route_rejects_a_wrong_shaped_bod
     axiam_mgmt_update_permission_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_permission_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_permissions_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1331,7 +1331,7 @@ static void test_permissions_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_permissions_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_permissions_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -1344,7 +1344,7 @@ static void test_resources_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_resource_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_resources_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1357,7 +1357,7 @@ static void test_resources_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"uma_registered_by\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_resources_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_resources_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1370,7 +1370,7 @@ static void test_resources_create_reaches_its_route(void) {
     axiam_mgmt_create_resource_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_resource_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_resources_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1385,7 +1385,7 @@ static void test_resources_create_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_resource_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_resources_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_resources_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1398,7 +1398,7 @@ static void test_resources_create_reaches_its_route_rejects_a_wrong_shaped_body(
     axiam_mgmt_create_resource_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_resource_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_resources_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1410,7 +1410,7 @@ static void test_resources_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_resource_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_resources_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1423,7 +1423,7 @@ static void test_resources_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"uma_registered_by\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_resources_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_resources_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1434,7 +1434,7 @@ static void test_resources_get_reaches_its_route_rejects_a_wrong_shaped_body(voi
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_resource_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_resources_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1448,7 +1448,7 @@ static void test_resources_update_reaches_its_route(void) {
     axiam_mgmt_update_resource_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_resource_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_resources_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -1463,7 +1463,7 @@ static void test_resources_update_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_update_resource_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_resources_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_resources_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1476,7 +1476,7 @@ static void test_resources_update_reaches_its_route_rejects_a_wrong_shaped_body(
     axiam_mgmt_update_resource_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_resource_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_resources_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1487,7 +1487,7 @@ static void test_resources_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_resources_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_resources_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -1500,7 +1500,7 @@ static void test_resources_list_children_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_resource_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_list_children(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_resources_list_children(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1513,7 +1513,7 @@ static void test_resources_list_children_reaches_its_route_discards_the_result(v
     mgmt_mount(200, "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"uma_registered_by\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_resources_list_children(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_resources_list_children(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1524,7 +1524,7 @@ static void test_resources_list_ancestors_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_resource_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_resources_list_ancestors(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_resources_list_ancestors(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1537,7 +1537,7 @@ static void test_resources_list_ancestors_reaches_its_route_discards_the_result(
     mgmt_mount(200, "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"uma_registered_by\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_resources_list_ancestors(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_resources_list_ancestors(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1548,7 +1548,7 @@ static void test_scopes_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_scope_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_list(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_scopes_list(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1561,7 +1561,7 @@ static void test_scopes_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_list(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_scopes_list(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1574,7 +1574,7 @@ static void test_scopes_create_reaches_its_route(void) {
     axiam_mgmt_create_scope_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_scope_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_create(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_scopes_create(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1589,7 +1589,7 @@ static void test_scopes_create_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_scope_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_scopes_create(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_scopes_create(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1602,7 +1602,7 @@ static void test_scopes_create_reaches_its_route_rejects_a_wrong_shaped_body(voi
     axiam_mgmt_create_scope_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_scope_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_create(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_scopes_create(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1614,7 +1614,7 @@ static void test_scopes_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_scope_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_get(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_scopes_get(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1627,7 +1627,7 @@ static void test_scopes_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_get(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_scopes_get(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1638,7 +1638,7 @@ static void test_scopes_get_reaches_its_route_rejects_a_wrong_shaped_body(void) 
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_scope_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_get(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_scopes_get(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1652,7 +1652,7 @@ static void test_scopes_update_reaches_its_route(void) {
     axiam_mgmt_update_scope_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_scope_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_update(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_scopes_update(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -1667,7 +1667,7 @@ static void test_scopes_update_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_update_scope_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_scopes_update(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_scopes_update(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1680,7 +1680,7 @@ static void test_scopes_update_reaches_its_route_rejects_a_wrong_shaped_body(voi
     axiam_mgmt_update_scope_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_scope_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_update(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_scopes_update(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1691,7 +1691,7 @@ static void test_scopes_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_scopes_delete(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_scopes_delete(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -1704,7 +1704,7 @@ static void test_service_accounts_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_service_account_response_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1717,7 +1717,7 @@ static void test_service_accounts_list_reaches_its_route_discards_the_result(voi
     mgmt_mount(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1730,7 +1730,7 @@ static void test_service_accounts_create_reaches_its_route(void) {
     axiam_mgmt_create_service_account_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_service_account_created_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1745,7 +1745,7 @@ static void test_service_accounts_create_reaches_its_route_discards_the_result(v
     axiam_error_t err;
     axiam_mgmt_create_service_account_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1758,7 +1758,7 @@ static void test_service_accounts_create_reaches_its_route_rejects_a_wrong_shape
     axiam_mgmt_create_service_account_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_service_account_created_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1770,7 +1770,7 @@ static void test_service_accounts_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_service_account_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1783,7 +1783,7 @@ static void test_service_accounts_get_reaches_its_route_discards_the_result(void
     mgmt_mount(200, "{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1794,7 +1794,7 @@ static void test_service_accounts_get_reaches_its_route_rejects_a_wrong_shaped_b
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_service_account_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1808,7 +1808,7 @@ static void test_service_accounts_update_reaches_its_route(void) {
     axiam_mgmt_update_service_account_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_service_account_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -1823,7 +1823,7 @@ static void test_service_accounts_update_reaches_its_route_discards_the_result(v
     axiam_error_t err;
     axiam_mgmt_update_service_account_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1836,7 +1836,7 @@ static void test_service_accounts_update_reaches_its_route_rejects_a_wrong_shape
     axiam_mgmt_update_service_account_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_service_account_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1847,7 +1847,7 @@ static void test_service_accounts_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_service_accounts_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -1860,7 +1860,7 @@ static void test_service_accounts_rotate_secret_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_rotate_secret_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_rotate_secret(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_rotate_secret(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1873,7 +1873,7 @@ static void test_service_accounts_rotate_secret_reaches_its_route_discards_the_r
     mgmt_mount(200, "{\"client_secret\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_rotate_secret(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_rotate_secret(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1884,7 +1884,7 @@ static void test_service_accounts_rotate_secret_reaches_its_route_rejects_a_wron
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_rotate_secret_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_rotate_secret(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_rotate_secret(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1897,7 +1897,7 @@ static void test_service_accounts_bind_certificate_reaches_its_route(void) {
     axiam_error_t err;
     axiam_mgmt_bind_certificate_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_service_accounts_bind_certificate(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+    axiam_error_kind_t rc = axiam_service_accounts_bind_certificate(c, "11111111-1111-4111-8111-111111111111", &body, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1910,7 +1910,7 @@ static void test_certificates_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_certificate_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_certificates_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1923,7 +1923,7 @@ static void test_certificates_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_certificates_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1936,7 +1936,7 @@ static void test_certificates_generate_reaches_its_route(void) {
     axiam_mgmt_create_certificate_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_generated_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_generate(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_certificates_generate(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -1951,7 +1951,7 @@ static void test_certificates_generate_reaches_its_route_discards_the_result(voi
     axiam_error_t err;
     axiam_mgmt_create_certificate_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_certificates_generate(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_certificates_generate(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -1964,7 +1964,7 @@ static void test_certificates_generate_reaches_its_route_rejects_a_wrong_shaped_
     axiam_mgmt_create_certificate_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_generated_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_generate(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_certificates_generate(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -1976,7 +1976,7 @@ static void test_certificates_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_certificates_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -1989,7 +1989,7 @@ static void test_certificates_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_certificates_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2000,7 +2000,7 @@ static void test_certificates_get_reaches_its_route_rejects_a_wrong_shaped_body(
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_certificates_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2011,7 +2011,7 @@ static void test_certificates_revoke_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_certificates_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2024,7 +2024,7 @@ static void test_ca_certificates_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_ca_certificate_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_list(c, NULL, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_list(c, NULL, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2037,7 +2037,7 @@ static void test_ca_certificates_list_reaches_its_route_discards_the_result(void
     mgmt_mount(200, "{\"items\": [{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_list(c, NULL, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_list(c, NULL, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2046,7 +2046,7 @@ static void test_ca_certificates_list_reaches_its_route_discards_the_result(void
 static void test_ca_certificates_list_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_list(c, NULL, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_list(c, NULL, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2064,7 +2064,7 @@ static void test_ca_certificates_generate_reaches_its_route(void) {
     axiam_mgmt_create_ca_certificate_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_generated_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_generate(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_generate(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2079,7 +2079,7 @@ static void test_ca_certificates_generate_reaches_its_route_discards_the_result(
     axiam_error_t err;
     axiam_mgmt_create_ca_certificate_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_generate(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_generate(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2092,7 +2092,7 @@ static void test_ca_certificates_generate_reaches_its_route_rejects_a_wrong_shap
     axiam_mgmt_create_ca_certificate_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_generated_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_generate(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_generate(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2104,7 +2104,7 @@ static void test_ca_certificates_generate_reaches_its_route_refuses_without_a_sc
     axiam_error_t err;
     axiam_mgmt_create_ca_certificate_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_generate(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_generate(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2122,7 +2122,7 @@ static void test_ca_certificates_import_ca_reaches_its_route(void) {
     axiam_mgmt_import_ca_certificate_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_import_ca(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_import_ca(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2137,7 +2137,7 @@ static void test_ca_certificates_import_ca_reaches_its_route_discards_the_result
     axiam_error_t err;
     axiam_mgmt_import_ca_certificate_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_import_ca(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_import_ca(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2150,7 +2150,7 @@ static void test_ca_certificates_import_ca_reaches_its_route_rejects_a_wrong_sha
     axiam_mgmt_import_ca_certificate_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_import_ca(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_import_ca(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2162,7 +2162,7 @@ static void test_ca_certificates_import_ca_reaches_its_route_refuses_without_a_s
     axiam_error_t err;
     axiam_mgmt_import_ca_certificate_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_import_ca(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_import_ca(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2178,7 +2178,7 @@ static void test_ca_certificates_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2191,7 +2191,7 @@ static void test_ca_certificates_get_reaches_its_route_discards_the_result(void)
     mgmt_mount(200, "{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2202,7 +2202,7 @@ static void test_ca_certificates_get_reaches_its_route_rejects_a_wrong_shaped_bo
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2212,7 +2212,7 @@ static void test_ca_certificates_get_reaches_its_route_rejects_a_wrong_shaped_bo
 static void test_ca_certificates_get_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2227,7 +2227,7 @@ static void test_ca_certificates_revoke_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_revoke(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_revoke(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2238,7 +2238,7 @@ static void test_ca_certificates_revoke_reaches_its_route(void) {
 static void test_ca_certificates_revoke_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_revoke(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_revoke(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2254,7 +2254,7 @@ static void test_ca_certificates_migrate_custody_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_migrate_custody_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2267,7 +2267,7 @@ static void test_ca_certificates_migrate_custody_reaches_its_route_discards_the_
     mgmt_mount(200, "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"previous_custody\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2278,7 +2278,7 @@ static void test_ca_certificates_migrate_custody_reaches_its_route_rejects_a_wro
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_migrate_custody_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2288,7 +2288,7 @@ static void test_ca_certificates_migrate_custody_reaches_its_route_rejects_a_wro
 static void test_ca_certificates_migrate_custody_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_migrate_custody(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2306,7 +2306,7 @@ static void test_ca_certificates_set_mtls_trust_anchor_reaches_its_route(void) {
     axiam_mgmt_set_mtls_trust_anchor_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_mtls_trust_anchor_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -2321,7 +2321,7 @@ static void test_ca_certificates_set_mtls_trust_anchor_reaches_its_route_discard
     axiam_error_t err;
     axiam_mgmt_set_mtls_trust_anchor_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2334,7 +2334,7 @@ static void test_ca_certificates_set_mtls_trust_anchor_reaches_its_route_rejects
     axiam_mgmt_set_mtls_trust_anchor_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_mtls_trust_anchor_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2346,7 +2346,7 @@ static void test_ca_certificates_set_mtls_trust_anchor_reaches_its_route_refuses
     axiam_error_t err;
     axiam_mgmt_set_mtls_trust_anchor_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_set_mtls_trust_anchor(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2362,7 +2362,7 @@ static void test_ca_certificates_list_signing_cas_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_ca_certificate_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_list_signing_cas(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_list_signing_cas(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2375,7 +2375,7 @@ static void test_ca_certificates_list_signing_cas_reaches_its_route_discards_the
     mgmt_mount(200, "{\"items\": [{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_list_signing_cas(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_list_signing_cas(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2384,7 +2384,7 @@ static void test_ca_certificates_list_signing_cas_reaches_its_route_discards_the
 static void test_ca_certificates_list_signing_cas_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_list_signing_cas(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_list_signing_cas(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2402,7 +2402,7 @@ static void test_ca_certificates_generate_signing_ca_reaches_its_route(void) {
     axiam_mgmt_create_intermediate_ca_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_generated_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2417,7 +2417,7 @@ static void test_ca_certificates_generate_signing_ca_reaches_its_route_discards_
     axiam_error_t err;
     axiam_mgmt_create_intermediate_ca_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2430,7 +2430,7 @@ static void test_ca_certificates_generate_signing_ca_reaches_its_route_rejects_a
     axiam_mgmt_create_intermediate_ca_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_generated_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2442,7 +2442,7 @@ static void test_ca_certificates_generate_signing_ca_reaches_its_route_refuses_w
     axiam_error_t err;
     axiam_mgmt_create_intermediate_ca_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2460,7 +2460,7 @@ static void test_ca_certificates_sign_signing_ca_csr_reaches_its_route(void) {
     axiam_mgmt_sign_intermediate_csr_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2475,7 +2475,7 @@ static void test_ca_certificates_sign_signing_ca_csr_reaches_its_route_discards_
     axiam_error_t err;
     axiam_mgmt_sign_intermediate_csr_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2488,7 +2488,7 @@ static void test_ca_certificates_sign_signing_ca_csr_reaches_its_route_rejects_a
     axiam_mgmt_sign_intermediate_csr_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_ca_certificate_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2500,7 +2500,7 @@ static void test_ca_certificates_sign_signing_ca_csr_reaches_its_route_refuses_w
     axiam_error_t err;
     axiam_mgmt_sign_intermediate_csr_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_ca_certificates_sign_signing_ca_csr(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -2516,7 +2516,7 @@ static void test_pgp_keys_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_pgp_key_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2529,7 +2529,7 @@ static void test_pgp_keys_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"algorithm\": \"Rsa4096\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"public_key_armored\": \"example\", \"purpose\": \"AuditSigning\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2542,7 +2542,7 @@ static void test_pgp_keys_generate_reaches_its_route(void) {
     axiam_mgmt_create_pgp_key_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_generated_pgp_key_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_generate(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_generate(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2557,7 +2557,7 @@ static void test_pgp_keys_generate_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_pgp_key_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_generate(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_generate(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2570,7 +2570,7 @@ static void test_pgp_keys_generate_reaches_its_route_rejects_a_wrong_shaped_body
     axiam_mgmt_create_pgp_key_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_generated_pgp_key_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_generate(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_generate(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2582,7 +2582,7 @@ static void test_pgp_keys_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_pgp_key_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2595,7 +2595,7 @@ static void test_pgp_keys_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"algorithm\": \"Rsa4096\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"public_key_armored\": \"example\", \"purpose\": \"AuditSigning\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2606,7 +2606,7 @@ static void test_pgp_keys_get_reaches_its_route_rejects_a_wrong_shaped_body(void
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_pgp_key_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2617,7 +2617,7 @@ static void test_pgp_keys_revoke_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2632,7 +2632,7 @@ static void test_pgp_keys_encrypt_reaches_its_route(void) {
     axiam_mgmt_encrypt_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_encrypted_export_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_encrypt(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_encrypt(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2647,7 +2647,7 @@ static void test_pgp_keys_encrypt_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_encrypt_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_encrypt(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_encrypt(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2660,7 +2660,7 @@ static void test_pgp_keys_encrypt_reaches_its_route_rejects_a_wrong_shaped_body(
     axiam_mgmt_encrypt_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_encrypted_export_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_encrypt(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_encrypt(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2674,7 +2674,7 @@ static void test_pgp_keys_sign_audit_batch_reaches_its_route(void) {
     axiam_mgmt_sign_audit_batch_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_signed_audit_batch_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_sign_audit_batch(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_sign_audit_batch(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2689,7 +2689,7 @@ static void test_pgp_keys_sign_audit_batch_reaches_its_route_discards_the_result
     axiam_error_t err;
     axiam_mgmt_sign_audit_batch_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_sign_audit_batch(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_sign_audit_batch(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2702,7 +2702,7 @@ static void test_pgp_keys_sign_audit_batch_reaches_its_route_rejects_a_wrong_sha
     axiam_mgmt_sign_audit_batch_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_signed_audit_batch_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_pgp_keys_sign_audit_batch(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_pgp_keys_sign_audit_batch(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2714,7 +2714,7 @@ static void test_webhooks_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_webhook_response_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_webhooks_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2727,7 +2727,7 @@ static void test_webhooks_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"events\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"retry_policy\": {\"backoff_multiplier\": 1.5, \"initial_delay_secs\": 1, \"max_retries\": 1}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_webhooks_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2740,7 +2740,7 @@ static void test_webhooks_create_reaches_its_route(void) {
     axiam_mgmt_create_webhook_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_webhook_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_webhooks_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2755,7 +2755,7 @@ static void test_webhooks_create_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_webhook_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_webhooks_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2768,7 +2768,7 @@ static void test_webhooks_create_reaches_its_route_rejects_a_wrong_shaped_body(v
     axiam_mgmt_create_webhook_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_webhook_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_webhooks_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2780,7 +2780,7 @@ static void test_webhooks_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_webhook_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_webhooks_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2793,7 +2793,7 @@ static void test_webhooks_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"events\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"retry_policy\": {\"backoff_multiplier\": 1.5, \"initial_delay_secs\": 1, \"max_retries\": 1}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_webhooks_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2804,7 +2804,7 @@ static void test_webhooks_get_reaches_its_route_rejects_a_wrong_shaped_body(void
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_webhook_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_webhooks_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2818,7 +2818,7 @@ static void test_webhooks_update_reaches_its_route(void) {
     axiam_mgmt_update_webhook_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_webhook_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_webhooks_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -2833,7 +2833,7 @@ static void test_webhooks_update_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_update_webhook_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_webhooks_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2846,7 +2846,7 @@ static void test_webhooks_update_reaches_its_route_rejects_a_wrong_shaped_body(v
     axiam_mgmt_update_webhook_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_webhook_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_webhooks_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2857,7 +2857,7 @@ static void test_webhooks_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_webhooks_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_webhooks_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -2870,7 +2870,7 @@ static void test_oauth2_clients_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_o_auth2_client_response_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2883,7 +2883,7 @@ static void test_oauth2_clients_list_reaches_its_route_discards_the_result(void)
     mgmt_mount(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2896,7 +2896,7 @@ static void test_oauth2_clients_create_reaches_its_route(void) {
     axiam_mgmt_create_o_auth2_client_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_o_auth2_client_created_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -2911,7 +2911,7 @@ static void test_oauth2_clients_create_reaches_its_route_discards_the_result(voi
     axiam_error_t err;
     axiam_mgmt_create_o_auth2_client_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2924,7 +2924,7 @@ static void test_oauth2_clients_create_reaches_its_route_rejects_a_wrong_shaped_
     axiam_mgmt_create_o_auth2_client_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_o_auth2_client_created_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2936,7 +2936,7 @@ static void test_oauth2_clients_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_o_auth2_client_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -2949,7 +2949,7 @@ static void test_oauth2_clients_get_reaches_its_route_discards_the_result(void) 
     mgmt_mount(200, "{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -2960,7 +2960,7 @@ static void test_oauth2_clients_get_reaches_its_route_rejects_a_wrong_shaped_bod
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_o_auth2_client_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -2974,7 +2974,7 @@ static void test_oauth2_clients_update_reaches_its_route(void) {
     axiam_mgmt_update_o_auth2_client_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_o_auth2_client_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -2989,7 +2989,7 @@ static void test_oauth2_clients_update_reaches_its_route_discards_the_result(voi
     axiam_error_t err;
     axiam_mgmt_update_o_auth2_client_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3002,7 +3002,7 @@ static void test_oauth2_clients_update_reaches_its_route_rejects_a_wrong_shaped_
     axiam_mgmt_update_o_auth2_client_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_o_auth2_client_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3013,7 +3013,7 @@ static void test_oauth2_clients_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_oauth2_clients_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_oauth2_clients_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -3026,7 +3026,7 @@ static void test_federation_list_configs_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_federation_config_response_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_list_configs(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_list_configs(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3039,7 +3039,7 @@ static void test_federation_list_configs_reaches_its_route_discards_the_result(v
     mgmt_mount(200, "{\"items\": [{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_federation_list_configs(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_federation_list_configs(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3052,7 +3052,7 @@ static void test_federation_create_config_reaches_its_route(void) {
     axiam_mgmt_create_federation_config_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_federation_config_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_create_config(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_create_config(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -3067,7 +3067,7 @@ static void test_federation_create_config_reaches_its_route_discards_the_result(
     axiam_error_t err;
     axiam_mgmt_create_federation_config_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_federation_create_config(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_federation_create_config(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3080,7 +3080,7 @@ static void test_federation_create_config_reaches_its_route_rejects_a_wrong_shap
     axiam_mgmt_create_federation_config_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_federation_config_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_create_config(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_create_config(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3092,7 +3092,7 @@ static void test_federation_get_config_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_federation_config_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_get_config(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_federation_get_config(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3105,7 +3105,7 @@ static void test_federation_get_config_reaches_its_route_discards_the_result(voi
     mgmt_mount(200, "{\"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_federation_get_config(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_federation_get_config(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3116,7 +3116,7 @@ static void test_federation_get_config_reaches_its_route_rejects_a_wrong_shaped_
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_federation_config_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_get_config(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_federation_get_config(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3130,7 +3130,7 @@ static void test_federation_update_config_reaches_its_route(void) {
     axiam_mgmt_update_federation_config_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_federation_config_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_update_config(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_update_config(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -3145,7 +3145,7 @@ static void test_federation_update_config_reaches_its_route_discards_the_result(
     axiam_error_t err;
     axiam_mgmt_update_federation_config_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_federation_update_config(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_federation_update_config(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3158,7 +3158,7 @@ static void test_federation_update_config_reaches_its_route_rejects_a_wrong_shap
     axiam_mgmt_update_federation_config_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_federation_config_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_update_config(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_update_config(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3169,7 +3169,7 @@ static void test_federation_delete_config_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_federation_delete_config(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_federation_delete_config(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -3182,7 +3182,7 @@ static void test_federation_list_user_links_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_federation_link_response_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_list_user_links(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_federation_list_user_links(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3195,7 +3195,7 @@ static void test_federation_list_user_links_reaches_its_route_discards_the_resul
     mgmt_mount(200, "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"external_email\": \"example\", \"external_subject\": \"example\", \"federation_config_id\": \"11111111-1111-4111-8111-111111111111\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_federation_list_user_links(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_federation_list_user_links(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3205,7 +3205,7 @@ static void test_federation_delete_link_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_federation_delete_link(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_federation_delete_link(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -3220,7 +3220,7 @@ static void test_federation_oidc_authorize_reaches_its_route(void) {
     axiam_mgmt_oidc_authorize_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_oidc_authorize_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_oidc_authorize(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_oidc_authorize(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -3235,7 +3235,7 @@ static void test_federation_oidc_authorize_reaches_its_route_discards_the_result
     axiam_error_t err;
     axiam_mgmt_oidc_authorize_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_federation_oidc_authorize(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_federation_oidc_authorize(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3248,7 +3248,7 @@ static void test_federation_oidc_authorize_reaches_its_route_rejects_a_wrong_sha
     axiam_mgmt_oidc_authorize_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_oidc_authorize_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_oidc_authorize(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_oidc_authorize(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3262,7 +3262,7 @@ static void test_federation_oidc_callback_reaches_its_route(void) {
     axiam_mgmt_oidc_callback_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_oidc_callback_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_oidc_callback(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_oidc_callback(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -3277,7 +3277,7 @@ static void test_federation_oidc_callback_reaches_its_route_discards_the_result(
     axiam_error_t err;
     axiam_mgmt_oidc_callback_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_federation_oidc_callback(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_federation_oidc_callback(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3290,7 +3290,7 @@ static void test_federation_oidc_callback_reaches_its_route_rejects_a_wrong_shap
     axiam_mgmt_oidc_callback_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_oidc_callback_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_federation_oidc_callback(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_federation_oidc_callback(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3302,7 +3302,7 @@ static void test_notification_rules_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_notification_rule_response_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3315,7 +3315,7 @@ static void test_notification_rules_list_reaches_its_route_discards_the_result(v
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3328,7 +3328,7 @@ static void test_notification_rules_create_reaches_its_route(void) {
     axiam_mgmt_create_notification_rule_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_notification_rule_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -3343,7 +3343,7 @@ static void test_notification_rules_create_reaches_its_route_discards_the_result
     axiam_error_t err;
     axiam_mgmt_create_notification_rule_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3356,7 +3356,7 @@ static void test_notification_rules_create_reaches_its_route_rejects_a_wrong_sha
     axiam_mgmt_create_notification_rule_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_notification_rule_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3368,7 +3368,7 @@ static void test_notification_rules_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_notification_rule_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3381,7 +3381,7 @@ static void test_notification_rules_get_reaches_its_route_discards_the_result(vo
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3392,7 +3392,7 @@ static void test_notification_rules_get_reaches_its_route_rejects_a_wrong_shaped
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_notification_rule_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3406,7 +3406,7 @@ static void test_notification_rules_update_reaches_its_route(void) {
     axiam_mgmt_update_notification_rule_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_notification_rule_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -3421,7 +3421,7 @@ static void test_notification_rules_update_reaches_its_route_discards_the_result
     axiam_error_t err;
     axiam_mgmt_update_notification_rule_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3434,7 +3434,7 @@ static void test_notification_rules_update_reaches_its_route_rejects_a_wrong_sha
     axiam_mgmt_update_notification_rule_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_notification_rule_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_notification_rules_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3445,7 +3445,7 @@ static void test_notification_rules_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_notification_rules_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_notification_rules_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -3458,7 +3458,7 @@ static void test_email_config_get_org_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_email_config_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_get_org(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_get_org(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3471,7 +3471,7 @@ static void test_email_config_get_org_reaches_its_route_discards_the_result(void
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"from_email\": \"example\", \"from_name\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"provider\": {}, \"reply_to\": \"example\", \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_get_org(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_get_org(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3482,7 +3482,7 @@ static void test_email_config_get_org_reaches_its_route_rejects_a_wrong_shaped_b
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_email_config_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_get_org(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_get_org(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3492,7 +3492,7 @@ static void test_email_config_get_org_reaches_its_route_rejects_a_wrong_shaped_b
 static void test_email_config_get_org_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_get_org(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_get_org(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3510,7 +3510,7 @@ static void test_email_config_set_org_reaches_its_route(void) {
     axiam_mgmt_set_org_email_config_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_email_config_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_set_org(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_set_org(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -3525,7 +3525,7 @@ static void test_email_config_set_org_reaches_its_route_discards_the_result(void
     axiam_error_t err;
     axiam_mgmt_set_org_email_config_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_email_config_set_org(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_set_org(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3538,7 +3538,7 @@ static void test_email_config_set_org_reaches_its_route_rejects_a_wrong_shaped_b
     axiam_mgmt_set_org_email_config_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_email_config_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_set_org(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_set_org(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3550,7 +3550,7 @@ static void test_email_config_set_org_reaches_its_route_refuses_without_a_scope(
     axiam_error_t err;
     axiam_mgmt_set_org_email_config_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_email_config_set_org(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_set_org(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3565,7 +3565,7 @@ static void test_email_config_delete_org_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_delete_org(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_delete_org(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -3576,7 +3576,7 @@ static void test_email_config_delete_org_reaches_its_route(void) {
 static void test_email_config_delete_org_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_delete_org(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_delete_org(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3592,7 +3592,7 @@ static void test_email_config_test_org_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_email_test_result_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_test_org(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_test_org(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -3605,7 +3605,7 @@ static void test_email_config_test_org_reaches_its_route_discards_the_result(voi
     mgmt_mount(200, "{\"message_id\": \"example\", \"provider\": \"example\", \"to\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_test_org(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_test_org(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3616,7 +3616,7 @@ static void test_email_config_test_org_reaches_its_route_rejects_a_wrong_shaped_
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_email_test_result_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_test_org(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_test_org(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3626,7 +3626,7 @@ static void test_email_config_test_org_reaches_its_route_rejects_a_wrong_shaped_
 static void test_email_config_test_org_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_test_org(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_test_org(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3642,7 +3642,7 @@ static void test_email_config_get_tenant_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_email_config_override_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_get_tenant(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_get_tenant(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3655,7 +3655,7 @@ static void test_email_config_get_tenant_reaches_its_route_discards_the_result(v
     mgmt_mount(200, "{\"enabled\": true, \"from_email\": \"example\", \"from_name\": \"example\", \"provider\": {}, \"reply_to\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_get_tenant(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_get_tenant(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3666,7 +3666,7 @@ static void test_email_config_get_tenant_reaches_its_route_rejects_a_wrong_shape
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_email_config_override_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_get_tenant(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_get_tenant(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3676,7 +3676,7 @@ static void test_email_config_get_tenant_reaches_its_route_rejects_a_wrong_shape
 static void test_email_config_get_tenant_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_get_tenant(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_get_tenant(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3694,7 +3694,7 @@ static void test_email_config_set_tenant_reaches_its_route(void) {
     axiam_mgmt_email_config_override_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_email_config_override_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_set_tenant(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_set_tenant(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -3709,7 +3709,7 @@ static void test_email_config_set_tenant_reaches_its_route_discards_the_result(v
     axiam_error_t err;
     axiam_mgmt_email_config_override_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_email_config_set_tenant(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_set_tenant(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3722,7 +3722,7 @@ static void test_email_config_set_tenant_reaches_its_route_rejects_a_wrong_shape
     axiam_mgmt_email_config_override_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_email_config_override_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_set_tenant(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_set_tenant(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3734,7 +3734,7 @@ static void test_email_config_set_tenant_reaches_its_route_refuses_without_a_sco
     axiam_error_t err;
     axiam_mgmt_email_config_override_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_email_config_set_tenant(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_set_tenant(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3749,7 +3749,7 @@ static void test_email_config_delete_tenant_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_delete_tenant(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_delete_tenant(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -3760,7 +3760,7 @@ static void test_email_config_delete_tenant_reaches_its_route(void) {
 static void test_email_config_delete_tenant_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_delete_tenant(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_delete_tenant(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3776,7 +3776,7 @@ static void test_email_config_test_tenant_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_email_test_result_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_test_tenant(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_test_tenant(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -3789,7 +3789,7 @@ static void test_email_config_test_tenant_reaches_its_route_discards_the_result(
     mgmt_mount(200, "{\"message_id\": \"example\", \"provider\": \"example\", \"to\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_test_tenant(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_test_tenant(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3800,7 +3800,7 @@ static void test_email_config_test_tenant_reaches_its_route_rejects_a_wrong_shap
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_email_test_result_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_test_tenant(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_email_config_test_tenant(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3810,7 +3810,7 @@ static void test_email_config_test_tenant_reaches_its_route_rejects_a_wrong_shap
 static void test_email_config_test_tenant_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_email_config_test_tenant(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_email_config_test_tenant(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3826,7 +3826,7 @@ static void test_settings_get_org_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_security_settings_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_org(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_get_org(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3839,7 +3839,7 @@ static void test_settings_get_org_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_org(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_get_org(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3850,7 +3850,7 @@ static void test_settings_get_org_reaches_its_route_rejects_a_wrong_shaped_body(
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_security_settings_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_org(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_get_org(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3860,7 +3860,7 @@ static void test_settings_get_org_reaches_its_route_rejects_a_wrong_shaped_body(
 static void test_settings_get_org_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_org(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_get_org(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3878,7 +3878,7 @@ static void test_settings_set_org_reaches_its_route(void) {
     axiam_mgmt_set_org_settings_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_security_settings_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_org(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_set_org(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -3893,7 +3893,7 @@ static void test_settings_set_org_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_set_org_settings_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_org(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_set_org(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3906,7 +3906,7 @@ static void test_settings_set_org_reaches_its_route_rejects_a_wrong_shaped_body(
     axiam_mgmt_set_org_settings_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_security_settings_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_org(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_set_org(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3918,7 +3918,7 @@ static void test_settings_set_org_reaches_its_route_refuses_without_a_scope(void
     axiam_error_t err;
     axiam_mgmt_set_org_settings_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_org(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_set_org(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -3934,7 +3934,7 @@ static void test_settings_get_effective_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_security_settings_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_effective(c, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_get_effective(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -3947,7 +3947,7 @@ static void test_settings_get_effective_reaches_its_route_discards_the_result(vo
     mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_effective(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_get_effective(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -3958,7 +3958,7 @@ static void test_settings_get_effective_reaches_its_route_rejects_a_wrong_shaped
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_security_settings_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_effective(c, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_get_effective(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -3972,7 +3972,7 @@ static void test_settings_set_effective_reaches_its_route(void) {
     axiam_mgmt_tenant_settings_override_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_security_settings_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_effective(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_set_effective(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -3987,7 +3987,7 @@ static void test_settings_set_effective_reaches_its_route_discards_the_result(vo
     axiam_error_t err;
     axiam_mgmt_tenant_settings_override_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_effective(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_set_effective(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4000,7 +4000,7 @@ static void test_settings_set_effective_reaches_its_route_rejects_a_wrong_shaped
     axiam_mgmt_tenant_settings_override_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_security_settings_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_effective(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_set_effective(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4012,7 +4012,7 @@ static void test_settings_get_tenant_override_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_tenant_settings_override_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_tenant_override(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_get_tenant_override(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4025,7 +4025,7 @@ static void test_settings_get_tenant_override_reaches_its_route_discards_the_res
     mgmt_mount(200, "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"default_cert_validity_days\": 1, \"deletion_grace_period_days\": 1, \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_tenant_override(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_get_tenant_override(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4036,7 +4036,7 @@ static void test_settings_get_tenant_override_reaches_its_route_rejects_a_wrong_
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_tenant_settings_override_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_tenant_override(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_get_tenant_override(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4046,7 +4046,7 @@ static void test_settings_get_tenant_override_reaches_its_route_rejects_a_wrong_
 static void test_settings_get_tenant_override_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_settings_get_tenant_override(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_get_tenant_override(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -4064,7 +4064,7 @@ static void test_settings_set_tenant_override_reaches_its_route(void) {
     axiam_mgmt_tenant_settings_override_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_tenant_settings_override_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_tenant_override(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_set_tenant_override(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -4079,7 +4079,7 @@ static void test_settings_set_tenant_override_reaches_its_route_discards_the_res
     axiam_error_t err;
     axiam_mgmt_tenant_settings_override_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_tenant_override(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_set_tenant_override(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4092,7 +4092,7 @@ static void test_settings_set_tenant_override_reaches_its_route_rejects_a_wrong_
     axiam_mgmt_tenant_settings_override_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_tenant_settings_override_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_tenant_override(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_settings_set_tenant_override(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4104,7 +4104,7 @@ static void test_settings_set_tenant_override_reaches_its_route_refuses_without_
     axiam_error_t err;
     axiam_mgmt_tenant_settings_override_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_settings_set_tenant_override(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_set_tenant_override(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -4119,7 +4119,7 @@ static void test_settings_delete_tenant_override_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_settings_delete_tenant_override(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_delete_tenant_override(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -4130,7 +4130,7 @@ static void test_settings_delete_tenant_override_reaches_its_route(void) {
 static void test_settings_delete_tenant_override_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_settings_delete_tenant_override(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_settings_delete_tenant_override(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -4146,7 +4146,7 @@ static void test_scim_tokens_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_scim_token_response_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scim_tokens_list(c, &result, &err);
+    axiam_error_kind_t rc = axiam_scim_tokens_list(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4159,7 +4159,7 @@ static void test_scim_tokens_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"expires_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_used_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"revoked_at\": \"2026-08-26T00:00:00Z\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_scim_tokens_list(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_scim_tokens_list(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4172,7 +4172,7 @@ static void test_scim_tokens_create_reaches_its_route(void) {
     axiam_mgmt_create_scim_token_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_create_scim_token_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scim_tokens_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_scim_tokens_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -4187,7 +4187,7 @@ static void test_scim_tokens_create_reaches_its_route_discards_the_result(void) 
     axiam_error_t err;
     axiam_mgmt_create_scim_token_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_scim_tokens_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_scim_tokens_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4200,7 +4200,7 @@ static void test_scim_tokens_create_reaches_its_route_rejects_a_wrong_shaped_bod
     axiam_mgmt_create_scim_token_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_create_scim_token_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_scim_tokens_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_scim_tokens_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4211,7 +4211,7 @@ static void test_scim_tokens_revoke_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_scim_tokens_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_scim_tokens_revoke(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -4224,7 +4224,7 @@ static void test_reactors_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_reactor_response_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_list(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_reactors_list(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4237,7 +4237,7 @@ static void test_reactors_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"example\"], \"failure_policy\": \"fail_closed\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_seen_at\": \"2026-08-26T00:00:00Z\", \"mode\": \"intercept\", \"name\": \"example\", \"priority\": 1, \"recent_timeout_count\": 1, \"recent_veto_count\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timeout_ms\": 1, \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_list(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_reactors_list(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4250,7 +4250,7 @@ static void test_reactors_create_reaches_its_route(void) {
     axiam_mgmt_create_reactor_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_reactor_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_reactors_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -4265,7 +4265,7 @@ static void test_reactors_create_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_create_reactor_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_reactors_create(c, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_reactors_create(c, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4278,7 +4278,7 @@ static void test_reactors_create_reaches_its_route_rejects_a_wrong_shaped_body(v
     axiam_mgmt_create_reactor_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_reactor_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_create(c, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_reactors_create(c, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4290,7 +4290,7 @@ static void test_reactors_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_reactor_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_reactors_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4303,7 +4303,7 @@ static void test_reactors_get_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"example\"], \"failure_policy\": \"fail_closed\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_seen_at\": \"2026-08-26T00:00:00Z\", \"mode\": \"intercept\", \"name\": \"example\", \"priority\": 1, \"recent_timeout_count\": 1, \"recent_veto_count\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timeout_ms\": 1, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+    axiam_error_kind_t rc = axiam_reactors_get(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4314,7 +4314,7 @@ static void test_reactors_get_reaches_its_route_rejects_a_wrong_shaped_body(void
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_reactor_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+    axiam_error_kind_t rc = axiam_reactors_get(c, "11111111-1111-4111-8111-111111111111", &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4328,7 +4328,7 @@ static void test_reactors_update_reaches_its_route(void) {
     axiam_mgmt_update_reactor_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_reactor_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -4343,7 +4343,7 @@ static void test_reactors_update_reaches_its_route_discards_the_result(void) {
     axiam_error_t err;
     axiam_mgmt_update_reactor_request_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4356,7 +4356,7 @@ static void test_reactors_update_reaches_its_route_rejects_a_wrong_shaped_body(v
     axiam_mgmt_update_reactor_request_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_reactor_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+    axiam_error_kind_t rc = axiam_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4367,7 +4367,7 @@ static void test_reactors_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_delete(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_reactors_delete(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
@@ -4380,7 +4380,7 @@ static void test_reactors_list_events_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_reactor_event_descriptor_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_list_events(c, &result, &err);
+    axiam_error_kind_t rc = axiam_reactors_list_events(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4393,7 +4393,7 @@ static void test_reactors_list_events_reaches_its_route_discards_the_result(void
     mgmt_mount(200, "[{\"default_failure_policy\": \"fail_closed\", \"description\": \"example\", \"interceptable\": true, \"mutable\": true, \"mutable_fields\": [\"example\"], \"name\": \"example\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_reactors_list_events(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_reactors_list_events(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4404,7 +4404,7 @@ static void test_webauthn_policy_get_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_policy_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_get(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_get(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4417,7 +4417,7 @@ static void test_webauthn_policy_get_reaches_its_route_discards_the_result(void)
     mgmt_mount(200, "{\"allowed_aaguids\": [\"11111111-1111-4111-8111-111111111111\"], \"block_revoked_status\": true, \"blocked_aaguids\": [\"11111111-1111-4111-8111-111111111111\"], \"min_certification\": \"L1\", \"mode\": \"none\", \"require_fido_certified\": true, \"unknown_aaguid\": \"allow\", \"effective_unknown_aaguid\": \"allow\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_get(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_get(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4428,7 +4428,7 @@ static void test_webauthn_policy_get_reaches_its_route_rejects_a_wrong_shaped_bo
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_policy_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_get(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_get(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4438,7 +4438,7 @@ static void test_webauthn_policy_get_reaches_its_route_rejects_a_wrong_shaped_bo
 static void test_webauthn_policy_get_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_get(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_get(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -4456,7 +4456,7 @@ static void test_webauthn_policy_set_reaches_its_route(void) {
     axiam_mgmt_webauthn_attestation_policy_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_webauthn_attestation_policy_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_set(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_set(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
@@ -4471,7 +4471,7 @@ static void test_webauthn_policy_set_reaches_its_route_discards_the_result(void)
     axiam_error_t err;
     axiam_mgmt_webauthn_attestation_policy_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_set(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_set(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4484,7 +4484,7 @@ static void test_webauthn_policy_set_reaches_its_route_rejects_a_wrong_shaped_bo
     axiam_mgmt_webauthn_attestation_policy_t body;
     memset(&body, 0, sizeof(body));
     axiam_mgmt_webauthn_attestation_policy_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_set(c, NULL, &body, &result, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_set(c, NULL, &body, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4496,7 +4496,7 @@ static void test_webauthn_policy_set_reaches_its_route_refuses_without_a_scope(v
     axiam_error_t err;
     axiam_mgmt_webauthn_attestation_policy_t body;
     memset(&body, 0, sizeof(body));
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_set(c, NULL, &body, NULL, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_set(c, NULL, &body, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -4512,7 +4512,7 @@ static void test_webauthn_policy_compliance_report_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_compliance_report_entry_list_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_compliance_report(c, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_compliance_report(c, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4525,7 +4525,7 @@ static void test_webauthn_policy_compliance_report_reaches_its_route_discards_th
     mgmt_mount(200, "[{\"aaguid\": \"11111111-1111-4111-8111-111111111111\", \"authenticator_name\": \"example\", \"compliant\": true, \"credential_id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"reason\": \"example\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_compliance_report(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_compliance_report(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4534,7 +4534,7 @@ static void test_webauthn_policy_compliance_report_reaches_its_route_discards_th
 static void test_webauthn_policy_compliance_report_reaches_its_route_refuses_without_a_scope(void) {
     axiam_client_t *c = mgmt_unscoped_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_webauthn_policy_compliance_report(c, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_webauthn_policy_compliance_report(c, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     /*
@@ -4550,7 +4550,7 @@ static void test_audit_list_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_audit_log_entry_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_audit_list(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_audit_list(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4563,7 +4563,7 @@ static void test_audit_list_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_audit_list(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_audit_list(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4574,7 +4574,7 @@ static void test_audit_list_system_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_audit_log_entry_page_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_audit_list_system(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
+    axiam_error_kind_t rc = axiam_audit_list_system(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4587,7 +4587,7 @@ static void test_audit_list_system_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_audit_list_system(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &err);
+    axiam_error_kind_t rc = axiam_audit_list_system(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4597,7 +4597,7 @@ static void test_privacy_request_export_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_privacy_request_export(c, &err);
+    axiam_error_kind_t rc = axiam_privacy_request_export(c, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -4609,7 +4609,7 @@ static void test_privacy_download_export_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_privacy_download_export(c, "11111111-1111-4111-8111-111111111111", &err);
+    axiam_error_kind_t rc = axiam_privacy_download_export(c, "11111111-1111-4111-8111-111111111111", &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4621,7 +4621,7 @@ static void test_privacy_request_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_privacy_request_delete(c, &err);
+    axiam_error_kind_t rc = axiam_privacy_request_delete(c, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -4633,7 +4633,7 @@ static void test_privacy_cancel_delete_reaches_its_route(void) {
     mgmt_mount(204, NULL);
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_privacy_cancel_delete(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_privacy_cancel_delete(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4646,7 +4646,7 @@ static void test_platform_health_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_health_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_platform_health(c, &result, &err);
+    axiam_error_kind_t rc = axiam_platform_health(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4659,7 +4659,7 @@ static void test_platform_health_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"status\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_platform_health(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_platform_health(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4670,7 +4670,7 @@ static void test_platform_health_reaches_its_route_rejects_a_wrong_shaped_body(v
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_health_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_platform_health(c, &result, &err);
+    axiam_error_kind_t rc = axiam_platform_health(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4682,7 +4682,7 @@ static void test_platform_ready_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_ready_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_platform_ready(c, &result, &err);
+    axiam_error_kind_t rc = axiam_platform_ready(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4695,7 +4695,7 @@ static void test_platform_ready_reaches_its_route_discards_the_result(void) {
     mgmt_mount(200, "{\"database\": \"example\", \"status\": \"example\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_platform_ready(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_platform_ready(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4706,7 +4706,7 @@ static void test_platform_ready_reaches_its_route_rejects_a_wrong_shaped_body(vo
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_ready_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_platform_ready(c, &result, &err);
+    axiam_error_kind_t rc = axiam_platform_ready(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4718,7 +4718,7 @@ static void test_platform_mds_status_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_mds_status_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_platform_mds_status(c, &result, &err);
+    axiam_error_kind_t rc = axiam_platform_mds_status(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
@@ -4731,7 +4731,7 @@ static void test_platform_mds_status_reaches_its_route_discards_the_result(void)
     mgmt_mount(200, "{\"entry_count\": 1, \"last_refreshed_at\": \"2026-08-26T00:00:00Z\", \"next_update\": \"example\", \"no\": 1, \"stale\": true}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_platform_mds_status(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_platform_mds_status(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4742,7 +4742,7 @@ static void test_platform_mds_status_reaches_its_route_rejects_a_wrong_shaped_bo
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_mds_status_response_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_platform_mds_status(c, &result, &err);
+    axiam_error_kind_t rc = axiam_platform_mds_status(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);
@@ -4754,7 +4754,7 @@ static void test_platform_mds_refresh_reaches_its_route(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_mds_refresh_outcome_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_platform_mds_refresh(c, &result, &err);
+    axiam_error_kind_t rc = axiam_platform_mds_refresh(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
@@ -4767,7 +4767,7 @@ static void test_platform_mds_refresh_reaches_its_route_discards_the_result(void
     mgmt_mount(200, "{}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
-    axiam_error_kind_t rc = axiam_mgmt_platform_mds_refresh(c, NULL, &err);
+    axiam_error_kind_t rc = axiam_platform_mds_refresh(c, NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
@@ -4778,7 +4778,7 @@ static void test_platform_mds_refresh_reaches_its_route_rejects_a_wrong_shaped_b
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_mds_refresh_outcome_t *result = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_platform_mds_refresh(c, &result, &err);
+    axiam_error_kind_t rc = axiam_platform_mds_refresh(c, &result, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(result);

@@ -35,7 +35,7 @@ static void test_without_a_session_nothing_is_sent(void) {
     axiam_error_t err;
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_error_kind_t rc = axiam_mgmt_roles_get(c, UUID, &out, &err);
+    axiam_error_kind_t rc = axiam_roles_get(c, UUID, &out, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, rc);
     TEST_ASSERT_NULL(out);
@@ -53,7 +53,7 @@ static void test_org_id_is_implicit_from_the_client(void) {
     axiam_error_t err;
     axiam_mgmt_ca_certificate_page_t *page = NULL;
 
-    axiam_mgmt_ca_certificates_list(c, NULL, NULL, &page, &err);
+    axiam_ca_certificates_list(c, NULL, NULL, &page, &err);
 
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_path(), UUID));
     axiam_mgmt_ca_certificate_page_free(page);
@@ -67,7 +67,7 @@ static void test_a_scope_overrides_the_implicit_org_id(void) {
     axiam_mgmt_call_scope_t scope = { OTHER_ORG, NULL };
     axiam_mgmt_ca_certificate_page_t *page = NULL;
 
-    axiam_mgmt_ca_certificates_list(c, &scope, NULL, &page, &err);
+    axiam_ca_certificates_list(c, &scope, NULL, &page, &err);
 
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_path(), OTHER_ORG));
     axiam_mgmt_ca_certificate_page_free(page);
@@ -87,12 +87,12 @@ static void test_a_scope_does_not_leak_into_the_next_call(void) {
     axiam_mgmt_call_scope_t scope = { OTHER_ORG, NULL };
     axiam_mgmt_ca_certificate_page_t *page = NULL;
 
-    axiam_mgmt_ca_certificates_list(c, &scope, NULL, &page, &err);
+    axiam_ca_certificates_list(c, &scope, NULL, &page, &err);
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_path(), OTHER_ORG));
     axiam_mgmt_ca_certificate_page_free(page);
 
     page = NULL;
-    axiam_mgmt_ca_certificates_list(c, NULL, NULL, &page, &err);
+    axiam_ca_certificates_list(c, NULL, NULL, &page, &err);
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_path(), UUID));
     axiam_mgmt_ca_certificate_page_free(page);
     axiam_client_free(c);
@@ -108,7 +108,7 @@ static void test_page_total_is_not_the_item_count(void) {
     axiam_error_t err;
     axiam_mgmt_role_page_t *page = NULL;
 
-    axiam_mgmt_roles_list(c, NULL, &page, &err);
+    axiam_roles_list(c, NULL, &page, &err);
 
     TEST_ASSERT_NOT_NULL(page);
     TEST_ASSERT_EQUAL_INT(97, (int) page->total);
@@ -142,7 +142,7 @@ static void test_paging_reaches_the_query_string(void) {
     axiam_mgmt_page_req_t page_req = { 100, 25 };
     axiam_mgmt_role_page_t *page = NULL;
 
-    axiam_mgmt_roles_list(c, &page_req, &page, &err);
+    axiam_roles_list(c, &page_req, &page, &err);
 
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=100"));
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "limit=25"));
@@ -160,7 +160,7 @@ static void test_a_bare_array_is_a_list_not_a_page(void) {
     axiam_error_t err;
     axiam_mgmt_role_user_assignment_list_t *list = NULL;
 
-    axiam_error_kind_t rc = axiam_mgmt_roles_list_users(c, UUID, &list, &err);
+    axiam_error_kind_t rc = axiam_roles_list_users(c, UUID, &list, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_NOT_NULL(list);
@@ -180,7 +180,7 @@ static void test_a_sparse_update_sends_only_what_you_set(void) {
     body.name = (char *) "renamed";
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_mgmt_roles_update(c, UUID, &body, &out, &err);
+    axiam_roles_update(c, UUID, &body, &out, &err);
 
     TEST_ASSERT_EQUAL_STRING("{\"name\":\"renamed\"}", mgmt_last_body());
     axiam_mgmt_role_free(out);
@@ -202,7 +202,7 @@ static void test_an_optional_false_is_sent_not_swallowed(void) {
     body.has_is_global = 1;
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_mgmt_roles_update(c, UUID, &body, &out, &err);
+    axiam_roles_update(c, UUID, &body, &out, &err);
 
     TEST_ASSERT_EQUAL_STRING("{\"is_global\":false}", mgmt_last_body());
     axiam_mgmt_role_free(out);
@@ -217,7 +217,7 @@ static void test_an_empty_sparse_body_sends_nothing(void) {
     memset(&body, 0, sizeof body);
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_mgmt_roles_update(c, UUID, &body, &out, &err);
+    axiam_roles_update(c, UUID, &body, &out, &err);
 
     TEST_ASSERT_EQUAL_STRING("{}", mgmt_last_body());
     axiam_mgmt_role_free(out);
@@ -232,9 +232,9 @@ static void test_a_second_delete_is_not_found(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
 
-    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_mgmt_roles_delete(c, UUID, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_roles_delete(c, UUID, &err));
 
-    axiam_error_kind_t rc = axiam_mgmt_roles_delete(c, UUID, &err);
+    axiam_error_kind_t rc = axiam_roles_delete(c, UUID, &err);
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
     TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_NOT_FOUND, axiam_mgmt_error_class(&err));
     axiam_client_free(c);
@@ -260,7 +260,7 @@ static void test_every_classification_keeps_its_rule7_parent(void) {
         axiam_error_t err;
         axiam_mgmt_role_t *out = NULL;
 
-        axiam_error_kind_t rc = axiam_mgmt_roles_get(c, UUID, &out, &err);
+        axiam_error_kind_t rc = axiam_roles_get(c, UUID, &out, &err);
 
         TEST_ASSERT_EQUAL_INT(cases[i].kind, rc);
         TEST_ASSERT_EQUAL_INT(cases[i].cls, axiam_mgmt_error_class(&err));
@@ -276,7 +276,7 @@ static void test_an_unrelated_status_has_no_management_class(void) {
     axiam_error_t err;
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_error_kind_t rc = axiam_mgmt_roles_get(c, UUID, &out, &err);
+    axiam_error_kind_t rc = axiam_roles_get(c, UUID, &out, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
     TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_NONE, axiam_mgmt_error_class(&err));
@@ -306,7 +306,7 @@ static void test_a_failed_get_is_retried(void) {
     axiam_error_t err;
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_error_kind_t rc = axiam_mgmt_roles_get(c, UUID, &out, &err);
+    axiam_error_kind_t rc = axiam_roles_get(c, UUID, &out, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_INT(3, mgmt_request_count());  /* login + two GET attempts */
@@ -322,7 +322,7 @@ static void test_a_failed_write_is_not_retried(void) {
     memset(&body, 0, sizeof body);
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_mgmt_roles_update(c, UUID, &body, &out, &err);
+    axiam_roles_update(c, UUID, &body, &out, &err);
 
     TEST_ASSERT_EQUAL_INT(2, mgmt_request_count());  /* login + exactly one attempt */
     axiam_client_free(c);
@@ -336,7 +336,7 @@ static void test_a_rejected_get_is_not_retried(void) {
     axiam_error_t err;
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_mgmt_roles_get(c, UUID, &out, &err);
+    axiam_roles_get(c, UUID, &out, &err);
 
     TEST_ASSERT_EQUAL_INT(2, mgmt_request_count());
     axiam_client_free(c);
@@ -351,8 +351,8 @@ static void test_the_same_read_twice_is_two_wire_calls(void) {
     axiam_error_t err;
     axiam_mgmt_role_t *a = NULL, *b = NULL;
 
-    axiam_mgmt_roles_get(c, UUID, &a, &err);
-    axiam_mgmt_roles_get(c, UUID, &b, &err);
+    axiam_roles_get(c, UUID, &a, &err);
+    axiam_roles_get(c, UUID, &b, &err);
 
     TEST_ASSERT_EQUAL_INT(3, mgmt_request_count());
     axiam_mgmt_role_free(a);
@@ -375,7 +375,7 @@ static void test_a_secret_reaches_the_wire_unredacted(void) {
     body.password = axiam_sensitive_new("hunter2");
     axiam_mgmt_user_response_t *out = NULL;
 
-    axiam_mgmt_users_create(c, &body, &out, &err);
+    axiam_users_create(c, &body, &out, &err);
 
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_body(), "hunter2"));
     TEST_ASSERT_NULL(strstr(mgmt_last_body(), "[SENSITIVE]"));
@@ -402,7 +402,7 @@ static void test_a_non_json_body_is_a_network_error(void) {
     axiam_error_t err;
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_error_kind_t rc = axiam_mgmt_roles_get(c, UUID, &out, &err);
+    axiam_error_kind_t rc = axiam_roles_get(c, UUID, &out, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
     TEST_ASSERT_NULL(out);
@@ -417,7 +417,7 @@ static void test_a_path_parameter_is_url_encoded(void) {
     axiam_error_t err;
     axiam_mgmt_role_t *out = NULL;
 
-    axiam_mgmt_roles_get(c, "a/b", &out, &err);
+    axiam_roles_get(c, "a/b", &out, &err);
 
     TEST_ASSERT_NULL(strstr(mgmt_last_path(), "roles/a/b"));
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_path(), "a%2Fb"));

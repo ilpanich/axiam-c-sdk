@@ -245,7 +245,7 @@ cJSON *axiam_mgmt_webauthn_attestation_policy_build(const axiam_mgmt_webauthn_at
 axiam_mgmt_webhook_response_t *axiam_mgmt_webhook_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_webhook_response_build(const axiam_mgmt_webhook_response_t *value);
 
-axiam_error_kind_t axiam_mgmt_organizations_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_organization_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_organizations_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_organization_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/organizations", NULL, NULL, 0);
     if (!path) {
@@ -290,7 +290,7 @@ axiam_error_kind_t axiam_mgmt_organizations_list(axiam_client_t *c, const axiam_
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_organizations_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_organization_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_organizations_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_organization_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -325,7 +325,7 @@ axiam_error_kind_t axiam_mgmt_organizations_get(axiam_client_t *c, const axiam_m
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_organizations_update(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_update_organization_request_t *body, axiam_mgmt_organization_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_organizations_update(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_update_organization_request_t *body, axiam_mgmt_organization_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -360,7 +360,7 @@ axiam_error_kind_t axiam_mgmt_organizations_update(axiam_client_t *c, const axia
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_tenants_list(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_tenant_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_tenants_list(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_tenant_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -414,7 +414,7 @@ axiam_error_kind_t axiam_mgmt_tenants_list(axiam_client_t *c, const axiam_mgmt_c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_tenants_create(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_create_tenant_request_t *body, axiam_mgmt_tenant_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_tenants_create(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_create_tenant_request_t *body, axiam_mgmt_tenant_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -449,7 +449,7 @@ axiam_error_kind_t axiam_mgmt_tenants_create(axiam_client_t *c, const axiam_mgmt
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_tenants_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, axiam_mgmt_tenant_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_tenants_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, axiam_mgmt_tenant_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -486,7 +486,7 @@ axiam_error_kind_t axiam_mgmt_tenants_get(axiam_client_t *c, const axiam_mgmt_ca
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_tenants_update(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_update_tenant_t *body, axiam_mgmt_tenant_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_tenants_update(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_update_tenant_t *body, axiam_mgmt_tenant_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -523,7 +523,7 @@ axiam_error_kind_t axiam_mgmt_tenants_update(axiam_client_t *c, const axiam_mgmt
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_tenants_delete(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_tenants_delete(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, axiam_error_t *err) {
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "org_id";
@@ -552,7 +552,7 @@ axiam_error_kind_t axiam_mgmt_tenants_delete(axiam_client_t *c, const axiam_mgmt
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/users", NULL, NULL, 0);
     if (!path) {
@@ -597,7 +597,7 @@ axiam_error_kind_t axiam_mgmt_users_list(axiam_client_t *c, const axiam_mgmt_pag
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_create(axiam_client_t *c, const axiam_mgmt_create_user_request_t *body, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_create(axiam_client_t *c, const axiam_mgmt_create_user_request_t *body, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/users", NULL, NULL, 0);
     if (!path) {
@@ -623,7 +623,7 @@ axiam_error_kind_t axiam_mgmt_users_create(axiam_client_t *c, const axiam_mgmt_c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_get(axiam_client_t *c, const char *user_id, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_get(axiam_client_t *c, const char *user_id, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -653,7 +653,7 @@ axiam_error_kind_t axiam_mgmt_users_get(axiam_client_t *c, const char *user_id, 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_update(axiam_client_t *c, const char *user_id, const axiam_mgmt_update_user_request_t *body, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_update(axiam_client_t *c, const char *user_id, const axiam_mgmt_update_user_request_t *body, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -683,7 +683,7 @@ axiam_error_kind_t axiam_mgmt_users_update(axiam_client_t *c, const char *user_i
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_delete(axiam_client_t *c, const char *user_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_delete(axiam_client_t *c, const char *user_id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "user_id";
@@ -705,7 +705,7 @@ axiam_error_kind_t axiam_mgmt_users_delete(axiam_client_t *c, const char *user_i
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_list_mfa_methods(axiam_client_t *c, const char *user_id, axiam_mgmt_mfa_method_response_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_list_mfa_methods(axiam_client_t *c, const char *user_id, axiam_mgmt_mfa_method_response_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -740,7 +740,7 @@ axiam_error_kind_t axiam_mgmt_users_list_mfa_methods(axiam_client_t *c, const ch
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_delete_mfa_method(axiam_client_t *c, const char *user_id, const char *method_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_delete_mfa_method(axiam_client_t *c, const char *user_id, const char *method_id, axiam_error_t *err) {
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "user_id";
@@ -764,7 +764,7 @@ axiam_error_kind_t axiam_mgmt_users_delete_mfa_method(axiam_client_t *c, const c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_reset_mfa(axiam_client_t *c, const char *user_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_reset_mfa(axiam_client_t *c, const char *user_id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "user_id";
@@ -786,7 +786,7 @@ axiam_error_kind_t axiam_mgmt_users_reset_mfa(axiam_client_t *c, const char *use
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_unlock(axiam_client_t *c, const char *user_id, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_unlock(axiam_client_t *c, const char *user_id, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -816,7 +816,7 @@ axiam_error_kind_t axiam_mgmt_users_unlock(axiam_client_t *c, const char *user_i
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_users_list_roles(axiam_client_t *c, const char *user_id, axiam_mgmt_role_assignment_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_users_list_roles(axiam_client_t *c, const char *user_id, axiam_mgmt_role_assignment_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -851,7 +851,7 @@ axiam_error_kind_t axiam_mgmt_users_list_roles(axiam_client_t *c, const char *us
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_group_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_group_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/groups", NULL, NULL, 0);
     if (!path) {
@@ -896,7 +896,7 @@ axiam_error_kind_t axiam_mgmt_groups_list(axiam_client_t *c, const axiam_mgmt_pa
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_create(axiam_client_t *c, const axiam_mgmt_create_group_request_t *body, axiam_mgmt_group_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_create(axiam_client_t *c, const axiam_mgmt_create_group_request_t *body, axiam_mgmt_group_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/groups", NULL, NULL, 0);
     if (!path) {
@@ -922,7 +922,7 @@ axiam_error_kind_t axiam_mgmt_groups_create(axiam_client_t *c, const axiam_mgmt_
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_get(axiam_client_t *c, const char *group_id, axiam_mgmt_group_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_get(axiam_client_t *c, const char *group_id, axiam_mgmt_group_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -952,7 +952,7 @@ axiam_error_kind_t axiam_mgmt_groups_get(axiam_client_t *c, const char *group_id
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_update(axiam_client_t *c, const char *group_id, const axiam_mgmt_update_group_t *body, axiam_mgmt_group_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_update(axiam_client_t *c, const char *group_id, const axiam_mgmt_update_group_t *body, axiam_mgmt_group_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -982,7 +982,7 @@ axiam_error_kind_t axiam_mgmt_groups_update(axiam_client_t *c, const char *group
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_delete(axiam_client_t *c, const char *group_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_delete(axiam_client_t *c, const char *group_id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "group_id";
@@ -1004,7 +1004,7 @@ axiam_error_kind_t axiam_mgmt_groups_delete(axiam_client_t *c, const char *group
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_list_members(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_list_members(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1053,7 +1053,7 @@ axiam_error_kind_t axiam_mgmt_groups_list_members(axiam_client_t *c, const char 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_add_member(axiam_client_t *c, const char *group_id, const axiam_mgmt_add_member_request_t *body, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_add_member(axiam_client_t *c, const char *group_id, const axiam_mgmt_add_member_request_t *body, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "group_id";
@@ -1075,7 +1075,7 @@ axiam_error_kind_t axiam_mgmt_groups_add_member(axiam_client_t *c, const char *g
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_remove_member(axiam_client_t *c, const char *group_id, const char *user_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_remove_member(axiam_client_t *c, const char *group_id, const char *user_id, axiam_error_t *err) {
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "group_id";
@@ -1099,7 +1099,7 @@ axiam_error_kind_t axiam_mgmt_groups_remove_member(axiam_client_t *c, const char
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_groups_list_roles(axiam_client_t *c, const char *group_id, axiam_mgmt_role_assignment_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_groups_list_roles(axiam_client_t *c, const char *group_id, axiam_mgmt_role_assignment_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1134,7 +1134,7 @@ axiam_error_kind_t axiam_mgmt_groups_list_roles(axiam_client_t *c, const char *g
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_role_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_role_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/roles", NULL, NULL, 0);
     if (!path) {
@@ -1179,7 +1179,7 @@ axiam_error_kind_t axiam_mgmt_roles_list(axiam_client_t *c, const axiam_mgmt_pag
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_create(axiam_client_t *c, const axiam_mgmt_create_role_request_t *body, axiam_mgmt_role_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_create(axiam_client_t *c, const axiam_mgmt_create_role_request_t *body, axiam_mgmt_role_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/roles", NULL, NULL, 0);
     if (!path) {
@@ -1205,7 +1205,7 @@ axiam_error_kind_t axiam_mgmt_roles_create(axiam_client_t *c, const axiam_mgmt_c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_get(axiam_client_t *c, const char *role_id, axiam_mgmt_role_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_get(axiam_client_t *c, const char *role_id, axiam_mgmt_role_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1235,7 +1235,7 @@ axiam_error_kind_t axiam_mgmt_roles_get(axiam_client_t *c, const char *role_id, 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_update(axiam_client_t *c, const char *role_id, const axiam_mgmt_update_role_t *body, axiam_mgmt_role_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_update(axiam_client_t *c, const char *role_id, const axiam_mgmt_update_role_t *body, axiam_mgmt_role_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1265,7 +1265,7 @@ axiam_error_kind_t axiam_mgmt_roles_update(axiam_client_t *c, const char *role_i
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_delete(axiam_client_t *c, const char *role_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_delete(axiam_client_t *c, const char *role_id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "role_id";
@@ -1287,7 +1287,7 @@ axiam_error_kind_t axiam_mgmt_roles_delete(axiam_client_t *c, const char *role_i
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_list_users(axiam_client_t *c, const char *role_id, axiam_mgmt_role_user_assignment_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_list_users(axiam_client_t *c, const char *role_id, axiam_mgmt_role_user_assignment_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1322,7 +1322,7 @@ axiam_error_kind_t axiam_mgmt_roles_list_users(axiam_client_t *c, const char *ro
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_assign_to_user(axiam_client_t *c, const char *role_id, const axiam_mgmt_assign_role_to_user_request_t *body, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_assign_to_user(axiam_client_t *c, const char *role_id, const axiam_mgmt_assign_role_to_user_request_t *body, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "role_id";
@@ -1344,7 +1344,7 @@ axiam_error_kind_t axiam_mgmt_roles_assign_to_user(axiam_client_t *c, const char
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_unassign_from_user(axiam_client_t *c, const char *role_id, const char *user_id, const char *resource_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_unassign_from_user(axiam_client_t *c, const char *role_id, const char *user_id, const char *resource_id, axiam_error_t *err) {
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "role_id";
@@ -1376,7 +1376,7 @@ axiam_error_kind_t axiam_mgmt_roles_unassign_from_user(axiam_client_t *c, const 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_list_groups(axiam_client_t *c, const char *role_id, axiam_mgmt_role_group_assignment_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_list_groups(axiam_client_t *c, const char *role_id, axiam_mgmt_role_group_assignment_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1411,7 +1411,7 @@ axiam_error_kind_t axiam_mgmt_roles_list_groups(axiam_client_t *c, const char *r
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_assign_to_group(axiam_client_t *c, const char *role_id, const axiam_mgmt_assign_role_to_group_request_t *body, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_assign_to_group(axiam_client_t *c, const char *role_id, const axiam_mgmt_assign_role_to_group_request_t *body, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "role_id";
@@ -1433,7 +1433,7 @@ axiam_error_kind_t axiam_mgmt_roles_assign_to_group(axiam_client_t *c, const cha
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_unassign_from_group(axiam_client_t *c, const char *role_id, const char *group_id, const char *resource_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_unassign_from_group(axiam_client_t *c, const char *role_id, const char *group_id, const char *resource_id, axiam_error_t *err) {
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "role_id";
@@ -1465,7 +1465,7 @@ axiam_error_kind_t axiam_mgmt_roles_unassign_from_group(axiam_client_t *c, const
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_list_permissions(axiam_client_t *c, const char *role_id, axiam_mgmt_resolved_permission_grant_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_list_permissions(axiam_client_t *c, const char *role_id, axiam_mgmt_resolved_permission_grant_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1500,7 +1500,7 @@ axiam_error_kind_t axiam_mgmt_roles_list_permissions(axiam_client_t *c, const ch
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_grant_permission(axiam_client_t *c, const char *role_id, const axiam_mgmt_grant_permission_request_t *body, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_grant_permission(axiam_client_t *c, const char *role_id, const axiam_mgmt_grant_permission_request_t *body, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "role_id";
@@ -1522,7 +1522,7 @@ axiam_error_kind_t axiam_mgmt_roles_grant_permission(axiam_client_t *c, const ch
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_roles_revoke_permission(axiam_client_t *c, const char *role_id, const char *permission_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_roles_revoke_permission(axiam_client_t *c, const char *role_id, const char *permission_id, axiam_error_t *err) {
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "role_id";
@@ -1546,7 +1546,7 @@ axiam_error_kind_t axiam_mgmt_roles_revoke_permission(axiam_client_t *c, const c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_permissions_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_permission_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_permissions_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_permission_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/permissions", NULL, NULL, 0);
     if (!path) {
@@ -1591,7 +1591,7 @@ axiam_error_kind_t axiam_mgmt_permissions_list(axiam_client_t *c, const axiam_mg
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_permissions_create(axiam_client_t *c, const axiam_mgmt_create_permission_request_t *body, axiam_mgmt_permission_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_permissions_create(axiam_client_t *c, const axiam_mgmt_create_permission_request_t *body, axiam_mgmt_permission_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/permissions", NULL, NULL, 0);
     if (!path) {
@@ -1617,7 +1617,7 @@ axiam_error_kind_t axiam_mgmt_permissions_create(axiam_client_t *c, const axiam_
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_permissions_get(axiam_client_t *c, const char *permission_id, axiam_mgmt_permission_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_permissions_get(axiam_client_t *c, const char *permission_id, axiam_mgmt_permission_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1647,7 +1647,7 @@ axiam_error_kind_t axiam_mgmt_permissions_get(axiam_client_t *c, const char *per
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_permissions_update(axiam_client_t *c, const char *permission_id, const axiam_mgmt_update_permission_request_t *body, axiam_mgmt_permission_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_permissions_update(axiam_client_t *c, const char *permission_id, const axiam_mgmt_update_permission_request_t *body, axiam_mgmt_permission_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1677,7 +1677,7 @@ axiam_error_kind_t axiam_mgmt_permissions_update(axiam_client_t *c, const char *
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_permissions_delete(axiam_client_t *c, const char *permission_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_permissions_delete(axiam_client_t *c, const char *permission_id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "permission_id";
@@ -1699,7 +1699,7 @@ axiam_error_kind_t axiam_mgmt_permissions_delete(axiam_client_t *c, const char *
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_resources_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_resource_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_resources_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_resource_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/resources", NULL, NULL, 0);
     if (!path) {
@@ -1744,7 +1744,7 @@ axiam_error_kind_t axiam_mgmt_resources_list(axiam_client_t *c, const axiam_mgmt
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_resources_create(axiam_client_t *c, const axiam_mgmt_create_resource_request_t *body, axiam_mgmt_resource_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_resources_create(axiam_client_t *c, const axiam_mgmt_create_resource_request_t *body, axiam_mgmt_resource_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/resources", NULL, NULL, 0);
     if (!path) {
@@ -1770,7 +1770,7 @@ axiam_error_kind_t axiam_mgmt_resources_create(axiam_client_t *c, const axiam_mg
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_resources_get(axiam_client_t *c, const char *resource_id, axiam_mgmt_resource_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_resources_get(axiam_client_t *c, const char *resource_id, axiam_mgmt_resource_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1800,7 +1800,7 @@ axiam_error_kind_t axiam_mgmt_resources_get(axiam_client_t *c, const char *resou
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_resources_update(axiam_client_t *c, const char *resource_id, const axiam_mgmt_update_resource_request_t *body, axiam_mgmt_resource_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_resources_update(axiam_client_t *c, const char *resource_id, const axiam_mgmt_update_resource_request_t *body, axiam_mgmt_resource_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1830,7 +1830,7 @@ axiam_error_kind_t axiam_mgmt_resources_update(axiam_client_t *c, const char *re
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_resources_delete(axiam_client_t *c, const char *resource_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_resources_delete(axiam_client_t *c, const char *resource_id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "resource_id";
@@ -1852,7 +1852,7 @@ axiam_error_kind_t axiam_mgmt_resources_delete(axiam_client_t *c, const char *re
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_resources_list_children(axiam_client_t *c, const char *resource_id, axiam_mgmt_resource_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_resources_list_children(axiam_client_t *c, const char *resource_id, axiam_mgmt_resource_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1887,7 +1887,7 @@ axiam_error_kind_t axiam_mgmt_resources_list_children(axiam_client_t *c, const c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_resources_list_ancestors(axiam_client_t *c, const char *resource_id, axiam_mgmt_resource_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_resources_list_ancestors(axiam_client_t *c, const char *resource_id, axiam_mgmt_resource_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1922,7 +1922,7 @@ axiam_error_kind_t axiam_mgmt_resources_list_ancestors(axiam_client_t *c, const 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_scopes_list(axiam_client_t *c, const char *resource_id, axiam_mgmt_scope_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_scopes_list(axiam_client_t *c, const char *resource_id, axiam_mgmt_scope_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1957,7 +1957,7 @@ axiam_error_kind_t axiam_mgmt_scopes_list(axiam_client_t *c, const char *resourc
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_scopes_create(axiam_client_t *c, const char *resource_id, const axiam_mgmt_create_scope_request_t *body, axiam_mgmt_scope_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_scopes_create(axiam_client_t *c, const char *resource_id, const axiam_mgmt_create_scope_request_t *body, axiam_mgmt_scope_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -1987,7 +1987,7 @@ axiam_error_kind_t axiam_mgmt_scopes_create(axiam_client_t *c, const char *resou
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_scopes_get(axiam_client_t *c, const char *resource_id, const char *scope_id, axiam_mgmt_scope_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_scopes_get(axiam_client_t *c, const char *resource_id, const char *scope_id, axiam_mgmt_scope_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -2019,7 +2019,7 @@ axiam_error_kind_t axiam_mgmt_scopes_get(axiam_client_t *c, const char *resource
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_scopes_update(axiam_client_t *c, const char *resource_id, const char *scope_id, const axiam_mgmt_update_scope_request_t *body, axiam_mgmt_scope_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_scopes_update(axiam_client_t *c, const char *resource_id, const char *scope_id, const axiam_mgmt_update_scope_request_t *body, axiam_mgmt_scope_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -2051,7 +2051,7 @@ axiam_error_kind_t axiam_mgmt_scopes_update(axiam_client_t *c, const char *resou
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_scopes_delete(axiam_client_t *c, const char *resource_id, const char *scope_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_scopes_delete(axiam_client_t *c, const char *resource_id, const char *scope_id, axiam_error_t *err) {
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "resource_id";
@@ -2075,7 +2075,7 @@ axiam_error_kind_t axiam_mgmt_scopes_delete(axiam_client_t *c, const char *resou
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_service_accounts_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_service_accounts_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/service-accounts", NULL, NULL, 0);
     if (!path) {
@@ -2120,7 +2120,7 @@ axiam_error_kind_t axiam_mgmt_service_accounts_list(axiam_client_t *c, const axi
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_service_accounts_create(axiam_client_t *c, const axiam_mgmt_create_service_account_request_t *body, axiam_mgmt_service_account_created_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_service_accounts_create(axiam_client_t *c, const axiam_mgmt_create_service_account_request_t *body, axiam_mgmt_service_account_created_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/service-accounts", NULL, NULL, 0);
     if (!path) {
@@ -2146,7 +2146,7 @@ axiam_error_kind_t axiam_mgmt_service_accounts_create(axiam_client_t *c, const a
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_service_accounts_get(axiam_client_t *c, const char *sa_id, axiam_mgmt_service_account_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_service_accounts_get(axiam_client_t *c, const char *sa_id, axiam_mgmt_service_account_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2176,7 +2176,7 @@ axiam_error_kind_t axiam_mgmt_service_accounts_get(axiam_client_t *c, const char
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_service_accounts_update(axiam_client_t *c, const char *sa_id, const axiam_mgmt_update_service_account_t *body, axiam_mgmt_service_account_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_service_accounts_update(axiam_client_t *c, const char *sa_id, const axiam_mgmt_update_service_account_t *body, axiam_mgmt_service_account_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2206,7 +2206,7 @@ axiam_error_kind_t axiam_mgmt_service_accounts_update(axiam_client_t *c, const c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_service_accounts_delete(axiam_client_t *c, const char *sa_id, axiam_error_t *err) {
+axiam_error_kind_t axiam_service_accounts_delete(axiam_client_t *c, const char *sa_id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "sa_id";
@@ -2228,7 +2228,7 @@ axiam_error_kind_t axiam_mgmt_service_accounts_delete(axiam_client_t *c, const c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_service_accounts_rotate_secret(axiam_client_t *c, const char *sa_id, axiam_mgmt_rotate_secret_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_service_accounts_rotate_secret(axiam_client_t *c, const char *sa_id, axiam_mgmt_rotate_secret_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2258,7 +2258,7 @@ axiam_error_kind_t axiam_mgmt_service_accounts_rotate_secret(axiam_client_t *c, 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_service_accounts_bind_certificate(axiam_client_t *c, const char *sa_id, const axiam_mgmt_bind_certificate_t *body, axiam_error_t *err) {
+axiam_error_kind_t axiam_service_accounts_bind_certificate(axiam_client_t *c, const char *sa_id, const axiam_mgmt_bind_certificate_t *body, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "sa_id";
@@ -2280,7 +2280,7 @@ axiam_error_kind_t axiam_mgmt_service_accounts_bind_certificate(axiam_client_t *
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_certificates_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_certificate_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_certificates_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_certificate_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/certificates", NULL, NULL, 0);
     if (!path) {
@@ -2325,7 +2325,7 @@ axiam_error_kind_t axiam_mgmt_certificates_list(axiam_client_t *c, const axiam_m
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_certificates_generate(axiam_client_t *c, const axiam_mgmt_create_certificate_request_t *body, axiam_mgmt_generated_certificate_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_certificates_generate(axiam_client_t *c, const axiam_mgmt_create_certificate_request_t *body, axiam_mgmt_generated_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/certificates", NULL, NULL, 0);
     if (!path) {
@@ -2351,7 +2351,7 @@ axiam_error_kind_t axiam_mgmt_certificates_generate(axiam_client_t *c, const axi
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_certificates_get(axiam_client_t *c, const char *id, axiam_mgmt_certificate_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_certificates_get(axiam_client_t *c, const char *id, axiam_mgmt_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2381,7 +2381,7 @@ axiam_error_kind_t axiam_mgmt_certificates_get(axiam_client_t *c, const char *id
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_certificates_revoke(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_certificates_revoke(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -2403,7 +2403,7 @@ axiam_error_kind_t axiam_mgmt_certificates_revoke(axiam_client_t *c, const char 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_list(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_list(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2457,7 +2457,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_list(axiam_client_t *c, const axia
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_generate(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_create_ca_certificate_request_t *body, axiam_mgmt_generated_ca_certificate_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_generate(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_create_ca_certificate_request_t *body, axiam_mgmt_generated_ca_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2492,7 +2492,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_generate(axiam_client_t *c, const 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_import_ca(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_import_ca_certificate_request_t *body, axiam_mgmt_ca_certificate_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_import_ca(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_import_ca_certificate_request_t *body, axiam_mgmt_ca_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2527,7 +2527,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_import_ca(axiam_client_t *c, const
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *id, axiam_mgmt_ca_certificate_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *id, axiam_mgmt_ca_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -2564,7 +2564,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_get(axiam_client_t *c, const axiam
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_revoke(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_revoke(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *id, axiam_error_t *err) {
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "org_id";
@@ -2593,7 +2593,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_revoke(axiam_client_t *c, const ax
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_migrate_custody(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *id, axiam_mgmt_migrate_custody_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_migrate_custody(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *id, axiam_mgmt_migrate_custody_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -2630,7 +2630,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_migrate_custody(axiam_client_t *c,
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_set_mtls_trust_anchor(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *id, const axiam_mgmt_set_mtls_trust_anchor_t *body, axiam_mgmt_mtls_trust_anchor_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_set_mtls_trust_anchor(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *id, const axiam_mgmt_set_mtls_trust_anchor_t *body, axiam_mgmt_mtls_trust_anchor_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -2667,7 +2667,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_set_mtls_trust_anchor(axiam_client
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_list_signing_cas(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_list_signing_cas(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -2723,7 +2723,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_list_signing_cas(axiam_client_t *c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_generate_signing_ca(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_create_intermediate_ca_request_t *body, axiam_mgmt_generated_ca_certificate_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_generate_signing_ca(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_create_intermediate_ca_request_t *body, axiam_mgmt_generated_ca_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -2760,7 +2760,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_generate_signing_ca(axiam_client_t
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_ca_certificates_sign_signing_ca_csr(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_sign_intermediate_csr_request_t *body, axiam_mgmt_ca_certificate_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_ca_certificates_sign_signing_ca_csr(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_sign_intermediate_csr_request_t *body, axiam_mgmt_ca_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
     const char *path_values[2];
@@ -2797,7 +2797,7 @@ axiam_error_kind_t axiam_mgmt_ca_certificates_sign_signing_ca_csr(axiam_client_t
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_pgp_keys_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_pgp_key_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_pgp_keys_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_pgp_key_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/pgp-keys", NULL, NULL, 0);
     if (!path) {
@@ -2842,7 +2842,7 @@ axiam_error_kind_t axiam_mgmt_pgp_keys_list(axiam_client_t *c, const axiam_mgmt_
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_pgp_keys_generate(axiam_client_t *c, const axiam_mgmt_create_pgp_key_request_t *body, axiam_mgmt_generated_pgp_key_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_pgp_keys_generate(axiam_client_t *c, const axiam_mgmt_create_pgp_key_request_t *body, axiam_mgmt_generated_pgp_key_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/pgp-keys", NULL, NULL, 0);
     if (!path) {
@@ -2868,7 +2868,7 @@ axiam_error_kind_t axiam_mgmt_pgp_keys_generate(axiam_client_t *c, const axiam_m
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_pgp_keys_get(axiam_client_t *c, const char *id, axiam_mgmt_pgp_key_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_pgp_keys_get(axiam_client_t *c, const char *id, axiam_mgmt_pgp_key_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2898,7 +2898,7 @@ axiam_error_kind_t axiam_mgmt_pgp_keys_get(axiam_client_t *c, const char *id, ax
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_pgp_keys_revoke(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_pgp_keys_revoke(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -2920,7 +2920,7 @@ axiam_error_kind_t axiam_mgmt_pgp_keys_revoke(axiam_client_t *c, const char *id,
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_pgp_keys_encrypt(axiam_client_t *c, const char *id, const axiam_mgmt_encrypt_request_t *body, axiam_mgmt_encrypted_export_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_pgp_keys_encrypt(axiam_client_t *c, const char *id, const axiam_mgmt_encrypt_request_t *body, axiam_mgmt_encrypted_export_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -2950,7 +2950,7 @@ axiam_error_kind_t axiam_mgmt_pgp_keys_encrypt(axiam_client_t *c, const char *id
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_pgp_keys_sign_audit_batch(axiam_client_t *c, const axiam_mgmt_sign_audit_batch_request_t *body, axiam_mgmt_signed_audit_batch_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_pgp_keys_sign_audit_batch(axiam_client_t *c, const axiam_mgmt_sign_audit_batch_request_t *body, axiam_mgmt_signed_audit_batch_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/pgp-keys/sign-audit-batch", NULL, NULL, 0);
     if (!path) {
@@ -2976,7 +2976,7 @@ axiam_error_kind_t axiam_mgmt_pgp_keys_sign_audit_batch(axiam_client_t *c, const
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_webhooks_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_webhook_response_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_webhooks_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_webhook_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/webhooks", NULL, NULL, 0);
     if (!path) {
@@ -3021,7 +3021,7 @@ axiam_error_kind_t axiam_mgmt_webhooks_list(axiam_client_t *c, const axiam_mgmt_
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_webhooks_create(axiam_client_t *c, const axiam_mgmt_create_webhook_request_t *body, axiam_mgmt_webhook_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_webhooks_create(axiam_client_t *c, const axiam_mgmt_create_webhook_request_t *body, axiam_mgmt_webhook_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/webhooks", NULL, NULL, 0);
     if (!path) {
@@ -3047,7 +3047,7 @@ axiam_error_kind_t axiam_mgmt_webhooks_create(axiam_client_t *c, const axiam_mgm
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_webhooks_get(axiam_client_t *c, const char *id, axiam_mgmt_webhook_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_webhooks_get(axiam_client_t *c, const char *id, axiam_mgmt_webhook_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3077,7 +3077,7 @@ axiam_error_kind_t axiam_mgmt_webhooks_get(axiam_client_t *c, const char *id, ax
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_webhooks_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_webhook_request_t *body, axiam_mgmt_webhook_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_webhooks_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_webhook_request_t *body, axiam_mgmt_webhook_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3107,7 +3107,7 @@ axiam_error_kind_t axiam_mgmt_webhooks_update(axiam_client_t *c, const char *id,
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_webhooks_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_webhooks_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -3129,7 +3129,7 @@ axiam_error_kind_t axiam_mgmt_webhooks_delete(axiam_client_t *c, const char *id,
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_oauth2_clients_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_o_auth2_client_response_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_oauth2_clients_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_o_auth2_client_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/oauth2-clients", NULL, NULL, 0);
     if (!path) {
@@ -3174,7 +3174,7 @@ axiam_error_kind_t axiam_mgmt_oauth2_clients_list(axiam_client_t *c, const axiam
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_oauth2_clients_create(axiam_client_t *c, const axiam_mgmt_create_o_auth2_client_request_t *body, axiam_mgmt_o_auth2_client_created_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_oauth2_clients_create(axiam_client_t *c, const axiam_mgmt_create_o_auth2_client_request_t *body, axiam_mgmt_o_auth2_client_created_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/oauth2-clients", NULL, NULL, 0);
     if (!path) {
@@ -3200,7 +3200,7 @@ axiam_error_kind_t axiam_mgmt_oauth2_clients_create(axiam_client_t *c, const axi
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_oauth2_clients_get(axiam_client_t *c, const char *id, axiam_mgmt_o_auth2_client_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_oauth2_clients_get(axiam_client_t *c, const char *id, axiam_mgmt_o_auth2_client_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3230,7 +3230,7 @@ axiam_error_kind_t axiam_mgmt_oauth2_clients_get(axiam_client_t *c, const char *
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_oauth2_clients_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_o_auth2_client_request_t *body, axiam_mgmt_o_auth2_client_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_oauth2_clients_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_o_auth2_client_request_t *body, axiam_mgmt_o_auth2_client_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3260,7 +3260,7 @@ axiam_error_kind_t axiam_mgmt_oauth2_clients_update(axiam_client_t *c, const cha
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_oauth2_clients_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_oauth2_clients_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -3282,7 +3282,7 @@ axiam_error_kind_t axiam_mgmt_oauth2_clients_delete(axiam_client_t *c, const cha
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_list_configs(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_federation_config_response_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_list_configs(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_federation_config_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/federation-configs", NULL, NULL, 0);
     if (!path) {
@@ -3327,7 +3327,7 @@ axiam_error_kind_t axiam_mgmt_federation_list_configs(axiam_client_t *c, const a
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_create_config(axiam_client_t *c, const axiam_mgmt_create_federation_config_request_t *body, axiam_mgmt_federation_config_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_create_config(axiam_client_t *c, const axiam_mgmt_create_federation_config_request_t *body, axiam_mgmt_federation_config_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/federation-configs", NULL, NULL, 0);
     if (!path) {
@@ -3353,7 +3353,7 @@ axiam_error_kind_t axiam_mgmt_federation_create_config(axiam_client_t *c, const 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_get_config(axiam_client_t *c, const char *id, axiam_mgmt_federation_config_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_get_config(axiam_client_t *c, const char *id, axiam_mgmt_federation_config_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3383,7 +3383,7 @@ axiam_error_kind_t axiam_mgmt_federation_get_config(axiam_client_t *c, const cha
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_update_config(axiam_client_t *c, const char *id, const axiam_mgmt_update_federation_config_request_t *body, axiam_mgmt_federation_config_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_update_config(axiam_client_t *c, const char *id, const axiam_mgmt_update_federation_config_request_t *body, axiam_mgmt_federation_config_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3413,7 +3413,7 @@ axiam_error_kind_t axiam_mgmt_federation_update_config(axiam_client_t *c, const 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_delete_config(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_delete_config(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -3435,7 +3435,7 @@ axiam_error_kind_t axiam_mgmt_federation_delete_config(axiam_client_t *c, const 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_list_user_links(axiam_client_t *c, const char *user_id, axiam_mgmt_federation_link_response_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_list_user_links(axiam_client_t *c, const char *user_id, axiam_mgmt_federation_link_response_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3470,7 +3470,7 @@ axiam_error_kind_t axiam_mgmt_federation_list_user_links(axiam_client_t *c, cons
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_delete_link(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_delete_link(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -3492,7 +3492,7 @@ axiam_error_kind_t axiam_mgmt_federation_delete_link(axiam_client_t *c, const ch
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_oidc_authorize(axiam_client_t *c, const axiam_mgmt_oidc_authorize_request_t *body, axiam_mgmt_oidc_authorize_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_oidc_authorize(axiam_client_t *c, const axiam_mgmt_oidc_authorize_request_t *body, axiam_mgmt_oidc_authorize_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/federation/oidc/authorize", NULL, NULL, 0);
     if (!path) {
@@ -3518,7 +3518,7 @@ axiam_error_kind_t axiam_mgmt_federation_oidc_authorize(axiam_client_t *c, const
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_federation_oidc_callback(axiam_client_t *c, const axiam_mgmt_oidc_callback_request_t *body, axiam_mgmt_oidc_callback_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_federation_oidc_callback(axiam_client_t *c, const axiam_mgmt_oidc_callback_request_t *body, axiam_mgmt_oidc_callback_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/federation/oidc/callback", NULL, NULL, 0);
     if (!path) {
@@ -3544,7 +3544,7 @@ axiam_error_kind_t axiam_mgmt_federation_oidc_callback(axiam_client_t *c, const 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_notification_rules_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_notification_rule_response_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_notification_rules_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_notification_rule_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/notification-rules", NULL, NULL, 0);
     if (!path) {
@@ -3589,7 +3589,7 @@ axiam_error_kind_t axiam_mgmt_notification_rules_list(axiam_client_t *c, const a
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_notification_rules_create(axiam_client_t *c, const axiam_mgmt_create_notification_rule_request_t *body, axiam_mgmt_notification_rule_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_notification_rules_create(axiam_client_t *c, const axiam_mgmt_create_notification_rule_request_t *body, axiam_mgmt_notification_rule_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/notification-rules", NULL, NULL, 0);
     if (!path) {
@@ -3615,7 +3615,7 @@ axiam_error_kind_t axiam_mgmt_notification_rules_create(axiam_client_t *c, const
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_notification_rules_get(axiam_client_t *c, const char *id, axiam_mgmt_notification_rule_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_notification_rules_get(axiam_client_t *c, const char *id, axiam_mgmt_notification_rule_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3645,7 +3645,7 @@ axiam_error_kind_t axiam_mgmt_notification_rules_get(axiam_client_t *c, const ch
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_notification_rules_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_notification_rule_request_t *body, axiam_mgmt_notification_rule_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_notification_rules_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_notification_rule_request_t *body, axiam_mgmt_notification_rule_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3675,7 +3675,7 @@ axiam_error_kind_t axiam_mgmt_notification_rules_update(axiam_client_t *c, const
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_notification_rules_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_notification_rules_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -3697,7 +3697,7 @@ axiam_error_kind_t axiam_mgmt_notification_rules_delete(axiam_client_t *c, const
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_email_config_get_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_config_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_email_config_get_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_config_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3732,7 +3732,7 @@ axiam_error_kind_t axiam_mgmt_email_config_get_org(axiam_client_t *c, const axia
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_email_config_set_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_org_email_config_t *body, axiam_mgmt_email_config_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_email_config_set_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_org_email_config_t *body, axiam_mgmt_email_config_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3767,7 +3767,7 @@ axiam_error_kind_t axiam_mgmt_email_config_set_org(axiam_client_t *c, const axia
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_email_config_delete_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_error_t *err) {
+axiam_error_kind_t axiam_email_config_delete_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "org_id";
@@ -3794,7 +3794,7 @@ axiam_error_kind_t axiam_mgmt_email_config_delete_org(axiam_client_t *c, const a
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_email_config_test_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_test_result_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_email_config_test_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_test_result_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3829,7 +3829,7 @@ axiam_error_kind_t axiam_mgmt_email_config_test_org(axiam_client_t *c, const axi
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_email_config_get_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_config_override_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_email_config_get_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_config_override_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3864,7 +3864,7 @@ axiam_error_kind_t axiam_mgmt_email_config_get_tenant(axiam_client_t *c, const a
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_email_config_set_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_email_config_override_t *body, axiam_mgmt_email_config_override_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_email_config_set_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_email_config_override_t *body, axiam_mgmt_email_config_override_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3899,7 +3899,7 @@ axiam_error_kind_t axiam_mgmt_email_config_set_tenant(axiam_client_t *c, const a
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_email_config_delete_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_error_t *err) {
+axiam_error_kind_t axiam_email_config_delete_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";
@@ -3926,7 +3926,7 @@ axiam_error_kind_t axiam_mgmt_email_config_delete_tenant(axiam_client_t *c, cons
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_email_config_test_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_test_result_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_email_config_test_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_test_result_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3961,7 +3961,7 @@ axiam_error_kind_t axiam_mgmt_email_config_test_tenant(axiam_client_t *c, const 
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_settings_get_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_settings_get_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -3996,7 +3996,7 @@ axiam_error_kind_t axiam_mgmt_settings_get_org(axiam_client_t *c, const axiam_mg
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_settings_set_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_org_settings_t *body, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_settings_set_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_org_settings_t *body, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -4031,7 +4031,7 @@ axiam_error_kind_t axiam_mgmt_settings_set_org(axiam_client_t *c, const axiam_mg
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_settings_get_effective(axiam_client_t *c, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_settings_get_effective(axiam_client_t *c, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/settings", NULL, NULL, 0);
     if (!path) {
@@ -4057,7 +4057,7 @@ axiam_error_kind_t axiam_mgmt_settings_get_effective(axiam_client_t *c, axiam_mg
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_settings_set_effective(axiam_client_t *c, const axiam_mgmt_tenant_settings_override_t *body, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_settings_set_effective(axiam_client_t *c, const axiam_mgmt_tenant_settings_override_t *body, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/settings", NULL, NULL, 0);
     if (!path) {
@@ -4083,7 +4083,7 @@ axiam_error_kind_t axiam_mgmt_settings_set_effective(axiam_client_t *c, const ax
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_settings_get_tenant_override(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_tenant_settings_override_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_settings_get_tenant_override(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_tenant_settings_override_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -4118,7 +4118,7 @@ axiam_error_kind_t axiam_mgmt_settings_get_tenant_override(axiam_client_t *c, co
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_settings_set_tenant_override(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_tenant_settings_override_t *body, axiam_mgmt_tenant_settings_override_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_settings_set_tenant_override(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_tenant_settings_override_t *body, axiam_mgmt_tenant_settings_override_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -4153,7 +4153,7 @@ axiam_error_kind_t axiam_mgmt_settings_set_tenant_override(axiam_client_t *c, co
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_settings_delete_tenant_override(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_error_t *err) {
+axiam_error_kind_t axiam_settings_delete_tenant_override(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";
@@ -4180,7 +4180,7 @@ axiam_error_kind_t axiam_mgmt_settings_delete_tenant_override(axiam_client_t *c,
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_scim_tokens_list(axiam_client_t *c, axiam_mgmt_scim_token_response_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_scim_tokens_list(axiam_client_t *c, axiam_mgmt_scim_token_response_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/scim-tokens", NULL, NULL, 0);
     if (!path) {
@@ -4211,7 +4211,7 @@ axiam_error_kind_t axiam_mgmt_scim_tokens_list(axiam_client_t *c, axiam_mgmt_sci
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_scim_tokens_create(axiam_client_t *c, const axiam_mgmt_create_scim_token_request_t *body, axiam_mgmt_create_scim_token_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_scim_tokens_create(axiam_client_t *c, const axiam_mgmt_create_scim_token_request_t *body, axiam_mgmt_create_scim_token_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/scim-tokens", NULL, NULL, 0);
     if (!path) {
@@ -4237,7 +4237,7 @@ axiam_error_kind_t axiam_mgmt_scim_tokens_create(axiam_client_t *c, const axiam_
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_scim_tokens_revoke(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_scim_tokens_revoke(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -4259,7 +4259,7 @@ axiam_error_kind_t axiam_mgmt_scim_tokens_revoke(axiam_client_t *c, const char *
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_reactors_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_reactor_response_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_reactors_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_reactor_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/reactors", NULL, NULL, 0);
     if (!path) {
@@ -4304,7 +4304,7 @@ axiam_error_kind_t axiam_mgmt_reactors_list(axiam_client_t *c, const axiam_mgmt_
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_reactors_create(axiam_client_t *c, const axiam_mgmt_create_reactor_request_t *body, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_reactors_create(axiam_client_t *c, const axiam_mgmt_create_reactor_request_t *body, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/reactors", NULL, NULL, 0);
     if (!path) {
@@ -4330,7 +4330,7 @@ axiam_error_kind_t axiam_mgmt_reactors_create(axiam_client_t *c, const axiam_mgm
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_reactors_get(axiam_client_t *c, const char *id, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_reactors_get(axiam_client_t *c, const char *id, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -4360,7 +4360,7 @@ axiam_error_kind_t axiam_mgmt_reactors_get(axiam_client_t *c, const char *id, ax
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_reactors_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_reactor_request_t *body, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_reactors_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_reactor_request_t *body, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -4390,7 +4390,7 @@ axiam_error_kind_t axiam_mgmt_reactors_update(axiam_client_t *c, const char *id,
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_reactors_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
+axiam_error_kind_t axiam_reactors_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -4412,7 +4412,7 @@ axiam_error_kind_t axiam_mgmt_reactors_delete(axiam_client_t *c, const char *id,
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_reactors_list_events(axiam_client_t *c, axiam_mgmt_reactor_event_descriptor_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_reactors_list_events(axiam_client_t *c, axiam_mgmt_reactor_event_descriptor_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/reactors/events", NULL, NULL, 0);
     if (!path) {
@@ -4443,7 +4443,7 @@ axiam_error_kind_t axiam_mgmt_reactors_list_events(axiam_client_t *c, axiam_mgmt
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_webauthn_policy_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_policy_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_webauthn_policy_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_policy_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -4478,7 +4478,7 @@ axiam_error_kind_t axiam_mgmt_webauthn_policy_get(axiam_client_t *c, const axiam
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_webauthn_policy_set(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_webauthn_attestation_policy_t *body, axiam_mgmt_webauthn_attestation_policy_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_webauthn_policy_set(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_webauthn_attestation_policy_t *body, axiam_mgmt_webauthn_attestation_policy_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -4513,7 +4513,7 @@ axiam_error_kind_t axiam_mgmt_webauthn_policy_set(axiam_client_t *c, const axiam
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_webauthn_policy_compliance_report(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_compliance_report_entry_list_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_webauthn_policy_compliance_report(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_compliance_report_entry_list_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
     const char *path_values[1];
@@ -4553,7 +4553,7 @@ axiam_error_kind_t axiam_mgmt_webauthn_policy_compliance_report(axiam_client_t *
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_audit_list(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_audit_list(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/audit-logs", NULL, NULL, 0);
     if (!path) {
@@ -4604,7 +4604,7 @@ axiam_error_kind_t axiam_mgmt_audit_list(axiam_client_t *c, const char *actor_id
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_audit_list_system(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_audit_list_system(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/audit-logs/system", NULL, NULL, 0);
     if (!path) {
@@ -4655,7 +4655,7 @@ axiam_error_kind_t axiam_mgmt_audit_list_system(axiam_client_t *c, const char *a
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_privacy_request_export(axiam_client_t *c, axiam_error_t *err) {
+axiam_error_kind_t axiam_privacy_request_export(axiam_client_t *c, axiam_error_t *err) {
     char *path = axiam_mgmt_path("/api/v1/account/export", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "privacy.request_export: could not build the request path");
@@ -4673,7 +4673,7 @@ axiam_error_kind_t axiam_mgmt_privacy_request_export(axiam_client_t *c, axiam_er
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_privacy_download_export(axiam_client_t *c, const char *token, axiam_error_t *err) {
+axiam_error_kind_t axiam_privacy_download_export(axiam_client_t *c, const char *token, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "token";
@@ -4695,7 +4695,7 @@ axiam_error_kind_t axiam_mgmt_privacy_download_export(axiam_client_t *c, const c
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_privacy_request_delete(axiam_client_t *c, axiam_error_t *err) {
+axiam_error_kind_t axiam_privacy_request_delete(axiam_client_t *c, axiam_error_t *err) {
     char *path = axiam_mgmt_path("/api/v1/account/delete", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "privacy.request_delete: could not build the request path");
@@ -4713,7 +4713,7 @@ axiam_error_kind_t axiam_mgmt_privacy_request_delete(axiam_client_t *c, axiam_er
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_privacy_cancel_delete(axiam_client_t *c, const char *token, axiam_error_t *err) {
+axiam_error_kind_t axiam_privacy_cancel_delete(axiam_client_t *c, const char *token, axiam_error_t *err) {
     char *path = axiam_mgmt_path("/api/v1/auth/account/delete/cancel", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "privacy.cancel_delete: could not build the request path");
@@ -4739,7 +4739,7 @@ axiam_error_kind_t axiam_mgmt_privacy_cancel_delete(axiam_client_t *c, const cha
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_platform_health(axiam_client_t *c, axiam_mgmt_health_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_platform_health(axiam_client_t *c, axiam_mgmt_health_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/health", NULL, NULL, 0);
     if (!path) {
@@ -4765,7 +4765,7 @@ axiam_error_kind_t axiam_mgmt_platform_health(axiam_client_t *c, axiam_mgmt_heal
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_platform_ready(axiam_client_t *c, axiam_mgmt_ready_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_platform_ready(axiam_client_t *c, axiam_mgmt_ready_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/ready", NULL, NULL, 0);
     if (!path) {
@@ -4791,7 +4791,7 @@ axiam_error_kind_t axiam_mgmt_platform_ready(axiam_client_t *c, axiam_mgmt_ready
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_platform_mds_status(axiam_client_t *c, axiam_mgmt_mds_status_response_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_platform_mds_status(axiam_client_t *c, axiam_mgmt_mds_status_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/mds/status", NULL, NULL, 0);
     if (!path) {
@@ -4817,7 +4817,7 @@ axiam_error_kind_t axiam_mgmt_platform_mds_status(axiam_client_t *c, axiam_mgmt_
     return AXIAM_OK;
 }
 
-axiam_error_kind_t axiam_mgmt_platform_mds_refresh(axiam_client_t *c, axiam_mgmt_mds_refresh_outcome_t **out, axiam_error_t *err) {
+axiam_error_kind_t axiam_platform_mds_refresh(axiam_client_t *c, axiam_mgmt_mds_refresh_outcome_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/mds/refresh", NULL, NULL, 0);
     if (!path) {

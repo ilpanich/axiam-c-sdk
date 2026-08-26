@@ -1112,8 +1112,10 @@ Worked example, including a transport skeleton:
 ## §27 Management API
 
 146 administrative operations across 24 namespaces, as **flat symbols** —
-`axiam_mgmt_<namespace>_<operation>()` — which is CONTRACT.md **§27.3's**
-accommodation, taken by this SDK and the C++ one and by no other. It is not a
+`axiam_<namespace>_<operation>()`, the exact shape CONTRACT.md **§27.3's** per-language
+table gives C (its row reads `axiam_service_accounts_rotate_secret(client, id, &out)`).
+C is the only SDK that takes it; every other language in that table, C++ included, gets a
+namespace handle. It is not a
 shortcut: §27.2's namespace-handle shape needs a value carrying both a receiver and a
 method table, and C has no such thing that would not amount to hand-rolling a vtable for
 24 structs to spell one dot differently. So the namespace lives in the name, and a
@@ -1127,7 +1129,7 @@ library needs no Python. CI re-runs the generator with `--check` on every pull r
 /* §27.4 rule 4: `total` is the SERVER's count across all pages -- NOT `count`. */
 axiam_mgmt_page_req_t page = { 0, 50 };
 axiam_mgmt_user_response_page_t *users = NULL;
-if (axiam_mgmt_users_list(c, &page, &users, &err) == AXIAM_OK) {
+if (axiam_users_list(c, &page, &users, &err) == AXIAM_OK) {
     printf("%zu of %ld\n", users->count, users->total);
     axiam_mgmt_user_response_page_free(users);   /* frees the items too */
 }
@@ -1144,7 +1146,7 @@ update.has_status = 1;
  * them. Because the override is an ARGUMENT rather than state on a handle, one call's
  * scope cannot leak into the next. */
 axiam_mgmt_call_scope_t scope = { other_org_id, NULL };
-axiam_mgmt_ca_certificates_list(c, &scope, NULL, &cas, &err);
+axiam_ca_certificates_list(c, &scope, NULL, &cas, &err);
 ```
 
 **Errors (§27.4 rule 7).** The §2 taxonomy here is an enum, and C has no subtyping — so

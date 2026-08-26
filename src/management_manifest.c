@@ -201,7 +201,7 @@ static axiam_error_kind_t read_existing(axiam_client_t *c, axiam_mgmt_manifest_k
 
     if (kind == AXIAM_MGMT_MANIFEST_RESOURCE) {
         axiam_mgmt_resource_page_t *p = NULL;
-        rc = axiam_mgmt_resources_list(c, &page, &p, err);
+        rc = axiam_resources_list(c, &page, &p, err);
         if (rc == AXIAM_OK && p) {
             for (size_t i = 0; i < p->count; i++)
                 if (p->items[i]) existing_push(out, p->items[i]->name, p->items[i]->id, NULL);
@@ -209,7 +209,7 @@ static axiam_error_kind_t read_existing(axiam_client_t *c, axiam_mgmt_manifest_k
         axiam_mgmt_resource_page_free(p);
     } else if (kind == AXIAM_MGMT_MANIFEST_PERMISSION) {
         axiam_mgmt_permission_page_t *p = NULL;
-        rc = axiam_mgmt_permissions_list(c, &page, &p, err);
+        rc = axiam_permissions_list(c, &page, &p, err);
         if (rc == AXIAM_OK && p) {
             for (size_t i = 0; i < p->count; i++)
                 if (p->items[i])
@@ -219,7 +219,7 @@ static axiam_error_kind_t read_existing(axiam_client_t *c, axiam_mgmt_manifest_k
         axiam_mgmt_permission_page_free(p);
     } else if (kind == AXIAM_MGMT_MANIFEST_ROLE) {
         axiam_mgmt_role_page_t *p = NULL;
-        rc = axiam_mgmt_roles_list(c, &page, &p, err);
+        rc = axiam_roles_list(c, &page, &p, err);
         if (rc == AXIAM_OK && p) {
             for (size_t i = 0; i < p->count; i++)
                 if (p->items[i])
@@ -229,7 +229,7 @@ static axiam_error_kind_t read_existing(axiam_client_t *c, axiam_mgmt_manifest_k
         axiam_mgmt_role_page_free(p);
     } else {
         axiam_mgmt_group_page_t *p = NULL;
-        rc = axiam_mgmt_groups_list(c, &page, &p, err);
+        rc = axiam_groups_list(c, &page, &p, err);
         if (rc == AXIAM_OK && p) {
             for (size_t i = 0; i < p->count; i++)
                 if (p->items[i])
@@ -343,7 +343,7 @@ static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_planned_ch
             body.name = (char *) e->name;
             body.resource_type = (char *) (e->resource_type ? e->resource_type : "folder");
             axiam_mgmt_resource_t *out = NULL;
-            axiam_error_kind_t rc = axiam_mgmt_resources_create(c, &body, &out, err);
+            axiam_error_kind_t rc = axiam_resources_create(c, &body, &out, err);
             axiam_mgmt_resource_free(out);
             return rc;
         }
@@ -351,7 +351,7 @@ static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_planned_ch
         memset(&body, 0, sizeof body);
         body.name = (char *) e->name;
         axiam_mgmt_resource_t *out = NULL;
-        axiam_error_kind_t rc = axiam_mgmt_resources_update(c, ch->id, &body, &out, err);
+        axiam_error_kind_t rc = axiam_resources_update(c, ch->id, &body, &out, err);
         axiam_mgmt_resource_free(out);
         return rc;
     }
@@ -363,7 +363,7 @@ static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_planned_ch
             body.action = (char *) e->action;
             body.description = (char *) (e->description ? e->description : "");
             axiam_mgmt_permission_t *out = NULL;
-            axiam_error_kind_t rc = axiam_mgmt_permissions_create(c, &body, &out, err);
+            axiam_error_kind_t rc = axiam_permissions_create(c, &body, &out, err);
             axiam_mgmt_permission_free(out);
             return rc;
         }
@@ -371,7 +371,7 @@ static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_planned_ch
         memset(&body, 0, sizeof body);
         body.description = (char *) e->description;
         axiam_mgmt_permission_t *out = NULL;
-        axiam_error_kind_t rc = axiam_mgmt_permissions_update(c, ch->id, &body, &out, err);
+        axiam_error_kind_t rc = axiam_permissions_update(c, ch->id, &body, &out, err);
         axiam_mgmt_permission_free(out);
         return rc;
     }
@@ -384,7 +384,7 @@ static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_planned_ch
             body.description = (char *) (e->description ? e->description : "");
             body.is_global = e->is_global;
             axiam_mgmt_role_t *out = NULL;
-            axiam_error_kind_t rc = axiam_mgmt_roles_create(c, &body, &out, err);
+            axiam_error_kind_t rc = axiam_roles_create(c, &body, &out, err);
             axiam_mgmt_role_free(out);
             return rc;
         }
@@ -392,7 +392,7 @@ static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_planned_ch
         memset(&body, 0, sizeof body);
         body.description = (char *) e->description;
         axiam_mgmt_role_t *out = NULL;
-        axiam_error_kind_t rc = axiam_mgmt_roles_update(c, ch->id, &body, &out, err);
+        axiam_error_kind_t rc = axiam_roles_update(c, ch->id, &body, &out, err);
         axiam_mgmt_role_free(out);
         return rc;
     }
@@ -403,7 +403,7 @@ static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_planned_ch
         body.name = (char *) e->name;
         body.description = (char *) (e->description ? e->description : "");
         axiam_mgmt_group_t *out = NULL;
-        axiam_error_kind_t rc = axiam_mgmt_groups_create(c, &body, &out, err);
+        axiam_error_kind_t rc = axiam_groups_create(c, &body, &out, err);
         axiam_mgmt_group_free(out);
         return rc;
     }
@@ -411,7 +411,7 @@ static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_planned_ch
     memset(&body, 0, sizeof body);
     body.description = (char *) e->description;
     axiam_mgmt_group_t *out = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_groups_update(c, ch->id, &body, &out, err);
+    axiam_error_kind_t rc = axiam_groups_update(c, ch->id, &body, &out, err);
     axiam_mgmt_group_free(out);
     return rc;
 }

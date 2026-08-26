@@ -1,7 +1,7 @@
 /*
  * examples/management_basics.c — the CONTRACT.md §27 management API in C.
  *
- * §27.3's FLAT-SYMBOL accommodation: `axiam_mgmt_users_list()` rather than
+ * §27.3's FLAT-SYMBOL accommodation: `axiam_users_list()` rather than
  * `client.management().users().list()`. The namespace lives in the name, so a completion
  * list sorted alphabetically groups exactly the way handles would in the other SDKs.
  *
@@ -56,7 +56,7 @@ int main(void) {
      */
     axiam_mgmt_page_req_t page = { 0, 50 };
     axiam_mgmt_user_response_page_t *users = NULL;
-    if (axiam_mgmt_users_list(c, &page, &users, &err) == AXIAM_OK && users) {
+    if (axiam_users_list(c, &page, &users, &err) == AXIAM_OK && users) {
         printf("users on this page: %zu, users in total: %ld\n", users->count, users->total);
         axiam_mgmt_user_response_page_free(users);
     }
@@ -69,7 +69,7 @@ int main(void) {
     axiam_mgmt_page_req_t cursor = { 0, 50 };
     for (;;) {
         axiam_mgmt_user_response_page_t *p = NULL;
-        if (axiam_mgmt_users_list(c, &cursor, &p, &err) != AXIAM_OK || !p) break;
+        if (axiam_users_list(c, &cursor, &p, &err) != AXIAM_OK || !p) break;
         if (p->count == 0) { axiam_mgmt_user_response_page_free(p); break; }
         for (size_t i = 0; i < p->count; i++)
             printf("  %s\n", p->items[i]->id ? p->items[i]->id : "(no id)");
@@ -92,7 +92,7 @@ int main(void) {
     update.has_status = 1;   /* an optional SCALAR needs its presence flag */
 
     axiam_mgmt_user_response_t *updated = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_users_update(
+    axiam_error_kind_t rc = axiam_users_update(
         c, env_or("AXIAM_USER_ID", "33333333-3333-4333-8333-333333333333"),
         &update, &updated, &err);
 
@@ -131,7 +131,7 @@ int main(void) {
      */
     axiam_mgmt_call_scope_t other = { env_or("AXIAM_OTHER_ORG", NULL), NULL };
     axiam_mgmt_ca_certificate_page_t *cas = NULL;
-    if (axiam_mgmt_ca_certificates_list(c, other.org_id ? &other : NULL, NULL, &cas, &err)
+    if (axiam_ca_certificates_list(c, other.org_id ? &other : NULL, NULL, &cas, &err)
         == AXIAM_OK && cas) {
         printf("CA certificates visible: %zu\n", cas->count);
         axiam_mgmt_ca_certificate_page_free(cas);

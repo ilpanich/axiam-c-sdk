@@ -90,7 +90,7 @@ int main(void) {
      */
     const char *tenant_id = axiam_mgmt_resolved_tenant_id(op, NULL);
     axiam_mgmt_ca_certificate_page_t *cas = NULL;
-    if (axiam_mgmt_ca_certificates_list_signing_cas(op, NULL, tenant_id, NULL, &cas, &err)
+    if (axiam_ca_certificates_list_signing_cas(op, NULL, tenant_id, NULL, &cas, &err)
             != AXIAM_OK || !cas || cas->count == 0) {
         fprintf(stderr, "tenant has no signing CA; generate one first\n");
         axiam_mgmt_ca_certificate_page_free(cas);
@@ -119,7 +119,7 @@ int main(void) {
     req.validity_days = 365;
 
     axiam_mgmt_generated_certificate_t *issued = NULL;
-    axiam_error_kind_t rc = axiam_mgmt_certificates_generate(op, &req, &issued, &err);
+    axiam_error_kind_t rc = axiam_certificates_generate(op, &req, &issued, &err);
     axiam_mgmt_ca_certificate_page_free(cas);
     if (rc != AXIAM_OK || !issued) {
         fprintf(stderr, "certificate: %s\n", err.message);
@@ -159,11 +159,11 @@ int main(void) {
     sa_req.name = sa_name;
 
     axiam_mgmt_service_account_created_response_t *account = NULL;
-    if (axiam_mgmt_service_accounts_create(op, &sa_req, &account, &err) == AXIAM_OK && account) {
+    if (axiam_service_accounts_create(op, &sa_req, &account, &err) == AXIAM_OK && account) {
         axiam_mgmt_bind_certificate_t bind;
         memset(&bind, 0, sizeof bind);
         bind.certificate_id = issued->id;
-        if (axiam_mgmt_service_accounts_bind_certificate(op, account->id, &bind, &err) == AXIAM_OK)
+        if (axiam_service_accounts_bind_certificate(op, account->id, &bind, &err) == AXIAM_OK)
             printf("bound certificate to service account %s\n", account->id);
     }
     axiam_mgmt_service_account_created_response_free(account);

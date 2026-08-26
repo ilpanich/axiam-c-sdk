@@ -9,10 +9,16 @@
  * receiver and a method table, and C has no such thing that would not amount to
  * hand-rolling a vtable for 24 structs to spell one dot differently.
  *
- * So the namespace lives in the NAME: `axiam_mgmt_<namespace>_<operation>()`. The
- * grouping §27.2 asks for is preserved — `axiam_mgmt_users_*` is the users namespace, and
- * a completion list sorted alphabetically groups exactly the way handles would — while
- * the call stays an ordinary C function with no lifetime questions attached to it.
+ * So the namespace lives in the NAME: `axiam_<namespace>_<operation>()`, which is the
+ * exact shape §27.3's per-language table gives C — its row reads
+ * `axiam_service_accounts_rotate_secret(client, id, &out)`. The grouping §27.2 asks for
+ * is preserved — `axiam_users_*` is the users namespace, and a completion list sorted
+ * alphabetically groups exactly the way handles would — while the call stays an ordinary
+ * C function with no lifetime questions attached to it.
+ *
+ * The MODEL types below keep an `axiam_mgmt_` prefix. §27.3 spells out the operation
+ * accessor and says nothing about type names, and there the prefix earns its keep by
+ * separating 145 generated types from the SDK's own.
  *
  * This header carries the pieces every operation shares: paging, scope, the §27.4 rule 7
  * error classification, and the free functions for the two generic result shapes. The
