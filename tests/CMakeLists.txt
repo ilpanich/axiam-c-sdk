@@ -298,3 +298,9 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_reactor PRIVATE --coverage)
 endif()
 add_test(NAME test_reactor COMMAND test_reactor)
+
+# CONTRACT.md §27 management API. management_test_util.c is the shared rig: the fake
+# transport sits at the BOTTOM of the real client, so a §27.8 violation (an operation
+# opening its own connection) fails these rather than passing them.
+axiam_add_test(test_management_generated test_management_generated.c management_test_util.c)
+
