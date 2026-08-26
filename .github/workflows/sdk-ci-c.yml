@@ -141,6 +141,30 @@ jobs:
           fi
           echo "valgrind sweep clean"
 
+  management-drift-check:
+    name: §27 management surface drift-check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # The §27 surface -- 145 model structs, 146 flat operations and four generated test
+      # files, ~24k lines -- is produced by scripts/gen_management.py from the VENDORED
+      # management-registry.json and openapi.json, and the output is committed so a
+      # consumer never needs Python to build this library.
+      #
+      # Committed generated code is only trustworthy if something checks it is current.
+      # The registry is maintained in ilpanich/axiam and re-vendored here; without this
+      # gate a re-vendor that adds an operation would leave the SDK shipping a surface
+      # that disagrees with the contract it claims to implement -- and every test would
+      # still pass, because the tests are generated from the same stale copy.
+      #
+      # Deliberately installs nothing: the generator imports only the standard library,
+      # and ubuntu-24.04 ships a python3 new enough to run it.
+      - name: Verify the committed §27 surface matches the vendored contract
+        run: |
+          python3 --version
+          python3 scripts/gen_management.py --check
+
   tls-bypass-gate:
     name: TLS-bypass lint gate
     runs-on: ubuntu-24.04
