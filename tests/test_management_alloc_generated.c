@@ -127,7 +127,7 @@ static void test_organizations_update_survives_oom(void) {
 static void test_tenants_list_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -148,7 +148,7 @@ static void test_tenants_list_survives_oom(void) {
 static void test_tenants_create_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -171,7 +171,7 @@ static void test_tenants_create_survives_oom(void) {
 static void test_tenants_get_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -192,7 +192,7 @@ static void test_tenants_get_survives_oom(void) {
 static void test_tenants_update_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -1645,7 +1645,7 @@ static void test_ca_certificates_migrate_custody_survives_oom(void) {
 static void test_ca_certificates_set_mtls_trust_anchor_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}");
+        mgmt_mount(200, "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true, \"trusted_anchors\": 1}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;

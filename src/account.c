@@ -19,6 +19,7 @@
 #define PATH_MFA_SETUP_CONFIRM  "/api/v1/auth/mfa/setup/confirm"
 #define PATH_VERIFY_EMAIL       "/api/v1/auth/verify-email"
 #define PATH_RESEND_VERIFY      "/api/v1/auth/resend-verification"
+#define PATH_RESEND_OWN_VERIFY  "/api/v1/users/me/resend-verification"
 #define PATH_RESET              "/api/v1/auth/reset"
 #define PATH_RESET_CONTEXT      "/api/v1/auth/reset/context"
 #define PATH_RESET_CONFIRM      "/api/v1/auth/reset/confirm"
@@ -340,6 +341,35 @@ axiam_error_kind_t axiam_resend_verification(axiam_client_t *client, const char 
 
     return post_no_content(client, PATH_RESEND_VERIFY, body, 0,
                            "axiam_resend_verification failed", err);
+}
+
+axiam_error_kind_t axiam_resend_own_verification(axiam_client_t *client, axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (!client) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (axiam_client_is_shut(client)) return axiam_client_shut_error(err);
+
+    /* §25.7: session-authenticated, and the refusal is raised HERE, with no wire call.
+     * Sending it anyway would leave a rejected request in the audit log for what is a
+     * programming error on this side. */
+    if (!axiam_client_has_session(client)) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "axiam_resend_own_verification requires an authenticated session: it "
+                        "resends the mail for the account you are signed in to, and names no "
+                        "address (CONTRACT.md §25.7). Use axiam_resend_verification() when "
+                        "there is no session.");
+        return AXIAM_ERR_AUTH;
+    }
+
+    /* The empty object, exactly as axiam_mfa_enroll sends: the server takes the address
+     * off the caller's own record, and §25.6 asks for a request carrying NO address
+     * field. Duplicated rather than shared with a literal so the body is heap-owned,
+     * which is what post_no_content() frees. */
+    char *body = axiam_strdup0("{}");
+    return post_no_content(client, PATH_RESEND_OWN_VERIFY, body, 0,
+                           "axiam_resend_own_verification failed", err);
 }
 
 /* ------------------------------------------------------------------ */

@@ -921,11 +921,10 @@ Worked example: [`examples/webauthn_passkeys.c`](examples/webauthn_passkeys.c).
 
 ## §25 Account lifecycle and MFA enrolment
 
-Nine operations covering voluntary and forced TOTP enrolment, email
-verification, and the password-reset triple. All nine have been live server
-surface since before §1 was written; what they lacked was an SDK.
+Ten operations covering voluntary and forced TOTP enrolment, email
+verification, the two resends, and the password-reset triple.
 
-**Six of the nine are deliberately unauthenticated.** A user who cannot log in
+**Six of the ten are deliberately unauthenticated.** A user who cannot log in
 is the entire audience for a password reset, and a user whose email is unverified
 may have no session at all.
 
@@ -974,6 +973,57 @@ exists, and this SDK exposes no way to tell the two apart. Call
 which point the user has typed one. A `404` from that call means unknown, expired
 **or** already-consumed, deliberately indistinguishable; do not invent a
 distinction the server refused to make.
+
+### Two resends, and why neither replaces the other (§25.7)
+
+```c
+/* No session — a sign-up screen. Returns AXIAM_OK whatever happened; that is the point. */
+axiam_resend_verification(client, "alice@example.com", tenant_id, &err);
+
+/* Signed in — a profile page. Says what happened, and names no address. */
+switch (axiam_resend_own_verification(client, &err)) {
+case AXIAM_OK:          /* enqueued — delivery is asynchronous */          break;
+case AXIAM_ERR_AUTHZ:   /* 409: already verified, or a state that must not be sent */ break;
+case AXIAM_ERR_NETWORK: /* 429: the daily resend limit */                  break;
+case AXIAM_ERR_AUTH:    /* no session — refused here, with no wire call */ break;
+default: break;
+}
+```
+
+They look like one operation and are not. `axiam_resend_verification()` takes an address
+from an **anonymous** caller, so it must answer identically whether the address exists, is
+already verified, or is rate-limited — anything else is an oracle for which addresses have
+accounts. `axiam_resend_own_verification()` is asked by a caller already signed in to the
+account it is asking about, so none of those outcomes discloses anything it did not bring
+with it, and this one tells the truth.
+
+**Neither is routed to the other**, in either direction, and this SDK does not fall back
+from the authenticated one to the public one on a `409` or a `429`: that fallback turns
+both failures back into a silent success and restores the exact bug §25.7 describes, with
+an extra round trip. The signed-in one takes **no address parameter and sends no address
+field** — a parameter here would let an authenticated session mail an arbitrary one.
+
+`AXIAM_OK` means the mail was **enqueued**, not delivered. Delivery is asynchronous and
+can still fail at the provider.
+
+### Organization-level principals (§5.2)
+
+`axiam_login_result_t` gained `organization_level`. It is `1` when the account that just
+signed in is an **organization-level** principal — one whose record lives in its
+organization's reserved tenant, so its global grants apply in every tenant of that
+organization and it can act on a different one by sending a different `X-Tenant-ID` on the
+next request, with no re-login.
+
+An ordinary tenant principal is a principal of exactly one tenant; the same header change
+produces a `403` for it. The flag is therefore what an application checks *before*
+offering a tenant switch, rather than discovering the answer from a failed request.
+
+It is **derived, never asserted** (§5.2 rule 2): resolved server-side from the caller's own
+tenant record, and never sent by this SDK. It is `0` when the login response omits it —
+what a server older than contract 1.31 answers — and `0` on the two pending outcomes,
+where no principal has been established yet. Both are the safe direction. The member is
+appended **last** to the struct, so every existing initializer still compiles and `{0}`
+still means "no claim".
 
 Worked example: [`examples/account_lifecycle.c`](examples/account_lifecycle.c).
 
@@ -1148,6 +1198,67 @@ update.has_status = 1;
 axiam_mgmt_call_scope_t scope = { other_org_id, NULL };
 axiam_ca_certificates_list(c, &scope, NULL, &cas, &err);
 ```
+
+**Searching a list (§27.4 rule 4).** All twenty paginated operations take an optional
+free-text term, matched case-insensitively by the **server** against the identifying
+fields of whatever is being listed — a name or username, plus the record id, so a UUID
+pasted out of a log line finds its row. `total` then counts *matches*, not rows.
+
+```c
+const char *term = "ada";                       /* BORROWED — see below */
+axiam_mgmt_page_req_t page = { 0, 50, term };
+axiam_mgmt_user_response_page_t *matches = NULL;
+axiam_users_list(c, &page, &matches, &err);
+
+/* The whole filtered set: axiam_mgmt_page_next() carries the term, so every request of
+ * the walk asks the same question. */
+for (;;) {
+    axiam_mgmt_user_response_page_t *p = NULL;
+    if (axiam_users_list(c, &page, &p, &err) != AXIAM_OK || !p) break;
+    if (p->count == 0) { axiam_mgmt_user_response_page_free(p); break; }
+    /* ... */
+    axiam_mgmt_user_response_page_free(p);
+    page = axiam_mgmt_page_next(page);
+}
+```
+
+The term lives on `axiam_mgmt_page_req_t`, beside `offset` and `limit`, rather than as an
+extra argument on twenty operations. That is what makes the walk above work at all: an
+argument has nowhere to live between one request and the next, so a walk built on one
+would return the matches followed by the unfiltered tail.
+
+`search` is **borrowed, never owned** — nothing copies it and nothing frees it, so it must
+outlive every request derived from it. In the loop above that means declaring the term
+outside the loop, not inside it.
+
+`NULL` sends no `search` parameter, and an empty or all-whitespace term is the **same
+request** — a search box that fires on every keystroke sends one the moment it is cleared,
+and "rows containing the empty string" is a different question from "all rows".
+`axiam_mgmt_page_search()` is that normalisation, exposed because it is the one piece a
+caller can observe going wrong. The term is never **truncated**: the server caps its
+length, and a client-side cap the server would not have applied is a silently different
+query.
+
+**Enums are open (§27.11 rule 1).** Every generated enum carries a trailing `_UNKNOWN`
+constant, and `_from_wire()` returns `0` and yields it for a value this SDK's copy of the
+spec does not list. Reporting a failure there would make the caller drop the whole record
+— or the whole page — over one field it did not ask about.
+
+It is never read as one of the **known** constants: reading a new value as whichever
+constant happens to be first turns a new server state into a wrong one, and on this
+surface these values gate access. `_UNKNOWN` is appended **last**, so it is not the zero
+value a `calloc`'d struct starts at either, and `_to_wire()` spells it as the empty string
+— which no server value is, so carrying an unrecognised value back into an update is
+refused by the server rather than written as a spelling it never used. `_from_wire()`
+still returns `-1` for a NULL argument, which is a caller error rather than a server one.
+
+`axiam_mgmt_certificate_t::bound_service_account_id` is a **projection**, not a member of
+the certificate: the server resolves it for a whole page in one query, so
+`axiam_certificates_list()` populates it and `axiam_certificates_get()` leaves it `NULL`.
+`NULL` there means "this read does not carry it", not "there is nothing bound" — the SDK
+does not issue a second request to fill it in, because a `get` that silently costs two
+round trips is the behaviour §27.4 rule 3 forbids for slug resolution, for the same reason
+(§27.11 rule 4).
 
 **Errors (§27.4 rule 7).** The §2 taxonomy here is an enum, and C has no subtyping — so
 the sub-type is a classification *beside* the error rather than a hierarchy inside it,

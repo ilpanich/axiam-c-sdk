@@ -488,6 +488,42 @@ def scalar(kind: str) -> bool:
     return kind in {"long", "double", "bool", "enum"}
 
 
+PROJECTION_DOC = (
+    "Resolved by the list projection only.\n\n"
+    "The server resolves this for a whole page in one query, so it is populated by "
+    "`list` and is NULL on `get` (CONTRACT.md \u00a727.11 rule 4). NULL there means \"this "
+    "read does not carry it\", not \"there is nothing bound\" -- this SDK does not issue a "
+    "second request to fill it in."
+)
+
+
+def projection_map() -> dict[str, list[dict[str, Any]]]:
+    """Members a list projection ADDS to its base schema, keyed by the base's name.
+
+    \u00a727.11 rule 4: the server expresses a projection as an ``allOf`` of the named base
+    and an anonymous object, so the added property belongs to no schema in
+    ``components``. The registry records it as ``response.projected_fields``; this folds
+    it back onto the base struct as an OPTIONAL member, which is what makes it NULL on
+    the ``get`` that does not project it rather than absent from the type.
+    """
+    added: dict[str, list[dict[str, Any]]] = {}
+    for ns in REGISTRY["namespaces"].values():
+        for op in ns["operations"].values():
+            response = op.get("response") or {}
+            extras = response.get("projected_fields") or []
+            base = (response.get("schema") or "").lstrip("[]")
+            if not extras or not base:
+                continue
+            known = {f["name"] for f in added.setdefault(base, [])}
+            for extra in extras:
+                if extra["name"] not in known:
+                    added[base].append(extra)
+    return added
+
+
+PROJECTED: dict[str, list[dict[str, Any]]] = projection_map()
+
+
 def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]], str | None]:
     """Every member of ``schema_name``, in the spec's own order.
 
@@ -516,6 +552,17 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
         ], schema.get("description"))
 
     props, required, description = flatten(schema_name)
+    props = dict(props)
+    for extra in PROJECTED.get(schema_name, []):
+        if extra["name"] in props:
+            continue
+        # Never added to `required`: the whole point is that the operation which does NOT
+        # project it still parses, with the member NULL (\u00a727.11 rule 4).
+        props[extra["name"]] = {
+            "type": extra["type"],
+            "format": extra.get("format"),
+            "description": extra.get("description") or PROJECTION_DOC,
+        }
     out: list[dict[str, Any]] = []
     for wire, schema in props.items():
         info = c_field(schema, secret=wire in secrets)
@@ -603,22 +650,38 @@ def emit_models_header() -> str:
             continue
         out.extend(doc(schema.get("description")
                        or f"The `{rendered}` enumeration from the server's OpenAPI document."))
+        if any(enum_const(rendered, v) == enum_const(rendered, "unknown") for v in values):
+            raise SystemExit(
+                f"enum {rendered}: the spec declares a value whose constant collides with "
+                "the open-enum carrier this generator appends."
+            )
         out.append(f"typedef enum axiam_mgmt_{snake(rendered)} {{")
         out.append(f"    {enum_const(rendered, values[0])} = 0, /**< Wire value `{values[0]}`. */")
         for value in values[1:]:
             out.append(f"    {enum_const(rendered, value)}, /**< Wire value `{value}`. */")
+        out.append(f"    {enum_const(rendered, 'unknown')}, "
+                   "/**< A value this SDK's copy of the spec does not list. */")
         out.append(f"}} axiam_mgmt_{snake(rendered)}_t;")
         out.append("")
         out.extend(doc(
             f"Parse a wire value into an {rendered}.\n\n"
-            "Returns 0 on success and -1 for an unrecognised value, which is NOT mapped "
-            "to a default case: on this surface these values gate access, and silently "
-            "reading an unknown state as whichever constant happens to be first turns a "
-            "newer server into a wrong answer."))
+            f"Returns 0 and yields `{enum_const(rendered, 'unknown')}` for a value this "
+            "SDK's copy of the spec does not list, rather than reporting a failure the "
+            "caller would have to fail the whole record over (CONTRACT.md \u00a727.11 rule 1). "
+            "Returns -1 only for a NULL argument.\n\n"
+            "It is never mapped to one of the KNOWN constants, which is the trap this used "
+            "to avoid by failing: reading a new state as whichever constant happens to be "
+            "first turns a new server state into a wrong one, and on this surface these "
+            "values gate access. The unknown constant is appended LAST, so it is never the "
+            "zero value a calloc'd struct starts at either."))
         out.append(f"int axiam_mgmt_{snake(rendered)}_from_wire(const char *value, "
                    f"axiam_mgmt_{snake(rendered)}_t *out);")
         out.append("")
-        out.extend(doc(f"The wire spelling of an {rendered}. Never NULL for a valid value."))
+        out.extend(doc(
+            f"The wire spelling of an {rendered}. Never NULL.\n\n"
+            f"`{enum_const(rendered, 'unknown')}` spells as the empty string, which no "
+            "server value is: carrying an unrecognised value back into an update is refused "
+            "by the server rather than written as a spelling it never used."))
         out.append(f"const char *axiam_mgmt_{snake(rendered)}_to_wire("
                    f"axiam_mgmt_{snake(rendered)}_t value);")
         out.append("")
@@ -898,17 +961,25 @@ def emit_models_source() -> str:
         for v in values:
             out.append(f'    if (strcmp(value, "{v}") == 0) {{ *out = {enum_const(rendered, v)}; return 0; }}')
         out.extend(comment(
-            "No default case, on purpose: an unrecognised value is reported, never mapped "
-            "to whichever constant happens to be first. On this surface these values gate "
-            "access, so a newer server must surface as an error rather than a wrong answer.",
+            "\u00a727.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it "
+            "here would make the caller drop the whole record over one field it did not "
+            "ask about. It is still never read as one of the KNOWN constants -- that "
+            "would turn a new server state into a wrong one, and on this surface these "
+            "values gate access.",
             "    "))
-        out.append("    return -1;")
+        out.append(f"    *out = {enum_const(rendered, 'unknown')};")
+        out.append("    return 0;")
         out.append("}")
         out.append("")
         out.append(f"const char *axiam_mgmt_{s}_to_wire(axiam_mgmt_{s}_t value) {{")
         out.append("    switch (value) {")
         for v in values:
             out.append(f'        case {enum_const(rendered, v)}: return "{v}";')
+        out.extend(comment(
+            "The empty string, which no server value is: an unrecognised value carried "
+            "back into an update is refused by the server rather than written as a "
+            "spelling it never used.", "        "))
+        out.append(f'        case {enum_const(rendered, "unknown")}: return "";')
         out.append("    }")
         out.append(f'    return "{values[0]}";')
         out.append("}")
@@ -1060,7 +1131,10 @@ def op_params(namespace: str, op: dict[str, Any]) -> list[dict[str, str]]:
         })
 
     for q in op["query_params"]:
-        if op["paginated"] and q["name"] in {"offset", "limit"}:
+        # `search` rides on axiam_mgmt_page_req_t with `offset`/`limit` (\u00a727.4 rule 4),
+        # not as a separate argument -- otherwise axiam_mgmt_page_next() has no way to
+        # carry it past the first request of a walk.
+        if op["paginated"] and q["name"] in {"offset", "limit", "search"}:
             continue
         params.append({
             "name": cname(q["name"]), "decl": "const char *", "kind": "query",
@@ -1267,7 +1341,7 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
     # ---- query ----
     queries = [p for p in params if p["kind"] == "query"]
     if op["paginated"] or queries:
-        count = len(queries) + (2 if op["paginated"] else 0)
+        count = len(queries) + (3 if op["paginated"] else 0)
         out.append(f"    const char *q_names[{count}];")
         out.append(f"    const char *q_values[{count}];")
         idx = 0
@@ -1277,6 +1351,11 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
             out.append(f'    q_names[{idx}] = "offset"; q_values[{idx}] = offset_buf;')
             idx += 1
             out.append(f'    q_names[{idx}] = "limit"; q_values[{idx}] = limit_buf;')
+            idx += 1
+            # A NULL value is OMITTED by axiam_mgmt_query, which is what makes an unset
+            # or blank term send no `search` key at all (§27.4 rule 4).
+            out.append(f'    q_names[{idx}] = "search";')
+            out.append(f'    q_values[{idx}] = page ? axiam_mgmt_page_search(page->search) : NULL;')
             idx += 1
         for p in queries:
             out.append(f'    q_names[{idx}] = "{p["wire"]}"; q_values[{idx}] = {p["name"]};')
@@ -1322,7 +1401,7 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
         out.append("        result->count = n;")
         out.append("    }")
         out.append("    result->total = axiam_mgmt_page_total(json, (long) n);")
-        out.append("    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };")
+        out.append("    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };")
         out.append("    cJSON_Delete(json);")
         out.append("    if (out) *out = result;")
         out.append(f"    else axiam_mgmt_{s}_page_free(result);")

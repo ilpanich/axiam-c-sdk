@@ -61,7 +61,32 @@ axiam_mgmt_page_req_t axiam_mgmt_page_next(axiam_mgmt_page_req_t req) {
     axiam_mgmt_page_req_t next;
     next.offset = offset + limit;
     next.limit = limit;
+    /* §27.4 rule 4: the term is part of WHICH PAGE this is, so it travels with the walk.
+     * Dropping it here would return the matches followed by the unfiltered tail, which
+     * reads as a server bug from the caller's side. Copied as a pointer, never as a
+     * string -- see the header's note on ownership. */
+    next.search = req.search;
     return next;
+}
+
+const char *axiam_mgmt_page_search(const char *term) {
+    if (!term) return NULL;
+    /* Leading whitespace is skipped so an all-whitespace term collapses to "absent",
+     * which §27.4 rule 4 makes the SAME request as no term: a search box that fires on
+     * every keystroke sends one the moment it is cleared, and "rows containing the empty
+     * string" is a different question from "all rows".
+     *
+     * Trailing whitespace is deliberately left on. Trimming it would mean allocating a
+     * copy this SDK would then own and have to free out of a struct the caller declared
+     * on the stack; the server trims identically, so the query it answers is the same
+     * one. What must NOT happen is truncation -- the server caps the term's length, and a
+     * client-side cap the server would not have applied is a silently different query the
+     * caller has no way to see. */
+    while (*term == ' ' || *term == '\t' || *term == '\n' || *term == '\r' ||
+           *term == '\f' || *term == '\v') {
+        term++;
+    }
+    return *term ? term : NULL;
 }
 
 void axiam_mgmt_page_query(const axiam_mgmt_page_req_t *page, char *offset_buf, char *limit_buf) {

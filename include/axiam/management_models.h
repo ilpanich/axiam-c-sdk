@@ -31,19 +31,30 @@ typedef enum axiam_mgmt_actor_type {
     AXIAM_MGMT_ACTOR_TYPE_USER = 0, /**< Wire value `User`. */
     AXIAM_MGMT_ACTOR_TYPE_SERVICE_ACCOUNT, /**< Wire value `ServiceAccount`. */
     AXIAM_MGMT_ACTOR_TYPE_SYSTEM, /**< Wire value `System`. */
+    AXIAM_MGMT_ACTOR_TYPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_actor_type_t;
 
 /**
  * Parse a wire value into an ActorType.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_ACTOR_TYPE_UNKNOWN` for a value this SDK's copy of the
+ * spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_actor_type_from_wire(const char *value, axiam_mgmt_actor_type_t *out);
 
 /**
- * The wire spelling of an ActorType. Never NULL for a valid value.
+ * The wire spelling of an ActorType. Never NULL.
+ *
+ * `AXIAM_MGMT_ACTOR_TYPE_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_actor_type_to_wire(axiam_mgmt_actor_type_t value);
 
@@ -58,19 +69,30 @@ typedef enum axiam_mgmt_attestation_mode {
     AXIAM_MGMT_ATTESTATION_MODE_NONE = 0, /**< Wire value `none`. */
     AXIAM_MGMT_ATTESTATION_MODE_INDIRECT, /**< Wire value `indirect`. */
     AXIAM_MGMT_ATTESTATION_MODE_DIRECT_REQUIRED, /**< Wire value `direct_required`. */
+    AXIAM_MGMT_ATTESTATION_MODE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_attestation_mode_t;
 
 /**
  * Parse a wire value into an AttestationMode.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_ATTESTATION_MODE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_attestation_mode_from_wire(const char *value, axiam_mgmt_attestation_mode_t *out);
 
 /**
- * The wire spelling of an AttestationMode. Never NULL for a valid value.
+ * The wire spelling of an AttestationMode. Never NULL.
+ *
+ * `AXIAM_MGMT_ATTESTATION_MODE_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_attestation_mode_to_wire(axiam_mgmt_attestation_mode_t value);
 
@@ -81,19 +103,30 @@ typedef enum axiam_mgmt_audit_outcome {
     AXIAM_MGMT_AUDIT_OUTCOME_SUCCESS = 0, /**< Wire value `Success`. */
     AXIAM_MGMT_AUDIT_OUTCOME_FAILURE, /**< Wire value `Failure`. */
     AXIAM_MGMT_AUDIT_OUTCOME_DENIED, /**< Wire value `Denied`. */
+    AXIAM_MGMT_AUDIT_OUTCOME_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_audit_outcome_t;
 
 /**
  * Parse a wire value into an AuditOutcome.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_AUDIT_OUTCOME_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_audit_outcome_from_wire(const char *value, axiam_mgmt_audit_outcome_t *out);
 
 /**
- * The wire spelling of an AuditOutcome. Never NULL for a valid value.
+ * The wire spelling of an AuditOutcome. Never NULL.
+ *
+ * `AXIAM_MGMT_AUDIT_OUTCOME_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_audit_outcome_to_wire(axiam_mgmt_audit_outcome_t value);
 
@@ -104,19 +137,30 @@ typedef enum axiam_mgmt_certificate_status {
     AXIAM_MGMT_CERTIFICATE_STATUS_ACTIVE = 0, /**< Wire value `Active`. */
     AXIAM_MGMT_CERTIFICATE_STATUS_REVOKED, /**< Wire value `Revoked`. */
     AXIAM_MGMT_CERTIFICATE_STATUS_EXPIRED, /**< Wire value `Expired`. */
+    AXIAM_MGMT_CERTIFICATE_STATUS_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_certificate_status_t;
 
 /**
  * Parse a wire value into an CertificateStatus.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_CERTIFICATE_STATUS_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_certificate_status_from_wire(const char *value, axiam_mgmt_certificate_status_t *out);
 
 /**
- * The wire spelling of an CertificateStatus. Never NULL for a valid value.
+ * The wire spelling of an CertificateStatus. Never NULL.
+ *
+ * `AXIAM_MGMT_CERTIFICATE_STATUS_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_certificate_status_to_wire(axiam_mgmt_certificate_status_t value);
 
@@ -127,19 +171,30 @@ typedef enum axiam_mgmt_certificate_type {
     AXIAM_MGMT_CERTIFICATE_TYPE_USER = 0, /**< Wire value `User`. */
     AXIAM_MGMT_CERTIFICATE_TYPE_SERVICE, /**< Wire value `Service`. */
     AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE, /**< Wire value `Device`. */
+    AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_certificate_type_t;
 
 /**
  * Parse a wire value into an CertificateType.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_certificate_type_from_wire(const char *value, axiam_mgmt_certificate_type_t *out);
 
 /**
- * The wire spelling of an CertificateType. Never NULL for a valid value.
+ * The wire spelling of an CertificateType. Never NULL.
+ *
+ * `AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_certificate_type_to_wire(axiam_mgmt_certificate_type_t value);
 
@@ -158,19 +213,30 @@ typedef enum axiam_mgmt_certification_level {
     AXIAM_MGMT_CERTIFICATION_LEVEL_L2_PLUS, /**< Wire value `L2Plus`. */
     AXIAM_MGMT_CERTIFICATION_LEVEL_L3, /**< Wire value `L3`. */
     AXIAM_MGMT_CERTIFICATION_LEVEL_L3_PLUS, /**< Wire value `L3Plus`. */
+    AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_certification_level_t;
 
 /**
  * Parse a wire value into an CertificationLevel.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_certification_level_from_wire(const char *value, axiam_mgmt_certification_level_t *out);
 
 /**
- * The wire spelling of an CertificationLevel. Never NULL for a valid value.
+ * The wire spelling of an CertificationLevel. Never NULL.
+ *
+ * `AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN` spells as the empty string, which no server
+ * value is: carrying an unrecognised value back into an update is refused by the server
+ * rather than written as a spelling it never used.
  */
 const char *axiam_mgmt_certification_level_to_wire(axiam_mgmt_certification_level_t value);
 
@@ -189,19 +255,30 @@ typedef enum axiam_mgmt_client_auth_method {
     AXIAM_MGMT_CLIENT_AUTH_METHOD_TLS_CLIENT_AUTH, /**< Wire value `tls_client_auth`. */
     AXIAM_MGMT_CLIENT_AUTH_METHOD_SELF_SIGNED_TLS_CLIENT_AUTH, /**< Wire value `self_signed_tls_client_auth`. */
     AXIAM_MGMT_CLIENT_AUTH_METHOD_PRIVATE_KEY_JWT, /**< Wire value `private_key_jwt`. */
+    AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_client_auth_method_t;
 
 /**
  * Parse a wire value into an ClientAuthMethod.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_client_auth_method_from_wire(const char *value, axiam_mgmt_client_auth_method_t *out);
 
 /**
- * The wire spelling of an ClientAuthMethod. Never NULL for a valid value.
+ * The wire spelling of an ClientAuthMethod. Never NULL.
+ *
+ * `AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_client_auth_method_to_wire(axiam_mgmt_client_auth_method_t value);
 
@@ -222,19 +299,30 @@ const char *axiam_mgmt_client_auth_method_to_wire(axiam_mgmt_client_auth_method_
 typedef enum axiam_mgmt_client_profile {
     AXIAM_MGMT_CLIENT_PROFILE_STANDARD = 0, /**< Wire value `standard`. */
     AXIAM_MGMT_CLIENT_PROFILE_FAPI2, /**< Wire value `fapi2`. */
+    AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_client_profile_t;
 
 /**
  * Parse a wire value into an ClientProfile.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_client_profile_from_wire(const char *value, axiam_mgmt_client_profile_t *out);
 
 /**
- * The wire spelling of an ClientProfile. Never NULL for a valid value.
+ * The wire spelling of an ClientProfile. Never NULL.
+ *
+ * `AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_client_profile_to_wire(axiam_mgmt_client_profile_t value);
 
@@ -245,19 +333,30 @@ const char *axiam_mgmt_client_profile_to_wire(axiam_mgmt_client_profile_t value)
 typedef enum axiam_mgmt_failure_policy {
     AXIAM_MGMT_FAILURE_POLICY_FAIL_CLOSED = 0, /**< Wire value `fail_closed`. */
     AXIAM_MGMT_FAILURE_POLICY_FAIL_OPEN, /**< Wire value `fail_open`. */
+    AXIAM_MGMT_FAILURE_POLICY_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_failure_policy_t;
 
 /**
  * Parse a wire value into an FailurePolicy.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_FAILURE_POLICY_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_failure_policy_from_wire(const char *value, axiam_mgmt_failure_policy_t *out);
 
 /**
- * The wire spelling of an FailurePolicy. Never NULL for a valid value.
+ * The wire spelling of an FailurePolicy. Never NULL.
+ *
+ * `AXIAM_MGMT_FAILURE_POLICY_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_failure_policy_to_wire(axiam_mgmt_failure_policy_t value);
 
@@ -267,19 +366,30 @@ const char *axiam_mgmt_failure_policy_to_wire(axiam_mgmt_failure_policy_t value)
 typedef enum axiam_mgmt_key_algorithm {
     AXIAM_MGMT_KEY_ALGORITHM_RSA4096 = 0, /**< Wire value `Rsa4096`. */
     AXIAM_MGMT_KEY_ALGORITHM_ED25519, /**< Wire value `Ed25519`. */
+    AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_key_algorithm_t;
 
 /**
  * Parse a wire value into an KeyAlgorithm.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_key_algorithm_from_wire(const char *value, axiam_mgmt_key_algorithm_t *out);
 
 /**
- * The wire spelling of an KeyAlgorithm. Never NULL for a valid value.
+ * The wire spelling of an KeyAlgorithm. Never NULL.
+ *
+ * `AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_key_algorithm_to_wire(axiam_mgmt_key_algorithm_t value);
 
@@ -290,19 +400,30 @@ typedef enum axiam_mgmt_mfa_method_type {
     AXIAM_MGMT_MFA_METHOD_TYPE_TOTP = 0, /**< Wire value `Totp`. */
     AXIAM_MGMT_MFA_METHOD_TYPE_PASSKEY, /**< Wire value `Passkey`. */
     AXIAM_MGMT_MFA_METHOD_TYPE_SECURITY_KEY, /**< Wire value `SecurityKey`. */
+    AXIAM_MGMT_MFA_METHOD_TYPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_mfa_method_type_t;
 
 /**
  * Parse a wire value into an MfaMethodType.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_MFA_METHOD_TYPE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_mfa_method_type_from_wire(const char *value, axiam_mgmt_mfa_method_type_t *out);
 
 /**
- * The wire spelling of an MfaMethodType. Never NULL for a valid value.
+ * The wire spelling of an MfaMethodType. Never NULL.
+ *
+ * `AXIAM_MGMT_MFA_METHOD_TYPE_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_mfa_method_type_to_wire(axiam_mgmt_mfa_method_type_t value);
 
@@ -327,19 +448,31 @@ typedef enum axiam_mgmt_notification_event_type {
     AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_USER_UPDATED, /**< Wire value `user_updated`. */
     AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_CREATED, /**< Wire value `service_account_created`. */
     AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_DELETED, /**< Wire value `service_account_deleted`. */
+    AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_notification_event_type_t;
 
 /**
  * Parse a wire value into an NotificationEventType.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_UNKNOWN` for a value this SDK's
+ * copy of the spec does not list, rather than reporting a failure the caller would have to
+ * fail the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL
+ * argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_notification_event_type_from_wire(const char *value, axiam_mgmt_notification_event_type_t *out);
 
 /**
- * The wire spelling of an NotificationEventType. Never NULL for a valid value.
+ * The wire spelling of an NotificationEventType. Never NULL.
+ *
+ * `AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_UNKNOWN` spells as the empty string, which no server
+ * value is: carrying an unrecognised value back into an update is refused by the server
+ * rather than written as a spelling it never used.
  */
 const char *axiam_mgmt_notification_event_type_to_wire(axiam_mgmt_notification_event_type_t value);
 
@@ -364,19 +497,30 @@ const char *axiam_mgmt_notification_event_type_to_wire(axiam_mgmt_notification_e
 typedef enum axiam_mgmt_permission_effect {
     AXIAM_MGMT_PERMISSION_EFFECT_ALLOW = 0, /**< Wire value `allow`. */
     AXIAM_MGMT_PERMISSION_EFFECT_DENY, /**< Wire value `deny`. */
+    AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_permission_effect_t;
 
 /**
  * Parse a wire value into an PermissionEffect.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_permission_effect_from_wire(const char *value, axiam_mgmt_permission_effect_t *out);
 
 /**
- * The wire spelling of an PermissionEffect. Never NULL for a valid value.
+ * The wire spelling of an PermissionEffect. Never NULL.
+ *
+ * `AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_permission_effect_to_wire(axiam_mgmt_permission_effect_t value);
 
@@ -386,19 +530,30 @@ const char *axiam_mgmt_permission_effect_to_wire(axiam_mgmt_permission_effect_t 
 typedef enum axiam_mgmt_pgp_key_algorithm {
     AXIAM_MGMT_PGP_KEY_ALGORITHM_RSA4096 = 0, /**< Wire value `Rsa4096`. */
     AXIAM_MGMT_PGP_KEY_ALGORITHM_ED25519, /**< Wire value `Ed25519`. */
+    AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_pgp_key_algorithm_t;
 
 /**
  * Parse a wire value into an PgpKeyAlgorithm.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_pgp_key_algorithm_from_wire(const char *value, axiam_mgmt_pgp_key_algorithm_t *out);
 
 /**
- * The wire spelling of an PgpKeyAlgorithm. Never NULL for a valid value.
+ * The wire spelling of an PgpKeyAlgorithm. Never NULL.
+ *
+ * `AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_pgp_key_algorithm_to_wire(axiam_mgmt_pgp_key_algorithm_t value);
 
@@ -408,19 +563,30 @@ const char *axiam_mgmt_pgp_key_algorithm_to_wire(axiam_mgmt_pgp_key_algorithm_t 
 typedef enum axiam_mgmt_pgp_key_purpose {
     AXIAM_MGMT_PGP_KEY_PURPOSE_AUDIT_SIGNING = 0, /**< Wire value `AuditSigning`. */
     AXIAM_MGMT_PGP_KEY_PURPOSE_EXPORT, /**< Wire value `Export`. */
+    AXIAM_MGMT_PGP_KEY_PURPOSE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_pgp_key_purpose_t;
 
 /**
  * Parse a wire value into an PgpKeyPurpose.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_PGP_KEY_PURPOSE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_pgp_key_purpose_from_wire(const char *value, axiam_mgmt_pgp_key_purpose_t *out);
 
 /**
- * The wire spelling of an PgpKeyPurpose. Never NULL for a valid value.
+ * The wire spelling of an PgpKeyPurpose. Never NULL.
+ *
+ * `AXIAM_MGMT_PGP_KEY_PURPOSE_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_pgp_key_purpose_to_wire(axiam_mgmt_pgp_key_purpose_t value);
 
@@ -430,19 +596,30 @@ const char *axiam_mgmt_pgp_key_purpose_to_wire(axiam_mgmt_pgp_key_purpose_t valu
 typedef enum axiam_mgmt_pgp_key_status {
     AXIAM_MGMT_PGP_KEY_STATUS_ACTIVE = 0, /**< Wire value `Active`. */
     AXIAM_MGMT_PGP_KEY_STATUS_REVOKED, /**< Wire value `Revoked`. */
+    AXIAM_MGMT_PGP_KEY_STATUS_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_pgp_key_status_t;
 
 /**
  * Parse a wire value into an PgpKeyStatus.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_PGP_KEY_STATUS_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_pgp_key_status_from_wire(const char *value, axiam_mgmt_pgp_key_status_t *out);
 
 /**
- * The wire spelling of an PgpKeyStatus. Never NULL for a valid value.
+ * The wire spelling of an PgpKeyStatus. Never NULL.
+ *
+ * `AXIAM_MGMT_PGP_KEY_STATUS_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_pgp_key_status_to_wire(axiam_mgmt_pgp_key_status_t value);
 
@@ -452,19 +629,30 @@ const char *axiam_mgmt_pgp_key_status_to_wire(axiam_mgmt_pgp_key_status_t value)
 typedef enum axiam_mgmt_reactor_mode {
     AXIAM_MGMT_REACTOR_MODE_INTERCEPT = 0, /**< Wire value `intercept`. */
     AXIAM_MGMT_REACTOR_MODE_LISTEN, /**< Wire value `listen`. */
+    AXIAM_MGMT_REACTOR_MODE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_reactor_mode_t;
 
 /**
  * Parse a wire value into an ReactorMode.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_REACTOR_MODE_UNKNOWN` for a value this SDK's copy of the
+ * spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_reactor_mode_from_wire(const char *value, axiam_mgmt_reactor_mode_t *out);
 
 /**
- * The wire spelling of an ReactorMode. Never NULL for a valid value.
+ * The wire spelling of an ReactorMode. Never NULL.
+ *
+ * `AXIAM_MGMT_REACTOR_MODE_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_reactor_mode_to_wire(axiam_mgmt_reactor_mode_t value);
 
@@ -476,19 +664,30 @@ typedef enum axiam_mgmt_scim_token_status {
     AXIAM_MGMT_SCIM_TOKEN_STATUS_ACTIVE = 0, /**< Wire value `active`. */
     AXIAM_MGMT_SCIM_TOKEN_STATUS_EXPIRED, /**< Wire value `expired`. */
     AXIAM_MGMT_SCIM_TOKEN_STATUS_REVOKED, /**< Wire value `revoked`. */
+    AXIAM_MGMT_SCIM_TOKEN_STATUS_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_scim_token_status_t;
 
 /**
  * Parse a wire value into an ScimTokenStatus.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_SCIM_TOKEN_STATUS_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_scim_token_status_from_wire(const char *value, axiam_mgmt_scim_token_status_t *out);
 
 /**
- * The wire spelling of an ScimTokenStatus. Never NULL for a valid value.
+ * The wire spelling of an ScimTokenStatus. Never NULL.
+ *
+ * `AXIAM_MGMT_SCIM_TOKEN_STATUS_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
  */
 const char *axiam_mgmt_scim_token_status_to_wire(axiam_mgmt_scim_token_status_t value);
 
@@ -498,21 +697,71 @@ const char *axiam_mgmt_scim_token_status_to_wire(axiam_mgmt_scim_token_status_t 
 typedef enum axiam_mgmt_settings_scope {
     AXIAM_MGMT_SETTINGS_SCOPE_ORG = 0, /**< Wire value `Org`. */
     AXIAM_MGMT_SETTINGS_SCOPE_TENANT, /**< Wire value `Tenant`. */
+    AXIAM_MGMT_SETTINGS_SCOPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_settings_scope_t;
 
 /**
  * Parse a wire value into an SettingsScope.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_SETTINGS_SCOPE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_settings_scope_from_wire(const char *value, axiam_mgmt_settings_scope_t *out);
 
 /**
- * The wire spelling of an SettingsScope. Never NULL for a valid value.
+ * The wire spelling of an SettingsScope. Never NULL.
+ *
+ * `AXIAM_MGMT_SETTINGS_SCOPE_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_settings_scope_to_wire(axiam_mgmt_settings_scope_t value);
+
+/**
+ * What a tenant *is*, as distinct from what state it is in.
+ *
+ * Reserved rather than inferred: an organization has exactly one tenant of kind
+ * [`Self::Organization`], enforced by a unique index rather than by convention. Deriving it
+ * from a magic slug or from "the oldest tenant" would make the organization scope something
+ * an operator could rename or delete by accident, and it is the scope the super-admin lives
+ * in.
+ */
+typedef enum axiam_mgmt_tenant_kind {
+    AXIAM_MGMT_TENANT_KIND_STANDARD = 0, /**< Wire value `standard`. */
+    AXIAM_MGMT_TENANT_KIND_ORGANIZATION, /**< Wire value `organization`. */
+    AXIAM_MGMT_TENANT_KIND_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_tenant_kind_t;
+
+/**
+ * Parse a wire value into an TenantKind.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_TENANT_KIND_UNKNOWN` for a value this SDK's copy of the
+ * spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_tenant_kind_from_wire(const char *value, axiam_mgmt_tenant_kind_t *out);
+
+/**
+ * The wire spelling of an TenantKind. Never NULL.
+ *
+ * `AXIAM_MGMT_TENANT_KIND_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
+ */
+const char *axiam_mgmt_tenant_kind_to_wire(axiam_mgmt_tenant_kind_t value);
 
 /**
  * Lifecycle status of a tenant.
@@ -523,19 +772,30 @@ const char *axiam_mgmt_settings_scope_to_wire(axiam_mgmt_settings_scope_t value)
 typedef enum axiam_mgmt_tenant_status {
     AXIAM_MGMT_TENANT_STATUS_ACTIVE = 0, /**< Wire value `Active`. */
     AXIAM_MGMT_TENANT_STATUS_SUSPENDED, /**< Wire value `Suspended`. */
+    AXIAM_MGMT_TENANT_STATUS_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_tenant_status_t;
 
 /**
  * Parse a wire value into an TenantStatus.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_TENANT_STATUS_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_tenant_status_from_wire(const char *value, axiam_mgmt_tenant_status_t *out);
 
 /**
- * The wire spelling of an TenantStatus. Never NULL for a valid value.
+ * The wire spelling of an TenantStatus. Never NULL.
+ *
+ * `AXIAM_MGMT_TENANT_STATUS_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_tenant_status_to_wire(axiam_mgmt_tenant_status_t value);
 
@@ -547,19 +807,31 @@ const char *axiam_mgmt_tenant_status_to_wire(axiam_mgmt_tenant_status_t value);
 typedef enum axiam_mgmt_unknown_aaguid_action {
     AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_ALLOW = 0, /**< Wire value `allow`. */
     AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_DENY, /**< Wire value `deny`. */
+    AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_unknown_aaguid_action_t;
 
 /**
  * Parse a wire value into an UnknownAaguidAction.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_UNKNOWN` for a value this SDK's
+ * copy of the spec does not list, rather than reporting a failure the caller would have to
+ * fail the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL
+ * argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_unknown_aaguid_action_from_wire(const char *value, axiam_mgmt_unknown_aaguid_action_t *out);
 
 /**
- * The wire spelling of an UnknownAaguidAction. Never NULL for a valid value.
+ * The wire spelling of an UnknownAaguidAction. Never NULL.
+ *
+ * `AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_UNKNOWN` spells as the empty string, which no server
+ * value is: carrying an unrecognised value back into an update is refused by the server
+ * rather than written as a spelling it never used.
  */
 const char *axiam_mgmt_unknown_aaguid_action_to_wire(axiam_mgmt_unknown_aaguid_action_t value);
 
@@ -573,19 +845,30 @@ typedef enum axiam_mgmt_user_status {
     AXIAM_MGMT_USER_STATUS_PENDING_VERIFICATION, /**< Wire value `PendingVerification`. */
     AXIAM_MGMT_USER_STATUS_ANONYMIZED, /**< Wire value `Anonymized`. */
     AXIAM_MGMT_USER_STATUS_DELETED, /**< Wire value `Deleted`. */
+    AXIAM_MGMT_USER_STATUS_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_user_status_t;
 
 /**
  * Parse a wire value into an UserStatus.
  *
- * Returns 0 on success and -1 for an unrecognised value, which is NOT mapped to a default
- * case: on this surface these values gate access, and silently reading an unknown state as
- * whichever constant happens to be first turns a newer server into a wrong answer.
+ * Returns 0 and yields `AXIAM_MGMT_USER_STATUS_UNKNOWN` for a value this SDK's copy of the
+ * spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
  */
 int axiam_mgmt_user_status_from_wire(const char *value, axiam_mgmt_user_status_t *out);
 
 /**
- * The wire spelling of an UserStatus. Never NULL for a valid value.
+ * The wire spelling of an UserStatus. Never NULL.
+ *
+ * `AXIAM_MGMT_USER_STATUS_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
  */
 const char *axiam_mgmt_user_status_to_wire(axiam_mgmt_user_status_t value);
 
@@ -1037,6 +1320,13 @@ struct axiam_mgmt_certificate {
      * The tenant this certificate belongs to.
      */
     char *tenant_id;
+    /**
+     * Resolved by the list projection only. The server resolves this for a whole page in
+     * one query, so it is populated by `list` and is NULL on `get` (CONTRACT.md §27.11 rule
+     * 4). NULL there means "this read does not carry it", not "there is nothing bound" --
+     * this SDK does not issue a second request to fill it in. Optional.
+     */
+    char *bound_service_account_id;
 };
 
 /**
@@ -2734,10 +3024,18 @@ struct axiam_mgmt_mtls_trust_anchor_response {
      */
     int mtls_trust_anchor;
     /**
-     * Always `true`: rustls builds its client trust store once, when the listener is
-     * constructed, so this takes effect at the next start.
+     * Whether the change still needs a restart to take effect. `false` when the live
+     * listener accepted the new anchor set — the ordinary case on a TLS deployment. `true`
+     * only when there was no listener to reload into (plaintext, or `client_auth = off`),
+     * where the flag is stored and applies at the next start.
      */
     int restart_required;
+    /**
+     * How many CAs the listener now trusts for client authentication, when it was reloaded.
+     * `None` when nothing was reloaded. Optional.
+     */
+    long trusted_anchors;
+    int has_trusted_anchors; /**< 1 when `trusted_anchors` is set. */
 };
 
 /**
@@ -4388,6 +4686,13 @@ struct axiam_mgmt_tenant {
      * The server's `id` field.
      */
     char *id;
+    /**
+     * Whether this is an ordinary tenant or the organization's own scope.
+     * `#[serde(default)]` so every row written before organization scope existed reads back
+     * as [`TenantKind::Standard`], which is what it is. Optional.
+     */
+    axiam_mgmt_tenant_kind_t kind;
+    int has_kind; /**< 1 when `kind` is set. */
     /**
      * Arbitrary key-value metadata.
      */

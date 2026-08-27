@@ -18,11 +18,13 @@ int axiam_mgmt_actor_type_from_wire(const char *value, axiam_mgmt_actor_type_t *
     if (strcmp(value, "ServiceAccount") == 0) { *out = AXIAM_MGMT_ACTOR_TYPE_SERVICE_ACCOUNT; return 0; }
     if (strcmp(value, "System") == 0) { *out = AXIAM_MGMT_ACTOR_TYPE_SYSTEM; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_ACTOR_TYPE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_actor_type_to_wire(axiam_mgmt_actor_type_t value) {
@@ -30,6 +32,12 @@ const char *axiam_mgmt_actor_type_to_wire(axiam_mgmt_actor_type_t value) {
         case AXIAM_MGMT_ACTOR_TYPE_USER: return "User";
         case AXIAM_MGMT_ACTOR_TYPE_SERVICE_ACCOUNT: return "ServiceAccount";
         case AXIAM_MGMT_ACTOR_TYPE_SYSTEM: return "System";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_ACTOR_TYPE_UNKNOWN: return "";
     }
     return "User";
 }
@@ -40,11 +48,13 @@ int axiam_mgmt_attestation_mode_from_wire(const char *value, axiam_mgmt_attestat
     if (strcmp(value, "indirect") == 0) { *out = AXIAM_MGMT_ATTESTATION_MODE_INDIRECT; return 0; }
     if (strcmp(value, "direct_required") == 0) { *out = AXIAM_MGMT_ATTESTATION_MODE_DIRECT_REQUIRED; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_ATTESTATION_MODE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_attestation_mode_to_wire(axiam_mgmt_attestation_mode_t value) {
@@ -52,6 +62,12 @@ const char *axiam_mgmt_attestation_mode_to_wire(axiam_mgmt_attestation_mode_t va
         case AXIAM_MGMT_ATTESTATION_MODE_NONE: return "none";
         case AXIAM_MGMT_ATTESTATION_MODE_INDIRECT: return "indirect";
         case AXIAM_MGMT_ATTESTATION_MODE_DIRECT_REQUIRED: return "direct_required";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_ATTESTATION_MODE_UNKNOWN: return "";
     }
     return "none";
 }
@@ -62,11 +78,13 @@ int axiam_mgmt_audit_outcome_from_wire(const char *value, axiam_mgmt_audit_outco
     if (strcmp(value, "Failure") == 0) { *out = AXIAM_MGMT_AUDIT_OUTCOME_FAILURE; return 0; }
     if (strcmp(value, "Denied") == 0) { *out = AXIAM_MGMT_AUDIT_OUTCOME_DENIED; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_AUDIT_OUTCOME_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_audit_outcome_to_wire(axiam_mgmt_audit_outcome_t value) {
@@ -74,6 +92,12 @@ const char *axiam_mgmt_audit_outcome_to_wire(axiam_mgmt_audit_outcome_t value) {
         case AXIAM_MGMT_AUDIT_OUTCOME_SUCCESS: return "Success";
         case AXIAM_MGMT_AUDIT_OUTCOME_FAILURE: return "Failure";
         case AXIAM_MGMT_AUDIT_OUTCOME_DENIED: return "Denied";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_AUDIT_OUTCOME_UNKNOWN: return "";
     }
     return "Success";
 }
@@ -84,11 +108,13 @@ int axiam_mgmt_certificate_status_from_wire(const char *value, axiam_mgmt_certif
     if (strcmp(value, "Revoked") == 0) { *out = AXIAM_MGMT_CERTIFICATE_STATUS_REVOKED; return 0; }
     if (strcmp(value, "Expired") == 0) { *out = AXIAM_MGMT_CERTIFICATE_STATUS_EXPIRED; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_CERTIFICATE_STATUS_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_certificate_status_to_wire(axiam_mgmt_certificate_status_t value) {
@@ -96,6 +122,12 @@ const char *axiam_mgmt_certificate_status_to_wire(axiam_mgmt_certificate_status_
         case AXIAM_MGMT_CERTIFICATE_STATUS_ACTIVE: return "Active";
         case AXIAM_MGMT_CERTIFICATE_STATUS_REVOKED: return "Revoked";
         case AXIAM_MGMT_CERTIFICATE_STATUS_EXPIRED: return "Expired";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_CERTIFICATE_STATUS_UNKNOWN: return "";
     }
     return "Active";
 }
@@ -106,11 +138,13 @@ int axiam_mgmt_certificate_type_from_wire(const char *value, axiam_mgmt_certific
     if (strcmp(value, "Service") == 0) { *out = AXIAM_MGMT_CERTIFICATE_TYPE_SERVICE; return 0; }
     if (strcmp(value, "Device") == 0) { *out = AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_certificate_type_to_wire(axiam_mgmt_certificate_type_t value) {
@@ -118,6 +152,12 @@ const char *axiam_mgmt_certificate_type_to_wire(axiam_mgmt_certificate_type_t va
         case AXIAM_MGMT_CERTIFICATE_TYPE_USER: return "User";
         case AXIAM_MGMT_CERTIFICATE_TYPE_SERVICE: return "Service";
         case AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE: return "Device";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN: return "";
     }
     return "User";
 }
@@ -131,11 +171,13 @@ int axiam_mgmt_certification_level_from_wire(const char *value, axiam_mgmt_certi
     if (strcmp(value, "L3") == 0) { *out = AXIAM_MGMT_CERTIFICATION_LEVEL_L3; return 0; }
     if (strcmp(value, "L3Plus") == 0) { *out = AXIAM_MGMT_CERTIFICATION_LEVEL_L3_PLUS; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_certification_level_to_wire(axiam_mgmt_certification_level_t value) {
@@ -146,6 +188,12 @@ const char *axiam_mgmt_certification_level_to_wire(axiam_mgmt_certification_leve
         case AXIAM_MGMT_CERTIFICATION_LEVEL_L2_PLUS: return "L2Plus";
         case AXIAM_MGMT_CERTIFICATION_LEVEL_L3: return "L3";
         case AXIAM_MGMT_CERTIFICATION_LEVEL_L3_PLUS: return "L3Plus";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN: return "";
     }
     return "L1";
 }
@@ -157,11 +205,13 @@ int axiam_mgmt_client_auth_method_from_wire(const char *value, axiam_mgmt_client
     if (strcmp(value, "self_signed_tls_client_auth") == 0) { *out = AXIAM_MGMT_CLIENT_AUTH_METHOD_SELF_SIGNED_TLS_CLIENT_AUTH; return 0; }
     if (strcmp(value, "private_key_jwt") == 0) { *out = AXIAM_MGMT_CLIENT_AUTH_METHOD_PRIVATE_KEY_JWT; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_client_auth_method_to_wire(axiam_mgmt_client_auth_method_t value) {
@@ -170,6 +220,12 @@ const char *axiam_mgmt_client_auth_method_to_wire(axiam_mgmt_client_auth_method_
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_TLS_CLIENT_AUTH: return "tls_client_auth";
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_SELF_SIGNED_TLS_CLIENT_AUTH: return "self_signed_tls_client_auth";
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_PRIVATE_KEY_JWT: return "private_key_jwt";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN: return "";
     }
     return "client_secret_post";
 }
@@ -179,17 +235,25 @@ int axiam_mgmt_client_profile_from_wire(const char *value, axiam_mgmt_client_pro
     if (strcmp(value, "standard") == 0) { *out = AXIAM_MGMT_CLIENT_PROFILE_STANDARD; return 0; }
     if (strcmp(value, "fapi2") == 0) { *out = AXIAM_MGMT_CLIENT_PROFILE_FAPI2; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_client_profile_to_wire(axiam_mgmt_client_profile_t value) {
     switch (value) {
         case AXIAM_MGMT_CLIENT_PROFILE_STANDARD: return "standard";
         case AXIAM_MGMT_CLIENT_PROFILE_FAPI2: return "fapi2";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN: return "";
     }
     return "standard";
 }
@@ -199,17 +263,25 @@ int axiam_mgmt_failure_policy_from_wire(const char *value, axiam_mgmt_failure_po
     if (strcmp(value, "fail_closed") == 0) { *out = AXIAM_MGMT_FAILURE_POLICY_FAIL_CLOSED; return 0; }
     if (strcmp(value, "fail_open") == 0) { *out = AXIAM_MGMT_FAILURE_POLICY_FAIL_OPEN; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_FAILURE_POLICY_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_failure_policy_to_wire(axiam_mgmt_failure_policy_t value) {
     switch (value) {
         case AXIAM_MGMT_FAILURE_POLICY_FAIL_CLOSED: return "fail_closed";
         case AXIAM_MGMT_FAILURE_POLICY_FAIL_OPEN: return "fail_open";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_FAILURE_POLICY_UNKNOWN: return "";
     }
     return "fail_closed";
 }
@@ -219,17 +291,25 @@ int axiam_mgmt_key_algorithm_from_wire(const char *value, axiam_mgmt_key_algorit
     if (strcmp(value, "Rsa4096") == 0) { *out = AXIAM_MGMT_KEY_ALGORITHM_RSA4096; return 0; }
     if (strcmp(value, "Ed25519") == 0) { *out = AXIAM_MGMT_KEY_ALGORITHM_ED25519; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_key_algorithm_to_wire(axiam_mgmt_key_algorithm_t value) {
     switch (value) {
         case AXIAM_MGMT_KEY_ALGORITHM_RSA4096: return "Rsa4096";
         case AXIAM_MGMT_KEY_ALGORITHM_ED25519: return "Ed25519";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN: return "";
     }
     return "Rsa4096";
 }
@@ -240,11 +320,13 @@ int axiam_mgmt_mfa_method_type_from_wire(const char *value, axiam_mgmt_mfa_metho
     if (strcmp(value, "Passkey") == 0) { *out = AXIAM_MGMT_MFA_METHOD_TYPE_PASSKEY; return 0; }
     if (strcmp(value, "SecurityKey") == 0) { *out = AXIAM_MGMT_MFA_METHOD_TYPE_SECURITY_KEY; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_MFA_METHOD_TYPE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_mfa_method_type_to_wire(axiam_mgmt_mfa_method_type_t value) {
@@ -252,6 +334,12 @@ const char *axiam_mgmt_mfa_method_type_to_wire(axiam_mgmt_mfa_method_type_t valu
         case AXIAM_MGMT_MFA_METHOD_TYPE_TOTP: return "Totp";
         case AXIAM_MGMT_MFA_METHOD_TYPE_PASSKEY: return "Passkey";
         case AXIAM_MGMT_MFA_METHOD_TYPE_SECURITY_KEY: return "SecurityKey";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_MFA_METHOD_TYPE_UNKNOWN: return "";
     }
     return "Totp";
 }
@@ -276,11 +364,13 @@ int axiam_mgmt_notification_event_type_from_wire(const char *value, axiam_mgmt_n
     if (strcmp(value, "service_account_created") == 0) { *out = AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_CREATED; return 0; }
     if (strcmp(value, "service_account_deleted") == 0) { *out = AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_DELETED; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_notification_event_type_to_wire(axiam_mgmt_notification_event_type_t value) {
@@ -302,6 +392,12 @@ const char *axiam_mgmt_notification_event_type_to_wire(axiam_mgmt_notification_e
         case AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_USER_UPDATED: return "user_updated";
         case AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_CREATED: return "service_account_created";
         case AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_DELETED: return "service_account_deleted";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_UNKNOWN: return "";
     }
     return "login_failure";
 }
@@ -311,17 +407,25 @@ int axiam_mgmt_permission_effect_from_wire(const char *value, axiam_mgmt_permiss
     if (strcmp(value, "allow") == 0) { *out = AXIAM_MGMT_PERMISSION_EFFECT_ALLOW; return 0; }
     if (strcmp(value, "deny") == 0) { *out = AXIAM_MGMT_PERMISSION_EFFECT_DENY; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_permission_effect_to_wire(axiam_mgmt_permission_effect_t value) {
     switch (value) {
         case AXIAM_MGMT_PERMISSION_EFFECT_ALLOW: return "allow";
         case AXIAM_MGMT_PERMISSION_EFFECT_DENY: return "deny";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN: return "";
     }
     return "allow";
 }
@@ -331,17 +435,25 @@ int axiam_mgmt_pgp_key_algorithm_from_wire(const char *value, axiam_mgmt_pgp_key
     if (strcmp(value, "Rsa4096") == 0) { *out = AXIAM_MGMT_PGP_KEY_ALGORITHM_RSA4096; return 0; }
     if (strcmp(value, "Ed25519") == 0) { *out = AXIAM_MGMT_PGP_KEY_ALGORITHM_ED25519; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_pgp_key_algorithm_to_wire(axiam_mgmt_pgp_key_algorithm_t value) {
     switch (value) {
         case AXIAM_MGMT_PGP_KEY_ALGORITHM_RSA4096: return "Rsa4096";
         case AXIAM_MGMT_PGP_KEY_ALGORITHM_ED25519: return "Ed25519";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN: return "";
     }
     return "Rsa4096";
 }
@@ -351,17 +463,25 @@ int axiam_mgmt_pgp_key_purpose_from_wire(const char *value, axiam_mgmt_pgp_key_p
     if (strcmp(value, "AuditSigning") == 0) { *out = AXIAM_MGMT_PGP_KEY_PURPOSE_AUDIT_SIGNING; return 0; }
     if (strcmp(value, "Export") == 0) { *out = AXIAM_MGMT_PGP_KEY_PURPOSE_EXPORT; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_PGP_KEY_PURPOSE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_pgp_key_purpose_to_wire(axiam_mgmt_pgp_key_purpose_t value) {
     switch (value) {
         case AXIAM_MGMT_PGP_KEY_PURPOSE_AUDIT_SIGNING: return "AuditSigning";
         case AXIAM_MGMT_PGP_KEY_PURPOSE_EXPORT: return "Export";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_PGP_KEY_PURPOSE_UNKNOWN: return "";
     }
     return "AuditSigning";
 }
@@ -371,17 +491,25 @@ int axiam_mgmt_pgp_key_status_from_wire(const char *value, axiam_mgmt_pgp_key_st
     if (strcmp(value, "Active") == 0) { *out = AXIAM_MGMT_PGP_KEY_STATUS_ACTIVE; return 0; }
     if (strcmp(value, "Revoked") == 0) { *out = AXIAM_MGMT_PGP_KEY_STATUS_REVOKED; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_PGP_KEY_STATUS_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_pgp_key_status_to_wire(axiam_mgmt_pgp_key_status_t value) {
     switch (value) {
         case AXIAM_MGMT_PGP_KEY_STATUS_ACTIVE: return "Active";
         case AXIAM_MGMT_PGP_KEY_STATUS_REVOKED: return "Revoked";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_PGP_KEY_STATUS_UNKNOWN: return "";
     }
     return "Active";
 }
@@ -391,17 +519,25 @@ int axiam_mgmt_reactor_mode_from_wire(const char *value, axiam_mgmt_reactor_mode
     if (strcmp(value, "intercept") == 0) { *out = AXIAM_MGMT_REACTOR_MODE_INTERCEPT; return 0; }
     if (strcmp(value, "listen") == 0) { *out = AXIAM_MGMT_REACTOR_MODE_LISTEN; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_REACTOR_MODE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_reactor_mode_to_wire(axiam_mgmt_reactor_mode_t value) {
     switch (value) {
         case AXIAM_MGMT_REACTOR_MODE_INTERCEPT: return "intercept";
         case AXIAM_MGMT_REACTOR_MODE_LISTEN: return "listen";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_REACTOR_MODE_UNKNOWN: return "";
     }
     return "intercept";
 }
@@ -412,11 +548,13 @@ int axiam_mgmt_scim_token_status_from_wire(const char *value, axiam_mgmt_scim_to
     if (strcmp(value, "expired") == 0) { *out = AXIAM_MGMT_SCIM_TOKEN_STATUS_EXPIRED; return 0; }
     if (strcmp(value, "revoked") == 0) { *out = AXIAM_MGMT_SCIM_TOKEN_STATUS_REVOKED; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_SCIM_TOKEN_STATUS_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_scim_token_status_to_wire(axiam_mgmt_scim_token_status_t value) {
@@ -424,6 +562,12 @@ const char *axiam_mgmt_scim_token_status_to_wire(axiam_mgmt_scim_token_status_t 
         case AXIAM_MGMT_SCIM_TOKEN_STATUS_ACTIVE: return "active";
         case AXIAM_MGMT_SCIM_TOKEN_STATUS_EXPIRED: return "expired";
         case AXIAM_MGMT_SCIM_TOKEN_STATUS_REVOKED: return "revoked";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_SCIM_TOKEN_STATUS_UNKNOWN: return "";
     }
     return "active";
 }
@@ -433,19 +577,55 @@ int axiam_mgmt_settings_scope_from_wire(const char *value, axiam_mgmt_settings_s
     if (strcmp(value, "Org") == 0) { *out = AXIAM_MGMT_SETTINGS_SCOPE_ORG; return 0; }
     if (strcmp(value, "Tenant") == 0) { *out = AXIAM_MGMT_SETTINGS_SCOPE_TENANT; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_SETTINGS_SCOPE_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_settings_scope_to_wire(axiam_mgmt_settings_scope_t value) {
     switch (value) {
         case AXIAM_MGMT_SETTINGS_SCOPE_ORG: return "Org";
         case AXIAM_MGMT_SETTINGS_SCOPE_TENANT: return "Tenant";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_SETTINGS_SCOPE_UNKNOWN: return "";
     }
     return "Org";
+}
+
+int axiam_mgmt_tenant_kind_from_wire(const char *value, axiam_mgmt_tenant_kind_t *out) {
+    if (!value || !out) return -1;
+    if (strcmp(value, "standard") == 0) { *out = AXIAM_MGMT_TENANT_KIND_STANDARD; return 0; }
+    if (strcmp(value, "organization") == 0) { *out = AXIAM_MGMT_TENANT_KIND_ORGANIZATION; return 0; }
+    /*
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
+     */
+    *out = AXIAM_MGMT_TENANT_KIND_UNKNOWN;
+    return 0;
+}
+
+const char *axiam_mgmt_tenant_kind_to_wire(axiam_mgmt_tenant_kind_t value) {
+    switch (value) {
+        case AXIAM_MGMT_TENANT_KIND_STANDARD: return "standard";
+        case AXIAM_MGMT_TENANT_KIND_ORGANIZATION: return "organization";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_TENANT_KIND_UNKNOWN: return "";
+    }
+    return "standard";
 }
 
 int axiam_mgmt_tenant_status_from_wire(const char *value, axiam_mgmt_tenant_status_t *out) {
@@ -453,17 +633,25 @@ int axiam_mgmt_tenant_status_from_wire(const char *value, axiam_mgmt_tenant_stat
     if (strcmp(value, "Active") == 0) { *out = AXIAM_MGMT_TENANT_STATUS_ACTIVE; return 0; }
     if (strcmp(value, "Suspended") == 0) { *out = AXIAM_MGMT_TENANT_STATUS_SUSPENDED; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_TENANT_STATUS_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_tenant_status_to_wire(axiam_mgmt_tenant_status_t value) {
     switch (value) {
         case AXIAM_MGMT_TENANT_STATUS_ACTIVE: return "Active";
         case AXIAM_MGMT_TENANT_STATUS_SUSPENDED: return "Suspended";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_TENANT_STATUS_UNKNOWN: return "";
     }
     return "Active";
 }
@@ -473,17 +661,25 @@ int axiam_mgmt_unknown_aaguid_action_from_wire(const char *value, axiam_mgmt_unk
     if (strcmp(value, "allow") == 0) { *out = AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_ALLOW; return 0; }
     if (strcmp(value, "deny") == 0) { *out = AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_DENY; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_unknown_aaguid_action_to_wire(axiam_mgmt_unknown_aaguid_action_t value) {
     switch (value) {
         case AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_ALLOW: return "allow";
         case AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_DENY: return "deny";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_UNKNOWN: return "";
     }
     return "allow";
 }
@@ -497,11 +693,13 @@ int axiam_mgmt_user_status_from_wire(const char *value, axiam_mgmt_user_status_t
     if (strcmp(value, "Anonymized") == 0) { *out = AXIAM_MGMT_USER_STATUS_ANONYMIZED; return 0; }
     if (strcmp(value, "Deleted") == 0) { *out = AXIAM_MGMT_USER_STATUS_DELETED; return 0; }
     /*
-     * No default case, on purpose: an unrecognised value is reported, never mapped to
-     * whichever constant happens to be first. On this surface these values gate access, so
-     * a newer server must surface as an error rather than a wrong answer.
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
      */
-    return -1;
+    *out = AXIAM_MGMT_USER_STATUS_UNKNOWN;
+    return 0;
 }
 
 const char *axiam_mgmt_user_status_to_wire(axiam_mgmt_user_status_t value) {
@@ -512,6 +710,12 @@ const char *axiam_mgmt_user_status_to_wire(axiam_mgmt_user_status_t value) {
         case AXIAM_MGMT_USER_STATUS_PENDING_VERIFICATION: return "PendingVerification";
         case AXIAM_MGMT_USER_STATUS_ANONYMIZED: return "Anonymized";
         case AXIAM_MGMT_USER_STATUS_DELETED: return "Deleted";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_USER_STATUS_UNKNOWN: return "";
     }
     return "Active";
 }
@@ -1108,6 +1312,7 @@ void axiam_mgmt_certificate_free(axiam_mgmt_certificate_t *value) {
     free(value->public_cert_pem);
     free(value->subject);
     free(value->tenant_id);
+    free(value->bound_service_account_id);
     free(value);
 }
 
@@ -1149,6 +1354,8 @@ axiam_mgmt_certificate_t *axiam_mgmt_certificate_parse(const cJSON *src) {
     if (cJSON_IsString(item)) out->subject = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "tenant_id");
     if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "bound_service_account_id");
+    if (cJSON_IsString(item)) out->bound_service_account_id = axiam_strdup0(item->valuestring);
     return out;
 }
 
@@ -1195,6 +1402,9 @@ cJSON *axiam_mgmt_certificate_build(const axiam_mgmt_certificate_t *value) {
     }
     if (value->tenant_id) {
         cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);
+    }
+    if (value->bound_service_account_id) {
+        cJSON_AddStringToObject(obj, "bound_service_account_id", value->bound_service_account_id);
     }
     return obj;
 }
@@ -3717,6 +3927,9 @@ axiam_mgmt_mtls_trust_anchor_response_t *axiam_mgmt_mtls_trust_anchor_response_p
     item = cJSON_GetObjectItemCaseSensitive(src, "restart_required");
     if (cJSON_IsBool(item)) { out->restart_required = cJSON_IsTrue(item) ? 1 : 0;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "trusted_anchors");
+    if (cJSON_IsNumber(item)) { out->trusted_anchors = (long) item->valuedouble;
+        out->has_trusted_anchors = 1; }
     return out;
 }
 
@@ -3735,6 +3948,9 @@ cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_a
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "restart_required", value->restart_required);
+    }
+    if (value->has_trusted_anchors) {
+        cJSON_AddNumberToObject(obj, "trusted_anchors", (double) value->trusted_anchors);
     }
     return obj;
 }
@@ -6353,6 +6569,10 @@ axiam_mgmt_tenant_t *axiam_mgmt_tenant_parse(const cJSON *src) {
     if (cJSON_IsString(item)) out->created_at = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "id");
     if (cJSON_IsString(item)) out->id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "kind");
+    if (cJSON_IsString(item) && axiam_mgmt_tenant_kind_from_wire(item->valuestring, &out->kind) == 0) {
+        out->has_kind = 1;
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata");
     if (item) out->metadata = cJSON_PrintUnformatted(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "name");
@@ -6379,6 +6599,9 @@ cJSON *axiam_mgmt_tenant_build(const axiam_mgmt_tenant_t *value) {
     }
     if (value->id) {
         cJSON_AddStringToObject(obj, "id", value->id);
+    }
+    if (value->has_kind) {
+        cJSON_AddStringToObject(obj, "kind", axiam_mgmt_tenant_kind_to_wire(value->kind));
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);

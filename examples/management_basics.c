@@ -77,6 +77,99 @@ int main(void) {
         cursor = axiam_mgmt_page_next(cursor);
     }
 
+    /* ---- searching a list ------------------------------------------------
+     *
+     * §27.4 rule 4: the term rides on the PAGE REQUEST, beside offset and limit, not as
+     * an extra argument on each of the twenty paginated operations. That is what lets
+     * axiam_mgmt_page_next() carry it: an argument has nowhere to live between one
+     * request and the next, and a walk that filtered only its first request would return
+     * the matches followed by the unfiltered tail.
+     *
+     * The server does the matching, case-insensitively, against the identifying fields of
+     * whatever is being listed — a name or username, plus the record id, so a UUID pasted
+     * out of a log line finds its row. `total` then counts MATCHES, not rows.
+     *
+     * `search` is BORROWED, never copied: it must outlive every request derived from it,
+     * which is why the term below is declared outside the loop rather than inside it.
+     */
+    const char *term = env_or("AXIAM_SEARCH", "ada");
+    axiam_mgmt_page_req_t filtered = { 0, 50, term };
+    axiam_mgmt_user_response_page_t *matches = NULL;
+    if (axiam_users_list(c, &filtered, &matches, &err) == AXIAM_OK && matches) {
+        printf("matching users on this page: %zu, matches in total: %ld\n",
+               matches->count, matches->total);
+        axiam_mgmt_user_response_page_free(matches);
+    }
+
+    /* The whole filtered set: the term travels with the walk, so every request asks the
+     * same question. */
+    for (;;) {
+        axiam_mgmt_user_response_page_t *p = NULL;
+        if (axiam_users_list(c, &filtered, &p, &err) != AXIAM_OK || !p) break;
+        if (p->count == 0) { axiam_mgmt_user_response_page_free(p); break; }
+        for (size_t i = 0; i < p->count; i++)
+            printf("  match: %s\n", p->items[i]->id ? p->items[i]->id : "(no id)");
+        axiam_mgmt_user_response_page_free(p);
+        filtered = axiam_mgmt_page_next(filtered);
+    }
+
+    /* A NULL, empty or all-whitespace term is the SAME request as none: no `search`
+     * parameter is sent at all. A search box that fires on every keystroke sends one the
+     * moment it is cleared, and "rows containing the empty string" is a different
+     * question from "all rows". */
+    axiam_mgmt_page_req_t cleared = { 0, 50, "   " };
+    axiam_mgmt_user_response_page_t *everyone = NULL;
+    if (axiam_users_list(c, &cleared, &everyone, &err) == AXIAM_OK && everyone) {
+        printf("after clearing the box: %ld users\n", everyone->total);
+        axiam_mgmt_user_response_page_free(everyone);
+    }
+
+    /* ---- open enums, and the list-only projection (§27.11) ----------------
+     *
+     * Rule 1: a value this SDK's copy of the spec does not list decodes to the enum's
+     * _UNKNOWN constant rather than failing. Failing here would make the caller drop the
+     * whole record — or the whole page — over one field it did not ask about. It is
+     * never read as one of the KNOWN constants, which would turn a new server state into
+     * a wrong one, and _UNKNOWN is deliberately not the zero value either.
+     */
+    axiam_mgmt_tenant_page_t *tenants = NULL;
+    if (axiam_tenants_list(c, NULL, NULL, &tenants, &err) == AXIAM_OK && tenants) {
+        for (size_t i = 0; i < tenants->count; i++) {
+            const axiam_mgmt_tenant_t *t = tenants->items[i];
+            const char *what = "an ordinary tenant";
+            if (t->has_kind) {
+                switch (t->kind) {
+                    case AXIAM_MGMT_TENANT_KIND_ORGANIZATION:
+                        what = "the organization's own scope"; break;
+                    case AXIAM_MGMT_TENANT_KIND_UNKNOWN:
+                        what = "a kind this SDK predates — upgrade to name it"; break;
+                    default:
+                        break;
+                }
+            }
+            printf("  %s: %s\n", t->slug ? t->slug : "(no slug)", what);
+        }
+        axiam_mgmt_tenant_page_free(tenants);
+    }
+
+    /* Rule 4: `bound_service_account_id` is a PROJECTION, not a member of the
+     * certificate. The server resolves it for a whole page in one query, so `list`
+     * populates it and `get` leaves it NULL. NULL there means "this read does not carry
+     * it", not "there is nothing bound" — and this SDK does not go and fetch it, because
+     * a `get` that silently costs two round trips is what §27.4 rule 3 forbids elsewhere.
+     */
+    axiam_mgmt_certificate_page_t *certs = NULL;
+    if (axiam_certificates_list(c, NULL, &certs, &err) == AXIAM_OK && certs) {
+        for (size_t i = 0; i < certs->count; i++) {
+            const axiam_mgmt_certificate_t *cert = certs->items[i];
+            printf("  %s -> %s\n",
+                   cert->subject ? cert->subject : "(no subject)",
+                   cert->bound_service_account_id ? cert->bound_service_account_id
+                                                  : "not bound to a service account");
+        }
+        axiam_mgmt_certificate_page_free(certs);
+    }
+
     /* ---- a sparse update -------------------------------------------------
      *
      * §27.4 rule 5: set only the fields you mean to change. What you leave zeroed is

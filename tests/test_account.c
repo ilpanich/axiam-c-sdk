@@ -51,6 +51,7 @@ typedef struct {
     const char *body_setup_confirm;
     long status_verify_email;
     long status_resend;
+    long status_resend_own;
     long status_reset;
     long status_reset_context;
     const char *body_reset_context;
@@ -115,6 +116,11 @@ static int acct_transport(void *ctx, const axiam_http_request_t *req,
     }
     if (strstr(url, "/auth/verify-email")) {
         resp_fill(resp, g.status_verify_email ? g.status_verify_email : 204, NULL, NULL);
+        return 0;
+    }
+    if (strstr(url, "/users/me/resend-verification")) {
+        resp_fill(resp, g.status_resend_own ? g.status_resend_own : 200,
+                  "{\"sent\":true}", NULL);
         return 0;
     }
     if (strstr(url, "/auth/resend-verification")) {
@@ -450,6 +456,192 @@ void test_resend_verification_carries_the_tenant_in_the_body(void) {
     TEST_ASSERT_NOT_NULL(strstr(g.bodies[i], "\"email\":\"ada@acme.test\""));
     TEST_ASSERT_NOT_NULL(strstr(g.bodies[i], "\"tenant_id\":\"" AXIAM_TEST_TENANT_ID "\""));
 
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §25.7 — the two resends                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The signed-in resend sends NO caller-supplied data (§25.6).
+ *
+ * Asserted on the serialized request rather than on the signature: a function that takes
+ * no address but reads one off the client and sends it anyway would pass a signature
+ * check and still be the bug §25.7 exists to prevent. The empty object — the same thing
+ * axiam_mfa_enroll already sends — is conformant; an "email" key is not, whatever the
+ * SDK does with the value.
+ */
+void test_resend_own_verification_sends_no_address(void) {
+    axiam_client_t *c = make_signed_in_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_resend_own_verification(c, &err));
+
+    int i = last_call_to("/users/me/resend-verification");
+    TEST_ASSERT_TRUE(i >= 0);
+    TEST_ASSERT_EQUAL_STRING("{}", g.bodies[i]);
+    TEST_ASSERT_NULL(strstr(g.bodies[i], "email"));
+    TEST_ASSERT_NULL(strstr(g.urls[i], "email="));
+
+    axiam_client_free(c);
+}
+
+/*
+ * The two resends are distinct operations on distinct paths (§25.6).
+ *
+ * §25.7 rule 2 forbids routing either to the other in either direction; an SDK that
+ * aliased one reintroduces exactly the defect that section describes.
+ */
+void test_the_two_resends_hit_distinct_paths(void) {
+    axiam_client_t *c = make_signed_in_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_resend_own_verification(c, &err));
+    int own = last_call_to("/users/me/resend-verification");
+
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+        axiam_resend_verification(c, "ada@acme.test", AXIAM_TEST_TENANT_ID, &err));
+    int public_one = last_call_to("/auth/resend-verification");
+
+    TEST_ASSERT_TRUE(own >= 0);
+    TEST_ASSERT_TRUE(public_one >= 0);
+    TEST_ASSERT_TRUE(own != public_one);
+    TEST_ASSERT_NULL(strstr(g.urls[own], "/auth/resend-verification"));
+    TEST_ASSERT_NULL(strstr(g.urls[public_one], "/users/me/"));
+
+    axiam_client_free(c);
+}
+
+/*
+ * A 409 is raised, and NOT retried against the public endpoint.
+ *
+ * This matters more than it looks: the bug this operation exists to fix was a success
+ * return on a request that sent nothing, and §25.7 rule 2's forbidden "helpful" fallback
+ * would restore it with an extra round trip. The absence of a call to the public path is
+ * what pins that.
+ */
+void test_resend_own_verification_raises_on_409_and_does_not_fall_back(void) {
+    g.status_resend_own = 409;
+    axiam_client_t *c = make_signed_in_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTHZ, axiam_resend_own_verification(c, &err));
+
+    TEST_ASSERT_EQUAL_INT(-1, last_call_to("/auth/resend-verification"));
+    axiam_client_free(c);
+}
+
+/* A 429 is the §2 mapping of the daily resend limit, and is likewise not retried. */
+void test_resend_own_verification_raises_on_429_and_does_not_fall_back(void) {
+    g.status_resend_own = 429;
+    axiam_client_t *c = make_signed_in_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_resend_own_verification(c, &err));
+
+    TEST_ASSERT_EQUAL_INT(-1, last_call_to("/auth/resend-verification"));
+    axiam_client_free(c);
+}
+
+/* With no session it refuses client-side, with ZERO wire calls. */
+void test_resend_own_verification_with_no_session_makes_no_wire_call(void) {
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL_INT(0, axiam_client_has_session(c));
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_resend_own_verification(c, &err));
+
+    TEST_ASSERT_EQUAL_INT(0, g.n_calls);
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "§25.7"));
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
+/* §5.2 — organization-level principals                               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * `organization_level` on the login response reaches the result.
+ *
+ * The flag is the only thing that makes a tenant switch meaningful: such a principal
+ * changes the tenant it acts on by sending a different X-Tenant-ID, with no re-login.
+ * An application checks it BEFORE offering the switch rather than discovering the answer
+ * from a 403.
+ */
+void test_login_surfaces_an_organization_level_principal(void) {
+    g.body_login =
+        "{\"session_id\":\"sess-1\",\"expires_in\":900,"
+        "\"user\":{\"id\":\"user-1\",\"username\":\"root\","
+        "\"email\":\"root@acme.test\",\"tenant_id\":\"" AXIAM_TEST_TENANT_ID "\","
+        "\"organization_level\":true}}";
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_login_result_t r;
+
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_login(c, "root@acme.test", "pw", &r, &err));
+
+    TEST_ASSERT_EQUAL_INT(1, r.organization_level);
+    axiam_login_result_dispose(&r);
+    axiam_client_free(c);
+}
+
+/*
+ * Absent means 0 — what a server older than contract 1.31 answers, and the safe
+ * direction: the application then offers no cross-tenant action.
+ *
+ * Anything that is not the JSON literal true is read the same way. A truthy string is
+ * exactly how a field the SDK does not really understand becomes a UI offering a switch
+ * that 403s.
+ */
+void test_an_absent_or_non_boolean_organization_level_is_false(void) {
+    axiam_error_t err;
+    axiam_login_result_t r;
+
+    axiam_client_t *c = make_client();
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_login(c, "ada@acme.test", "pw", &r, &err));
+    TEST_ASSERT_EQUAL_INT(0, r.organization_level);
+    axiam_login_result_dispose(&r);
+    axiam_client_free(c);
+
+    g.n_calls = 0;
+    g.body_login =
+        "{\"session_id\":\"sess-1\",\"expires_in\":900,"
+        "\"user\":{\"id\":\"user-1\",\"tenant_id\":\"" AXIAM_TEST_TENANT_ID "\","
+        "\"organization_level\":\"yes\"}}";
+    c = make_client();
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_login(c, "ada@acme.test", "pw", &r, &err));
+    TEST_ASSERT_EQUAL_INT(0, r.organization_level);
+    axiam_login_result_dispose(&r);
+    axiam_client_free(c);
+}
+
+/*
+ * §5.2 rule 2: it is derived, never asserted — the SDK never SENDS it.
+ *
+ * A field a client could put on the request would be a client claiming a capability the
+ * server is supposed to resolve, which is why the rule is a prohibition.
+ */
+void test_organization_level_is_never_sent_on_the_login_request(void) {
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_login_result_t r;
+
+    axiam_login(c, "ada@acme.test", "pw", &r, &err);
+
+    int i = last_call_to("/auth/login");
+    TEST_ASSERT_TRUE(i >= 0);
+    TEST_ASSERT_NULL(strstr(g.bodies[i], "organization_level"));
+    axiam_login_result_dispose(&r);
     axiam_client_free(c);
 }
 
@@ -951,6 +1143,14 @@ int main(void) {
     RUN_TEST(test_verify_email_carries_the_tenant_in_the_body);
     RUN_TEST(test_verify_email_needs_no_session);
     RUN_TEST(test_resend_verification_carries_the_tenant_in_the_body);
+    RUN_TEST(test_resend_own_verification_sends_no_address);
+    RUN_TEST(test_the_two_resends_hit_distinct_paths);
+    RUN_TEST(test_resend_own_verification_raises_on_409_and_does_not_fall_back);
+    RUN_TEST(test_resend_own_verification_raises_on_429_and_does_not_fall_back);
+    RUN_TEST(test_resend_own_verification_with_no_session_makes_no_wire_call);
+    RUN_TEST(test_login_surfaces_an_organization_level_principal);
+    RUN_TEST(test_an_absent_or_non_boolean_organization_level_is_false);
+    RUN_TEST(test_organization_level_is_never_sent_on_the_login_request);
     RUN_TEST(test_request_password_reset_discloses_nothing_about_the_account);
     RUN_TEST(test_request_password_reset_fills_the_workspace_from_the_client);
     RUN_TEST(test_request_password_reset_takes_a_slug_override);

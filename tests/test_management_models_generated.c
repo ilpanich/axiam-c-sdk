@@ -3614,7 +3614,7 @@ static void test_migrate_custody_response_rejects_a_non_object(void) {
 
 /* `MtlsTrustAnchorResponse`: a full wire object parses, builds back and frees. */
 static void test_mtls_trust_anchor_response_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}");
+    cJSON *src = cJSON_Parse("{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true, \"trusted_anchors\": 1}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_mtls_trust_anchor_response_t *model = axiam_mgmt_mtls_trust_anchor_response_parse(src);
@@ -3631,6 +3631,28 @@ static void test_mtls_trust_anchor_response_round_trips(void) {
         TEST_ASSERT_NOT_NULL_MESSAGE(
             cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
     }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_mtls_trust_anchor_response_free(model);
+    cJSON_Delete(src);
+}
+
+/* `MtlsTrustAnchorResponse`: the server omitting every OPTIONAL field is not an error. */
+static void test_mtls_trust_anchor_response_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_mtls_trust_anchor_response_t *model = axiam_mgmt_mtls_trust_anchor_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_mtls_trust_anchor_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
 
     cJSON_Delete(rebuilt);
     axiam_mgmt_mtls_trust_anchor_response_free(model);
@@ -6001,7 +6023,7 @@ static void test_smtp_config_rejects_a_non_object(void) {
 
 /* `Tenant`: a full wire object parses, builds back and frees. */
 static void test_tenant_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_tenant_t *model = axiam_mgmt_tenant_parse(src);
@@ -6018,6 +6040,28 @@ static void test_tenant_round_trips(void) {
         TEST_ASSERT_NOT_NULL_MESSAGE(
             cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
     }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_tenant_free(model);
+    cJSON_Delete(src);
+}
+
+/* `Tenant`: the server omitting every OPTIONAL field is not an error. */
+static void test_tenant_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_tenant_t *model = axiam_mgmt_tenant_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_tenant_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
 
     cJSON_Delete(rebuilt);
     axiam_mgmt_tenant_free(model);
@@ -7774,6 +7818,7 @@ int main(void) {
     RUN_TEST(test_migrate_custody_response_parses_an_empty_object);
     RUN_TEST(test_migrate_custody_response_rejects_a_non_object);
     RUN_TEST(test_mtls_trust_anchor_response_round_trips);
+    RUN_TEST(test_mtls_trust_anchor_response_parses_without_optionals);
     RUN_TEST(test_mtls_trust_anchor_response_parses_an_empty_object);
     RUN_TEST(test_mtls_trust_anchor_response_rejects_a_non_object);
     RUN_TEST(test_notification_policy_round_trips);
@@ -7906,6 +7951,7 @@ int main(void) {
     RUN_TEST(test_smtp_config_parses_an_empty_object);
     RUN_TEST(test_smtp_config_rejects_a_non_object);
     RUN_TEST(test_tenant_round_trips);
+    RUN_TEST(test_tenant_parses_without_optionals);
     RUN_TEST(test_tenant_parses_an_empty_object);
     RUN_TEST(test_tenant_rejects_a_non_object);
     RUN_TEST(test_tenant_settings_override_round_trips);

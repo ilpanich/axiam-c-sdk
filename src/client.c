@@ -541,6 +541,14 @@ static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_respons
                 out->username = json_dup_str(user, "username");
                 out->email = json_dup_str(user, "email");
                 out->tenant_id = json_dup_str(user, "tenant_id");
+                /* §5.2: derived from the server's own answer, never asserted by the
+                 * caller and never sent. Absent -- or anything that is not the JSON
+                 * literal true -- means 0, which is what a server older than contract
+                 * 1.31 answers and the safe direction in both cases: the application then
+                 * offers no cross-tenant action rather than one that would 403. */
+                const cJSON *org_level =
+                    cJSON_GetObjectItemCaseSensitive(user, "organization_level");
+                out->organization_level = cJSON_IsTrue(org_level) ? 1 : 0;
             }
         }
         pthread_mutex_lock(&c->state_mtx);

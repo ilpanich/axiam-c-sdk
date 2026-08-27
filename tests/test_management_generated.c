@@ -154,7 +154,7 @@ static void test_organizations_update_reaches_its_route_refuses_without_a_scope(
 }
 
 static void test_tenants_list_reaches_its_route(void) {
-    mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_tenant_page_t *result = NULL;
@@ -168,7 +168,7 @@ static void test_tenants_list_reaches_its_route(void) {
 }
 
 static void test_tenants_list_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_error_kind_t rc = axiam_tenants_list(c, NULL, NULL, NULL, &err);
@@ -192,7 +192,7 @@ static void test_tenants_list_reaches_its_route_refuses_without_a_scope(void) {
 }
 
 static void test_tenants_create_reaches_its_route(void) {
-    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_create_tenant_request_t body;
@@ -208,7 +208,7 @@ static void test_tenants_create_reaches_its_route(void) {
 }
 
 static void test_tenants_create_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_create_tenant_request_t body;
@@ -250,7 +250,7 @@ static void test_tenants_create_reaches_its_route_refuses_without_a_scope(void) 
 }
 
 static void test_tenants_get_reaches_its_route(void) {
-    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_tenant_t *result = NULL;
@@ -264,7 +264,7 @@ static void test_tenants_get_reaches_its_route(void) {
 }
 
 static void test_tenants_get_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_error_kind_t rc = axiam_tenants_get(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &err);
@@ -300,7 +300,7 @@ static void test_tenants_get_reaches_its_route_refuses_without_a_scope(void) {
 }
 
 static void test_tenants_update_reaches_its_route(void) {
-    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_update_tenant_t body;
@@ -316,7 +316,7 @@ static void test_tenants_update_reaches_its_route(void) {
 }
 
 static void test_tenants_update_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_update_tenant_t body;
@@ -2300,7 +2300,7 @@ static void test_ca_certificates_migrate_custody_reaches_its_route_refuses_witho
 }
 
 static void test_ca_certificates_set_mtls_trust_anchor_reaches_its_route(void) {
-    mgmt_mount(200, "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}");
+    mgmt_mount(200, "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true, \"trusted_anchors\": 1}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_set_mtls_trust_anchor_t body;
@@ -2316,7 +2316,7 @@ static void test_ca_certificates_set_mtls_trust_anchor_reaches_its_route(void) {
 }
 
 static void test_ca_certificates_set_mtls_trust_anchor_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true}");
+    mgmt_mount(200, "{\"ca_certificate_id\": \"11111111-1111-4111-8111-111111111111\", \"message\": \"example\", \"mtls_trust_anchor\": true, \"restart_required\": true, \"trusted_anchors\": 1}");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_set_mtls_trust_anchor_t body;

@@ -165,11 +165,51 @@ axiam_error_kind_t axiam_verify_email(axiam_client_t *client,
                                       const char *tenant_id,
                                       axiam_error_t *err);
 
-/** POST /api/v1/auth/resend-verification (§25.1). Unauthenticated. */
+/**
+ * POST /api/v1/auth/resend-verification (§25.1) — the UNAUTHENTICATED resend, for a
+ * caller with no session.
+ *
+ * RETURNS AXIAM_OK WHATEVER THE OUTCOME. The address may not exist, may already be
+ * verified, or may be over the daily limit, and the server answers identically in every
+ * case because it takes an address from an anonymous caller: anything else is an oracle
+ * for which addresses have accounts (§25.4).
+ *
+ * A caller that IS signed in wants axiam_resend_own_verification(), which says what
+ * happened. §25.7 rule 2 forbids routing either of these to the other, and this SDK does
+ * not.
+ */
 axiam_error_kind_t axiam_resend_verification(axiam_client_t *client,
                                              const char *email,
                                              const char *tenant_id,
                                              axiam_error_t *err);
+
+/**
+ * POST /api/v1/users/me/resend-verification (§25.1, §25.7) — resend the SIGNED-IN
+ * caller's own verification mail, and say what happened.
+ *
+ * Takes no address. The server reads it off the caller's own record, and this signature
+ * deliberately offers no way to name a different one: a parameter here would let an
+ * authenticated session mail an arbitrary address.
+ *
+ * Unlike axiam_resend_verification() this reports the outcome, because the caller is
+ * signed in to the account it is asking about and none of the outcomes tells it anything
+ * it did not already bring with it:
+ *
+ *  - AXIAM_OK          — a token was minted and the mail ENQUEUED. Delivery is
+ *                        asynchronous and can still fail at the provider; a queue that
+ *                        accepts everything in front of a provider that rejects it looks
+ *                        exactly like this succeeding (§25.7 rule 3).
+ *  - AXIAM_ERR_AUTHZ   — from 409: already verified, or an account state that must not be
+ *                        sent a live token.
+ *  - AXIAM_ERR_NETWORK — from 429: the daily resend limit.
+ *  - AXIAM_ERR_AUTH    — there is no session. Raised client-side, with NO wire call.
+ *
+ * §25.7 rule 2 forbids falling back to the unauthenticated endpoint on either failure,
+ * and this SDK does not: that fallback turns both back into a silent success and restores
+ * the bug this operation exists to fix, with an extra round trip.
+ */
+axiam_error_kind_t axiam_resend_own_verification(axiam_client_t *client,
+                                                 axiam_error_t *err);
 
 /* ------------------------------------------------------------------ */
 /* Password reset (§25.4)                                             */
