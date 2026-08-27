@@ -82,6 +82,28 @@ typedef struct axiam_login_result {
     char *username;
     char *email;
     char *tenant_id;
+    /**
+     * 1 when the account that just signed in is an ORGANIZATION-LEVEL principal
+     * (CONTRACT.md §5.2) — one whose record lives in its organization's reserved tenant,
+     * so its global grants apply in every tenant of that organization and it can act on a
+     * different one by sending a different `X-Tenant-ID` on the next request, with no
+     * re-login.
+     *
+     * An ordinary tenant principal is a principal of exactly one tenant; the same header
+     * change produces a 403 for it. This flag is therefore what an application checks
+     * BEFORE offering a tenant switch, rather than discovering the answer from a failed
+     * request.
+     *
+     * Derived from the login response, never asserted by the caller (§5.2 rule 2): it is
+     * resolved server-side from the caller's own tenant record and is never sent. 0 when
+     * the response omits it — which is what a server older than contract 1.31 answers —
+     * and 0 on the two pending outcomes, where no principal has been established yet.
+     * Both are the safe direction.
+     *
+     * Appended LAST so every existing designated or positional initializer of this struct
+     * still compiles, and so `{0}` still means "no claim".
+     */
+    int organization_level;
 } axiam_login_result_t;
 
 /** Release heap members of a login result (not the struct itself). The

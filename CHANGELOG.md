@@ -9,6 +9,99 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **CONTRACT.md contract 1.31 — list search, the truthful resend, and organization scope.**
+  The vendored `CONTRACT.md`, `openapi.json` and `management-registry.json` are re-synced
+  from `axiam@main`, and four behaviours follow from them.
+
+  **`axiam_mgmt_page_req_t` gained a third member, `search` (§27.4 rule 4).** All twenty
+  paginated operations accept an optional free-text term, matched case-insensitively by
+  the **server** against the identifying fields of whatever is being listed — a name or
+  username, plus the record id, so a UUID pasted out of a log line finds its row. The
+  page's `total` then counts *matches*, not rows.
+
+  It lives beside `offset` and `limit` rather than becoming an extra argument on twenty
+  operations, and that is what makes `axiam_mgmt_page_next()` carry it across a whole
+  walk. An argument has nowhere to live between one request and the next, so a walk built
+  on one would return the matches followed by the unfiltered tail. The member is
+  **borrowed, never owned**: nothing copies it and nothing frees it, so it must outlive
+  every request derived from it. Appended last, so every existing `{ 0, 50 }` initializer
+  still compiles and still means "unfiltered".
+
+  `NULL`, `""` and `"   "` are the same request: no `search` parameter at all. The new
+  `axiam_mgmt_page_search()` is that normalisation, exposed because it is the one piece a
+  caller can observe going wrong. The term is never truncated — the server caps its
+  length, and a client-side cap the server would not have applied is a silently different
+  query.
+
+- **`axiam_resend_own_verification()` (§25.1, §25.7).** `POST
+  /api/v1/users/me/resend-verification`, session-authenticated, taking **no address** —
+  the server reads it off the caller's own record, and the signature deliberately offers
+  no way to name a different one. Refused client-side, with no wire call, when there is no
+  session.
+
+  It does not replace `axiam_resend_verification()`, and neither is routed to the other.
+  The unauthenticated one takes an address from an anonymous caller, so it must answer
+  identically whether the address exists, is already verified, or is rate-limited:
+  anything else is an oracle for which addresses have accounts. This one is asked by a
+  caller already signed in to the account it is asking about, so it tells the truth — a
+  `409` maps to `AXIAM_ERR_AUTHZ` and a `429` to `AXIAM_ERR_NETWORK`, and this SDK does
+  **not** fall back to the public endpoint on either (§25.7 rule 2). That fallback would
+  turn both failures back into a silent success and restore the bug this operation exists
+  to fix, with an extra round trip. `AXIAM_OK` means the mail was *enqueued*, not
+  delivered.
+
+- **`axiam_login_result_t::organization_level` (§5.2).** `1` when the account that just
+  signed in is an organization-level principal — one whose record lives in its
+  organization's reserved tenant, so its global grants apply in every tenant there and it
+  can act on a different one by sending a different `X-Tenant-ID`, with no re-login.
+
+  An ordinary tenant principal is a principal of exactly one tenant; the same header
+  change produces a `403` for it. The flag is what an application checks *before* offering
+  a tenant switch, rather than discovering the answer from a failed request. It is derived
+  from the response and never asserted: never sent, and `0` when absent or when the value
+  is anything but the JSON literal `true` — which is what a server older than contract
+  1.31 answers, and the safe direction. Appended **last** to the struct, so every existing
+  initializer still compiles and `{0}` still means "no claim".
+
+- **Three §27.11 model additions**, regenerated: `axiam_mgmt_tenant_t::kind` (with the new
+  `axiam_mgmt_tenant_kind_t` enum), `axiam_mgmt_mtls_trust_anchor_response_t::
+  trusted_anchors` (with its `has_` flag — absent is *not* zero: "the listener trusts no
+  CAs" and "there was no listener to ask" are different operational states), and
+  `axiam_mgmt_certificate_t::bound_service_account_id`.
+
+  That last one is a **projection**, not a member of the certificate: the server resolves
+  it for a whole page in one query, so `axiam_certificates_list()` populates it and
+  `axiam_certificates_get()` leaves it `NULL`, with no second request to fill it in
+  (§27.11 rule 4). `scripts/gen_management.py` learned to read the registry's
+  `response.projected_fields` and fold such a field onto its base struct as optional — the
+  server expresses a projection as an `allOf` of the named base and an anonymous object,
+  and a generator that reads only for a `$ref` sees a response with no element name at
+  all.
+
+### Changed
+
+- **Generated enums are now open, and `_from_wire()`'s contract is inverted (§27.11
+  rule 1).** Every generated enum gained a trailing `_UNKNOWN` constant, and `_from_wire()`
+  now returns `0` and yields it for a value this SDK's copy of the spec does not list,
+  where it used to return `-1`.
+
+  Reporting a failure there made the caller drop the whole record — or, through a page
+  parse, the whole page — over one field it did not ask about. That is the failure §27.11
+  rule 1 exists to prevent, and it is why this is a fix rather than a loosening.
+
+  What the old behaviour was protecting is unchanged: an unrecognised value is still never
+  read as one of the **known** constants. `_UNKNOWN` is appended **last**, so it is not the
+  zero value a `calloc`'d struct starts at, and `_to_wire()` spells it as the empty string
+  — which no server value is, so carrying an unrecognised value back into an update is
+  refused by the server rather than written as a spelling it never used. `_from_wire()`
+  still returns `-1` for a NULL argument, which is a caller error rather than a server one.
+
+  **A `switch` over one of these enums should gain an `_UNKNOWN` arm.** The existing
+  `test_an_unknown_enum_value_is_refused` was rewritten rather than removed, under a name
+  that records the inversion, and it kept the two assertions the old one was really
+  making.
+
+
 - **CONTRACT.md §27 — the management API.** 146 operations across 24 namespaces as
   FLAT SYMBOLS (`axiam_users_list()`), which is §27.3's accommodation for languages
   without a value that carries both a receiver and a method table. Generated by

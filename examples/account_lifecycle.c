@@ -2,7 +2,7 @@
  * account_lifecycle.c — the calls a user makes about their own account
  * (CONTRACT.md §25): TOTP enrolment, email verification, password reset.
  *
- * NONE OF THIS IS ADMINISTRATION, and six of the nine operations are
+ * NONE OF THIS IS ADMINISTRATION, and six of the ten operations are
  * deliberately UNAUTHENTICATED. A user who cannot log in is the entire audience
  * for a password reset, and a user whose email is unverified may have no
  * session at all — an SDK that required one would make both unreachable.
@@ -200,7 +200,12 @@ int main(void) {
         return 1;
     }
 
-    /* Unauthenticated, and the tenant travels in the BODY. */
+    /* Unauthenticated, and the tenant travels in the BODY.
+     *
+     * This one answers the SAME WAY whatever happened — the address may not exist, may
+     * already be verified, or may be over the daily limit. That constancy is the point:
+     * it takes an address from an anonymous caller, and anything else would be an oracle
+     * for which addresses have accounts (§25.4). */
     printf("resending a verification mail (§25.1, unauthenticated):\n");
     if (axiam_resend_verification(client, email, tenant_id, &err) == AXIAM_OK) {
         printf("  requested\n");
@@ -215,7 +220,42 @@ int main(void) {
     axiam_login_result_t login = {0};
     if (axiam_login(client, email, password, &login, &err) == AXIAM_OK) {
         if (login.authenticated) {
-            printf("  signed in\n\nvoluntary TOTP enrolment (§25.1):\n");
+            /* §5.2: an ORGANIZATION-LEVEL principal's record lives in its organization's
+             * reserved tenant, so it can act on a different tenant by sending a different
+             * X-Tenant-ID on the next request — no re-login. An ordinary tenant principal
+             * is a principal of exactly one tenant, and the same header change would 403,
+             * so a UI checks this flag BEFORE offering a tenant selector rather than
+             * finding out from a failure. Derived from the response, never sent. */
+            if (login.organization_level) {
+                printf("  organization-level: a tenant switch is available\n");
+            }
+
+            /* §25.7: the OTHER resend. This caller is signed in to the account it is
+             * asking about, so none of the outcomes tells it anything it did not bring
+             * with it — and this one therefore says which happened. It names no address:
+             * a parameter here would let an authenticated session mail an arbitrary one.
+             *
+             * It is not a replacement for the public resend above, and neither is routed
+             * to the other. There is deliberately no fallback to the public endpoint on
+             * 409 or 429: that would turn both failures back into a silent success and
+             * restore the bug this operation exists to fix (§25.7 rule 2). */
+            printf("\nresending your OWN verification mail (§25.7):\n");
+            switch (axiam_resend_own_verification(client, &err)) {
+            case AXIAM_OK:
+                printf("  enqueued — delivery is asynchronous and can still fail\n");
+                break;
+            case AXIAM_ERR_AUTHZ:
+                printf("  nothing to send: already verified\n");
+                break;
+            case AXIAM_ERR_NETWORK:
+                printf("  the daily resend limit is reached\n");
+                break;
+            default:
+                fprintf(stderr, "  failed: %s\n", err.message);
+                break;
+            }
+
+            printf("\nvoluntary TOTP enrolment (§25.1):\n");
             enrol_a_totp_factor(client);
         } else if (login.mfa_setup_required) {
             printf("  this tenant requires MFA and this account has none\n");

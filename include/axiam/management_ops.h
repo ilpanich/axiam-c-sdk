@@ -1068,8 +1068,6 @@ axiam_error_kind_t axiam_service_accounts_bind_certificate(axiam_client_t *c, co
 /* ============================================================================ */
 
 /**
- * `GET /api/v1/certificates`
- *
  * `GET /api/v1/certificates`.
  *
  * Returns ONE page. `total` on it is the server's count across all pages and is not `count`

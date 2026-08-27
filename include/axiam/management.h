@@ -81,26 +81,73 @@ typedef enum axiam_mgmt_error_class {
 axiam_mgmt_error_class_t axiam_mgmt_error_class(const axiam_error_t *err);
 
 /**
- * One page's worth of `?offset=`/`?limit=` (CONTRACT.md §27.4 rule 4).
+ * One page's worth of `?offset=`/`?limit=`/`?search=` (CONTRACT.md §27.4 rule 4).
  *
- * Pass `NULL` wherever an operation takes one to get the first page at the default size.
+ * Pass `NULL` wherever an operation takes one to get the first page at the default size,
+ * unfiltered.
+ *
+ * `search` lives here rather than as a separate argument on each of the twenty paginated
+ * operations, which is what §27.4 rule 4 asks for and what makes
+ * `axiam_mgmt_page_next()` carry it. A walk that filtered its first request and dropped
+ * the term on the second would return the matches followed by the unfiltered tail, which
+ * reads as a server bug from the caller's side.
+ *
+ * `search` is **borrowed, never owned**: nothing here or in any page result copies it or
+ * frees it. It must outlive every request derived from it — in the ordinary walk that
+ * means a string literal or a buffer declared outside the loop, since the page result
+ * carries the same pointer through `axiam_mgmt_page_next(page->request)`.
  */
 typedef struct axiam_mgmt_page_req {
     long offset; /**< How many items to skip. Negative is clamped to 0. */
     long limit;  /**< How many to ask for. Below 1 is clamped to 1. */
+    /**
+     * A free-text filter applied by the SERVER, before `offset`/`limit`, or `NULL` for
+     * none.
+     *
+     * Matched case-insensitively against the identifying fields of whatever is being
+     * listed — a name or username, plus the record id, so a UUID out of a log line can be
+     * pasted in as-is. The page's `total` then counts MATCHES, not rows.
+     *
+     * `NULL` sends no `search` parameter, and an empty or all-whitespace term is treated
+     * identically: a search box that fires on every keystroke sends one the moment it is
+     * cleared, and "rows containing the empty string" is a different question from "all
+     * rows". The term is trimmed but never truncated — the server caps its length, and a
+     * client-side truncation the server would not have made is a silently different query.
+     *
+     * Borrowed. See the struct's own note.
+     */
+    const char *search;
 } axiam_mgmt_page_req_t;
 
 /** The server's default page size when a call names no limit. */
 #define AXIAM_MGMT_DEFAULT_LIMIT 50L
 
 /**
- * The page after `req` — same size, advanced by exactly `limit`.
+ * The page after `req` — same size and same `search` term, advanced by exactly `limit`.
  *
  * Advancing by the requested limit rather than by the number of items actually returned
  * is deliberate: §27.4 rule 4 stops auto-paging on an EMPTY page, not a short one, and
  * advancing by a short count would re-request rows the caller has already seen.
+ *
+ * The `search` pointer is copied as a pointer, not as a string. See
+ * `axiam_mgmt_page_req_t`.
  */
 axiam_mgmt_page_req_t axiam_mgmt_page_next(axiam_mgmt_page_req_t req);
+
+/**
+ * The `search` term as it goes on the wire, or `NULL` when there is nothing to send
+ * (CONTRACT.md §27.4 rule 4).
+ *
+ * Skips leading whitespace and answers `NULL` for a term that is empty or all
+ * whitespace — the same normalisation the server applies, and the reason absent and blank
+ * are the same request. The returned pointer is into `term` itself; TRAILING whitespace is
+ * left for the server to trim, because trimming it here would mean allocating a copy this
+ * SDK would then have to own.
+ *
+ * Exposed because it is the one piece of `search` handling a caller can observe going
+ * wrong, and because the suite asserts on it directly.
+ */
+const char *axiam_mgmt_page_search(const char *term);
 
 /**
  * Per-call override of the `{org_id}`/`{tenant_id}` a route substitutes

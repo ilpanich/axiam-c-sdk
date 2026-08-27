@@ -252,13 +252,15 @@ axiam_error_kind_t axiam_organizations_list(axiam_client_t *c, const axiam_mgmt_
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "organizations.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "organizations.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -283,7 +285,7 @@ axiam_error_kind_t axiam_organizations_list(axiam_client_t *c, const axiam_mgmt_
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_organization_page_free(result);
@@ -376,13 +378,15 @@ axiam_error_kind_t axiam_tenants_list(axiam_client_t *c, const axiam_mgmt_call_s
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "tenants.list: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "tenants.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -407,7 +411,7 @@ axiam_error_kind_t axiam_tenants_list(axiam_client_t *c, const axiam_mgmt_call_s
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_tenant_page_free(result);
@@ -559,13 +563,15 @@ axiam_error_kind_t axiam_users_list(axiam_client_t *c, const axiam_mgmt_page_req
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "users.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "users.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -590,7 +596,7 @@ axiam_error_kind_t axiam_users_list(axiam_client_t *c, const axiam_mgmt_page_req
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_user_response_page_free(result);
@@ -858,13 +864,15 @@ axiam_error_kind_t axiam_groups_list(axiam_client_t *c, const axiam_mgmt_page_re
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -889,7 +897,7 @@ axiam_error_kind_t axiam_groups_list(axiam_client_t *c, const axiam_mgmt_page_re
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_group_page_free(result);
@@ -1015,13 +1023,15 @@ axiam_error_kind_t axiam_groups_list_members(axiam_client_t *c, const char *grou
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list_members: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list_members: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -1046,7 +1056,7 @@ axiam_error_kind_t axiam_groups_list_members(axiam_client_t *c, const char *grou
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_user_response_page_free(result);
@@ -1141,13 +1151,15 @@ axiam_error_kind_t axiam_roles_list(axiam_client_t *c, const axiam_mgmt_page_req
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "roles.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "roles.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -1172,7 +1184,7 @@ axiam_error_kind_t axiam_roles_list(axiam_client_t *c, const axiam_mgmt_page_req
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_role_page_free(result);
@@ -1553,13 +1565,15 @@ axiam_error_kind_t axiam_permissions_list(axiam_client_t *c, const axiam_mgmt_pa
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "permissions.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "permissions.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -1584,7 +1598,7 @@ axiam_error_kind_t axiam_permissions_list(axiam_client_t *c, const axiam_mgmt_pa
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_permission_page_free(result);
@@ -1706,13 +1720,15 @@ axiam_error_kind_t axiam_resources_list(axiam_client_t *c, const axiam_mgmt_page
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "resources.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "resources.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -1737,7 +1753,7 @@ axiam_error_kind_t axiam_resources_list(axiam_client_t *c, const axiam_mgmt_page
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_resource_page_free(result);
@@ -2082,13 +2098,15 @@ axiam_error_kind_t axiam_service_accounts_list(axiam_client_t *c, const axiam_mg
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "service_accounts.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "service_accounts.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -2113,7 +2131,7 @@ axiam_error_kind_t axiam_service_accounts_list(axiam_client_t *c, const axiam_mg
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_service_account_response_page_free(result);
@@ -2287,13 +2305,15 @@ axiam_error_kind_t axiam_certificates_list(axiam_client_t *c, const axiam_mgmt_p
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -2318,7 +2338,7 @@ axiam_error_kind_t axiam_certificates_list(axiam_client_t *c, const axiam_mgmt_p
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_certificate_page_free(result);
@@ -2419,13 +2439,15 @@ axiam_error_kind_t axiam_ca_certificates_list(axiam_client_t *c, const axiam_mgm
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ca_certificates.list: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ca_certificates.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -2450,7 +2472,7 @@ axiam_error_kind_t axiam_ca_certificates_list(axiam_client_t *c, const axiam_mgm
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_ca_certificate_page_free(result);
@@ -2685,13 +2707,15 @@ axiam_error_kind_t axiam_ca_certificates_list_signing_cas(axiam_client_t *c, con
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ca_certificates.list_signing_cas: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ca_certificates.list_signing_cas: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -2716,7 +2740,7 @@ axiam_error_kind_t axiam_ca_certificates_list_signing_cas(axiam_client_t *c, con
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_ca_certificate_page_free(result);
@@ -2804,13 +2828,15 @@ axiam_error_kind_t axiam_pgp_keys_list(axiam_client_t *c, const axiam_mgmt_page_
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "pgp_keys.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "pgp_keys.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -2835,7 +2861,7 @@ axiam_error_kind_t axiam_pgp_keys_list(axiam_client_t *c, const axiam_mgmt_page_
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_pgp_key_page_free(result);
@@ -2983,13 +3009,15 @@ axiam_error_kind_t axiam_webhooks_list(axiam_client_t *c, const axiam_mgmt_page_
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "webhooks.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "webhooks.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -3014,7 +3042,7 @@ axiam_error_kind_t axiam_webhooks_list(axiam_client_t *c, const axiam_mgmt_page_
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_webhook_response_page_free(result);
@@ -3136,13 +3164,15 @@ axiam_error_kind_t axiam_oauth2_clients_list(axiam_client_t *c, const axiam_mgmt
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oauth2_clients.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oauth2_clients.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -3167,7 +3197,7 @@ axiam_error_kind_t axiam_oauth2_clients_list(axiam_client_t *c, const axiam_mgmt
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_o_auth2_client_response_page_free(result);
@@ -3289,13 +3319,15 @@ axiam_error_kind_t axiam_federation_list_configs(axiam_client_t *c, const axiam_
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "federation.list_configs: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "federation.list_configs: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -3320,7 +3352,7 @@ axiam_error_kind_t axiam_federation_list_configs(axiam_client_t *c, const axiam_
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_federation_config_response_page_free(result);
@@ -3551,13 +3583,15 @@ axiam_error_kind_t axiam_notification_rules_list(axiam_client_t *c, const axiam_
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "notification_rules.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "notification_rules.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -3582,7 +3616,7 @@ axiam_error_kind_t axiam_notification_rules_list(axiam_client_t *c, const axiam_
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_notification_rule_response_page_free(result);
@@ -4266,13 +4300,15 @@ axiam_error_kind_t axiam_reactors_list(axiam_client_t *c, const axiam_mgmt_page_
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "reactors.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[2];
-    const char *q_values[2];
+    const char *q_names[3];
+    const char *q_values[3];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    path = axiam_mgmt_query(path, q_names, q_values, 2);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "reactors.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -4297,7 +4333,7 @@ axiam_error_kind_t axiam_reactors_list(axiam_client_t *c, const axiam_mgmt_page_
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_reactor_response_page_free(result);
@@ -4560,19 +4596,21 @@ axiam_error_kind_t axiam_audit_list(axiam_client_t *c, const char *actor_id, con
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "audit.list: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[8];
-    const char *q_values[8];
+    const char *q_names[9];
+    const char *q_values[9];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    q_names[2] = "actor_id"; q_values[2] = actor_id;
-    q_names[3] = "action"; q_values[3] = action;
-    q_names[4] = "outcome"; q_values[4] = outcome;
-    q_names[5] = "resource_id"; q_values[5] = resource_id;
-    q_names[6] = "from"; q_values[6] = from;
-    q_names[7] = "to"; q_values[7] = to;
-    path = axiam_mgmt_query(path, q_names, q_values, 8);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    q_names[3] = "actor_id"; q_values[3] = actor_id;
+    q_names[4] = "action"; q_values[4] = action;
+    q_names[5] = "outcome"; q_values[5] = outcome;
+    q_names[6] = "resource_id"; q_values[6] = resource_id;
+    q_names[7] = "from"; q_values[7] = from;
+    q_names[8] = "to"; q_values[8] = to;
+    path = axiam_mgmt_query(path, q_names, q_values, 9);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "audit.list: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -4597,7 +4635,7 @@ axiam_error_kind_t axiam_audit_list(axiam_client_t *c, const char *actor_id, con
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_audit_log_entry_page_free(result);
@@ -4611,19 +4649,21 @@ axiam_error_kind_t axiam_audit_list_system(axiam_client_t *c, const char *actor_
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "audit.list_system: could not build the request path");
         return AXIAM_ERR_NETWORK;
     }
-    const char *q_names[8];
-    const char *q_values[8];
+    const char *q_names[9];
+    const char *q_values[9];
     char offset_buf[24], limit_buf[24];
     axiam_mgmt_page_query(page, offset_buf, limit_buf);
     q_names[0] = "offset"; q_values[0] = offset_buf;
     q_names[1] = "limit"; q_values[1] = limit_buf;
-    q_names[2] = "actor_id"; q_values[2] = actor_id;
-    q_names[3] = "action"; q_values[3] = action;
-    q_names[4] = "outcome"; q_values[4] = outcome;
-    q_names[5] = "resource_id"; q_values[5] = resource_id;
-    q_names[6] = "from"; q_values[6] = from;
-    q_names[7] = "to"; q_values[7] = to;
-    path = axiam_mgmt_query(path, q_names, q_values, 8);
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    q_names[3] = "actor_id"; q_values[3] = actor_id;
+    q_names[4] = "action"; q_values[4] = action;
+    q_names[5] = "outcome"; q_values[5] = outcome;
+    q_names[6] = "resource_id"; q_values[6] = resource_id;
+    q_names[7] = "from"; q_values[7] = from;
+    q_names[8] = "to"; q_values[8] = to;
+    path = axiam_mgmt_query(path, q_names, q_values, 9);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "audit.list_system: out of memory");
         return AXIAM_ERR_NETWORK;
@@ -4648,7 +4688,7 @@ axiam_error_kind_t axiam_audit_list_system(axiam_client_t *c, const char *actor_
         result->count = n;
     }
     result->total = axiam_mgmt_page_total(json, (long) n);
-    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT };
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_audit_log_entry_page_free(result);
