@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-beta02] - 2026-08-28
+
 ### Added
 
 - **CONTRACT.md contract 1.31 — list search, the truthful resend, and organization scope.**
@@ -80,6 +82,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Re-vendor openapi.json and management-registry.json from axiam main (#49)
+
+- Contract 1.31: list search, the truthful resend, organization scope (#48)
+
+- Re-vendor the contract artifacts: spec digest + §27.10 posture (#47)
+
+- Name the C operations the way CONTRACT.md §27.3 spells them
+
+- Add §27 tests, manifest layer, examples, CI drift-check and docs
+
+- Add the CONTRACT.md §27 management surface to the C SDK
+
+- Re-vendor CONTRACT.md, openapi.json and the §27 registry
+
 - **Generated enums are now open, and `_from_wire()`'s contract is inverted (§27.11
   rule 1).** Every generated enum gained a trailing `_UNKNOWN` constant, and `_from_wire()`
   now returns `0` and yields it for a value this SDK's copy of the spec does not list,
@@ -100,7 +116,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   `test_an_unknown_enum_value_is_refused` was rewritten rather than removed, under a name
   that records the inversion, and it kept the two assertions the old one was really
   making.
-
 
 - **CONTRACT.md §27 — the management API.** 146 operations across 24 namespaces as
   FLAT SYMBOLS (`axiam_users_list()`), which is §27.3's accommodation for languages
@@ -126,12 +141,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   `device_mtls_provisioning` — an operator/device split that provisions an IoT device
   with a `Device` certificate and authenticates it over §6.1 mutual TLS.
 
-### Changed
-
 - `axiam_error_kind_from_http_status()` is **unchanged**, deliberately. §27's `404`
   mapping differs from it, and that divergence is scoped to the management transport
   rather than imposed on every call in the SDK.
-
 
 ## [1.0.0-alpha44] - 2026-08-25
 
