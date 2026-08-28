@@ -556,6 +556,35 @@ axiam_error_kind_t axiam_tenants_delete(axiam_client_t *c, const axiam_mgmt_call
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_tenants_export_audit(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, axiam_error_t *err) {
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "org_id";
+    path_values[0] = axiam_mgmt_resolved_org_id(c, scope);
+    path_names[1] = "tenant_id";
+    path_values[1] = tenant_id;
+    char *path = axiam_mgmt_path("/api/v1/organizations/{org_id}/tenants/{tenant_id}/audit-export", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "tenants.export_audit: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "tenants.export_audit", "POST", "/api/v1/organizations/{org_id}/tenants/{tenant_id}/audit-export", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_users_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/users", NULL, NULL, 0);

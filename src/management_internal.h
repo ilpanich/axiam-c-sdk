@@ -13,7 +13,7 @@
  * One management request, through the same transport every other REST call uses
  * (CONTRACT.md §27.8).
  *
- * All 146 generated operations funnel through this one function, which is what makes
+ * All 147 generated operations funnel through this one function, which is what makes
  * §27.8 structural rather than a convention: §3 CSRF, the §4 cookie jar, the §5 tenant
  * header and §6 TLS apply because axiam_client_send_raw() applies them, and no generated
  * operation is in a position to skip any of it.

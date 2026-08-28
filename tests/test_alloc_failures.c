@@ -128,7 +128,7 @@ static void test_kv_append_calloc_failure(void) {
 }
 
 static void test_b64url_decode_malloc_failure(void) {
-    alloc_fail_after(1); /* src/util.c:145-146 */
+    alloc_fail_after(1); /* src/util.c:145-147 */
     size_t out_len = 0;
     TEST_ASSERT_NULL(axiam_b64url_decode("QUJD", 4, &out_len));
 }

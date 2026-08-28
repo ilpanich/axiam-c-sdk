@@ -2,7 +2,7 @@
  * @file management.h
  * @brief CONTRACT.md §27 management API — shared core.
  *
- * The §27 surface is 146 administrative operations across 24 namespaces. Nine of the
+ * The §27 surface is 147 administrative operations across 24 namespaces. Nine of the
  * eleven AXIAM SDKs expose them as NAMESPACE HANDLES (`client.management().users()
  * .list()`, §27.2). C is one of the two that take §27.3's **flat-symbol accommodation**
  * instead, and not as a shortcut: §27.2's shape needs a value that carries both a
@@ -22,7 +22,7 @@
  *
  * This header carries the pieces every operation shares: paging, scope, the §27.4 rule 7
  * error classification, and the free functions for the two generic result shapes. The
- * models and the 146 operations are generated — see `axiam/management_models.h` and
+ * models and the 147 operations are generated — see `axiam/management_models.h` and
  * `axiam/management_ops.h`.
  */
 
