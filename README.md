@@ -1025,6 +1025,33 @@ where no principal has been established yet. Both are the safe direction. The me
 appended **last** to the struct, so every existing initializer still compiles and `{0}`
 still means "no claim".
 
+#### Signing one in (§5.2.1)
+
+The reserved tenant has a fixed slug, `organization`, the same in every deployment — so
+signing in as an organization-level principal needs no new surface, only the ordinary
+config:
+
+```c
+axiam_client_config_t *cfg = axiam_client_config_new();
+axiam_client_config_set_base_url(cfg, "https://iam.example.com");
+axiam_client_config_set_tenant_slug(cfg, "organization");
+axiam_client_config_set_org_slug(cfg, "globex");
+```
+
+Prefer that form. The server also reads a login body naming *no* tenant as "the
+organization's own scope", but §5 rule 2 still requires a tenant on the `X-Tenant-ID`
+header of every request after the login, so the client needs one either way.
+
+What §5.2.1 forbids is the third possibility: an empty-string slug. Nothing can carry one,
+so `tenant_slug: ""` resolves nothing — and on `/auth/opaque/login/start` it fails on the
+workspace *before* the tenant's OPAQUE mode is read, so the `404` that means "OPAQUE is not
+offered here" never arrives and this SDK has no fallback to take. Sign-in then fails even
+against a tenant with OPAQUE disabled.
+
+`axiam_client_config_validate` rejects a blank `tenant_slug` or `org_slug`, whitespace
+included. A **NULL** pointer stays fine — that is what "not named" looks like, and it is
+the difference between an unset optional and a blank one.
+
 Worked example: [`examples/account_lifecycle.c`](examples/account_lifecycle.c).
 
 ## §26 Pushed Authorization Requests (RFC 9126)
