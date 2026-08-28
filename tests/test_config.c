@@ -50,6 +50,73 @@ static void test_tenant_id_valid(void) {
     axiam_client_config_free(cfg);
 }
 
+/* CONTRACT.md §5.2.1 rule 2: an SDK MUST NOT send an empty-string slug.
+ *
+ * A non-NULL pointer to "" (or to spaces) satisfied the old `[0] != '\0'`
+ * check on `tenant_id` while failing it on `tenant_slug`, so a config carrying
+ * a blank slug alongside a real id validated and put `tenant_slug: ""` on the
+ * wire. Nothing can carry a blank slug: the server resolves nothing, and on
+ * /auth/opaque/login/start it fails on the workspace *before* the tenant's
+ * OPAQUE mode is read — so the 404 of §23.4 rule 10 never arrives, this SDK has
+ * no fallback to take, and sign-in fails even against a tenant with OPAQUE
+ * disabled. */
+static void test_blank_tenant_slug_is_rejected(void) {
+    const char *blanks[] = {"", "   "};
+    for (size_t i = 0; i < sizeof(blanks) / sizeof(blanks[0]); i++) {
+        axiam_client_config_t *cfg = axiam_client_config_new();
+        axiam_client_config_set_base_url(cfg, "https://iam.example.com");
+        axiam_client_config_set_tenant_slug(cfg, blanks[i]);
+        axiam_error_t err;
+        TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_client_config_validate(cfg, &err));
+        axiam_client_config_free(cfg);
+    }
+}
+
+/* The case the old check missed entirely: a real tenant_id satisfies §5, and
+ * the blank slug rides along into the body. */
+static void test_blank_tenant_slug_is_rejected_even_beside_a_valid_id(void) {
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, "https://iam.example.com");
+    axiam_client_config_set_tenant_id(cfg, "11111111-1111-1111-1111-111111111111");
+    axiam_client_config_set_tenant_slug(cfg, "");
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_client_config_validate(cfg, &err));
+    axiam_client_config_free(cfg);
+}
+
+static void test_blank_org_slug_is_rejected(void) {
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, "https://iam.example.com");
+    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_client_config_set_org_slug(cfg, "");
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_client_config_validate(cfg, &err));
+    axiam_client_config_free(cfg);
+}
+
+/* NULL is not blank: an unset org_slug is legitimate (§5.1 — the organization
+ * identifier is optional for a client that never calls login or refresh). */
+static void test_unset_org_slug_is_accepted(void) {
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, "https://iam.example.com");
+    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_config_validate(cfg, &err));
+    axiam_client_config_free(cfg);
+}
+
+/* §5.2.1: an organization-level principal signs in by naming the
+ * organization's reserved tenant, whose slug is fixed in every deployment. */
+static void test_reserved_organization_tenant_is_named_like_any_other(void) {
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, "https://iam.example.com");
+    axiam_client_config_set_tenant_slug(cfg, "organization");
+    axiam_client_config_set_org_slug(cfg, "globex");
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_config_validate(cfg, &err));
+    axiam_client_config_free(cfg);
+}
+
 static void test_custom_ca_rejects_non_pem(void) {
     axiam_client_config_t *cfg = axiam_client_config_new();
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
@@ -213,6 +280,11 @@ int main(void) {
     RUN_TEST(test_missing_tenant_fails);
     RUN_TEST(test_tenant_slug_valid);
     RUN_TEST(test_tenant_id_valid);
+    RUN_TEST(test_blank_tenant_slug_is_rejected);
+    RUN_TEST(test_blank_tenant_slug_is_rejected_even_beside_a_valid_id);
+    RUN_TEST(test_blank_org_slug_is_rejected);
+    RUN_TEST(test_unset_org_slug_is_accepted);
+    RUN_TEST(test_reserved_organization_tenant_is_named_like_any_other);
     RUN_TEST(test_custom_ca_rejects_non_pem);
     RUN_TEST(test_client_cert_requires_pem);
     RUN_TEST(test_setters_dont_crash);

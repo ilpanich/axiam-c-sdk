@@ -158,6 +158,15 @@ void axiam_client_config_set_telemetry_hook(axiam_client_config_t *cfg,
     cfg->telemetry_ctx = ctx;
 }
 
+/* A string of only whitespace is not an identifier (§5.2.1 rule 2). NULL is
+ * handled by each caller: absent is legitimate, blank is not. */
+static int is_blank(const char *s) {
+    for (; *s; s++) {
+        if (*s != ' ' && *s != '\t' && *s != '\r' && *s != '\n') return 0;
+    }
+    return 1;
+}
+
 axiam_error_kind_t axiam_client_config_validate(const axiam_client_config_t *cfg,
                                                 axiam_error_t *err) {
     axiam_error_reset(err);
@@ -180,12 +189,34 @@ axiam_error_kind_t axiam_client_config_validate(const axiam_client_config_t *cfg
                         "::1 — may use http:// for local development)");
         return AXIAM_ERR_NETWORK;
     }
-    int have_slug = cfg->tenant_slug && cfg->tenant_slug[0];
-    int have_id = cfg->tenant_id && cfg->tenant_id[0];
+    int have_slug = cfg->tenant_slug && !is_blank(cfg->tenant_slug);
+    int have_id = cfg->tenant_id && !is_blank(cfg->tenant_id);
     if (!have_slug && !have_id) {
         /* §5: no default tenant. */
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
-                        "tenant_slug or tenant_id is required (no default tenant)");
+                        "tenant_slug or tenant_id is required (no default tenant); to "
+                        "sign in an organization-level principal, name the "
+                        "organization's reserved tenant, whose slug is \"organization\"");
+        return AXIAM_ERR_NETWORK;
+    }
+    /* §5.2.1 rule 2: an SDK MUST NOT send an empty-string slug. A non-NULL
+     * pointer to "" (or to spaces) is not an identifier — nothing can carry a
+     * blank slug, so the server resolves nothing, and on
+     * /auth/opaque/login/start it fails on the workspace *before* the tenant's
+     * OPAQUE mode is read: the 404 that means "OPAQUE is not offered here"
+     * never arrives, this SDK has no fallback to take, and sign-in fails even
+     * against a tenant with OPAQUE disabled.
+     *
+     * A NULL pointer stays fine — that is what "not named" looks like, and the
+     * server reads an unnamed tenant as the organization's own scope. */
+    if (cfg->tenant_slug && is_blank(cfg->tenant_slug)) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "tenant_slug must not be blank — leave it NULL or name a tenant");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (cfg->org_slug && is_blank(cfg->org_slug)) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "org_slug must not be blank — leave it NULL or name the organization");
         return AXIAM_ERR_NETWORK;
     }
     return AXIAM_OK;
