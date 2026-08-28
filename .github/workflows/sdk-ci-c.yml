@@ -46,7 +46,7 @@ jobs:
             cxx: clang++
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       - name: Install dependencies
         run: |
@@ -79,7 +79,7 @@ jobs:
     name: ASan+UBSan & valgrind
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       - name: Install dependencies
         run: |
@@ -145,7 +145,7 @@ jobs:
     name: §27 management surface drift-check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       # The §27 surface -- 145 model structs, 146 flat operations and four generated test
       # files, ~24k lines -- is produced by scripts/gen_management.py from the VENDORED
@@ -169,7 +169,7 @@ jobs:
     name: TLS-bypass lint gate
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
       - name: Fail on any TLS-verification bypass (CONTRACT §6)
         run: |
           set -e
@@ -194,7 +194,7 @@ jobs:
     name: package recipes
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -217,7 +217,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
           fetch-depth: 0
       - name: Ensure tag commit is reachable from main
@@ -236,8 +236,12 @@ jobs:
     needs: [build-test, tls-bypass-gate, verify-tag-on-main]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write        # attach the tarball to the GitHub Release
+      id-token: write        # mint the Sigstore OIDC identity for provenance
+      attestations: write    # write the attestation to this repo's store
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -247,8 +251,21 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAXIAM_BUILD_TESTS=OFF
           cmake --build build -j
           cd build && cpack -G TGZ
+      # T-148 / H-1: a build-provenance attestation over the exact bytes
+      # attached below, so an integrator can prove where the tarball came from:
+      #
+      #   gh attestation verify axiam-c-sdk-<version>.tar.gz --repo ilpanich/axiam-c-sdk
+      #
+      # Deliberately BEFORE the upload: a release that cannot be attested should
+      # not exist, and the alternative — attest afterwards — leaves a published
+      # asset with no provenance whenever the attestation step fails.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: build/*.tar.gz
+
       - name: Attach tarball to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
           files: build/*.tar.gz
         env:

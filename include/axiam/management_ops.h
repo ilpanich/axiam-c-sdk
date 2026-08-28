@@ -150,6 +150,21 @@ axiam_error_kind_t axiam_tenants_update(axiam_client_t *c, const axiam_mgmt_call
  */
 axiam_error_kind_t axiam_tenants_delete(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, axiam_error_t *err);
 
+/**
+ * `POST /api/v1/organizations/{org_id}/tenants/{tenant_id}/audit-export`
+ *
+ * `POST /api/v1/organizations/{org_id}/tenants/{tenant_id}/audit-export`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param tenant_id The `{tenant_id}` path parameter.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_tenants_export_audit(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, axiam_error_t *err);
+
 /* ============================================================================ */
 /*
  * users -- Users within the client's tenant, and the administrative side of their second

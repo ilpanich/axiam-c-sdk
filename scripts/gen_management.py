@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Generate the CONTRACT §27 management surface for the C SDK.
 
-Reads ``management-registry.json`` (the 146 operations across 24 namespaces,
+Reads ``management-registry.json`` (the 147 operations across 24 namespaces,
 maintained in ``ilpanich/axiam`` and vendored here) plus ``openapi.json``, and writes:
 
 - ``include/axiam/management_models.h`` — one struct or enum per request and response
   type, plus a ``_free`` for every owning struct;
-- ``include/axiam/management_ops.h`` — the 146 flat operation declarations (§27.3);
+- ``include/axiam/management_ops.h`` — the 147 flat operation declarations (§27.3);
 - ``src/management_models.c`` — parse and free for every model;
-- ``src/management_ops.c`` — the 146 operation bodies;
+- ``src/management_ops.c`` — the 147 operation bodies;
 - ``tests/test_management_generated.c`` — one conformance case per operation.
 
 Run with ``--check`` to verify the committed output is current; that is what CI runs.
@@ -1220,7 +1220,7 @@ def op_doc(namespace: str, opname: str, op: dict[str, Any]) -> str:
 
 
 def emit_ops_header() -> str:
-    """The 146 flat operation declarations."""
+    """The 147 flat operation declarations."""
     out = [BANNER_C, ""]
     out.append("#ifndef AXIAM_MANAGEMENT_OPS_H")
     out.append("#define AXIAM_MANAGEMENT_OPS_H")
@@ -1257,7 +1257,7 @@ def emit_ops_header() -> str:
 
 
 def emit_ops_source() -> str:
-    """The 146 operation bodies. Every one funnels through axiam_mgmt_send() (27.8)."""
+    """The 147 operation bodies. Every one funnels through axiam_mgmt_send() (27.8)."""
     out = [BANNER_C, ""]
     out.append("#include <stdlib.h>")
     out.append("#include <string.h>")
@@ -1544,7 +1544,7 @@ def emit_test() -> str:
     out.append('#include "management_test_util.h"')
     out.append("")
     out.extend(comment(
-        "One case per CONTRACT.md 27 operation -- all 146 of them.\n\n"
+        "One case per CONTRACT.md 27 operation -- all 147 of them.\n\n"
         "Each asserts that the operation issues the METHOD the registry names against the "
         "PATH the registry names, and that whatever it allocated frees cleanly (the suite "
         "runs under ASan/UBSan in CI, so a leak or a double free fails here rather than in "
@@ -1915,7 +1915,7 @@ def emit_model_test() -> str:
 
 
 def emit_alloc_test() -> str:
-    """An allocation-failure sweep over all 146 operations and every model.
+    """An allocation-failure sweep over all 147 operations and every model.
 
     Every calloc/malloc in the generated surface is followed by a NULL check whose OOM
     arm never runs in an ordinary test, so gcovr reports it uncovered no matter how many

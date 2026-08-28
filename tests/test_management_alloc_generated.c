@@ -231,6 +231,25 @@ static void test_tenants_delete_survives_oom(void) {
     TEST_PASS();
 }
 
+static void test_tenants_export_audit_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        arm(n);
+        (void) axiam_tenants_export_audit(c, NULL, "11111111-1111-4111-8111-111111111111", &err);
+        disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
 static void test_users_list_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
@@ -3163,6 +3182,7 @@ int main(void) {
     RUN_TEST(test_tenants_get_survives_oom);
     RUN_TEST(test_tenants_update_survives_oom);
     RUN_TEST(test_tenants_delete_survives_oom);
+    RUN_TEST(test_tenants_export_audit_survives_oom);
     RUN_TEST(test_users_list_survives_oom);
     RUN_TEST(test_users_create_survives_oom);
     RUN_TEST(test_users_get_survives_oom);

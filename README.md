@@ -1188,7 +1188,7 @@ Worked example, including a transport skeleton:
 
 ## §27 Management API
 
-146 administrative operations across 24 namespaces, as **flat symbols** —
+147 administrative operations across 24 namespaces, as **flat symbols** —
 `axiam_<namespace>_<operation>()`, the exact shape CONTRACT.md **§27.3's** per-language
 table gives C (its row reads `axiam_service_accounts_rotate_secret(client, id, &out)`).
 C is the only SDK that takes it; every other language in that table, C++ included, gets a

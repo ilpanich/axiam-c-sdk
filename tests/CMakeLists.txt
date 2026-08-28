@@ -308,7 +308,7 @@ axiam_add_test(test_management_manifest test_management_manifest.c management_te
 axiam_add_test(test_management_models_generated test_management_models_generated.c)
 # The §27 allocation-failure sweep. Same --wrap technique as test_alloc_failures above:
 # every generated operation's OOM guard is one-sided by construction, so this drives each
-# of the 146 call graphs with each of the first N allocations failed in turn.
+# of the 147 call graphs with each of the first N allocations failed in turn.
 add_executable(test_management_alloc_generated
     test_management_alloc_generated.c management_test_util.c)
 target_include_directories(test_management_alloc_generated PRIVATE ${AXIAM_TEST_INCLUDES})

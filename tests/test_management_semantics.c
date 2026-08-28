@@ -1,7 +1,7 @@
 /*
  * The CONTRACT.md §27.9 required-test list, hand-written.
  *
- * The generated suite next door asserts that all 146 operations reach the right route.
+ * The generated suite next door asserts that all 147 operations reach the right route.
  * These assert the RULES -- the behaviours §27.4 specifies that hold across the whole
  * surface and that no per-operation test would catch.
  */
