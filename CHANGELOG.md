@@ -7,7 +7,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-beta04] - 2026-08-28
+
+### Changed
+
+- Pin actions by digest, attest the release tarball, re-vendor contract 1.33
+
+- **CONTRACT 1.32 — signing in an organization-level principal (§5.2.1).**
+  `CONTRACT.md`, `openapi.json` and `management-registry.json` re-vendored from
+  the AXIAM server, where the same bug class had made an organization-level
+  administrator unable to sign in at all (ilpanich/axiam#388).
+
+  Naming no tenant now resolves the organization's own reserved scope on
+  `/auth/login`, `/auth/opaque/login/start`, `/auth/opaque/register/start` and
+  `/auth/webauthn/authenticate/discoverable/start`. That reserved tenant's slug
+  is `organization`, so this SDK reaches it through the ordinary config, and the
+  "no tenant" refusal now says so.
+
+  Prefer naming it over omitting the tenant: §5 rule 2 still requires one on the
+  `X-Tenant-ID` header of every request after the login.
+
 ### Fixed
+
+- Reject a blank tenant_slug or org_slug instead of sending it as ""
 
 - **`axiam_client_config_validate` now rejects a blank `tenant_slug` or
   `org_slug`** (CONTRACT.md §5, §5.1, §5.2.1 rule 2), whitespace included. A
@@ -23,22 +45,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   workspace *before* the tenant's OPAQUE mode is read, so the `404` of §23.4
   rule 10 never arrives, this SDK has no fallback to take, and sign-in fails
   even against a tenant with OPAQUE **disabled**.
-
-### Changed
-
-- **CONTRACT 1.32 — signing in an organization-level principal (§5.2.1).**
-  `CONTRACT.md`, `openapi.json` and `management-registry.json` re-vendored from
-  the AXIAM server, where the same bug class had made an organization-level
-  administrator unable to sign in at all (ilpanich/axiam#388).
-
-  Naming no tenant now resolves the organization's own reserved scope on
-  `/auth/login`, `/auth/opaque/login/start`, `/auth/opaque/register/start` and
-  `/auth/webauthn/authenticate/discoverable/start`. That reserved tenant's slug
-  is `organization`, so this SDK reaches it through the ordinary config, and the
-  "no tenant" refusal now says so.
-
-  Prefer naming it over omitting the tenant: §5 rule 2 still requires one on the
-  `X-Tenant-ID` header of every request after the login.
 
 ## [1.0.0-beta02] - 2026-08-28
 
