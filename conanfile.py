@@ -6,7 +6,7 @@ import os
 
 class AxiamCSdkConan(ConanFile):
     name = "axiam-c-sdk"
-    version = "1.0.0-beta04"
+    version = "1.0.0-beta05"
     license = "Apache-2.0"
     url = "https://github.com/ilpanich/axiam-c-sdk"
     description = (
