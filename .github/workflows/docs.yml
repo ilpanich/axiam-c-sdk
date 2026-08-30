@@ -24,7 +24,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y doxygen graphviz
       - name: Generate docs
-        run: doxygen Doxyfile
+        run: |
+          set -euo pipefail
+          # PROJECT_NUMBER is printed in the header of every generated page.
+          # Read it from AXIAM_VERSION — the string axiam_version() returns and
+          # test_sensitive.c pins — rather than trusting the Doxyfile literal,
+          # which the release bump does not touch: it sat at 1.0.0-alpha8 and
+          # was published as the version of every beta. Doxygen keeps the LAST
+          # assignment of a tag, so appending one overrides the file's own.
+          version=$(sed -n 's/^#define AXIAM_VERSION "\(.*\)"$/\1/p' include/axiam/axiam.h)
+          if [ -z "$version" ]; then
+            echo "::error::could not read AXIAM_VERSION from include/axiam/axiam.h"
+            exit 1
+          fi
+          echo "Documenting $version"
+          { cat Doxyfile; echo "PROJECT_NUMBER = $version"; } | doxygen -
       - name: Publish to gh-pages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

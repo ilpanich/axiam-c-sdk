@@ -1,6 +1,9 @@
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "AXIAM C SDK"
-PROJECT_NUMBER         = 1.0.0-alpha8
+# Keep in step with AXIAM_VERSION in include/axiam/axiam.h. The docs workflow
+# overrides this from that header at generation time, so a stale literal here
+# affects only local `doxygen Doxyfile` runs.
+PROJECT_NUMBER         = 1.0.0-beta07
 PROJECT_BRIEF          = "C11 client SDK for AXIAM (CONTRACT.md §1-§7, §9-§11, §13 incl. §6.1 mTLS)"
 OUTPUT_DIRECTORY       = docs
 CREATE_SUBDIRS         = NO
