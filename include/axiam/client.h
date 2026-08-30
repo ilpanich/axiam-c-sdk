@@ -86,7 +86,7 @@ typedef struct axiam_login_result {
      * 1 when the account that just signed in is an ORGANIZATION-LEVEL principal
      * (CONTRACT.md §5.2) — one whose record lives in its organization's reserved tenant,
      * so its global grants apply in every tenant of that organization and it can act on a
-     * different one by sending a different `X-Tenant-ID` on the next request, with no
+     * different one by sending a different `X-Axiam-Tenant` on the next request, with no
      * re-login.
      *
      * An ordinary tenant principal is a principal of exactly one tenant; the same header
@@ -100,10 +100,60 @@ typedef struct axiam_login_result {
      * and 0 on the two pending outcomes, where no principal has been established yet.
      * Both are the safe direction.
      *
+     * Since contract 1.35 that reach can be narrowed per assignment, so this flag alone
+     * no longer decides what to offer: consult `reachable_tenant_ids` as well
+     * (§5.2.3 rule 3).
+     *
      * Appended LAST so every existing designated or positional initializer of this struct
      * still compiles, and so `{0}` still means "no claim".
      */
     int organization_level;
+
+    /**
+     * The tenant this principal's record LIVES in (CONTRACT.md §5.2.2).
+     *
+     * Distinct from `tenant_id`, which is the tenant being ACTED ON — what the
+     * `X-Axiam-Tenant` header names. The two hold the same value for every ordinary
+     * principal and diverge only once an organization-level principal selects another
+     * tenant to act on.
+     *
+     * This is where the account's own credentials belong, and what a §23 registration
+     * record for THIS account must be sealed against — see
+     * axiam_opaque_enrollment_for_self(). Filled from `tenant_id` when the server omits
+     * `principal_tenant_id`, which is exactly right there: absent means EQUAL, not
+     * unknown, because a server that cannot switch the acting tenant cannot make the two
+     * differ. NULL when the response carries neither.
+     */
+    char *principal_tenant_id;
+
+    /** Slug of `principal_tenant_id` — "organization" for an organization-level
+     *  principal. NULL when the server omits it. */
+    char *principal_tenant_slug;
+
+    /**
+     * The caller's organization as a UUID (§5.2.2 rule 3).
+     *
+     * Read this rather than resolving an organization slug through
+     * `GET /api/v1/organizations`, which is `super-admin`-only and returns only the
+     * caller's own organization — a resolver that cannot work for an ordinary
+     * administrator. NULL when the server omits it.
+     */
+    char *org_id;
+
+    /**
+     * The tenants this caller's roles reach, when they are narrowed (§5.2.3).
+     *
+     * NULL means UNRESTRICTED, which is both the common case and the only thing a server
+     * older than contract 1.35 can mean — never "reaches nothing". A present list is a
+     * deliberately narrowed organization-level account: confine any tenant switch to it,
+     * because naming anything outside is refused at the header. An empty list on the wire
+     * arrives here as NULL, for the same reason.
+     *
+     * Owned by the result and released by axiam_login_result_dispose().
+     */
+    char **reachable_tenant_ids;
+    /** Entries in `reachable_tenant_ids`; 0 when it is NULL. */
+    size_t reachable_tenant_ids_count;
 } axiam_login_result_t;
 
 /** Release heap members of a login result (not the struct itself). The

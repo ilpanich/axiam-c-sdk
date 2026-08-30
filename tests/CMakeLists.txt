@@ -304,6 +304,11 @@ add_test(NAME test_reactor COMMAND test_reactor)
 # opening its own connection) fails these rather than passing them.
 axiam_add_test(test_management_generated test_management_generated.c management_test_util.c)
 axiam_add_test(test_management_semantics test_management_semantics.c management_test_util.c)
+
+# The contract 1.34 §5.2.2 / 1.35 §5.2.3 rules. Links the management rig AND uses the
+# OPAQUE fake: the acting-tenant/principal-tenant distinction shows up on both surfaces,
+# and splitting it across two binaries would hide that they are one rule.
+axiam_add_test(test_contract_135 test_contract_135.c management_test_util.c)
 axiam_add_test(test_management_manifest test_management_manifest.c management_test_util.c)
 axiam_add_test(test_management_models_generated test_management_models_generated.c)
 # The §27 allocation-failure sweep. Same --wrap technique as test_alloc_failures above:

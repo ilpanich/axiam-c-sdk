@@ -440,7 +440,7 @@ static void test_users_unlock_survives_oom(void) {
 static void test_users_list_roles_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]");
+        mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -629,7 +629,7 @@ static void test_groups_remove_member_survives_oom(void) {
 static void test_groups_list_roles_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]");
+        mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -638,6 +638,67 @@ static void test_groups_list_roles_survives_oom(void) {
         (void) axiam_groups_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
         disarm();
         axiam_mgmt_role_assignment_list_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_groups_list_service_accounts_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_service_account_response_page_t *result = NULL;
+        arm(n);
+        (void) axiam_groups_list_service_accounts(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+        disarm();
+        axiam_mgmt_service_account_response_page_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_groups_add_service_account_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_add_service_account_member_request_t body;
+        memset(&body, 0, sizeof(body));
+        arm(n);
+        (void) axiam_groups_add_service_account(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+        disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_groups_remove_service_account_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        arm(n);
+        (void) axiam_groups_remove_service_account(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+        disarm();
         axiam_client_free(c);
     }
     /*
@@ -757,7 +818,7 @@ static void test_roles_delete_survives_oom(void) {
 static void test_roles_list_users_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]");
+        mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -818,7 +879,7 @@ static void test_roles_unassign_from_user_survives_oom(void) {
 static void test_roles_list_groups_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}]");
+        mgmt_mount(200, "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -927,6 +988,67 @@ static void test_roles_revoke_permission_survives_oom(void) {
         axiam_error_t err;
         arm(n);
         (void) axiam_roles_revoke_permission(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+        disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_roles_list_service_accounts_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_role_service_account_assignment_list_t *result = NULL;
+        arm(n);
+        (void) axiam_roles_list_service_accounts(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        disarm();
+        axiam_mgmt_role_service_account_assignment_list_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_roles_assign_to_service_account_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_assign_role_to_service_account_request_t body;
+        memset(&body, 0, sizeof(body));
+        arm(n);
+        (void) axiam_roles_assign_to_service_account(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+        disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_roles_unassign_from_service_account_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        arm(n);
+        (void) axiam_roles_unassign_from_service_account(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
         disarm();
         axiam_client_free(c);
     }
@@ -1440,6 +1562,48 @@ static void test_service_accounts_bind_certificate_survives_oom(void) {
         arm(n);
         (void) axiam_service_accounts_bind_certificate(c, "11111111-1111-4111-8111-111111111111", &body, &err);
         disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_service_accounts_list_roles_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_role_assignment_list_t *result = NULL;
+        arm(n);
+        (void) axiam_service_accounts_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        disarm();
+        axiam_mgmt_role_assignment_list_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_service_accounts_list_groups_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}]");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_group_list_t *result = NULL;
+        arm(n);
+        (void) axiam_service_accounts_list_groups(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        disarm();
+        axiam_mgmt_group_list_free(result);
         axiam_client_free(c);
     }
     /*
@@ -3202,6 +3366,9 @@ int main(void) {
     RUN_TEST(test_groups_add_member_survives_oom);
     RUN_TEST(test_groups_remove_member_survives_oom);
     RUN_TEST(test_groups_list_roles_survives_oom);
+    RUN_TEST(test_groups_list_service_accounts_survives_oom);
+    RUN_TEST(test_groups_add_service_account_survives_oom);
+    RUN_TEST(test_groups_remove_service_account_survives_oom);
     RUN_TEST(test_roles_list_survives_oom);
     RUN_TEST(test_roles_create_survives_oom);
     RUN_TEST(test_roles_get_survives_oom);
@@ -3216,6 +3383,9 @@ int main(void) {
     RUN_TEST(test_roles_list_permissions_survives_oom);
     RUN_TEST(test_roles_grant_permission_survives_oom);
     RUN_TEST(test_roles_revoke_permission_survives_oom);
+    RUN_TEST(test_roles_list_service_accounts_survives_oom);
+    RUN_TEST(test_roles_assign_to_service_account_survives_oom);
+    RUN_TEST(test_roles_unassign_from_service_account_survives_oom);
     RUN_TEST(test_permissions_list_survives_oom);
     RUN_TEST(test_permissions_create_survives_oom);
     RUN_TEST(test_permissions_get_survives_oom);
@@ -3240,6 +3410,8 @@ int main(void) {
     RUN_TEST(test_service_accounts_delete_survives_oom);
     RUN_TEST(test_service_accounts_rotate_secret_survives_oom);
     RUN_TEST(test_service_accounts_bind_certificate_survives_oom);
+    RUN_TEST(test_service_accounts_list_roles_survives_oom);
+    RUN_TEST(test_service_accounts_list_groups_survives_oom);
     RUN_TEST(test_certificates_list_survives_oom);
     RUN_TEST(test_certificates_generate_survives_oom);
     RUN_TEST(test_certificates_get_survives_oom);

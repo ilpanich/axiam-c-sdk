@@ -723,10 +723,14 @@ const char *axiam_mgmt_user_status_to_wire(axiam_mgmt_user_status_t value) {
 /* Internal parse/build, declared up front because models are mutually recursive. */
 axiam_mgmt_add_member_request_t *axiam_mgmt_add_member_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_add_member_request_build(const axiam_mgmt_add_member_request_t *value);
+axiam_mgmt_add_service_account_member_request_t *axiam_mgmt_add_service_account_member_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_add_service_account_member_request_build(const axiam_mgmt_add_service_account_member_request_t *value);
 axiam_mgmt_api_provider_config_t *axiam_mgmt_api_provider_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_api_provider_config_build(const axiam_mgmt_api_provider_config_t *value);
 axiam_mgmt_assign_role_to_group_request_t *axiam_mgmt_assign_role_to_group_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_assign_role_to_group_request_build(const axiam_mgmt_assign_role_to_group_request_t *value);
+axiam_mgmt_assign_role_to_service_account_request_t *axiam_mgmt_assign_role_to_service_account_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_assign_role_to_service_account_request_build(const axiam_mgmt_assign_role_to_service_account_request_t *value);
 axiam_mgmt_assign_role_to_user_request_t *axiam_mgmt_assign_role_to_user_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_assign_role_to_user_request_build(const axiam_mgmt_assign_role_to_user_request_t *value);
 axiam_mgmt_audit_log_entry_t *axiam_mgmt_audit_log_entry_parse(const cJSON *src);
@@ -877,6 +881,8 @@ axiam_mgmt_role_assignment_t *axiam_mgmt_role_assignment_parse(const cJSON *src)
 cJSON *axiam_mgmt_role_assignment_build(const axiam_mgmt_role_assignment_t *value);
 axiam_mgmt_role_group_assignment_t *axiam_mgmt_role_group_assignment_parse(const cJSON *src);
 cJSON *axiam_mgmt_role_group_assignment_build(const axiam_mgmt_role_group_assignment_t *value);
+axiam_mgmt_role_service_account_assignment_t *axiam_mgmt_role_service_account_assignment_parse(const cJSON *src);
+cJSON *axiam_mgmt_role_service_account_assignment_build(const axiam_mgmt_role_service_account_assignment_t *value);
 axiam_mgmt_role_user_assignment_t *axiam_mgmt_role_user_assignment_parse(const cJSON *src);
 cJSON *axiam_mgmt_role_user_assignment_build(const axiam_mgmt_role_user_assignment_t *value);
 axiam_mgmt_rotate_secret_response_t *axiam_mgmt_rotate_secret_response_parse(const cJSON *src);
@@ -977,6 +983,33 @@ cJSON *axiam_mgmt_add_member_request_build(const axiam_mgmt_add_member_request_t
     return obj;
 }
 
+void axiam_mgmt_add_service_account_member_request_free(axiam_mgmt_add_service_account_member_request_t *value) {
+    if (!value) return;
+    free(value->service_account_id);
+    free(value);
+}
+
+axiam_mgmt_add_service_account_member_request_t *axiam_mgmt_add_service_account_member_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_add_service_account_member_request_t *out = (axiam_mgmt_add_service_account_member_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "service_account_id");
+    if (cJSON_IsString(item)) out->service_account_id = axiam_strdup0(item->valuestring);
+    return out;
+}
+
+cJSON *axiam_mgmt_add_service_account_member_request_build(const axiam_mgmt_add_service_account_member_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->service_account_id) {
+        cJSON_AddStringToObject(obj, "service_account_id", value->service_account_id);
+    }
+    return obj;
+}
+
 void axiam_mgmt_api_provider_config_free(axiam_mgmt_api_provider_config_t *value) {
     if (!value) return;
     free(value->api_url);
@@ -1008,6 +1041,10 @@ void axiam_mgmt_assign_role_to_group_request_free(axiam_mgmt_assign_role_to_grou
     if (!value) return;
     free(value->group_id);
     free(value->resource_id);
+    if (value->tenant_scope) {
+        for (size_t i = 0; i < value->tenant_scope_count; i++) free(value->tenant_scope[i]);
+        free(value->tenant_scope);
+    }
     free(value);
 }
 
@@ -1021,6 +1058,19 @@ axiam_mgmt_assign_role_to_group_request_t *axiam_mgmt_assign_role_to_group_reque
     if (cJSON_IsString(item)) out->group_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->tenant_scope = (char **) calloc(n, sizeof(char *));
+            if (!out->tenant_scope) { axiam_mgmt_assign_role_to_group_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->tenant_scope[i] = axiam_strdup0(e->valuestring);
+            }
+            out->tenant_scope_count = n;
+        }
+    }
     return out;
 }
 
@@ -1034,12 +1084,76 @@ cJSON *axiam_mgmt_assign_role_to_group_request_build(const axiam_mgmt_assign_rol
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
     }
+    if (value->tenant_scope && value->tenant_scope_count > 0) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
+        for (size_t i = 0; arr && i < value->tenant_scope_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->tenant_scope[i]));
+    }
+    return obj;
+}
+
+void axiam_mgmt_assign_role_to_service_account_request_free(axiam_mgmt_assign_role_to_service_account_request_t *value) {
+    if (!value) return;
+    free(value->resource_id);
+    free(value->service_account_id);
+    if (value->tenant_scope) {
+        for (size_t i = 0; i < value->tenant_scope_count; i++) free(value->tenant_scope[i]);
+        free(value->tenant_scope);
+    }
+    free(value);
+}
+
+axiam_mgmt_assign_role_to_service_account_request_t *axiam_mgmt_assign_role_to_service_account_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_assign_role_to_service_account_request_t *out = (axiam_mgmt_assign_role_to_service_account_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
+    if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "service_account_id");
+    if (cJSON_IsString(item)) out->service_account_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->tenant_scope = (char **) calloc(n, sizeof(char *));
+            if (!out->tenant_scope) { axiam_mgmt_assign_role_to_service_account_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->tenant_scope[i] = axiam_strdup0(e->valuestring);
+            }
+            out->tenant_scope_count = n;
+        }
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_assign_role_to_service_account_request_build(const axiam_mgmt_assign_role_to_service_account_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->resource_id) {
+        cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
+    }
+    if (value->service_account_id) {
+        cJSON_AddStringToObject(obj, "service_account_id", value->service_account_id);
+    }
+    if (value->tenant_scope && value->tenant_scope_count > 0) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
+        for (size_t i = 0; arr && i < value->tenant_scope_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->tenant_scope[i]));
+    }
     return obj;
 }
 
 void axiam_mgmt_assign_role_to_user_request_free(axiam_mgmt_assign_role_to_user_request_t *value) {
     if (!value) return;
     free(value->resource_id);
+    if (value->tenant_scope) {
+        for (size_t i = 0; i < value->tenant_scope_count; i++) free(value->tenant_scope[i]);
+        free(value->tenant_scope);
+    }
     free(value->user_id);
     free(value);
 }
@@ -1052,6 +1166,19 @@ axiam_mgmt_assign_role_to_user_request_t *axiam_mgmt_assign_role_to_user_request
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->tenant_scope = (char **) calloc(n, sizeof(char *));
+            if (!out->tenant_scope) { axiam_mgmt_assign_role_to_user_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->tenant_scope[i] = axiam_strdup0(e->valuestring);
+            }
+            out->tenant_scope_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "user_id");
     if (cJSON_IsString(item)) out->user_id = axiam_strdup0(item->valuestring);
     return out;
@@ -1063,6 +1190,11 @@ cJSON *axiam_mgmt_assign_role_to_user_request_build(const axiam_mgmt_assign_role
     if (!obj) return NULL;
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
+    }
+    if (value->tenant_scope && value->tenant_scope_count > 0) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
+        for (size_t i = 0; arr && i < value->tenant_scope_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->tenant_scope[i]));
     }
     if (value->user_id) {
         cJSON_AddStringToObject(obj, "user_id", value->user_id);
@@ -5572,6 +5704,10 @@ void axiam_mgmt_role_assignment_free(axiam_mgmt_role_assignment_t *value) {
     if (!value) return;
     free(value->resource_id);
     axiam_mgmt_role_free(value->role);
+    if (value->tenant_scope) {
+        for (size_t i = 0; i < value->tenant_scope_count; i++) free(value->tenant_scope[i]);
+        free(value->tenant_scope);
+    }
     free(value);
 }
 
@@ -5585,6 +5721,19 @@ axiam_mgmt_role_assignment_t *axiam_mgmt_role_assignment_parse(const cJSON *src)
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "role");
     if (cJSON_IsObject(item)) out->role = axiam_mgmt_role_parse(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->tenant_scope = (char **) calloc(n, sizeof(char *));
+            if (!out->tenant_scope) { axiam_mgmt_role_assignment_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->tenant_scope[i] = axiam_strdup0(e->valuestring);
+            }
+            out->tenant_scope_count = n;
+        }
+    }
     return out;
 }
 
@@ -5599,6 +5748,11 @@ cJSON *axiam_mgmt_role_assignment_build(const axiam_mgmt_role_assignment_t *valu
         cJSON *sub = axiam_mgmt_role_build(value->role);
         if (sub) cJSON_AddItemToObject(obj, "role", sub);
     }
+    if (value->tenant_scope && value->tenant_scope_count > 0) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
+        for (size_t i = 0; arr && i < value->tenant_scope_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->tenant_scope[i]));
+    }
     return obj;
 }
 
@@ -5606,6 +5760,10 @@ void axiam_mgmt_role_group_assignment_free(axiam_mgmt_role_group_assignment_t *v
     if (!value) return;
     axiam_mgmt_group_free(value->group);
     free(value->resource_id);
+    if (value->tenant_scope) {
+        for (size_t i = 0; i < value->tenant_scope_count; i++) free(value->tenant_scope[i]);
+        free(value->tenant_scope);
+    }
     free(value);
 }
 
@@ -5619,6 +5777,19 @@ axiam_mgmt_role_group_assignment_t *axiam_mgmt_role_group_assignment_parse(const
     if (cJSON_IsObject(item)) out->group = axiam_mgmt_group_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->tenant_scope = (char **) calloc(n, sizeof(char *));
+            if (!out->tenant_scope) { axiam_mgmt_role_group_assignment_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->tenant_scope[i] = axiam_strdup0(e->valuestring);
+            }
+            out->tenant_scope_count = n;
+        }
+    }
     return out;
 }
 
@@ -5633,12 +5804,77 @@ cJSON *axiam_mgmt_role_group_assignment_build(const axiam_mgmt_role_group_assign
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
     }
+    if (value->tenant_scope && value->tenant_scope_count > 0) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
+        for (size_t i = 0; arr && i < value->tenant_scope_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->tenant_scope[i]));
+    }
+    return obj;
+}
+
+void axiam_mgmt_role_service_account_assignment_free(axiam_mgmt_role_service_account_assignment_t *value) {
+    if (!value) return;
+    free(value->resource_id);
+    axiam_mgmt_service_account_response_free(value->service_account);
+    if (value->tenant_scope) {
+        for (size_t i = 0; i < value->tenant_scope_count; i++) free(value->tenant_scope[i]);
+        free(value->tenant_scope);
+    }
+    free(value);
+}
+
+axiam_mgmt_role_service_account_assignment_t *axiam_mgmt_role_service_account_assignment_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_role_service_account_assignment_t *out = (axiam_mgmt_role_service_account_assignment_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
+    if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "service_account");
+    if (cJSON_IsObject(item)) out->service_account = axiam_mgmt_service_account_response_parse(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->tenant_scope = (char **) calloc(n, sizeof(char *));
+            if (!out->tenant_scope) { axiam_mgmt_role_service_account_assignment_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->tenant_scope[i] = axiam_strdup0(e->valuestring);
+            }
+            out->tenant_scope_count = n;
+        }
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_role_service_account_assignment_build(const axiam_mgmt_role_service_account_assignment_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->resource_id) {
+        cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
+    }
+    if (value->service_account) {
+        cJSON *sub = axiam_mgmt_service_account_response_build(value->service_account);
+        if (sub) cJSON_AddItemToObject(obj, "service_account", sub);
+    }
+    if (value->tenant_scope && value->tenant_scope_count > 0) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
+        for (size_t i = 0; arr && i < value->tenant_scope_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->tenant_scope[i]));
+    }
     return obj;
 }
 
 void axiam_mgmt_role_user_assignment_free(axiam_mgmt_role_user_assignment_t *value) {
     if (!value) return;
     free(value->resource_id);
+    if (value->tenant_scope) {
+        for (size_t i = 0; i < value->tenant_scope_count; i++) free(value->tenant_scope[i]);
+        free(value->tenant_scope);
+    }
     axiam_mgmt_user_response_free(value->user);
     free(value);
 }
@@ -5651,6 +5887,19 @@ axiam_mgmt_role_user_assignment_t *axiam_mgmt_role_user_assignment_parse(const c
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->tenant_scope = (char **) calloc(n, sizeof(char *));
+            if (!out->tenant_scope) { axiam_mgmt_role_user_assignment_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->tenant_scope[i] = axiam_strdup0(e->valuestring);
+            }
+            out->tenant_scope_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "user");
     if (cJSON_IsObject(item)) out->user = axiam_mgmt_user_response_parse(item);
     return out;
@@ -5662,6 +5911,11 @@ cJSON *axiam_mgmt_role_user_assignment_build(const axiam_mgmt_role_user_assignme
     if (!obj) return NULL;
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
+    }
+    if (value->tenant_scope && value->tenant_scope_count > 0) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
+        for (size_t i = 0; arr && i < value->tenant_scope_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->tenant_scope[i]));
     }
     if (value->user) {
         cJSON *sub = axiam_mgmt_user_response_build(value->user);
@@ -8319,6 +8573,15 @@ void axiam_mgmt_federation_link_response_list_free(axiam_mgmt_federation_link_re
     free(list);
 }
 
+void axiam_mgmt_group_list_free(axiam_mgmt_group_list_t *list) {
+    if (!list) return;
+    if (list->items) {
+        for (size_t i = 0; i < list->count; i++) axiam_mgmt_group_free(list->items[i]);
+        free(list->items);
+    }
+    free(list);
+}
+
 void axiam_mgmt_mfa_method_response_list_free(axiam_mgmt_mfa_method_response_list_t *list) {
     if (!list) return;
     if (list->items) {
@@ -8368,6 +8631,15 @@ void axiam_mgmt_role_group_assignment_list_free(axiam_mgmt_role_group_assignment
     if (!list) return;
     if (list->items) {
         for (size_t i = 0; i < list->count; i++) axiam_mgmt_role_group_assignment_free(list->items[i]);
+        free(list->items);
+    }
+    free(list);
+}
+
+void axiam_mgmt_role_service_account_assignment_list_free(axiam_mgmt_role_service_account_assignment_list_t *list) {
+    if (!list) return;
+    if (list->items) {
+        for (size_t i = 0; i < list->count; i++) axiam_mgmt_role_service_account_assignment_free(list->items[i]);
         free(list->items);
     }
     free(list);

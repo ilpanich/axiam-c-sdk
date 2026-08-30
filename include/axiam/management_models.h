@@ -877,8 +877,10 @@ const char *axiam_mgmt_user_status_to_wire(axiam_mgmt_user_status_t value);
  * directions, so every struct is named before any is defined.
  */
 typedef struct axiam_mgmt_add_member_request axiam_mgmt_add_member_request_t;
+typedef struct axiam_mgmt_add_service_account_member_request axiam_mgmt_add_service_account_member_request_t;
 typedef struct axiam_mgmt_api_provider_config axiam_mgmt_api_provider_config_t;
 typedef struct axiam_mgmt_assign_role_to_group_request axiam_mgmt_assign_role_to_group_request_t;
+typedef struct axiam_mgmt_assign_role_to_service_account_request axiam_mgmt_assign_role_to_service_account_request_t;
 typedef struct axiam_mgmt_assign_role_to_user_request axiam_mgmt_assign_role_to_user_request_t;
 typedef struct axiam_mgmt_audit_log_entry axiam_mgmt_audit_log_entry_t;
 typedef struct axiam_mgmt_bind_certificate axiam_mgmt_bind_certificate_t;
@@ -954,6 +956,7 @@ typedef struct axiam_mgmt_retry_policy axiam_mgmt_retry_policy_t;
 typedef struct axiam_mgmt_role axiam_mgmt_role_t;
 typedef struct axiam_mgmt_role_assignment axiam_mgmt_role_assignment_t;
 typedef struct axiam_mgmt_role_group_assignment axiam_mgmt_role_group_assignment_t;
+typedef struct axiam_mgmt_role_service_account_assignment axiam_mgmt_role_service_account_assignment_t;
 typedef struct axiam_mgmt_role_user_assignment axiam_mgmt_role_user_assignment_t;
 typedef struct axiam_mgmt_rotate_secret_response axiam_mgmt_rotate_secret_response_t;
 typedef struct axiam_mgmt_scim_token_response axiam_mgmt_scim_token_response_t;
@@ -1010,6 +1013,24 @@ struct axiam_mgmt_add_member_request {
 void axiam_mgmt_add_member_request_free(axiam_mgmt_add_member_request_t *value);
 
 /**
+ * The `AddServiceAccountMemberRequest` schema from the server's OpenAPI document.
+ */
+struct axiam_mgmt_add_service_account_member_request {
+    /**
+     * The server's `service_account_id` field.
+     */
+    char *service_account_id;
+};
+
+/**
+ * Free a AddServiceAccountMemberRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_add_service_account_member_request_free(axiam_mgmt_add_service_account_member_request_t *value);
+
+/**
  * API-based provider configuration (SendGrid, Postmark, Resend, Brevo). `api_key` follows
  * the same write-only + omit-preserving contract as [`SmtpConfig::password`] (D-01/D-02).
  *
@@ -1045,6 +1066,17 @@ struct axiam_mgmt_assign_role_to_group_request {
      * The server's `resource_id` field. Optional.
      */
     char *resource_id;
+    /**
+     * The tenants this assignment reaches. Only meaningful for an assignment made in an
+     * organization's scope, whose global roles otherwise reach every tenant of the
+     * organization; naming tenants here confines the assignment to those and to nothing
+     * else, the organization's own scope included. Omitted — the default — reaches wherever
+     * the role does. Refused with 400 outside an organization scope, when empty, and when
+     * it names a tenant of another organization or the organization's own scope tenant.
+     * Optional.
+     */
+    char **tenant_scope;
+    size_t tenant_scope_count; /**< Entries in `tenant_scope`. */
 };
 
 /**
@@ -1056,6 +1088,39 @@ struct axiam_mgmt_assign_role_to_group_request {
 void axiam_mgmt_assign_role_to_group_request_free(axiam_mgmt_assign_role_to_group_request_t *value);
 
 /**
+ * The `AssignRoleToServiceAccountRequest` schema from the server's OpenAPI document.
+ */
+struct axiam_mgmt_assign_role_to_service_account_request {
+    /**
+     * The server's `resource_id` field. Optional.
+     */
+    char *resource_id;
+    /**
+     * The server's `service_account_id` field.
+     */
+    char *service_account_id;
+    /**
+     * The tenants this assignment reaches. Only meaningful for an assignment made in an
+     * organization's scope, whose global roles otherwise reach every tenant of the
+     * organization; naming tenants here confines the assignment to those and to nothing
+     * else, the organization's own scope included. Omitted — the default — reaches wherever
+     * the role does. Refused with 400 outside an organization scope, when empty, and when
+     * it names a tenant of another organization or the organization's own scope tenant.
+     * Optional.
+     */
+    char **tenant_scope;
+    size_t tenant_scope_count; /**< Entries in `tenant_scope`. */
+};
+
+/**
+ * Free a AssignRoleToServiceAccountRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_assign_role_to_service_account_request_free(axiam_mgmt_assign_role_to_service_account_request_t *value);
+
+/**
  * The `AssignRoleToUserRequest` schema from the server's OpenAPI document.
  */
 struct axiam_mgmt_assign_role_to_user_request {
@@ -1063,6 +1128,17 @@ struct axiam_mgmt_assign_role_to_user_request {
      * The server's `resource_id` field. Optional.
      */
     char *resource_id;
+    /**
+     * The tenants this assignment reaches. Only meaningful for an assignment made in an
+     * organization's scope, whose global roles otherwise reach every tenant of the
+     * organization; naming tenants here confines the assignment to those and to nothing
+     * else, the organization's own scope included. Omitted — the default — reaches wherever
+     * the role does. Refused with 400 outside an organization scope, when empty, and when
+     * it names a tenant of another organization or the organization's own scope tenant.
+     * Optional.
+     */
+    char **tenant_scope;
+    size_t tenant_scope_count; /**< Entries in `tenant_scope`. */
     /**
      * The server's `user_id` field.
      */
@@ -4053,6 +4129,11 @@ struct axiam_mgmt_role_assignment {
      * The server's `role` field.
      */
     axiam_mgmt_role_t *role;
+    /**
+     * The tenants this assignment reaches. See [`TenantScope`]. Optional.
+     */
+    char **tenant_scope;
+    size_t tenant_scope_count; /**< Entries in `tenant_scope`. */
 };
 
 /**
@@ -4075,6 +4156,13 @@ struct axiam_mgmt_role_group_assignment {
      * `None` means the role was assigned globally (no resource scope). Optional.
      */
     char *resource_id;
+    /**
+     * The tenants this assignment reaches, or omitted for "wherever the role does". Shown
+     * next to the assignment so an operator can tell a deliberately narrowed grant from an
+     * organization-wide one. Optional.
+     */
+    char **tenant_scope;
+    size_t tenant_scope_count; /**< Entries in `tenant_scope`. */
 };
 
 /**
@@ -4086,6 +4174,36 @@ struct axiam_mgmt_role_group_assignment {
 void axiam_mgmt_role_group_assignment_free(axiam_mgmt_role_group_assignment_t *value);
 
 /**
+ * A service account together with the resource scope of its assignment.
+ */
+struct axiam_mgmt_role_service_account_assignment {
+    /**
+     * `None` means the role was assigned globally (no resource scope). Optional.
+     */
+    char *resource_id;
+    /**
+     * The assigned service account. Carries no secret — the client secret is returned once,
+     * at creation, and never again.
+     */
+    axiam_mgmt_service_account_response_t *service_account;
+    /**
+     * The tenants this assignment reaches, or omitted for "wherever the role does". Shown
+     * next to the assignment so an operator can tell a deliberately narrowed grant from an
+     * organization-wide one. Optional.
+     */
+    char **tenant_scope;
+    size_t tenant_scope_count; /**< Entries in `tenant_scope`. */
+};
+
+/**
+ * Free a RoleServiceAccountAssignment and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_role_service_account_assignment_free(axiam_mgmt_role_service_account_assignment_t *value);
+
+/**
  * A user together with the resource scope of their assignment of this role.
  */
 struct axiam_mgmt_role_user_assignment {
@@ -4093,6 +4211,13 @@ struct axiam_mgmt_role_user_assignment {
      * `None` means the role was assigned globally (no resource scope). Optional.
      */
     char *resource_id;
+    /**
+     * The tenants this assignment reaches, or omitted for "wherever the role does". Shown
+     * next to the assignment so an operator can tell a deliberately narrowed grant from an
+     * organization-wide one. Optional.
+     */
+    char **tenant_scope;
+    size_t tenant_scope_count; /**< Entries in `tenant_scope`. */
     /**
      * The assigned user.
      */
@@ -6095,6 +6220,23 @@ typedef struct axiam_mgmt_federation_link_response_list {
 void axiam_mgmt_federation_link_response_list_free(axiam_mgmt_federation_link_response_list_t *list);
 
 /**
+ * A plain list of Group objects.
+ *
+ * This is what a BARE-ARRAY endpoint returns. 27.4 rule 4 is explicit that such a response
+ * MUST NOT be modelled as a page: there is no `total`, no offset and no next page, and
+ * dressing it as one would invite a caller to walk something that has already ended.
+ */
+typedef struct axiam_mgmt_group_list {
+    axiam_mgmt_group_t **items; /**< Every item the server returned. */
+    size_t count;              /**< How many. */
+} axiam_mgmt_group_list_t;
+
+/**
+ * Free a list of Group objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_group_list_free(axiam_mgmt_group_list_t *list);
+
+/**
  * A plain list of MfaMethodResponse objects.
  *
  * This is what a BARE-ARRAY endpoint returns. 27.4 rule 4 is explicit that such a response
@@ -6195,6 +6337,24 @@ typedef struct axiam_mgmt_role_group_assignment_list {
  * Free a list of RoleGroupAssignment objects and every item in it. Safe to pass NULL.
  */
 void axiam_mgmt_role_group_assignment_list_free(axiam_mgmt_role_group_assignment_list_t *list);
+
+/**
+ * A plain list of RoleServiceAccountAssignment objects.
+ *
+ * This is what a BARE-ARRAY endpoint returns. 27.4 rule 4 is explicit that such a response
+ * MUST NOT be modelled as a page: there is no `total`, no offset and no next page, and
+ * dressing it as one would invite a caller to walk something that has already ended.
+ */
+typedef struct axiam_mgmt_role_service_account_assignment_list {
+    axiam_mgmt_role_service_account_assignment_t **items; /**< Every item the server returned. */
+    size_t count;              /**< How many. */
+} axiam_mgmt_role_service_account_assignment_list_t;
+
+/**
+ * Free a list of RoleServiceAccountAssignment objects and every item in it. Safe to pass
+ * NULL.
+ */
+void axiam_mgmt_role_service_account_assignment_list_free(axiam_mgmt_role_service_account_assignment_list_t *list);
 
 /**
  * A plain list of RoleUserAssignment objects.

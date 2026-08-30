@@ -7,6 +7,95 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- **Contract 1.35, which carries contract 1.34 with it.** Nothing had been fanned
+  out since 1.33, so this re-vendors `CONTRACT.md`, `openapi.json` and
+  `management-registry.json` across both revisions. The registry still holds 155
+  operations across 24 namespaces — 1.35 changed only its `spec_digest` — so the
+  eight §27 operations below arrived with 1.34 and are new here regardless.
+
+- **§27: service accounts as RBAC principals** (contract 1.34) — eight generated
+  operations, with the `AssignRoleToServiceAccountRequest`,
+  `RoleServiceAccountAssignment` and `AddServiceAccountMemberRequest` models they
+  need. `axiam_roles_unassign_from_service_account()` takes the same optional
+  `resource_id` query parameter as the user and group unassign calls: passing NULL
+  removes the *global* grant specifically, not every grant of that role.
+
+- **§5.2.2: the acting tenant and the principal tenant are different things**
+  (contract 1.34). `axiam_login_result_t` gains `principal_tenant_id`,
+  `principal_tenant_slug`, `org_id`, `reachable_tenant_ids` and
+  `reachable_tenant_ids_count` — appended LAST, so every existing designated or
+  positional initializer still compiles and `{0}` still means "no claim".
+
+  `principal_tenant_id` is filled from `tenant_id` when the server omits it.
+  Absent means *equal*, not unknown: a server older than 1.34 cannot switch the
+  acting tenant either, so the fallback is the only value the field could have
+  had. Read `org_id` from the session instead of resolving a slug through
+  `GET /api/v1/organizations`, which is `super-admin`-only and returns only the
+  caller's own organization.
+
+  `axiam_login_result_dispose()` releases all of them, `reachable_tenant_ids`
+  entries included.
+
+- **§5.2.3: tenant-scoped role assignments** (contract 1.35). `tenant_scope` /
+  `tenant_scope_count` appear on the three assignment request structs and on the
+  assignment objects the read paths return. NULL means unrestricted, which is what
+  every assignment written before the field existed already meant.
+
+  `reachable_tenant_ids` pairs with it on the login result: a narrowed
+  organization-level principal still reports `organization_level == 1`, so an
+  application gating a tenant switcher on that flag alone offers tenants the
+  server refuses at the header.
+
+- **`axiam_opaque_enrollment_for_self()`** — see below.
+
+### Fixed
+
+- **A registration record for your own password was sealed against the wrong
+  tenant.** CONTRACT.md §5.2.2 rule 2: the caller's credentials live in the tenant
+  the *account* lives in, not whichever tenant the client is currently pointed at,
+  and a record sealed against the acting tenant is refused with "the OPAQUE session
+  was issued for a different tenant".
+
+  `axiam_opaque_enrollment()` had one behaviour for a function documented for three
+  callers — user creation, change-password and reset completion — and only the
+  first of those wants the acting tenant. It keeps that behaviour; the new
+  `axiam_opaque_enrollment_for_self()` seals against the principal tenant captured
+  at login (naming it by id and sending no `tenant_slug`, which would otherwise
+  out-vote the id server-side) and is what a self-service password change must
+  call. It returns `AXIAM_ERR_NETWORK` before any login has completed, because
+  there is nothing to seal against then and falling back to the acting tenant is
+  the bug itself.
+
+  The two collapse to the same request for every ordinary principal, so this only
+  bit an organization-level account that had switched tenant.
+
+- **`tenant_scope: []` no longer reaches the wire** (§5.2.3 rule 1, refused with
+  `400`). C's optional-array guard is `if (value->field)`, which a pointer to a
+  list that filtered down to nothing passes — and that is exactly the shape "no
+  tenants named" produces. `scripts/gen_management.py` now emits
+  `if (value->tenant_scope && value->tenant_scope_count > 0)` for that one field.
+
+  The allowlist is one field wide on purpose: elsewhere an empty array is
+  meaningful — a replacement body clearing a list — and `test_contract_135` pins
+  that an `UpdateWebhookRequest` with `events_count == 0` still sends
+  `"events":[]`.
+
+### Note on `X-Tenant-ID` vs `X-Axiam-Tenant`
+
+CONTRACT.md §5.2.2 and §5.2.3 name the acting-tenant header `X-Tenant-ID`, but the
+AXIAM server reads **`X-Axiam-Tenant`** (`ACTIVE_TENANT_HEADER` in
+`crates/axiam-api-rest/src/extractors/auth.rs`), as do its own tests, the admin UI,
+and the `openapi.json` vendored alongside that contract. The server never reads
+`X-Tenant-ID` at all.
+
+Documentation updated here names `X-Axiam-Tenant`, because a tenant switch sent
+under the other name is not refused — it is ignored, and the request quietly acts on
+the principal's own tenant instead. The discrepancy has been reported upstream; this
+SDK's existing `X-Tenant-ID` sends are left as they are, being out of scope for a
+contract re-vendor.
+
 ## [1.0.0-beta04] - 2026-08-28
 
 ### Changed

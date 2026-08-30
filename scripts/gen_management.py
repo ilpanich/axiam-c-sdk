@@ -882,11 +882,28 @@ def emit_free_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
     return []
 
 
+#: The one wire field an EMPTY array must not be sent as.
+#:
+#: CONTRACT.md 5.2.3 rule 1: `tenant_scope: []` is refused with 400, and an empty
+#: array is exactly what building the field from a filtered collection produces for
+#: "no tenants named" -- a non-NULL pointer whose count is zero. The ordinary array
+#: guard is `if (value->field)`, which that shape passes, so the empty array reaches
+#: the wire and the whole assignment is refused.
+#:
+#: Deliberately an allowlist of ONE, not a blanket "skip empty arrays". Elsewhere an
+#: empty array is meaningful -- a replacement body clearing a list -- and dropping it
+#: would make "remove every entry" inexpressible.
+OMIT_WHEN_EMPTY = {"tenant_scope"}
+
+
 def emit_build_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
     """Serialize one member into the request body, honouring 27.4 rule 5."""
     w, n, kind = f["wire"], f["name"], f["kind"]
     o = []
-    if kind in {"string", "model", "json_text", "string_array", "model_array"}:
+    if kind in {"string_array", "model_array"} and w in OMIT_WHEN_EMPTY:
+        # 5.2.3 rule 1 -- see OMIT_WHEN_EMPTY.
+        guard = f"if (value->{n} && value->{n}_count > 0)"
+    elif kind in {"string", "model", "json_text", "string_array", "model_array"}:
         guard = f"if (value->{n})"
     elif kind == "sensitive":
         guard = f"if (value->{n})"

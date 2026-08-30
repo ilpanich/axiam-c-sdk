@@ -25,10 +25,14 @@
  */
 axiam_mgmt_add_member_request_t *axiam_mgmt_add_member_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_add_member_request_build(const axiam_mgmt_add_member_request_t *value);
+axiam_mgmt_add_service_account_member_request_t *axiam_mgmt_add_service_account_member_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_add_service_account_member_request_build(const axiam_mgmt_add_service_account_member_request_t *value);
 axiam_mgmt_api_provider_config_t *axiam_mgmt_api_provider_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_api_provider_config_build(const axiam_mgmt_api_provider_config_t *value);
 axiam_mgmt_assign_role_to_group_request_t *axiam_mgmt_assign_role_to_group_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_assign_role_to_group_request_build(const axiam_mgmt_assign_role_to_group_request_t *value);
+axiam_mgmt_assign_role_to_service_account_request_t *axiam_mgmt_assign_role_to_service_account_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_assign_role_to_service_account_request_build(const axiam_mgmt_assign_role_to_service_account_request_t *value);
 axiam_mgmt_assign_role_to_user_request_t *axiam_mgmt_assign_role_to_user_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_assign_role_to_user_request_build(const axiam_mgmt_assign_role_to_user_request_t *value);
 axiam_mgmt_audit_log_entry_t *axiam_mgmt_audit_log_entry_parse(const cJSON *src);
@@ -179,6 +183,8 @@ axiam_mgmt_role_assignment_t *axiam_mgmt_role_assignment_parse(const cJSON *src)
 cJSON *axiam_mgmt_role_assignment_build(const axiam_mgmt_role_assignment_t *value);
 axiam_mgmt_role_group_assignment_t *axiam_mgmt_role_group_assignment_parse(const cJSON *src);
 cJSON *axiam_mgmt_role_group_assignment_build(const axiam_mgmt_role_group_assignment_t *value);
+axiam_mgmt_role_service_account_assignment_t *axiam_mgmt_role_service_account_assignment_parse(const cJSON *src);
+cJSON *axiam_mgmt_role_service_account_assignment_build(const axiam_mgmt_role_service_account_assignment_t *value);
 axiam_mgmt_role_user_assignment_t *axiam_mgmt_role_user_assignment_parse(const cJSON *src);
 cJSON *axiam_mgmt_role_user_assignment_build(const axiam_mgmt_role_user_assignment_t *value);
 axiam_mgmt_rotate_secret_response_t *axiam_mgmt_rotate_secret_response_parse(const cJSON *src);
@@ -308,6 +314,59 @@ static void test_add_member_request_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `AddServiceAccountMemberRequest`: a full wire object parses, builds back and frees. */
+static void test_add_service_account_member_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"service_account_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_add_service_account_member_request_t *model = axiam_mgmt_add_service_account_member_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_add_service_account_member_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_add_service_account_member_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `AddServiceAccountMemberRequest`: an EMPTY object parses without crashing. A server that
+ * omits a field openapi.json marks required is malformed, and this SDK's answer is a model
+ * with that member unset rather than an abort -- the caller is in a position to decide, and
+ * a parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_add_service_account_member_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_add_service_account_member_request_t *model = axiam_mgmt_add_service_account_member_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_add_service_account_member_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_add_service_account_member_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_add_service_account_member_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_add_service_account_member_request_parse(scalar));
+    axiam_mgmt_add_service_account_member_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `ApiProviderConfig`: a full wire object parses, builds back and frees. */
 static void test_api_provider_config_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"api_url\": \"example\"}");
@@ -385,7 +444,7 @@ static void test_api_provider_config_rejects_a_non_object(void) {
 
 /* `AssignRoleToGroupRequest`: a full wire object parses, builds back and frees. */
 static void test_assign_role_to_group_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    cJSON *src = cJSON_Parse("{\"group_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_assign_role_to_group_request_t *model = axiam_mgmt_assign_role_to_group_request_parse(src);
@@ -458,9 +517,87 @@ static void test_assign_role_to_group_request_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `AssignRoleToServiceAccountRequest`: a full wire object parses, builds back and frees. */
+static void test_assign_role_to_service_account_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_assign_role_to_service_account_request_t *model = axiam_mgmt_assign_role_to_service_account_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_assign_role_to_service_account_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_assign_role_to_service_account_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `AssignRoleToServiceAccountRequest`: the server omitting every OPTIONAL field is not an
+ * error.
+ */
+static void test_assign_role_to_service_account_request_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"service_account_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_assign_role_to_service_account_request_t *model = axiam_mgmt_assign_role_to_service_account_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_assign_role_to_service_account_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_assign_role_to_service_account_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `AssignRoleToServiceAccountRequest`: an EMPTY object parses without crashing. A server
+ * that omits a field openapi.json marks required is malformed, and this SDK's answer is a
+ * model with that member unset rather than an abort -- the caller is in a position to
+ * decide, and a parser that segfaults on a bad response is a worse failure than one that
+ * hands back a null. This also reaches the ABSENT arm of every field guard, required ones
+ * included, which no well-formed fixture can.
+ */
+static void test_assign_role_to_service_account_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_assign_role_to_service_account_request_t *model = axiam_mgmt_assign_role_to_service_account_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_assign_role_to_service_account_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_assign_role_to_service_account_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_assign_role_to_service_account_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_assign_role_to_service_account_request_parse(scalar));
+    axiam_mgmt_assign_role_to_service_account_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `AssignRoleToUserRequest`: a full wire object parses, builds back and frees. */
 static void test_assign_role_to_user_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    cJSON *src = cJSON_Parse("{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user_id\": \"11111111-1111-4111-8111-111111111111\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_assign_role_to_user_request_t *model = axiam_mgmt_assign_role_to_user_request_parse(src);
@@ -4996,7 +5133,7 @@ static void test_role_rejects_a_non_object(void) {
 
 /* `RoleAssignment`: a full wire object parses, builds back and frees. */
 static void test_role_assignment_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}");
+    cJSON *src = cJSON_Parse("{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_role_assignment_t *model = axiam_mgmt_role_assignment_parse(src);
@@ -5071,7 +5208,7 @@ static void test_role_assignment_rejects_a_non_object(void) {
 
 /* `RoleGroupAssignment`: a full wire object parses, builds back and frees. */
 static void test_role_group_assignment_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    cJSON *src = cJSON_Parse("{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_role_group_assignment_t *model = axiam_mgmt_role_group_assignment_parse(src);
@@ -5144,9 +5281,84 @@ static void test_role_group_assignment_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `RoleServiceAccountAssignment`: a full wire object parses, builds back and frees. */
+static void test_role_service_account_assignment_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_role_service_account_assignment_t *model = axiam_mgmt_role_service_account_assignment_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_role_service_account_assignment_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_role_service_account_assignment_free(model);
+    cJSON_Delete(src);
+}
+
+/* `RoleServiceAccountAssignment`: the server omitting every OPTIONAL field is not an error. */
+static void test_role_service_account_assignment_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_role_service_account_assignment_t *model = axiam_mgmt_role_service_account_assignment_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_role_service_account_assignment_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_role_service_account_assignment_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `RoleServiceAccountAssignment`: an EMPTY object parses without crashing. A server that
+ * omits a field openapi.json marks required is malformed, and this SDK's answer is a model
+ * with that member unset rather than an abort -- the caller is in a position to decide, and
+ * a parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_role_service_account_assignment_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_role_service_account_assignment_t *model = axiam_mgmt_role_service_account_assignment_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_role_service_account_assignment_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_role_service_account_assignment_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_role_service_account_assignment_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_role_service_account_assignment_parse(scalar));
+    axiam_mgmt_role_service_account_assignment_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `RoleUserAssignment`: a full wire object parses, builds back and frees. */
 static void test_role_user_assignment_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}");
+    cJSON *src = cJSON_Parse("{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_role_user_assignment_t *model = axiam_mgmt_role_user_assignment_parse(src);
@@ -7638,6 +7850,9 @@ int main(void) {
     RUN_TEST(test_add_member_request_round_trips);
     RUN_TEST(test_add_member_request_parses_an_empty_object);
     RUN_TEST(test_add_member_request_rejects_a_non_object);
+    RUN_TEST(test_add_service_account_member_request_round_trips);
+    RUN_TEST(test_add_service_account_member_request_parses_an_empty_object);
+    RUN_TEST(test_add_service_account_member_request_rejects_a_non_object);
     RUN_TEST(test_api_provider_config_round_trips);
     RUN_TEST(test_api_provider_config_parses_without_optionals);
     RUN_TEST(test_api_provider_config_parses_an_empty_object);
@@ -7646,6 +7861,10 @@ int main(void) {
     RUN_TEST(test_assign_role_to_group_request_parses_without_optionals);
     RUN_TEST(test_assign_role_to_group_request_parses_an_empty_object);
     RUN_TEST(test_assign_role_to_group_request_rejects_a_non_object);
+    RUN_TEST(test_assign_role_to_service_account_request_round_trips);
+    RUN_TEST(test_assign_role_to_service_account_request_parses_without_optionals);
+    RUN_TEST(test_assign_role_to_service_account_request_parses_an_empty_object);
+    RUN_TEST(test_assign_role_to_service_account_request_rejects_a_non_object);
     RUN_TEST(test_assign_role_to_user_request_round_trips);
     RUN_TEST(test_assign_role_to_user_request_parses_without_optionals);
     RUN_TEST(test_assign_role_to_user_request_parses_an_empty_object);
@@ -7902,6 +8121,10 @@ int main(void) {
     RUN_TEST(test_role_group_assignment_parses_without_optionals);
     RUN_TEST(test_role_group_assignment_parses_an_empty_object);
     RUN_TEST(test_role_group_assignment_rejects_a_non_object);
+    RUN_TEST(test_role_service_account_assignment_round_trips);
+    RUN_TEST(test_role_service_account_assignment_parses_without_optionals);
+    RUN_TEST(test_role_service_account_assignment_parses_an_empty_object);
+    RUN_TEST(test_role_service_account_assignment_rejects_a_non_object);
     RUN_TEST(test_role_user_assignment_round_trips);
     RUN_TEST(test_role_user_assignment_parses_without_optionals);
     RUN_TEST(test_role_user_assignment_parses_an_empty_object);

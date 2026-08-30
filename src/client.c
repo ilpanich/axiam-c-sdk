@@ -164,6 +164,7 @@ void axiam_client_free(axiam_client_t *client) {
     free(client->csrf_token);
     free(client->resolved_tenant_id);
     free(client->resolved_org_id);
+    free(client->principal_tenant_id);
     axiam_uma_config_dispose(&client->uma_config);
     axiam_oidc_config_dispose(&client->oidc_config);
     axiam_memo_destroy(&client->memo);
@@ -515,7 +516,69 @@ void axiam_login_result_dispose(axiam_login_result_t *r) {
     free(r->username);
     free(r->email);
     free(r->tenant_id);
+    free(r->principal_tenant_id);
+    free(r->principal_tenant_slug);
+    free(r->org_id);
+    if (r->reachable_tenant_ids) {
+        for (size_t i = 0; i < r->reachable_tenant_ids_count; i++)
+            free(r->reachable_tenant_ids[i]);
+        free(r->reachable_tenant_ids);
+    }
     memset(r, 0, sizeof(*r));
+}
+
+/* CONTRACT.md §5.2.2 / §5.2.3: where this principal LIVES and how far it reaches,
+ * read off the login response's `user` object.
+ *
+ * Two rules are applied here rather than left to the caller, because both are easy to
+ * lose and each is the whole point of its field:
+ *
+ * - An absent `principal_tenant_id` means EQUAL to the acting tenant, not unknown. A
+ *   server older than contract 1.34 omits it and cannot switch the acting tenant
+ *   either, so `tenant_id` is not a guess there — it is the only value the field could
+ *   have had.
+ * - An empty `reachable_tenant_ids` stays NULL. A zero-length list would read as
+ *   "reaches nothing", the exact opposite of what an omitted field means.
+ *
+ * The principal tenant is also cached on the client, so a later
+ * axiam_opaque_enrollment_for_self() can seal a record against the account's own tenant
+ * with no second round trip. */
+static void read_principal_scope(axiam_client_t *c, const cJSON *user,
+                                 axiam_login_result_t *out) {
+    out->principal_tenant_id = json_dup_str(user, "principal_tenant_id");
+    if (!out->principal_tenant_id && out->tenant_id)
+        out->principal_tenant_id = axiam_strdup0(out->tenant_id);
+    out->principal_tenant_slug = json_dup_str(user, "principal_tenant_slug");
+    out->org_id = json_dup_str(user, "org_id");
+
+    const cJSON *reach = cJSON_GetObjectItemCaseSensitive(user, "reachable_tenant_ids");
+    if (cJSON_IsArray(reach)) {
+        size_t n = (size_t) cJSON_GetArraySize(reach);
+        if (n > 0) {
+            char **ids = (char **) calloc(n, sizeof(char *));
+            if (ids) {
+                size_t kept = 0;
+                for (size_t i = 0; i < n; i++) {
+                    const cJSON *e = cJSON_GetArrayItem(reach, (int) i);
+                    if (cJSON_IsString(e) && e->valuestring)
+                        ids[kept++] = axiam_strdup0(e->valuestring);
+                }
+                if (kept > 0) {
+                    out->reachable_tenant_ids = ids;
+                    out->reachable_tenant_ids_count = kept;
+                } else {
+                    free(ids);
+                }
+            }
+        }
+    }
+
+    if (out->principal_tenant_id) {
+        pthread_mutex_lock(&c->state_mtx);
+        free(c->principal_tenant_id);
+        c->principal_tenant_id = axiam_strdup0(out->principal_tenant_id);
+        pthread_mutex_unlock(&c->state_mtx);
+    }
 }
 
 static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_response_t *resp,
@@ -549,6 +612,7 @@ static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_respons
                 const cJSON *org_level =
                     cJSON_GetObjectItemCaseSensitive(user, "organization_level");
                 out->organization_level = cJSON_IsTrue(org_level) ? 1 : 0;
+                read_principal_scope(c, user, out);
             }
         }
         pthread_mutex_lock(&c->state_mtx);
@@ -855,24 +919,20 @@ axiam_error_kind_t axiam_login_opaque(axiam_client_t *client, const char *userna
     return kind;
 }
 
-axiam_error_kind_t axiam_opaque_enrollment(axiam_client_t *client, const char *password,
-                                           axiam_opaque_enrollment_t *out,
-                                           axiam_error_t *err) {
-    axiam_error_reset(err);
-    if (out) memset(out, 0, sizeof(*out));
-    if (!client || !password || !out) {
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
-        return AXIAM_ERR_NETWORK;
-    }
-    if (client_is_closed(client)) return closed_error(err);
-
+/* The shared body of the two enrolment entry points; they differ only in the tenant the
+ * record is sealed against. `principal_tenant_id` is NULL for the ordinary case. */
+static axiam_error_kind_t opaque_enroll(axiam_client_t *client, const char *password,
+                                        const char *principal_tenant_id,
+                                        axiam_opaque_enrollment_t *out,
+                                        axiam_error_t *err) {
     axiam_opaque_exchange_t x;
     axiam_error_kind_t kind = axiam_opaque_start_registration(&x, password, err);
     if (kind != AXIAM_OK) return kind;
 
     cJSON *started = NULL;
     if (opaque_start(client, PATH_OPAQUE_REGISTER_START,
-                     axiam_build_opaque_register_start_body(x.first_message, client->cfg),
+                     axiam_build_opaque_register_start_body(x.first_message, client->cfg,
+                                                            principal_tenant_id),
                      "register/start", &started, err) != 0) {
         axiam_opaque_exchange_close(&x);
         return err->kind;
@@ -910,6 +970,51 @@ axiam_error_kind_t axiam_opaque_enrollment(axiam_client_t *client, const char *p
     out->opaque_session = session;
     out->registration_record = record;
     return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_opaque_enrollment(axiam_client_t *client, const char *password,
+                                           axiam_opaque_enrollment_t *out,
+                                           axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (out) memset(out, 0, sizeof(*out));
+    if (!client || !password || !out) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (client_is_closed(client)) return closed_error(err);
+
+    return opaque_enroll(client, password, NULL, out, err);
+}
+
+axiam_error_kind_t axiam_opaque_enrollment_for_self(axiam_client_t *client,
+                                                    const char *password,
+                                                    axiam_opaque_enrollment_t *out,
+                                                    axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (out) memset(out, 0, sizeof(*out));
+    if (!client || !password || !out) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (client_is_closed(client)) return closed_error(err);
+
+    pthread_mutex_lock(&client->state_mtx);
+    char *principal = axiam_strdup0(client->principal_tenant_id);
+    pthread_mutex_unlock(&client->state_mtx);
+
+    if (!principal) {
+        /* §5.2.2 rule 2: there is nothing to seal against before a login, and falling
+         * back to the acting tenant is exactly the bug this entry point exists to
+         * prevent. */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "OPAQUE: no principal tenant is known yet — sign in before "
+                        "building a registration record for your own password");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    axiam_error_kind_t kind = opaque_enroll(client, password, principal, out, err);
+    free(principal);
+    return kind;
 }
 
 axiam_error_kind_t axiam_verify_mfa(axiam_client_t *client, const char *challenge_token,
