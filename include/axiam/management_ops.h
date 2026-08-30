@@ -468,6 +468,56 @@ axiam_error_kind_t axiam_groups_remove_member(axiam_client_t *c, const char *gro
  */
 axiam_error_kind_t axiam_groups_list_roles(axiam_client_t *c, const char *group_id, axiam_mgmt_role_assignment_list_t **out, axiam_error_t *err);
 
+/**
+ * `GET /api/v1/groups/{group_id}/service-accounts`
+ *
+ * `GET /api/v1/groups/{group_id}/service-accounts`.
+ *
+ * Returns ONE page. `total` on it is the server's count across all pages and is not `count`
+ * -- see 27.4 rule 4.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param group_id The `{group_id}` path parameter.
+ * @param page Which page to fetch, or NULL for the first at the default size.
+ * @param out Receives the page on success; free with axiam_mgmt_service_account_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_groups_list_service_accounts(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/groups/{group_id}/service-accounts`
+ *
+ * `POST /api/v1/groups/{group_id}/service-accounts`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param group_id The `{group_id}` path parameter.
+ * @param body The request body.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_groups_add_service_account(axiam_client_t *c, const char *group_id, const axiam_mgmt_add_service_account_member_request_t *body, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/groups/{group_id}/service-accounts/{service_account_id}`
+ *
+ * `DELETE /api/v1/groups/{group_id}/service-accounts/{service_account_id}`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param group_id The `{group_id}` path parameter.
+ * @param service_account_id The `{service_account_id}` path parameter.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_groups_remove_service_account(axiam_client_t *c, const char *group_id, const char *service_account_id, axiam_error_t *err);
+
 /* ============================================================================ */
 /* roles -- Roles, their permission sets, and their assignment to users and groups. */
 /* ============================================================================ */
@@ -693,6 +743,56 @@ axiam_error_kind_t axiam_roles_grant_permission(axiam_client_t *c, const char *r
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_roles_revoke_permission(axiam_client_t *c, const char *role_id, const char *permission_id, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/roles/{role_id}/service-accounts`
+ *
+ * `GET /api/v1/roles/{role_id}/service-accounts`.
+ *
+ * Returns the server's complete list. This endpoint is NOT paginated, so the result is a
+ * plain list and never a page (27.4 rule 4).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param role_id The `{role_id}` path parameter.
+ * @param out Receives the list on success; free with axiam_mgmt_role_service_account_assignment_list_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_roles_list_service_accounts(axiam_client_t *c, const char *role_id, axiam_mgmt_role_service_account_assignment_list_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/roles/{role_id}/service-accounts`
+ *
+ * `POST /api/v1/roles/{role_id}/service-accounts`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param role_id The `{role_id}` path parameter.
+ * @param body The request body.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_roles_assign_to_service_account(axiam_client_t *c, const char *role_id, const axiam_mgmt_assign_role_to_service_account_request_t *body, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/roles/{role_id}/service-accounts/{service_account_id}`
+ *
+ * `DELETE /api/v1/roles/{role_id}/service-accounts/{service_account_id}`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param role_id The `{role_id}` path parameter.
+ * @param service_account_id The `{service_account_id}` path parameter.
+ * @param resource_id The `resource_id` query parameter, or NULL to omit it.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_roles_unassign_from_service_account(axiam_client_t *c, const char *role_id, const char *service_account_id, const char *resource_id, axiam_error_t *err);
 
 /* ============================================================================ */
 /* permissions -- Permissions -- an action on a resource, optionally narrowed by a scope. */
@@ -1074,6 +1174,38 @@ axiam_error_kind_t axiam_service_accounts_rotate_secret(axiam_client_t *c, const
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_service_accounts_bind_certificate(axiam_client_t *c, const char *sa_id, const axiam_mgmt_bind_certificate_t *body, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/service-accounts/{service_account_id}/roles`
+ *
+ * `GET /api/v1/service-accounts/{service_account_id}/roles`.
+ *
+ * Returns the server's complete list. This endpoint is NOT paginated, so the result is a
+ * plain list and never a page (27.4 rule 4).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param service_account_id The `{service_account_id}` path parameter.
+ * @param out Receives the list on success; free with axiam_mgmt_role_assignment_list_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_service_accounts_list_roles(axiam_client_t *c, const char *service_account_id, axiam_mgmt_role_assignment_list_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/service-accounts/{service_account_id}/groups`
+ *
+ * `GET /api/v1/service-accounts/{service_account_id}/groups`.
+ *
+ * Returns the server's complete list. This endpoint is NOT paginated, so the result is a
+ * plain list and never a page (27.4 rule 4).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param service_account_id The `{service_account_id}` path parameter.
+ * @param out Receives the list on success; free with axiam_mgmt_group_list_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_service_accounts_list_groups(axiam_client_t *c, const char *service_account_id, axiam_mgmt_group_list_t **out, axiam_error_t *err);
 
 /* ============================================================================ */
 /*

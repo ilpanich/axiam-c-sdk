@@ -217,6 +217,33 @@ axiam_error_kind_t axiam_opaque_enrollment(axiam_client_t *client,
                                            axiam_opaque_enrollment_t *out,
                                            axiam_error_t *err);
 
+/**
+ * Builds a registration record for the CALLER'S OWN new password, sealed against the
+ * tenant the caller's account lives in.
+ *
+ * CONTRACT.md §5.2.2 rule 2. `POST /auth/password/change` and the record that
+ * accompanies it are about the ACCOUNT, not about whatever tenant the client is
+ * currently pointed at, and a record sealed against the acting tenant is refused with
+ * "the OPAQUE session was issued for a different tenant".
+ *
+ * The distinction only bites for an organization-level principal that has selected
+ * another tenant to act on; for everyone else the two tenants are the same value and
+ * this behaves identically to axiam_opaque_enrollment(). It is still the function to
+ * call for a self-service password change, because which principal is signed in is not
+ * something the call site usually knows.
+ *
+ * Returns AXIAM_ERR_NETWORK when no login has completed on this client yet: the
+ * principal tenant is reported by the login response, so there is nothing to seal
+ * against before then, and guessing the acting tenant is the bug itself. Otherwise
+ * fails on the same terms as axiam_opaque_enrollment().
+ *
+ * On success `out` owns both members; release with axiam_opaque_enrollment_dispose().
+ */
+axiam_error_kind_t axiam_opaque_enrollment_for_self(axiam_client_t *client,
+                                                    const char *password,
+                                                    axiam_opaque_enrollment_t *out,
+                                                    axiam_error_t *err);
+
 #ifdef __cplusplus
 }
 #endif

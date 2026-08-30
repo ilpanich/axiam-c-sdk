@@ -235,6 +235,15 @@ struct axiam_client {
     char *resolved_tenant_id;
     char *resolved_org_id;
 
+    /* CONTRACT.md §5.2.2 — the tenant the signed-in principal's record LIVES in, as
+     * reported by the login response. Distinct from cfg->tenant_id/tenant_slug, which
+     * name the tenant being ACTED ON: the two diverge for an organization-level
+     * principal that has selected another one. Read by
+     * axiam_opaque_enrollment_for_self(), which must seal a §23 record against the
+     * account's own tenant rather than whichever one this client is pointed at.
+     * NULL until a login completes. Guarded by state_mtx. */
+    char *principal_tenant_id;
+
     /* single-flight refresh (§9) */
     pthread_mutex_t refresh_mtx;
     pthread_cond_t refresh_cond;
@@ -537,9 +546,19 @@ void *axiam_opaque_ksf_build(const axiam_opaque_native_t *lib,
 char *axiam_build_opaque_login_start_body(const char *user, const char *ke1,
                                           const axiam_client_config_t *cfg);
 
-/** POST /api/v1/auth/opaque/register/start body (§23.5) — names no account. */
+/**
+ * POST /api/v1/auth/opaque/register/start body (§23.5) — names no account.
+ *
+ * `principal_tenant_id` is CONTRACT.md §5.2.2 rule 2: pass NULL for the ordinary case
+ * (a record for ANOTHER account, sealed against the tenant being acted on), or the
+ * principal's own tenant for the caller's own password change. Naming it replaces the
+ * workspace fields entirely rather than adding to them — a `tenant_slug` left beside
+ * the id would out-vote it server-side, which is the exact confusion the override
+ * exists to avoid.
+ */
 char *axiam_build_opaque_register_start_body(const char *registration_request,
-                                             const axiam_client_config_t *cfg);
+                                             const axiam_client_config_t *cfg,
+                                             const char *principal_tenant_id);
 
 /** POST /api/v1/auth/opaque/login/finish body (§23.5). */
 char *axiam_build_opaque_login_finish_body(const char *opaque_session, const char *ke3);

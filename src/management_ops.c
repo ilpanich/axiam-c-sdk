@@ -18,10 +18,14 @@
  */
 axiam_mgmt_add_member_request_t *axiam_mgmt_add_member_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_add_member_request_build(const axiam_mgmt_add_member_request_t *value);
+axiam_mgmt_add_service_account_member_request_t *axiam_mgmt_add_service_account_member_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_add_service_account_member_request_build(const axiam_mgmt_add_service_account_member_request_t *value);
 axiam_mgmt_api_provider_config_t *axiam_mgmt_api_provider_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_api_provider_config_build(const axiam_mgmt_api_provider_config_t *value);
 axiam_mgmt_assign_role_to_group_request_t *axiam_mgmt_assign_role_to_group_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_assign_role_to_group_request_build(const axiam_mgmt_assign_role_to_group_request_t *value);
+axiam_mgmt_assign_role_to_service_account_request_t *axiam_mgmt_assign_role_to_service_account_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_assign_role_to_service_account_request_build(const axiam_mgmt_assign_role_to_service_account_request_t *value);
 axiam_mgmt_assign_role_to_user_request_t *axiam_mgmt_assign_role_to_user_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_assign_role_to_user_request_build(const axiam_mgmt_assign_role_to_user_request_t *value);
 axiam_mgmt_audit_log_entry_t *axiam_mgmt_audit_log_entry_parse(const cJSON *src);
@@ -172,6 +176,8 @@ axiam_mgmt_role_assignment_t *axiam_mgmt_role_assignment_parse(const cJSON *src)
 cJSON *axiam_mgmt_role_assignment_build(const axiam_mgmt_role_assignment_t *value);
 axiam_mgmt_role_group_assignment_t *axiam_mgmt_role_group_assignment_parse(const cJSON *src);
 cJSON *axiam_mgmt_role_group_assignment_build(const axiam_mgmt_role_group_assignment_t *value);
+axiam_mgmt_role_service_account_assignment_t *axiam_mgmt_role_service_account_assignment_parse(const cJSON *src);
+cJSON *axiam_mgmt_role_service_account_assignment_build(const axiam_mgmt_role_service_account_assignment_t *value);
 axiam_mgmt_role_user_assignment_t *axiam_mgmt_role_user_assignment_parse(const cJSON *src);
 cJSON *axiam_mgmt_role_user_assignment_build(const axiam_mgmt_role_user_assignment_t *value);
 axiam_mgmt_rotate_secret_response_t *axiam_mgmt_rotate_secret_response_parse(const cJSON *src);
@@ -1173,6 +1179,103 @@ axiam_error_kind_t axiam_groups_list_roles(axiam_client_t *c, const char *group_
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_groups_list_service_accounts(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "group_id";
+    path_values[0] = group_id;
+    char *path = axiam_mgmt_path("/api/v1/groups/{group_id}/service-accounts", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list_service_accounts: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[3];
+    const char *q_values[3];
+    char offset_buf[24], limit_buf[24];
+    axiam_mgmt_page_query(page, offset_buf, limit_buf);
+    q_names[0] = "offset"; q_values[0] = offset_buf;
+    q_names[1] = "limit"; q_values[1] = limit_buf;
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list_service_accounts: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "groups.list_service_accounts", "GET", "/api/v1/groups/{group_id}/service-accounts", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_service_account_response_page_t *result = (axiam_mgmt_service_account_response_page_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    const cJSON *items = axiam_mgmt_page_items(json);
+    size_t n = items ? (size_t) cJSON_GetArraySize(items) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_service_account_response_t **) calloc(n, sizeof(axiam_mgmt_service_account_response_t *));
+        if (!result->items) { axiam_mgmt_service_account_response_page_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_service_account_response_parse(cJSON_GetArrayItem((cJSON *) items, (int) i));
+        result->count = n;
+    }
+    result->total = axiam_mgmt_page_total(json, (long) n);
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_service_account_response_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_groups_add_service_account(axiam_client_t *c, const char *group_id, const axiam_mgmt_add_service_account_member_request_t *body, axiam_error_t *err) {
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "group_id";
+    path_values[0] = group_id;
+    char *path = axiam_mgmt_path("/api/v1/groups/{group_id}/service-accounts", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.add_service_account: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_add_service_account_member_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "groups.add_service_account", "POST", "/api/v1/groups/{group_id}/service-accounts", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_groups_remove_service_account(axiam_client_t *c, const char *group_id, const char *service_account_id, axiam_error_t *err) {
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "group_id";
+    path_values[0] = group_id;
+    path_names[1] = "service_account_id";
+    path_values[1] = service_account_id;
+    char *path = axiam_mgmt_path("/api/v1/groups/{group_id}/service-accounts/{service_account_id}", path_names, path_values, 2);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.remove_service_account: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "groups.remove_service_account", "DELETE", "/api/v1/groups/{group_id}/service-accounts/{service_account_id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_roles_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_role_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/roles", NULL, NULL, 0);
@@ -1579,6 +1682,95 @@ axiam_error_kind_t axiam_roles_revoke_permission(axiam_client_t *c, const char *
     cJSON *json = NULL;
     axiam_error_kind_t rc = axiam_mgmt_send(
         c, "roles.revoke_permission", "DELETE", "/api/v1/roles/{role_id}/permissions/{permission_id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_roles_list_service_accounts(axiam_client_t *c, const char *role_id, axiam_mgmt_role_service_account_assignment_list_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "role_id";
+    path_values[0] = role_id;
+    char *path = axiam_mgmt_path("/api/v1/roles/{role_id}/service-accounts", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "roles.list_service_accounts: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "roles.list_service_accounts", "GET", "/api/v1/roles/{role_id}/service-accounts", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_role_service_account_assignment_list_t *result = (axiam_mgmt_role_service_account_assignment_list_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    size_t n = cJSON_IsArray(json) ? (size_t) cJSON_GetArraySize(json) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_role_service_account_assignment_t **) calloc(n, sizeof(axiam_mgmt_role_service_account_assignment_t *));
+        if (!result->items) { axiam_mgmt_role_service_account_assignment_list_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_role_service_account_assignment_parse(cJSON_GetArrayItem(json, (int) i));
+        result->count = n;
+    }
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_role_service_account_assignment_list_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_roles_assign_to_service_account(axiam_client_t *c, const char *role_id, const axiam_mgmt_assign_role_to_service_account_request_t *body, axiam_error_t *err) {
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "role_id";
+    path_values[0] = role_id;
+    char *path = axiam_mgmt_path("/api/v1/roles/{role_id}/service-accounts", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "roles.assign_to_service_account: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_assign_role_to_service_account_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "roles.assign_to_service_account", "POST", "/api/v1/roles/{role_id}/service-accounts", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_roles_unassign_from_service_account(axiam_client_t *c, const char *role_id, const char *service_account_id, const char *resource_id, axiam_error_t *err) {
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "role_id";
+    path_values[0] = role_id;
+    path_names[1] = "service_account_id";
+    path_values[1] = service_account_id;
+    char *path = axiam_mgmt_path("/api/v1/roles/{role_id}/service-accounts/{service_account_id}", path_names, path_values, 2);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "roles.unassign_from_service_account: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[1];
+    const char *q_values[1];
+    q_names[0] = "resource_id"; q_values[0] = resource_id;
+    path = axiam_mgmt_query(path, q_names, q_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "roles.unassign_from_service_account: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "roles.unassign_from_service_account", "DELETE", "/api/v1/roles/{role_id}/service-accounts/{service_account_id}", path, body_json,
         &json, err);
     free(path);
     free(body_json);
@@ -2324,6 +2516,76 @@ axiam_error_kind_t axiam_service_accounts_bind_certificate(axiam_client_t *c, co
     free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_service_accounts_list_roles(axiam_client_t *c, const char *service_account_id, axiam_mgmt_role_assignment_list_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "service_account_id";
+    path_values[0] = service_account_id;
+    char *path = axiam_mgmt_path("/api/v1/service-accounts/{service_account_id}/roles", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "service_accounts.list_roles: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "service_accounts.list_roles", "GET", "/api/v1/service-accounts/{service_account_id}/roles", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_role_assignment_list_t *result = (axiam_mgmt_role_assignment_list_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    size_t n = cJSON_IsArray(json) ? (size_t) cJSON_GetArraySize(json) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_role_assignment_t **) calloc(n, sizeof(axiam_mgmt_role_assignment_t *));
+        if (!result->items) { axiam_mgmt_role_assignment_list_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_role_assignment_parse(cJSON_GetArrayItem(json, (int) i));
+        result->count = n;
+    }
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_role_assignment_list_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_service_accounts_list_groups(axiam_client_t *c, const char *service_account_id, axiam_mgmt_group_list_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "service_account_id";
+    path_values[0] = service_account_id;
+    char *path = axiam_mgmt_path("/api/v1/service-accounts/{service_account_id}/groups", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "service_accounts.list_groups: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "service_accounts.list_groups", "GET", "/api/v1/service-accounts/{service_account_id}/groups", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_group_list_t *result = (axiam_mgmt_group_list_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    size_t n = cJSON_IsArray(json) ? (size_t) cJSON_GetArraySize(json) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_group_t **) calloc(n, sizeof(axiam_mgmt_group_t *));
+        if (!result->items) { axiam_mgmt_group_list_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_group_parse(cJSON_GetArrayItem(json, (int) i));
+        result->count = n;
+    }
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_group_list_free(result);
     return AXIAM_OK;
 }
 

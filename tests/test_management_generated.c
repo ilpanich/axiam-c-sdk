@@ -650,7 +650,7 @@ static void test_users_unlock_reaches_its_route_rejects_a_wrong_shaped_body(void
 }
 
 static void test_users_list_roles_reaches_its_route(void) {
-    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]");
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_assignment_list_t *result = NULL;
@@ -664,7 +664,7 @@ static void test_users_list_roles_reaches_its_route(void) {
 }
 
 static void test_users_list_roles_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]");
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_error_kind_t rc = axiam_users_list_roles(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
@@ -880,7 +880,7 @@ static void test_groups_remove_member_reaches_its_route(void) {
 }
 
 static void test_groups_list_roles_reaches_its_route(void) {
-    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]");
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_assignment_list_t *result = NULL;
@@ -894,12 +894,62 @@ static void test_groups_list_roles_reaches_its_route(void) {
 }
 
 static void test_groups_list_roles_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}}]");
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_error_kind_t rc = axiam_groups_list_roles(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    axiam_client_free(c);
+}
+
+static void test_groups_list_service_accounts_reaches_its_route(void) {
+    mgmt_mount(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_service_account_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_groups_list_service_accounts(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/groups/11111111-1111-4111-8111-111111111111/service-accounts", mgmt_last_path());
+    axiam_mgmt_service_account_response_page_free(result);
+    axiam_client_free(c);
+}
+
+static void test_groups_list_service_accounts_reaches_its_route_discards_the_result(void) {
+    mgmt_mount(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_groups_list_service_accounts(c, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    axiam_client_free(c);
+}
+
+static void test_groups_add_service_account_reaches_its_route(void) {
+    mgmt_mount(204, NULL);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_add_service_account_member_request_t body;
+    memset(&body, 0, sizeof(body));
+    axiam_error_kind_t rc = axiam_groups_add_service_account(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/groups/11111111-1111-4111-8111-111111111111/service-accounts", mgmt_last_path());
+    axiam_client_free(c);
+}
+
+static void test_groups_remove_service_account_reaches_its_route(void) {
+    mgmt_mount(204, NULL);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_groups_remove_service_account(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/groups/11111111-1111-4111-8111-111111111111/service-accounts/11111111-1111-4111-8111-111111111111", mgmt_last_path());
     axiam_client_free(c);
 }
 
@@ -1060,7 +1110,7 @@ static void test_roles_delete_reaches_its_route(void) {
 }
 
 static void test_roles_list_users_reaches_its_route(void) {
-    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]");
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_user_assignment_list_t *result = NULL;
@@ -1074,7 +1124,7 @@ static void test_roles_list_users_reaches_its_route(void) {
 }
 
 static void test_roles_list_users_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]");
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"], \"user\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_error_kind_t rc = axiam_roles_list_users(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
@@ -1110,7 +1160,7 @@ static void test_roles_unassign_from_user_reaches_its_route(void) {
 }
 
 static void test_roles_list_groups_reaches_its_route(void) {
-    mgmt_mount(200, "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}]");
+    mgmt_mount(200, "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_mgmt_role_group_assignment_list_t *result = NULL;
@@ -1124,7 +1174,7 @@ static void test_roles_list_groups_reaches_its_route(void) {
 }
 
 static void test_roles_list_groups_reaches_its_route_discards_the_result(void) {
-    mgmt_mount(200, "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\"}]");
+    mgmt_mount(200, "[{\"group\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
     axiam_error_kind_t rc = axiam_roles_list_groups(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
@@ -1206,6 +1256,56 @@ static void test_roles_revoke_permission_reaches_its_route(void) {
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
     TEST_ASSERT_EQUAL_STRING("/api/v1/roles/11111111-1111-4111-8111-111111111111/permissions/11111111-1111-4111-8111-111111111111", mgmt_last_path());
+    axiam_client_free(c);
+}
+
+static void test_roles_list_service_accounts_reaches_its_route(void) {
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_service_account_assignment_list_t *result = NULL;
+    axiam_error_kind_t rc = axiam_roles_list_service_accounts(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/roles/11111111-1111-4111-8111-111111111111/service-accounts", mgmt_last_path());
+    axiam_mgmt_role_service_account_assignment_list_free(result);
+    axiam_client_free(c);
+}
+
+static void test_roles_list_service_accounts_reaches_its_route_discards_the_result(void) {
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"service_account\": {\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_roles_list_service_accounts(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    axiam_client_free(c);
+}
+
+static void test_roles_assign_to_service_account_reaches_its_route(void) {
+    mgmt_mount(204, NULL);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_assign_role_to_service_account_request_t body;
+    memset(&body, 0, sizeof(body));
+    axiam_error_kind_t rc = axiam_roles_assign_to_service_account(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/roles/11111111-1111-4111-8111-111111111111/service-accounts", mgmt_last_path());
+    axiam_client_free(c);
+}
+
+static void test_roles_unassign_from_service_account_reaches_its_route(void) {
+    mgmt_mount(204, NULL);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_roles_unassign_from_service_account(c, "11111111-1111-4111-8111-111111111111", "11111111-1111-4111-8111-111111111111", NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("DELETE", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/roles/11111111-1111-4111-8111-111111111111/service-accounts/11111111-1111-4111-8111-111111111111", mgmt_last_path());
     axiam_client_free(c);
 }
 
@@ -1928,6 +2028,54 @@ static void test_service_accounts_bind_certificate_reaches_its_route(void) {
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
     TEST_ASSERT_EQUAL_STRING("/api/v1/service-accounts/11111111-1111-4111-8111-111111111111/bind-certificate", mgmt_last_path());
+    axiam_client_free(c);
+}
+
+static void test_service_accounts_list_roles_reaches_its_route(void) {
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_assignment_list_t *result = NULL;
+    axiam_error_kind_t rc = axiam_service_accounts_list_roles(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/service-accounts/11111111-1111-4111-8111-111111111111/roles", mgmt_last_path());
+    axiam_mgmt_role_assignment_list_free(result);
+    axiam_client_free(c);
+}
+
+static void test_service_accounts_list_roles_reaches_its_route_discards_the_result(void) {
+    mgmt_mount(200, "[{\"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"role\": {\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_scope\": [\"11111111-1111-4111-8111-111111111111\"]}]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_service_accounts_list_roles(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    axiam_client_free(c);
+}
+
+static void test_service_accounts_list_groups_reaches_its_route(void) {
+    mgmt_mount(200, "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_group_list_t *result = NULL;
+    axiam_error_kind_t rc = axiam_service_accounts_list_groups(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/service-accounts/11111111-1111-4111-8111-111111111111/groups", mgmt_last_path());
+    axiam_mgmt_group_list_free(result);
+    axiam_client_free(c);
+}
+
+static void test_service_accounts_list_groups_reaches_its_route_discards_the_result(void) {
+    mgmt_mount(200, "[{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_service_accounts_list_groups(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
     axiam_client_free(c);
 }
 
@@ -4820,7 +4968,7 @@ void tearDown(void) {}
  * covered.
  */
 static void test_every_registry_operation_has_a_case(void) {
-    TEST_ASSERT_EQUAL_INT(147, mgmt_case_count());
+    TEST_ASSERT_EQUAL_INT(155, mgmt_case_count());
 }
 
 int main(void) {
@@ -4853,6 +5001,9 @@ int main(void) {
     RUN_TEST(test_groups_add_member_reaches_its_route);
     RUN_TEST(test_groups_remove_member_reaches_its_route);
     RUN_TEST(test_groups_list_roles_reaches_its_route);
+    RUN_TEST(test_groups_list_service_accounts_reaches_its_route);
+    RUN_TEST(test_groups_add_service_account_reaches_its_route);
+    RUN_TEST(test_groups_remove_service_account_reaches_its_route);
     RUN_TEST(test_roles_list_reaches_its_route);
     RUN_TEST(test_roles_create_reaches_its_route);
     RUN_TEST(test_roles_get_reaches_its_route);
@@ -4867,6 +5018,9 @@ int main(void) {
     RUN_TEST(test_roles_list_permissions_reaches_its_route);
     RUN_TEST(test_roles_grant_permission_reaches_its_route);
     RUN_TEST(test_roles_revoke_permission_reaches_its_route);
+    RUN_TEST(test_roles_list_service_accounts_reaches_its_route);
+    RUN_TEST(test_roles_assign_to_service_account_reaches_its_route);
+    RUN_TEST(test_roles_unassign_from_service_account_reaches_its_route);
     RUN_TEST(test_permissions_list_reaches_its_route);
     RUN_TEST(test_permissions_create_reaches_its_route);
     RUN_TEST(test_permissions_get_reaches_its_route);
@@ -4891,6 +5045,8 @@ int main(void) {
     RUN_TEST(test_service_accounts_delete_reaches_its_route);
     RUN_TEST(test_service_accounts_rotate_secret_reaches_its_route);
     RUN_TEST(test_service_accounts_bind_certificate_reaches_its_route);
+    RUN_TEST(test_service_accounts_list_roles_reaches_its_route);
+    RUN_TEST(test_service_accounts_list_groups_reaches_its_route);
     RUN_TEST(test_certificates_list_reaches_its_route);
     RUN_TEST(test_certificates_generate_reaches_its_route);
     RUN_TEST(test_certificates_get_reaches_its_route);
@@ -5012,6 +5168,7 @@ int main(void) {
     RUN_TEST(test_groups_update_reaches_its_route_rejects_a_wrong_shaped_body);
     RUN_TEST(test_groups_list_members_reaches_its_route_discards_the_result);
     RUN_TEST(test_groups_list_roles_reaches_its_route_discards_the_result);
+    RUN_TEST(test_groups_list_service_accounts_reaches_its_route_discards_the_result);
     RUN_TEST(test_roles_list_reaches_its_route_discards_the_result);
     RUN_TEST(test_roles_create_reaches_its_route_discards_the_result);
     RUN_TEST(test_roles_create_reaches_its_route_rejects_a_wrong_shaped_body);
@@ -5022,6 +5179,7 @@ int main(void) {
     RUN_TEST(test_roles_list_users_reaches_its_route_discards_the_result);
     RUN_TEST(test_roles_list_groups_reaches_its_route_discards_the_result);
     RUN_TEST(test_roles_list_permissions_reaches_its_route_discards_the_result);
+    RUN_TEST(test_roles_list_service_accounts_reaches_its_route_discards_the_result);
     RUN_TEST(test_permissions_list_reaches_its_route_discards_the_result);
     RUN_TEST(test_permissions_create_reaches_its_route_discards_the_result);
     RUN_TEST(test_permissions_create_reaches_its_route_rejects_a_wrong_shaped_body);
@@ -5054,6 +5212,8 @@ int main(void) {
     RUN_TEST(test_service_accounts_update_reaches_its_route_rejects_a_wrong_shaped_body);
     RUN_TEST(test_service_accounts_rotate_secret_reaches_its_route_discards_the_result);
     RUN_TEST(test_service_accounts_rotate_secret_reaches_its_route_rejects_a_wrong_shaped_body);
+    RUN_TEST(test_service_accounts_list_roles_reaches_its_route_discards_the_result);
+    RUN_TEST(test_service_accounts_list_groups_reaches_its_route_discards_the_result);
     RUN_TEST(test_certificates_list_reaches_its_route_discards_the_result);
     RUN_TEST(test_certificates_generate_reaches_its_route_discards_the_result);
     RUN_TEST(test_certificates_generate_reaches_its_route_rejects_a_wrong_shaped_body);
@@ -5198,4 +5358,4 @@ int main(void) {
 }
 
 /* How many cases this file declares -- read by the assertion above. */
-int mgmt_case_count(void) { return 147; }
+int mgmt_case_count(void) { return 155; }

@@ -13,16 +13,23 @@ static char *print_and_free(cJSON *root) {
 
 /* The tenant/org resolution every login-shaped body shares, so the paths
  * cannot drift. */
+/* The organization half of the workspace, split out so §5.2.2 rule 2 can keep it while
+ * replacing the tenant half. */
+static void add_org_fields(cJSON *root, const axiam_client_config_t *cfg) {
+    if (!cfg) return;
+    if (cfg->org_id && cfg->org_id[0])
+        cJSON_AddStringToObject(root, "org_id", cfg->org_id);
+    else if (cfg->org_slug && cfg->org_slug[0])
+        cJSON_AddStringToObject(root, "org_slug", cfg->org_slug);
+}
+
 static void add_scope_fields(cJSON *root, const axiam_client_config_t *cfg) {
     if (!cfg) return;
     if (cfg->tenant_id && cfg->tenant_id[0])
         cJSON_AddStringToObject(root, "tenant_id", cfg->tenant_id);
     else if (cfg->tenant_slug && cfg->tenant_slug[0])
         cJSON_AddStringToObject(root, "tenant_slug", cfg->tenant_slug);
-    if (cfg->org_id && cfg->org_id[0])
-        cJSON_AddStringToObject(root, "org_id", cfg->org_id);
-    else if (cfg->org_slug && cfg->org_slug[0])
-        cJSON_AddStringToObject(root, "org_slug", cfg->org_slug);
+    add_org_fields(root, cfg);
 }
 
 char *axiam_build_login_body(const char *user, const char *password,
@@ -110,12 +117,21 @@ char *axiam_build_opaque_login_start_body(const char *user, const char *ke1,
  * invalidate a credential, and why the SRP enrolment's `identity` argument has
  * no successor. */
 char *axiam_build_opaque_register_start_body(const char *registration_request,
-                                             const axiam_client_config_t *cfg) {
+                                             const axiam_client_config_t *cfg,
+                                             const char *principal_tenant_id) {
     cJSON *root = cJSON_CreateObject();
     if (!root) return NULL;
     cJSON_AddStringToObject(root, "registration_request",
                             registration_request ? registration_request : "");
-    add_scope_fields(root, cfg);
+    if (principal_tenant_id && principal_tenant_id[0]) {
+        /* §5.2.2 rule 2: name the principal tenant by id and send NO tenant_slug. The
+         * organization fields still apply -- they identify the organization, not the
+         * tenant, and the principal's tenant lives inside it either way. */
+        cJSON_AddStringToObject(root, "tenant_id", principal_tenant_id);
+        add_org_fields(root, cfg);
+    } else {
+        add_scope_fields(root, cfg);
+    }
     return print_and_free(root);
 }
 
