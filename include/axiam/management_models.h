@@ -1572,15 +1572,49 @@ void axiam_mgmt_create_certificate_request_free(axiam_mgmt_create_certificate_re
  */
 struct axiam_mgmt_create_federation_config_request {
     /**
+     * Whether tenants of this organization may inherit this provider. Only meaningful on a
+     * config in the organization-scope tenant. Optional.
+     */
+    int allow_tenant_inheritance;
+    int has_allow_tenant_inheritance; /**< 1 when `allow_tenant_inheritance` is set. */
+    /**
      * Accepted JWT signing algorithms (OIDC) or signature algorithms (SAML). Defaults to
      * `["RS256"]` when not provided (CQ-B40/REQ-14 AC-5). Optional.
      */
     char **allowed_algorithms;
     size_t allowed_algorithms_count; /**< Entries in `allowed_algorithms`. */
     /**
+     * External IdP tenant identifiers accepted when the provider publishes a templated
+     * issuer (Entra ID's `{tenantid}`). Optional.
+     */
+    char **allowed_issuer_tenants;
+    size_t allowed_issuer_tenants_count; /**< Entries in `allowed_issuer_tenants`. */
+    /**
+     * Apple Key ID of the `.p8` signing key (10 characters). With both Apple identifiers
+     * set, `client_secret` is the `.p8` key itself and AXIAM mints a fresh five-minute
+     * client secret per token exchange. Optional.
+     */
+    char *apple_key_id;
+    /**
+     * Apple Team ID (10 characters). Optional.
+     */
+    char *apple_team_id;
+    /**
      * Maps external IdP attributes to AXIAM user fields. Optional.
      */
     char *attribute_map;
+    /**
+     * OAuth2-variant authorization endpoint. Required for `OAuth2`. Optional.
+     */
+    char *authorization_endpoint;
+    /**
+     * Sign-in-button icon for a **generic** provider, as a base64 raster data URL
+     * (`data:image/png;base64,…`), already cropped to `PROVIDER_ICON_SIZE_PX` square by the
+     * client. Refused for the branded kinds: Google, Apple and Microsoft all publish
+     * sign-in-button rules that require their own mark, so substituting a picture would
+     * produce a button that breaks the guidelines it exists to follow. Optional.
+     */
+    char *button_icon;
     /**
      * OAuth2 client ID registered with the external IdP.
      */
@@ -1607,9 +1641,40 @@ struct axiam_mgmt_create_federation_config_request {
      */
     char *provider;
     /**
+     * Which provider this is: `google`, `github`, `facebook`, `apple`, `microsoft`,
+     * `generic_oidc`, `generic_oauth2` or `generic_saml`. Selects the sign-in button's
+     * branding, the per-kind defaults, and the key on which a tenant config overrides an
+     * inherited organization one. Omitted ⇒ derived from `protocol`, which is what every
+     * config written before this field existed means. Optional.
+     */
+    char *provider_kind;
+    /**
+     * Operator-chosen identifier, **required** for the `generic_*` kinds and refused for
+     * the branded ones. Optional.
+     */
+    char *provider_slug;
+    /**
+     * Send PKCE on the authorization request. Forced on for `OAuth2`. Optional.
+     */
+    int require_pkce;
+    int has_require_pkce; /**< 1 when `require_pkce` is set. */
+    /**
+     * Scopes to request. Omitted or empty ⇒ the per-kind default. Optional.
+     */
+    char **scopes;
+    size_t scopes_count; /**< Entries in `scopes`. */
+    /**
+     * OAuth2-variant token endpoint. Required for `OAuth2`. Optional.
+     */
+    char *token_endpoint;
+    /**
      * The server's `token_exchange` field. Optional.
      */
     axiam_mgmt_token_exchange_trust_request_t *token_exchange;
+    /**
+     * OAuth2-variant userinfo endpoint. Required for `OAuth2`. Optional.
+     */
+    char *userinfo_endpoint;
 };
 
 /**
@@ -2403,9 +2468,40 @@ void axiam_mgmt_encrypted_export_free(axiam_mgmt_encrypted_export_t *value);
  */
 struct axiam_mgmt_federation_config_response {
     /**
+     * Whether tenants of this organization may inherit this provider.
+     */
+    int allow_tenant_inheritance;
+    /**
+     * Accepted signing algorithms. Returned for OIDC and SAML; meaningless, and therefore
+     * empty, for the OAuth2 variant.
+     */
+    char **allowed_algorithms;
+    size_t allowed_algorithms_count; /**< Entries in `allowed_algorithms`. */
+    /**
+     * Accepted external IdP tenants for a templated issuer.
+     */
+    char **allowed_issuer_tenants;
+    size_t allowed_issuer_tenants_count; /**< Entries in `allowed_issuer_tenants`. */
+    /**
+     * Apple Key ID. Optional.
+     */
+    char *apple_key_id;
+    /**
+     * Apple Team ID. Not secret — the `.p8` key is, and it is never returned. Optional.
+     */
+    char *apple_team_id;
+    /**
      * The server's `attribute_map` field.
      */
     char *attribute_map;
+    /**
+     * OAuth2-variant authorization endpoint. Optional.
+     */
+    char *authorization_endpoint;
+    /**
+     * Custom sign-in-button icon, when one is set. Optional.
+     */
+    char *button_icon;
     /**
      * The server's `client_id` field.
      */
@@ -2415,9 +2511,21 @@ struct axiam_mgmt_federation_config_response {
      */
     char *created_at;
     /**
+     * The per-kind default that an empty `scopes` resolves to. Returned so the admin UI can
+     * show what will actually be requested without duplicating the table.
+     */
+    char **effective_scopes;
+    size_t effective_scopes_count; /**< Entries in `effective_scopes`. */
+    /**
      * The server's `enabled` field.
      */
     int enabled;
+    /**
+     * Whether AXIAM ships this provider's own mark. When true the button uses it and
+     * `button_icon` is refused; when false the button reads "Sign in with <provider>" and
+     * may carry a custom icon.
+     */
+    int has_bundled_mark;
     /**
      * The server's `id` field.
      */
@@ -2427,6 +2535,16 @@ struct axiam_mgmt_federation_config_response {
      */
     char *metadata_url;
     /**
+     * Whether AXIAM mints this provider's client secret itself, per exchange, rather than
+     * sending a stored one. True only for an Apple config with both identifiers set.
+     */
+    int mints_client_secret;
+    /**
+     * Whether PKCE is sent on the authorization request. Always true for the OAuth2 variant
+     * regardless of the stored flag.
+     */
+    int pkce_required;
+    /**
      * The server's `protocol` field.
      */
     char *protocol;
@@ -2435,9 +2553,27 @@ struct axiam_mgmt_federation_config_response {
      */
     char *provider;
     /**
+     * Which provider this is. Derived from `protocol` for a config written before the field
+     * existed.
+     */
+    char *provider_kind;
+    /**
+     * Operator-chosen identifier for a `generic_*` kind. Optional.
+     */
+    char *provider_slug;
+    /**
+     * Scopes as stored. Empty means "use the per-kind default"; see `effective_scopes`.
+     */
+    char **scopes;
+    size_t scopes_count; /**< Entries in `scopes`. */
+    /**
      * The server's `tenant_id` field.
      */
     char *tenant_id;
+    /**
+     * OAuth2-variant token endpoint. Optional.
+     */
+    char *token_endpoint;
     /**
      * X4 external token-exchange trust.
      */
@@ -2446,6 +2582,10 @@ struct axiam_mgmt_federation_config_response {
      * The server's `updated_at` field.
      */
     char *updated_at;
+    /**
+     * OAuth2-variant userinfo endpoint. Optional.
+     */
+    char *userinfo_endpoint;
 };
 
 /**
@@ -5115,14 +5255,40 @@ void axiam_mgmt_token_policy_free(axiam_mgmt_token_policy_t *value);
  */
 struct axiam_mgmt_update_federation_config_request {
     /**
+     * Whether tenants may inherit this organization-level provider. Optional.
+     */
+    int allow_tenant_inheritance;
+    int has_allow_tenant_inheritance; /**< 1 when `allow_tenant_inheritance` is set. */
+    /**
      * Accepted signature algorithms (CQ-B40/REQ-14 AC-5). Optional.
      */
     char **allowed_algorithms;
     size_t allowed_algorithms_count; /**< Entries in `allowed_algorithms`. */
     /**
+     * Accepted external IdP tenants for a templated issuer. Replaced wholesale. Optional.
+     */
+    char **allowed_issuer_tenants;
+    size_t allowed_issuer_tenants_count; /**< Entries in `allowed_issuer_tenants`. */
+    /**
+     * Apple Key ID. `Some(None)` clears it. Optional.
+     */
+    char *apple_key_id;
+    /**
+     * Apple Team ID. `Some(None)` clears it. Optional.
+     */
+    char *apple_team_id;
+    /**
      * The server's `attribute_map` field. Optional.
      */
     char *attribute_map;
+    /**
+     * OAuth2-variant authorization endpoint. `Some(None)` clears it. Optional.
+     */
+    char *authorization_endpoint;
+    /**
+     * Sign-in-button icon for a generic provider. `Some(None)` clears it. Optional.
+     */
+    char *button_icon;
     /**
      * The server's `client_id` field. Optional.
      */
@@ -5150,9 +5316,31 @@ struct axiam_mgmt_update_federation_config_request {
      */
     char *provider;
     /**
+     * Operator-chosen identifier for a `generic_*` kind. `Some(None)` clears it. Optional.
+     */
+    char *provider_slug;
+    /**
+     * Send PKCE on the authorization request. Optional.
+     */
+    int require_pkce;
+    int has_require_pkce; /**< 1 when `require_pkce` is set. */
+    /**
+     * Scopes to request. Replaced wholesale; empty restores the per-kind default. Optional.
+     */
+    char **scopes;
+    size_t scopes_count; /**< Entries in `scopes`. */
+    /**
+     * OAuth2-variant token endpoint. `Some(None)` clears it. Optional.
+     */
+    char *token_endpoint;
+    /**
      * The server's `token_exchange` field. Optional.
      */
     axiam_mgmt_token_exchange_trust_request_t *token_exchange;
+    /**
+     * OAuth2-variant userinfo endpoint. `Some(None)` clears it. Optional.
+     */
+    char *userinfo_endpoint;
 };
 
 /**
