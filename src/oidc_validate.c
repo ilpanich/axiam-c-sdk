@@ -559,3 +559,16 @@ void axiam_pushed_authorization_request_dispose(axiam_pushed_authorization_reque
     axiam_sensitive_free(p->code_verifier);
     memset(p, 0, sizeof(*p));
 }
+
+void axiam_federation_provider_list_dispose(axiam_federation_provider_list_t *l) {
+    if (!l) return;
+    for (size_t i = 0; i < l->count; i++) {
+        free(l->items[i].id);
+        free(l->items[i].provider_kind);
+        free(l->items[i].display_name);
+        free(l->items[i].protocol);
+        free(l->items[i].button_icon);
+    }
+    free(l->items);
+    memset(l, 0, sizeof(*l));
+}

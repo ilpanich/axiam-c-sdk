@@ -31,6 +31,10 @@
 #define PATH_OIDC_DISCOVERY "/.well-known/openid-configuration"
 #define PATH_SSO_START      "/api/v1/auth/federation/oidc/start"
 #define PATH_SSO_COMPLETE   "/api/v1/auth/federation/oidc/callback"
+#define PATH_SSO_PROVIDERS  "/api/v1/auth/federation/providers"
+#define PATH_SSO_OAUTH2_START    "/api/v1/auth/federation/oauth2/start"
+#define PATH_SSO_OAUTH2_CALLBACK "/api/v1/auth/federation/oauth2/callback"
+#define PATH_SSO_HANDOFF         "/api/v1/auth/federation/handoff"
 
 #define FORM_CONTENT_TYPE "application/x-www-form-urlencoded"
 
@@ -262,6 +266,18 @@ int oidc_post(axiam_client_t *c, const char *url, const char *content_type,
         c->sleep_fn(c->sleep_ctx, delay);
     }
     return rc;
+}
+
+/*
+ * One GET, no §16 retry loop.
+ *
+ * `sso_providers` is the only §12 operation that is a GET, and it is not
+ * retried: the two answers it can give are a `200` (an empty list included —
+ * §12.1 note 9) and an error the caller is meant to see, and a retried listing
+ * would spend the login rate-limit budget that bounds slug guessing.
+ */
+static int oidc_get(axiam_client_t *c, const char *url, axiam_http_response_t *resp) {
+    return oidc_transport_once(c, "GET", url, NULL, NULL, resp);
 }
 
 axiam_error_kind_t oidc_map_grant_error(const axiam_http_response_t *resp,
@@ -1086,4 +1102,313 @@ axiam_error_kind_t axiam_sso_complete(axiam_client_t *client, const char *code,
         return AXIAM_ERR_NETWORK;
     }
     return AXIAM_OK;
+}
+
+/* ------------------------------------------------------------------ */
+/* §12.1 login providers (contract 1.37; rule 12a added at 1.38)       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The two session-establishing completions share everything but their path and
+ * their request body, so they share this. §12.1 note 6 applies to both: the
+ * response carries NO token material — the session is the Set-Cookie the §4
+ * cookie jar keeps, and a transport substituted without cookie support loses it
+ * silently.
+ */
+static axiam_error_kind_t federation_complete(axiam_client_t *client, const char *path,
+                                              cJSON *root, const char *context,
+                                              axiam_sso_complete_result_t *out,
+                                              axiam_error_t *err) {
+    char *json = root ? cJSON_PrintUnformatted(root) : NULL;
+    cJSON_Delete(root);
+    if (!json) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    char *body = NULL;
+    axiam_error_kind_t kind = oidc_json_post(client, path, json, context, &body, err);
+    free(json);
+    /* §12.1 note 12: a 401 here is TERMINAL — the handoff code is spent either
+     * way — and rule 12a's 400 is a configuration error. Neither is retried, and
+     * oidc_json_post is called with retry disabled so neither can be. */
+    if (kind != AXIAM_OK) return kind;
+
+    cJSON *resp = body ? cJSON_Parse(body) : NULL;
+    free(body);
+    if (!resp) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "malformed response body");
+        return AXIAM_ERR_NETWORK;
+    }
+    out->user_id = json_opt(resp, "user_id");
+    out->session_id = json_opt(resp, "session_id");
+    out->redirect_uri = json_opt(resp, "redirect_uri");
+    const cJSON *ttl = cJSON_GetObjectItemCaseSensitive(resp, "expires_in");
+    out->expires_in = cJSON_IsNumber(ttl) ? (long)ttl->valuedouble : 0;
+    cJSON_Delete(resp);
+    if (!out->user_id || !out->session_id) {
+        axiam_sso_complete_result_dispose(out);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "malformed SsoLoginSuccessResponse");
+        return AXIAM_ERR_NETWORK;
+    }
+    return AXIAM_OK;
+}
+
+/* Appends `name=<url-encoded value>` to *url, growing it. Returns 0 on success. */
+static int query_append(char **url, size_t *len, size_t *cap, const char *name,
+                        const char *value) {
+    char *encoded = axiam_url_encode(value);
+    if (!encoded) return -1;
+    size_t need = *len + strlen(name) + strlen(encoded) + 2 + 1;
+    if (need > *cap) {
+        size_t next_cap = need * 2;
+        char *grown = (char *)realloc(*url, next_cap);
+        if (!grown) { free(encoded); return -1; }
+        *url = grown;
+        *cap = next_cap;
+    }
+    int written = snprintf(*url + *len, *cap - *len, "%c%s=%s",
+                           strchr(*url, '?') ? '&' : '?', name, encoded);
+    free(encoded);
+    if (written < 0) return -1;
+    *len += (size_t)written;
+    return 0;
+}
+
+axiam_error_kind_t axiam_sso_providers(axiam_client_t *client, const char *org_id,
+                                       const char *org_slug, const char *tenant_id,
+                                       const char *tenant_slug,
+                                       axiam_federation_provider_list_t *out,
+                                       axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (!out) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    memset(out, 0, sizeof(*out));
+    if (oidc_client_unusable(client, err)) return AXIAM_ERR_NETWORK;
+
+    /*
+     * §12.1 note 9: NOTHING here is required, and nothing is refused
+     * client-side. A request naming no workspace at all is still a request and
+     * still answers 200 with an empty list — a client-side 400 would restore
+     * exactly the two-valued organization-slug oracle the empty list removes.
+     */
+    const char *eff_org_id = org_id ? org_id : client->cfg->org_id;
+    const char *eff_org_slug = org_slug ? org_slug : client->cfg->org_slug;
+    const char *eff_tenant_id = tenant_id ? tenant_id : client->cfg->tenant_id;
+    const char *eff_tenant_slug = tenant_slug ? tenant_slug : client->cfg->tenant_slug;
+
+    size_t blen = strlen(client->cfg->base_url);
+    while (blen > 0 && client->cfg->base_url[blen - 1] == '/') blen--;
+    size_t cap = blen + sizeof(PATH_SSO_PROVIDERS) + 64;
+    char *url = (char *)malloc(cap);
+    if (!url) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    memcpy(url, client->cfg->base_url, blen);
+    strcpy(url + blen, PATH_SSO_PROVIDERS);
+    size_t len = strlen(url);
+
+    /* §5.1: the UUID form replaces the matching slug form, as everywhere else. */
+    int failed = 0;
+    if (eff_org_id && eff_org_id[0])
+        failed |= query_append(&url, &len, &cap, "org_id", eff_org_id);
+    else if (eff_org_slug && eff_org_slug[0])
+        failed |= query_append(&url, &len, &cap, "org_slug", eff_org_slug);
+    if (!failed) {
+        if (eff_tenant_id && eff_tenant_id[0])
+            failed |= query_append(&url, &len, &cap, "tenant_id", eff_tenant_id);
+        else if (eff_tenant_slug && eff_tenant_slug[0])
+            failed |= query_append(&url, &len, &cap, "tenant_slug", eff_tenant_slug);
+    }
+    if (failed) {
+        free(url);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    axiam_http_response_t resp;
+    int rc = oidc_get(client, url, &resp);
+    free(url);
+
+    if (rc != 0 || resp.status == 0) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
+                        resp.transport_msg ? resp.transport_msg : "network failure");
+        axiam_http_response_dispose(&resp);
+        return AXIAM_ERR_NETWORK;
+    }
+    if (resp.status < 200 || resp.status >= 300) {
+        axiam_error_kind_t kind = axiam_error_kind_from_http_status(resp.status);
+        axiam_error_set(err, kind, resp.status, "sso providers failed");
+        axiam_http_response_dispose(&resp);
+        return kind;
+    }
+
+    cJSON *root = resp.body ? cJSON_Parse(resp.body) : NULL;
+    axiam_http_response_dispose(&resp);
+    const cJSON *items = root ? cJSON_GetObjectItemCaseSensitive(root, "providers") : NULL;
+    if (!root || !cJSON_IsArray(items)) {
+        cJSON_Delete(root);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "sso providers: malformed PublicFederationProvidersResponse");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    int n = cJSON_GetArraySize(items);
+    if (n <= 0) {
+        /* The empty list is the success (note 9), not a case to signal. */
+        cJSON_Delete(root);
+        return AXIAM_OK;
+    }
+
+    axiam_federation_provider_t *arr =
+        (axiam_federation_provider_t *)calloc((size_t)n, sizeof(*arr));
+    if (!arr) {
+        cJSON_Delete(root);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    size_t kept = 0;
+    for (int i = 0; i < n; i++) {
+        const cJSON *entry = cJSON_GetArrayItem(items, i);
+        if (!cJSON_IsObject(entry)) continue;
+        axiam_federation_provider_t *p = &arr[kept];
+        p->id = json_opt(entry, "id");
+        p->provider_kind = json_opt(entry, "provider_kind");
+        p->display_name = json_opt(entry, "display_name");
+        /* The wire string, never an enum: a protocol the server adds later must
+         * not fail the parse of the whole list (note 10). */
+        p->protocol = json_opt(entry, "protocol");
+        p->button_icon = json_opt(entry, "button_icon"); /* absent for most */
+        const cJSON *mark = cJSON_GetObjectItemCaseSensitive(entry, "has_bundled_mark");
+        p->has_bundled_mark = cJSON_IsTrue(mark) ? 1 : 0;
+        const cJSON *inh = cJSON_GetObjectItemCaseSensitive(entry, "inherited");
+        p->inherited = cJSON_IsTrue(inh) ? 1 : 0;
+        if (!p->id || !p->protocol) {
+            /* A member with no id or no protocol cannot start a login. Drop it
+             * rather than failing the whole listing: the buttons that ARE usable
+             * must still render. */
+            free(p->id); free(p->provider_kind); free(p->display_name);
+            free(p->protocol); free(p->button_icon);
+            memset(p, 0, sizeof(*p));
+            continue;
+        }
+        kept++;
+    }
+    cJSON_Delete(root);
+
+    if (kept == 0) { free(arr); arr = NULL; }
+    out->items = arr;
+    out->count = kept;
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_sso_start_oauth2(axiam_client_t *client,
+                                          const char *federation_config_id,
+                                          const char *redirect_uri,
+                                          axiam_sso_start_result_t *out,
+                                          axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (!out || !federation_config_id || !redirect_uri) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    memset(out, 0, sizeof(*out));
+    if (oidc_client_unusable(client, err)) return AXIAM_ERR_NETWORK;
+
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    cJSON_AddStringToObject(root, "federation_config_id", federation_config_id);
+    cJSON_AddStringToObject(root, "redirect_uri", redirect_uri);
+    /* §5.1, identical to axiam_sso_start(). And NO PKCE field anywhere: the
+     * verifier is generated and held server-side (§12.1 note 11), so there is
+     * nothing for this SDK to compute and nothing it may send. */
+    if (client->cfg->tenant_id && client->cfg->tenant_id[0])
+        cJSON_AddStringToObject(root, "tenant_id", client->cfg->tenant_id);
+    else if (client->cfg->tenant_slug && client->cfg->tenant_slug[0])
+        cJSON_AddStringToObject(root, "tenant_slug", client->cfg->tenant_slug);
+    if (client->cfg->org_id && client->cfg->org_id[0])
+        cJSON_AddStringToObject(root, "org_id", client->cfg->org_id);
+    else if (client->cfg->org_slug && client->cfg->org_slug[0])
+        cJSON_AddStringToObject(root, "org_slug", client->cfg->org_slug);
+    char *json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (!json) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    char *body = NULL;
+    axiam_error_kind_t kind = oidc_json_post(client, PATH_SSO_OAUTH2_START, json,
+                                             "sso start oauth2 failed", &body, err);
+    free(json);
+    /* Rule 12a: a 400 means the deployment does not accept this redirect_uri's
+     * origin. §2 puts that on the AXIAM_ERR_NETWORK row — the configuration
+     * error — as distinct from the AXIAM_ERR_AUTH a 401 gets, and it is not
+     * retried. */
+    if (kind != AXIAM_OK) return kind;
+
+    cJSON *resp = body ? cJSON_Parse(body) : NULL;
+    free(body);
+    if (!resp) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "sso start oauth2: malformed response body");
+        return AXIAM_ERR_NETWORK;
+    }
+    out->authorize_url = json_opt(resp, "authorize_url");
+    out->state = json_opt(resp, "state");
+    const cJSON *ttl = cJSON_GetObjectItemCaseSensitive(resp, "expires_in_secs");
+    out->expires_in_secs = cJSON_IsNumber(ttl) ? (long)ttl->valuedouble : 0;
+    cJSON_Delete(resp);
+    if (!out->authorize_url || !out->state) {
+        axiam_sso_start_result_dispose(out);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "sso start oauth2: malformed OAuth2StartResponse");
+        return AXIAM_ERR_NETWORK;
+    }
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_sso_complete_oauth2(axiam_client_t *client, const char *code,
+                                             const char *state,
+                                             axiam_sso_complete_result_t *out,
+                                             axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (!out || !code || !state) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    memset(out, 0, sizeof(*out));
+    if (oidc_client_unusable(client, err)) return AXIAM_ERR_NETWORK;
+
+    cJSON *root = cJSON_CreateObject();
+    if (root) {
+        cJSON_AddStringToObject(root, "state", state);
+        cJSON_AddStringToObject(root, "code", code);
+    }
+    return federation_complete(client, PATH_SSO_OAUTH2_CALLBACK, root,
+                               "sso complete oauth2 failed", out, err);
+}
+
+axiam_error_kind_t axiam_sso_complete_handoff(axiam_client_t *client, const char *code,
+                                              axiam_sso_complete_result_t *out,
+                                              axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (!out || !code) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    memset(out, 0, sizeof(*out));
+    if (oidc_client_unusable(client, err)) return AXIAM_ERR_NETWORK;
+
+    /* The code is the whole request: no state, no workspace. */
+    cJSON *root = cJSON_CreateObject();
+    if (root) cJSON_AddStringToObject(root, "code", code);
+    return federation_complete(client, PATH_SSO_HANDOFF, root,
+                               "sso complete handoff failed", out, err);
 }
