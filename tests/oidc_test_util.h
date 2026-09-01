@@ -77,6 +77,10 @@ typedef struct {
     int device_authorize_calls;
     int sso_start_calls;
     int sso_complete_calls;
+    int sso_providers_calls;
+    int sso_oauth2_start_calls;
+    int sso_oauth2_callback_calls;
+    int sso_handoff_calls;
     int par_calls;
 
     const char *jwks_body;
@@ -90,6 +94,10 @@ typedef struct {
     oidc_answer_t revoke_answer;
     oidc_answer_t sso_start_answer;
     oidc_answer_t sso_complete_answer;
+    oidc_answer_t sso_providers_answer;
+    oidc_answer_t sso_oauth2_start_answer;
+    oidc_answer_t sso_oauth2_callback_answer;
+    oidc_answer_t sso_handoff_answer;
     oidc_answer_t par_answer;
 
     /* Every request that reached the transport, in order. */
@@ -188,6 +196,25 @@ static int oidc_fake_transport(void *ctx, const axiam_http_request_t *req,
     if (strstr(url, "/federation/oidc/callback")) {
         g_oidc.sso_complete_calls++;
         return oidc_answer(&g_oidc.sso_complete_answer, 200, "{}", resp);
+    }
+    /* §12.1's four login-provider endpoints. None of the "/oauth2/..." matchers
+     * above can claim these: the federation OAuth2 paths end in /start and
+     * /callback, not /token, /par, /jwks, /introspect or /revoke. */
+    if (strstr(url, "/federation/providers")) {
+        g_oidc.sso_providers_calls++;
+        return oidc_answer(&g_oidc.sso_providers_answer, 200, "{\"providers\":[]}", resp);
+    }
+    if (strstr(url, "/federation/oauth2/start")) {
+        g_oidc.sso_oauth2_start_calls++;
+        return oidc_answer(&g_oidc.sso_oauth2_start_answer, 200, "{}", resp);
+    }
+    if (strstr(url, "/federation/oauth2/callback")) {
+        g_oidc.sso_oauth2_callback_calls++;
+        return oidc_answer(&g_oidc.sso_oauth2_callback_answer, 200, "{}", resp);
+    }
+    if (strstr(url, "/federation/handoff")) {
+        g_oidc.sso_handoff_calls++;
+        return oidc_answer(&g_oidc.sso_handoff_answer, 200, "{}", resp);
     }
     resp_fill(resp, 404, "{}", NULL);
     return 0;

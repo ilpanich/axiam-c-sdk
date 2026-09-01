@@ -6,7 +6,8 @@
  * Swift, C and C++ SDKs: these are device- and IoT-oriented, and the
  * browser-redirect relying-party flow has no natural home in any of them.
  * Contract 1.11 (§12.6) reverses that, and the reason is worth keeping next to
- * the code. The persona argument only ever covered two of the nine operations —
+ * the code. The persona argument only ever covered two of the thirteen
+ * operations —
  * `oidc_begin` and `oidc_exchange`, the pair that genuinely assumes a browser.
  * The other seven are exactly what an embedded consumer wants:
  * `login_client_credentials` is machine-to-machine login, `introspect` and
@@ -309,6 +310,68 @@ typedef struct axiam_sso_complete_result {
     long expires_in;
 } axiam_sso_complete_result_t;
 
+/* ---- §12.1 login providers (contract 1.37; rule 12a added at 1.38) ---- */
+
+/** `protocol` value selecting axiam_sso_start() (§12.1 note 10). */
+#define AXIAM_FEDERATION_PROTOCOL_OIDC_CONNECT "OidcConnect"
+/** `protocol` value selecting axiam_sso_start_oauth2() (§12.1 note 10). */
+#define AXIAM_FEDERATION_PROTOCOL_OAUTH2 "OAuth2"
+/** `protocol` value selecting the SAML login endpoint, which is NOT a §12
+ *  vocabulary operation and therefore has no function here. */
+#define AXIAM_FEDERATION_PROTOCOL_SAML "Saml"
+
+/** The query parameter a handoff code arrives in on the SPA callback route
+ *  (§12.1 note 12). */
+#define AXIAM_HANDOFF_QUERY_PARAM "axiam_handoff"
+/** How long a handoff code stays redeemable, in seconds (§12.1 note 12). */
+#define AXIAM_HANDOFF_CODE_TTL_SECONDS 60
+
+/**
+ * One sign-in button, from `GET /api/v1/auth/federation/providers` (§12.1).
+ *
+ * Carries what a button needs and nothing else: there is no `client_id`, no
+ * `metadata_url`, no endpoint URL and no secret in this shape. The server builds
+ * it as a dedicated unauthenticated response rather than narrowing the admin one,
+ * so a field added to the admin response cannot reach here by inheritance.
+ */
+typedef struct axiam_federation_provider {
+    char *id;            /**< Config id, echoed back to the start operation. */
+    char *provider_kind; /**< Branding only. NEVER what selects the start op. */
+    char *display_name;  /**< The operator's display name. */
+    /**
+     * `OidcConnect`, `Saml` or `OAuth2` — selects the start operation (note 10).
+     *
+     * Deliberately the wire string and not an enum: the server may add a
+     * protocol, and a closed enum would fail the parse of the whole list over
+     * one provider this build predates. Compare against the three
+     * AXIAM_FEDERATION_PROTOCOL_* macros and treat anything else as
+     * "cannot start this one here".
+     */
+    char *protocol;
+    /** The operator's uploaded button icon as a bounded raster `data:` URL.
+     *  MAY BE NULL, and is for most providers. */
+    char *button_icon;
+    int has_bundled_mark; /**< 1 when AXIAM ships this provider's own mark. */
+    int inherited;        /**< 1 when inherited from the organization (note 13). */
+} axiam_federation_provider_t;
+
+/**
+ * The providers listing.
+ *
+ * AN EMPTY LIST IS A SUCCESS, and the only success there is (§12.1 note 9). An
+ * unknown organization, a known one with no providers, and a request naming no
+ * organization at all all answer `200` with `count == 0`. This SDK never turns
+ * that into a not-found error and never refuses the call client-side: the
+ * endpoint is shaped so it cannot enumerate org or tenant slugs, and restoring
+ * the distinction would restore the oracle. A caller learns it named the
+ * workspace wrongly at the start operations, where every failure is a uniform
+ * `401`.
+ */
+typedef struct axiam_federation_provider_list {
+    axiam_federation_provider_t *items; /**< NULL when count is 0. */
+    size_t count;
+} axiam_federation_provider_list_t;
+
 /**
  * A verified back-channel logout token (§12.7.3).
  *
@@ -376,7 +439,7 @@ typedef struct axiam_exchanged_token {
 } axiam_exchanged_token_t;
 
 /* ------------------------------------------------------------------ */
-/* §12 — the nine canonical operations                                */
+/* §12 — the thirteen canonical operations                            */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -597,6 +660,100 @@ axiam_error_kind_t axiam_sso_complete(axiam_client_t *client,
                                       const char *state,
                                       axiam_sso_complete_result_t *out,
                                       axiam_error_t *err);
+
+/**
+ * `GET /api/v1/auth/federation/providers` (§12.1) — which "Sign in with X"
+ * buttons to render for a workspace.
+ *
+ * The workspace travels as QUERY PARAMETERS, not a body: this is the one §12
+ * operation that is a GET. Each of the four identifier arguments may be NULL, in
+ * which case the value this client was constructed with is used; §5.1's
+ * precedence applies, so a UUID form replaces the matching slug form. Nothing is
+ * required — see axiam_federation_provider_list_t for why a missing workspace is
+ * still a request and still a `200`.
+ *
+ * Dispatch on each provider's `protocol` to choose the start operation (note 10).
+ * NEVER on `provider_kind`: a SAML config can carry `provider_kind` "google", and
+ * guessing sends it to an endpoint the server refuses with `400`.
+ *
+ * @param out Filled on success; dispose with
+ *            axiam_federation_provider_list_dispose().
+ */
+axiam_error_kind_t axiam_sso_providers(axiam_client_t *client,
+                                       const char *org_id,
+                                       const char *org_slug,
+                                       const char *tenant_id,
+                                       const char *tenant_slug,
+                                       axiam_federation_provider_list_t *out,
+                                       axiam_error_t *err);
+
+/**
+ * `POST /api/v1/auth/federation/oauth2/start` (§12.1) — begin a login through a
+ * PLAIN-OAUTH2 upstream (GitHub, Facebook, any configured `generic_oauth2`).
+ *
+ * Call this, and not axiam_sso_start(), exactly when the provider's `protocol`
+ * is AXIAM_FEDERATION_PROTOCOL_OAUTH2 (note 10). The server refuses a mismatch
+ * with `400` rather than accepting it silently.
+ *
+ * PKCE IS MANDATORY HERE AND ENTIRELY SERVER-SIDE (note 11): the server
+ * generates and stores the verifier and never returns it, so this SDK computes
+ * none and sends none. The OAuth2 variant also carries reduced assurance — no ID
+ * token, so no signature, no `nonce` and no `aud`; the server authenticates by
+ * calling the provider's userinfo endpoint.
+ *
+ * A `400` can also mean the deployment does not accept `redirect_uri`'s ORIGIN
+ * (§12.1 rule 12a). §2 maps `400` to AXIAM_ERR_NETWORK — this taxonomy's
+ * configuration/programming-error member, as distinct from the AXIAM_ERR_AUTH a
+ * `401` gets — and it is not retried. Never build a `redirect_uri` from a value
+ * the identity provider supplied.
+ *
+ * @param out Filled on success; dispose with axiam_sso_start_result_dispose().
+ */
+axiam_error_kind_t axiam_sso_start_oauth2(axiam_client_t *client,
+                                          const char *federation_config_id,
+                                          const char *redirect_uri,
+                                          axiam_sso_start_result_t *out,
+                                          axiam_error_t *err);
+
+/**
+ * `POST /api/v1/auth/federation/oauth2/callback` (§12.1) — finish a plain-OAuth2
+ * login.
+ *
+ * The SPA calls this same-origin, so the session arrives directly as
+ * `Set-Cookie` and the §4 cookie-jar requirement applies verbatim. The server
+ * recovers the whole context from the single-use `state`, so no tenant or org
+ * argument is needed.
+ *
+ * @param out Filled on success; dispose with axiam_sso_complete_result_dispose().
+ */
+axiam_error_kind_t axiam_sso_complete_oauth2(axiam_client_t *client,
+                                             const char *code,
+                                             const char *state,
+                                             axiam_sso_complete_result_t *out,
+                                             axiam_error_t *err);
+
+/**
+ * `POST /api/v1/auth/federation/handoff` (§12.1) — redeem a handoff code for a
+ * session.
+ *
+ * SAML and Apple's `response_mode=form_post` return CROSS-SITE, so the server
+ * cannot set `SameSite=Strict` cookies on that response. It redirects the browser
+ * to the SPA callback with the code in the AXIAM_HANDOFF_QUERY_PARAM query
+ * parameter; THIS same-origin POST is the one that carries `Set-Cookie`
+ * (note 12).
+ *
+ * The code is single-use and lives AXIAM_HANDOFF_CODE_TTL_SECONDS seconds.
+ * Unknown, expired and already-redeemed all answer the same `401`, deliberately
+ * — so a `401` here is TERMINAL: the code is gone either way, and this SDK
+ * issues the redemption exactly once and never retries it. Redeem from the same
+ * origin the code was delivered to.
+ *
+ * @param out Filled on success; dispose with axiam_sso_complete_result_dispose().
+ */
+axiam_error_kind_t axiam_sso_complete_handoff(axiam_client_t *client,
+                                              const char *code,
+                                              axiam_sso_complete_result_t *out,
+                                              axiam_error_t *err);
 
 /* ------------------------------------------------------------------ */
 /* §12.7 — logout                                                     */
@@ -853,6 +1010,7 @@ void axiam_oidc_token_set_dispose(axiam_oidc_token_set_t *set);
 void axiam_introspection_result_dispose(axiam_introspection_result_t *r);
 void axiam_sso_start_result_dispose(axiam_sso_start_result_t *r);
 void axiam_sso_complete_result_dispose(axiam_sso_complete_result_t *r);
+void axiam_federation_provider_list_dispose(axiam_federation_provider_list_t *l);
 void axiam_verified_logout_token_dispose(axiam_verified_logout_token_t *t);
 void axiam_device_authorization_dispose(axiam_device_authorization_t *d);
 void axiam_exchanged_token_dispose(axiam_exchanged_token_t *t);

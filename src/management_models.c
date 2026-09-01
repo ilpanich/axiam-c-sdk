@@ -1761,14 +1761,30 @@ void axiam_mgmt_create_federation_config_request_free(axiam_mgmt_create_federati
         for (size_t i = 0; i < value->allowed_algorithms_count; i++) free(value->allowed_algorithms[i]);
         free(value->allowed_algorithms);
     }
+    if (value->allowed_issuer_tenants) {
+        for (size_t i = 0; i < value->allowed_issuer_tenants_count; i++) free(value->allowed_issuer_tenants[i]);
+        free(value->allowed_issuer_tenants);
+    }
+    free(value->apple_key_id);
+    free(value->apple_team_id);
     free(value->attribute_map);
+    free(value->authorization_endpoint);
+    free(value->button_icon);
     free(value->client_id);
     axiam_sensitive_free(value->client_secret);
     free(value->idp_signing_cert_pem);
     free(value->metadata_url);
     free(value->protocol);
     free(value->provider);
+    free(value->provider_kind);
+    free(value->provider_slug);
+    if (value->scopes) {
+        for (size_t i = 0; i < value->scopes_count; i++) free(value->scopes[i]);
+        free(value->scopes);
+    }
+    free(value->token_endpoint);
     axiam_mgmt_token_exchange_trust_request_free(value->token_exchange);
+    free(value->userinfo_endpoint);
     free(value);
 }
 
@@ -1778,6 +1794,9 @@ axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_conf
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
+    if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_allow_tenant_inheritance = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "allowed_algorithms");
     if (cJSON_IsArray(item)) {
         size_t n = (size_t) cJSON_GetArraySize(item);
@@ -1791,8 +1810,29 @@ axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_conf
             out->allowed_algorithms_count = n;
         }
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "allowed_issuer_tenants");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->allowed_issuer_tenants = (char **) calloc(n, sizeof(char *));
+            if (!out->allowed_issuer_tenants) { axiam_mgmt_create_federation_config_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->allowed_issuer_tenants[i] = axiam_strdup0(e->valuestring);
+            }
+            out->allowed_issuer_tenants_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "apple_key_id");
+    if (cJSON_IsString(item)) out->apple_key_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "apple_team_id");
+    if (cJSON_IsString(item)) out->apple_team_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "attribute_map");
     if (item) out->attribute_map = cJSON_PrintUnformatted(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "authorization_endpoint");
+    if (cJSON_IsString(item)) out->authorization_endpoint = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "button_icon");
+    if (cJSON_IsString(item)) out->button_icon = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_id");
     if (cJSON_IsString(item)) out->client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_secret");
@@ -1805,8 +1845,32 @@ axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_conf
     if (cJSON_IsString(item)) out->protocol = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "provider");
     if (cJSON_IsString(item)) out->provider = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "provider_kind");
+    if (cJSON_IsString(item)) out->provider_kind = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "provider_slug");
+    if (cJSON_IsString(item)) out->provider_slug = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "require_pkce");
+    if (cJSON_IsBool(item)) { out->require_pkce = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_require_pkce = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "scopes");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->scopes = (char **) calloc(n, sizeof(char *));
+            if (!out->scopes) { axiam_mgmt_create_federation_config_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->scopes[i] = axiam_strdup0(e->valuestring);
+            }
+            out->scopes_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "token_endpoint");
+    if (cJSON_IsString(item)) out->token_endpoint = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "token_exchange");
     if (cJSON_IsObject(item)) out->token_exchange = axiam_mgmt_token_exchange_trust_request_parse(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "userinfo_endpoint");
+    if (cJSON_IsString(item)) out->userinfo_endpoint = axiam_strdup0(item->valuestring);
     return out;
 }
 
@@ -1814,14 +1878,34 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_allow_tenant_inheritance) {
+        cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
+    }
     if (value->allowed_algorithms) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_algorithms");
         for (size_t i = 0; arr && i < value->allowed_algorithms_count; i++)
             cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_algorithms[i]));
     }
+    if (value->allowed_issuer_tenants) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_issuer_tenants");
+        for (size_t i = 0; arr && i < value->allowed_issuer_tenants_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_issuer_tenants[i]));
+    }
+    if (value->apple_key_id) {
+        cJSON_AddStringToObject(obj, "apple_key_id", value->apple_key_id);
+    }
+    if (value->apple_team_id) {
+        cJSON_AddStringToObject(obj, "apple_team_id", value->apple_team_id);
+    }
     if (value->attribute_map) {
         cJSON *sub = cJSON_Parse(value->attribute_map);
         if (sub) cJSON_AddItemToObject(obj, "attribute_map", sub);
+    }
+    if (value->authorization_endpoint) {
+        cJSON_AddStringToObject(obj, "authorization_endpoint", value->authorization_endpoint);
+    }
+    if (value->button_icon) {
+        cJSON_AddStringToObject(obj, "button_icon", value->button_icon);
     }
     if (value->client_id) {
         cJSON_AddStringToObject(obj, "client_id", value->client_id);
@@ -1841,9 +1925,29 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     if (value->provider) {
         cJSON_AddStringToObject(obj, "provider", value->provider);
     }
+    if (value->provider_kind) {
+        cJSON_AddStringToObject(obj, "provider_kind", value->provider_kind);
+    }
+    if (value->provider_slug) {
+        cJSON_AddStringToObject(obj, "provider_slug", value->provider_slug);
+    }
+    if (value->has_require_pkce) {
+        cJSON_AddBoolToObject(obj, "require_pkce", value->require_pkce);
+    }
+    if (value->scopes) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "scopes");
+        for (size_t i = 0; arr && i < value->scopes_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->scopes[i]));
+    }
+    if (value->token_endpoint) {
+        cJSON_AddStringToObject(obj, "token_endpoint", value->token_endpoint);
+    }
     if (value->token_exchange) {
         cJSON *sub = axiam_mgmt_token_exchange_trust_request_build(value->token_exchange);
         if (sub) cJSON_AddItemToObject(obj, "token_exchange", sub);
+    }
+    if (value->userinfo_endpoint) {
+        cJSON_AddStringToObject(obj, "userinfo_endpoint", value->userinfo_endpoint);
     }
     return obj;
 }
@@ -3076,16 +3180,40 @@ cJSON *axiam_mgmt_encrypted_export_build(const axiam_mgmt_encrypted_export_t *va
 
 void axiam_mgmt_federation_config_response_free(axiam_mgmt_federation_config_response_t *value) {
     if (!value) return;
+    if (value->allowed_algorithms) {
+        for (size_t i = 0; i < value->allowed_algorithms_count; i++) free(value->allowed_algorithms[i]);
+        free(value->allowed_algorithms);
+    }
+    if (value->allowed_issuer_tenants) {
+        for (size_t i = 0; i < value->allowed_issuer_tenants_count; i++) free(value->allowed_issuer_tenants[i]);
+        free(value->allowed_issuer_tenants);
+    }
+    free(value->apple_key_id);
+    free(value->apple_team_id);
     free(value->attribute_map);
+    free(value->authorization_endpoint);
+    free(value->button_icon);
     free(value->client_id);
     free(value->created_at);
+    if (value->effective_scopes) {
+        for (size_t i = 0; i < value->effective_scopes_count; i++) free(value->effective_scopes[i]);
+        free(value->effective_scopes);
+    }
     free(value->id);
     free(value->metadata_url);
     free(value->protocol);
     free(value->provider);
+    free(value->provider_kind);
+    free(value->provider_slug);
+    if (value->scopes) {
+        for (size_t i = 0; i < value->scopes_count; i++) free(value->scopes[i]);
+        free(value->scopes);
+    }
     free(value->tenant_id);
+    free(value->token_endpoint);
     axiam_mgmt_token_exchange_trust_response_free(value->token_exchange);
     free(value->updated_at);
+    free(value->userinfo_endpoint);
     free(value);
 }
 
@@ -3095,29 +3223,109 @@ axiam_mgmt_federation_config_response_t *axiam_mgmt_federation_config_response_p
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
+    if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "allowed_algorithms");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->allowed_algorithms = (char **) calloc(n, sizeof(char *));
+            if (!out->allowed_algorithms) { axiam_mgmt_federation_config_response_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->allowed_algorithms[i] = axiam_strdup0(e->valuestring);
+            }
+            out->allowed_algorithms_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "allowed_issuer_tenants");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->allowed_issuer_tenants = (char **) calloc(n, sizeof(char *));
+            if (!out->allowed_issuer_tenants) { axiam_mgmt_federation_config_response_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->allowed_issuer_tenants[i] = axiam_strdup0(e->valuestring);
+            }
+            out->allowed_issuer_tenants_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "apple_key_id");
+    if (cJSON_IsString(item)) out->apple_key_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "apple_team_id");
+    if (cJSON_IsString(item)) out->apple_team_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "attribute_map");
     if (item) out->attribute_map = cJSON_PrintUnformatted(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "authorization_endpoint");
+    if (cJSON_IsString(item)) out->authorization_endpoint = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "button_icon");
+    if (cJSON_IsString(item)) out->button_icon = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_id");
     if (cJSON_IsString(item)) out->client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "created_at");
     if (cJSON_IsString(item)) out->created_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "effective_scopes");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->effective_scopes = (char **) calloc(n, sizeof(char *));
+            if (!out->effective_scopes) { axiam_mgmt_federation_config_response_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->effective_scopes[i] = axiam_strdup0(e->valuestring);
+            }
+            out->effective_scopes_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
     if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "has_bundled_mark");
+    if (cJSON_IsBool(item)) { out->has_bundled_mark = cJSON_IsTrue(item) ? 1 : 0;
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "id");
     if (cJSON_IsString(item)) out->id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
     if (cJSON_IsString(item)) out->metadata_url = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "mints_client_secret");
+    if (cJSON_IsBool(item)) { out->mints_client_secret = cJSON_IsTrue(item) ? 1 : 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "pkce_required");
+    if (cJSON_IsBool(item)) { out->pkce_required = cJSON_IsTrue(item) ? 1 : 0;
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "protocol");
     if (cJSON_IsString(item)) out->protocol = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "provider");
     if (cJSON_IsString(item)) out->provider = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "provider_kind");
+    if (cJSON_IsString(item)) out->provider_kind = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "provider_slug");
+    if (cJSON_IsString(item)) out->provider_slug = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "scopes");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->scopes = (char **) calloc(n, sizeof(char *));
+            if (!out->scopes) { axiam_mgmt_federation_config_response_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->scopes[i] = axiam_strdup0(e->valuestring);
+            }
+            out->scopes_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "tenant_id");
     if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "token_endpoint");
+    if (cJSON_IsString(item)) out->token_endpoint = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "token_exchange");
     if (cJSON_IsObject(item)) out->token_exchange = axiam_mgmt_token_exchange_trust_response_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "updated_at");
     if (cJSON_IsString(item)) out->updated_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "userinfo_endpoint");
+    if (cJSON_IsString(item)) out->userinfo_endpoint = axiam_strdup0(item->valuestring);
     return out;
 }
 
@@ -3125,9 +3333,34 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (1) {
+        cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
+    }
+    if (value->allowed_algorithms) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_algorithms");
+        for (size_t i = 0; arr && i < value->allowed_algorithms_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_algorithms[i]));
+    }
+    if (value->allowed_issuer_tenants) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_issuer_tenants");
+        for (size_t i = 0; arr && i < value->allowed_issuer_tenants_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_issuer_tenants[i]));
+    }
+    if (value->apple_key_id) {
+        cJSON_AddStringToObject(obj, "apple_key_id", value->apple_key_id);
+    }
+    if (value->apple_team_id) {
+        cJSON_AddStringToObject(obj, "apple_team_id", value->apple_team_id);
+    }
     if (value->attribute_map) {
         cJSON *sub = cJSON_Parse(value->attribute_map);
         if (sub) cJSON_AddItemToObject(obj, "attribute_map", sub);
+    }
+    if (value->authorization_endpoint) {
+        cJSON_AddStringToObject(obj, "authorization_endpoint", value->authorization_endpoint);
+    }
+    if (value->button_icon) {
+        cJSON_AddStringToObject(obj, "button_icon", value->button_icon);
     }
     if (value->client_id) {
         cJSON_AddStringToObject(obj, "client_id", value->client_id);
@@ -3135,8 +3368,16 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     if (value->created_at) {
         cJSON_AddStringToObject(obj, "created_at", value->created_at);
     }
+    if (value->effective_scopes) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "effective_scopes");
+        for (size_t i = 0; arr && i < value->effective_scopes_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->effective_scopes[i]));
+    }
     if (1) {
         cJSON_AddBoolToObject(obj, "enabled", value->enabled);
+    }
+    if (1) {
+        cJSON_AddBoolToObject(obj, "has_bundled_mark", value->has_bundled_mark);
     }
     if (value->id) {
         cJSON_AddStringToObject(obj, "id", value->id);
@@ -3144,14 +3385,34 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     if (value->metadata_url) {
         cJSON_AddStringToObject(obj, "metadata_url", value->metadata_url);
     }
+    if (1) {
+        cJSON_AddBoolToObject(obj, "mints_client_secret", value->mints_client_secret);
+    }
+    if (1) {
+        cJSON_AddBoolToObject(obj, "pkce_required", value->pkce_required);
+    }
     if (value->protocol) {
         cJSON_AddStringToObject(obj, "protocol", value->protocol);
     }
     if (value->provider) {
         cJSON_AddStringToObject(obj, "provider", value->provider);
     }
+    if (value->provider_kind) {
+        cJSON_AddStringToObject(obj, "provider_kind", value->provider_kind);
+    }
+    if (value->provider_slug) {
+        cJSON_AddStringToObject(obj, "provider_slug", value->provider_slug);
+    }
+    if (value->scopes) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "scopes");
+        for (size_t i = 0; arr && i < value->scopes_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->scopes[i]));
+    }
     if (value->tenant_id) {
         cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);
+    }
+    if (value->token_endpoint) {
+        cJSON_AddStringToObject(obj, "token_endpoint", value->token_endpoint);
     }
     if (value->token_exchange) {
         cJSON *sub = axiam_mgmt_token_exchange_trust_response_build(value->token_exchange);
@@ -3159,6 +3420,9 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     }
     if (value->updated_at) {
         cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
+    }
+    if (value->userinfo_endpoint) {
+        cJSON_AddStringToObject(obj, "userinfo_endpoint", value->userinfo_endpoint);
     }
     return obj;
 }
@@ -7231,13 +7495,28 @@ void axiam_mgmt_update_federation_config_request_free(axiam_mgmt_update_federati
         for (size_t i = 0; i < value->allowed_algorithms_count; i++) free(value->allowed_algorithms[i]);
         free(value->allowed_algorithms);
     }
+    if (value->allowed_issuer_tenants) {
+        for (size_t i = 0; i < value->allowed_issuer_tenants_count; i++) free(value->allowed_issuer_tenants[i]);
+        free(value->allowed_issuer_tenants);
+    }
+    free(value->apple_key_id);
+    free(value->apple_team_id);
     free(value->attribute_map);
+    free(value->authorization_endpoint);
+    free(value->button_icon);
     free(value->client_id);
     axiam_sensitive_free(value->client_secret);
     free(value->idp_signing_cert_pem);
     free(value->metadata_url);
     free(value->provider);
+    free(value->provider_slug);
+    if (value->scopes) {
+        for (size_t i = 0; i < value->scopes_count; i++) free(value->scopes[i]);
+        free(value->scopes);
+    }
+    free(value->token_endpoint);
     axiam_mgmt_token_exchange_trust_request_free(value->token_exchange);
+    free(value->userinfo_endpoint);
     free(value);
 }
 
@@ -7247,6 +7526,9 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
+    if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_allow_tenant_inheritance = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "allowed_algorithms");
     if (cJSON_IsArray(item)) {
         size_t n = (size_t) cJSON_GetArraySize(item);
@@ -7260,8 +7542,29 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
             out->allowed_algorithms_count = n;
         }
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "allowed_issuer_tenants");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->allowed_issuer_tenants = (char **) calloc(n, sizeof(char *));
+            if (!out->allowed_issuer_tenants) { axiam_mgmt_update_federation_config_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->allowed_issuer_tenants[i] = axiam_strdup0(e->valuestring);
+            }
+            out->allowed_issuer_tenants_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "apple_key_id");
+    if (cJSON_IsString(item)) out->apple_key_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "apple_team_id");
+    if (cJSON_IsString(item)) out->apple_team_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "attribute_map");
     if (item) out->attribute_map = cJSON_PrintUnformatted(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "authorization_endpoint");
+    if (cJSON_IsString(item)) out->authorization_endpoint = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "button_icon");
+    if (cJSON_IsString(item)) out->button_icon = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_id");
     if (cJSON_IsString(item)) out->client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_secret");
@@ -7275,8 +7578,30 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
     if (cJSON_IsString(item)) out->metadata_url = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "provider");
     if (cJSON_IsString(item)) out->provider = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "provider_slug");
+    if (cJSON_IsString(item)) out->provider_slug = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "require_pkce");
+    if (cJSON_IsBool(item)) { out->require_pkce = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_require_pkce = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "scopes");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->scopes = (char **) calloc(n, sizeof(char *));
+            if (!out->scopes) { axiam_mgmt_update_federation_config_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->scopes[i] = axiam_strdup0(e->valuestring);
+            }
+            out->scopes_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "token_endpoint");
+    if (cJSON_IsString(item)) out->token_endpoint = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "token_exchange");
     if (cJSON_IsObject(item)) out->token_exchange = axiam_mgmt_token_exchange_trust_request_parse(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "userinfo_endpoint");
+    if (cJSON_IsString(item)) out->userinfo_endpoint = axiam_strdup0(item->valuestring);
     return out;
 }
 
@@ -7284,14 +7609,34 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_allow_tenant_inheritance) {
+        cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
+    }
     if (value->allowed_algorithms) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_algorithms");
         for (size_t i = 0; arr && i < value->allowed_algorithms_count; i++)
             cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_algorithms[i]));
     }
+    if (value->allowed_issuer_tenants) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_issuer_tenants");
+        for (size_t i = 0; arr && i < value->allowed_issuer_tenants_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_issuer_tenants[i]));
+    }
+    if (value->apple_key_id) {
+        cJSON_AddStringToObject(obj, "apple_key_id", value->apple_key_id);
+    }
+    if (value->apple_team_id) {
+        cJSON_AddStringToObject(obj, "apple_team_id", value->apple_team_id);
+    }
     if (value->attribute_map) {
         cJSON *sub = cJSON_Parse(value->attribute_map);
         if (sub) cJSON_AddItemToObject(obj, "attribute_map", sub);
+    }
+    if (value->authorization_endpoint) {
+        cJSON_AddStringToObject(obj, "authorization_endpoint", value->authorization_endpoint);
+    }
+    if (value->button_icon) {
+        cJSON_AddStringToObject(obj, "button_icon", value->button_icon);
     }
     if (value->client_id) {
         cJSON_AddStringToObject(obj, "client_id", value->client_id);
@@ -7311,9 +7656,26 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     if (value->provider) {
         cJSON_AddStringToObject(obj, "provider", value->provider);
     }
+    if (value->provider_slug) {
+        cJSON_AddStringToObject(obj, "provider_slug", value->provider_slug);
+    }
+    if (value->has_require_pkce) {
+        cJSON_AddBoolToObject(obj, "require_pkce", value->require_pkce);
+    }
+    if (value->scopes) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "scopes");
+        for (size_t i = 0; arr && i < value->scopes_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->scopes[i]));
+    }
+    if (value->token_endpoint) {
+        cJSON_AddStringToObject(obj, "token_endpoint", value->token_endpoint);
+    }
     if (value->token_exchange) {
         cJSON *sub = axiam_mgmt_token_exchange_trust_request_build(value->token_exchange);
         if (sub) cJSON_AddItemToObject(obj, "token_exchange", sub);
+    }
+    if (value->userinfo_endpoint) {
+        cJSON_AddStringToObject(obj, "userinfo_endpoint", value->userinfo_endpoint);
     }
     return obj;
 }

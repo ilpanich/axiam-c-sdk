@@ -767,6 +767,78 @@ static void test_sso_start_and_complete_alloc_failure_sweep(void) {
 }
 
 /* ------------------------------------------------------------------ */
+/* §12.1 the four login-provider operations (contract 1.38)            */
+/* ------------------------------------------------------------------ */
+
+static void test_login_provider_operations_alloc_failure_sweep(void) {
+    /* The four call graphs added at contract 1.38. sso_providers is the widest:
+     * the URL buffer, every query value's percent-encoding, the provider array
+     * and five strdups per entry are all allocations, and each one has a
+     * one-sided guard that only an injected failure executes. */
+    oidc_reset();
+    g_oidc.sso_providers_answer = (oidc_answer_t){200,
+        "{\"providers\":["
+        "{\"id\":\"a\",\"provider_kind\":\"google\",\"display_name\":\"G\","
+        "\"protocol\":\"OidcConnect\",\"has_bundled_mark\":true,"
+        "\"button_icon\":\"data:image/png;base64,AA==\",\"inherited\":true},"
+        "{\"id\":\"b\",\"provider_kind\":\"github\",\"display_name\":\"GH\","
+        "\"protocol\":\"OAuth2\",\"has_bundled_mark\":false,\"inherited\":false}]}", 0};
+    g_oidc.sso_oauth2_start_answer = (oidc_answer_t){200,
+        "{\"authorize_url\":\"https://github.com/login/oauth/authorize\","
+        "\"state\":\"the-state\",\"expires_in_secs\":300}", 0};
+    g_oidc.sso_oauth2_callback_answer = (oidc_answer_t){200,
+        "{\"user_id\":\"user-1\",\"session_id\":\"session-1\","
+        "\"expires_in\":900,\"redirect_uri\":\"https://app.test/home\"}", 0};
+    g_oidc.sso_handoff_answer = g_oidc.sso_oauth2_callback_answer;
+
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, OIDC_BASE);
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
+    axiam_client_config_set_org_slug(cfg, "acme");
+    axiam_client_config_set_transport(cfg, oidc_fake_transport, &g_oidc);
+    axiam_error_t cerr;
+    axiam_error_reset(&cerr);
+    axiam_client_t *c = axiam_client_new(cfg, &cerr);
+    axiam_client_config_free(cfg);
+    TEST_ASSERT_NOT_NULL(c);
+
+    for (long i = 1; i <= 60; i++) {
+        axiam_federation_provider_list_t l;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_sso_providers(c, NULL, NULL, NULL, NULL, &l, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_federation_provider_list_dispose(&l);
+    }
+
+    for (long i = 1; i <= 40; i++) {
+        axiam_sso_start_result_t s;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_sso_start_oauth2(c, "fed-config-1",
+                                                      "https://app.test/callback", &s, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_sso_start_result_dispose(&s);
+    }
+
+    for (long i = 1; i <= 40; i++) {
+        axiam_sso_complete_result_t s;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_sso_complete_oauth2(c, "the-code", "the-state", &s, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_sso_complete_result_dispose(&s);
+    }
+
+    for (long i = 1; i <= 40; i++) {
+        axiam_sso_complete_result_t s;
+        alloc_fail_after(i);
+        axiam_error_kind_t k = axiam_sso_complete_handoff(c, "the-handoff-code", &s, NULL);
+        alloc_fail_reset();
+        if (k == AXIAM_OK) axiam_sso_complete_result_dispose(&s);
+    }
+
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
 /* §12.7.3 verify_logout_token                                        */
 /* ------------------------------------------------------------------ */
 
@@ -1886,6 +1958,7 @@ int main(void) {
     RUN_TEST(test_device_login_alloc_failure_sweep);
     RUN_TEST(test_token_exchange_alloc_failure_sweep);
     RUN_TEST(test_sso_start_and_complete_alloc_failure_sweep);
+    RUN_TEST(test_login_provider_operations_alloc_failure_sweep);
     RUN_TEST(test_verify_logout_token_alloc_failure_sweep);
     RUN_TEST(test_introspect_and_revoke_alloc_failure_sweep);
     RUN_TEST(test_uma_discover_alloc_failure_sweep);
