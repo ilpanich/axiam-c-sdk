@@ -203,6 +203,7 @@ set_tests_properties(test_tls_server PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
 # REQUEST COUNTS, in the spirit §16.7 states outright: a tested surface nobody
 # calls is worse than an absent one.
 axiam_add_test(test_oidc test_oidc.c)
+axiam_add_test(test_oidc_login_providers test_oidc_login_providers.c)
 
 # The ID-token suites need real EdDSA signatures, so they link the JWT fixture.
 add_executable(test_oidc_idtoken test_oidc_idtoken.c)
