@@ -248,6 +248,8 @@ axiam_mgmt_user_response_t *axiam_mgmt_user_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_user_response_build(const axiam_mgmt_user_response_t *value);
 axiam_mgmt_webauthn_attestation_policy_t *axiam_mgmt_webauthn_attestation_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_webauthn_attestation_policy_build(const axiam_mgmt_webauthn_attestation_policy_t *value);
+axiam_mgmt_webauthn_policy_t *axiam_mgmt_webauthn_policy_parse(const cJSON *src);
+cJSON *axiam_mgmt_webauthn_policy_build(const axiam_mgmt_webauthn_policy_t *value);
 axiam_mgmt_webhook_response_t *axiam_mgmt_webhook_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_webhook_response_build(const axiam_mgmt_webhook_response_t *value);
 

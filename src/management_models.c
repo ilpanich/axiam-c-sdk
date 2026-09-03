@@ -953,6 +953,8 @@ axiam_mgmt_user_response_t *axiam_mgmt_user_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_user_response_build(const axiam_mgmt_user_response_t *value);
 axiam_mgmt_webauthn_attestation_policy_t *axiam_mgmt_webauthn_attestation_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_webauthn_attestation_policy_build(const axiam_mgmt_webauthn_attestation_policy_t *value);
+axiam_mgmt_webauthn_policy_t *axiam_mgmt_webauthn_policy_parse(const cJSON *src);
+cJSON *axiam_mgmt_webauthn_policy_build(const axiam_mgmt_webauthn_policy_t *value);
 axiam_mgmt_webhook_response_t *axiam_mgmt_webhook_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_webhook_response_build(const axiam_mgmt_webhook_response_t *value);
 
@@ -6375,6 +6377,7 @@ void axiam_mgmt_security_settings_free(axiam_mgmt_security_settings_t *value) {
     free(value->scope_id);
     axiam_mgmt_token_policy_free(value->token);
     free(value->updated_at);
+    axiam_mgmt_webauthn_policy_free(value->webauthn);
     free(value);
 }
 
@@ -6414,6 +6417,8 @@ axiam_mgmt_security_settings_t *axiam_mgmt_security_settings_parse(const cJSON *
     if (cJSON_IsObject(item)) out->token = axiam_mgmt_token_policy_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "updated_at");
     if (cJSON_IsString(item)) out->updated_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "webauthn");
+    if (cJSON_IsObject(item)) out->webauthn = axiam_mgmt_webauthn_policy_parse(item);
     return out;
 }
 
@@ -6471,6 +6476,10 @@ cJSON *axiam_mgmt_security_settings_build(const axiam_mgmt_security_settings_t *
     }
     if (value->updated_at) {
         cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
+    }
+    if (value->webauthn) {
+        cJSON *sub = axiam_mgmt_webauthn_policy_build(value->webauthn);
+        if (sub) cJSON_AddItemToObject(obj, "webauthn", sub);
     }
     return obj;
 }
@@ -6705,6 +6714,7 @@ void axiam_mgmt_set_org_settings_free(axiam_mgmt_set_org_settings_t *value) {
     free(value->opaque_ksf);
     free(value->opaque_mode);
     free(value->opaque_suite);
+    free(value->webauthn_user_verification);
     free(value);
 }
 
@@ -6783,6 +6793,8 @@ axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *sr
     item = cJSON_GetObjectItemCaseSensitive(src, "require_uppercase");
     if (cJSON_IsBool(item)) { out->require_uppercase = cJSON_IsTrue(item) ? 1 : 0;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "webauthn_user_verification");
+    if (cJSON_IsString(item)) out->webauthn_user_verification = axiam_strdup0(item->valuestring);
     return out;
 }
 
@@ -6861,6 +6873,9 @@ cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *va
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "require_uppercase", value->require_uppercase);
+    }
+    if (value->webauthn_user_verification) {
+        cJSON_AddStringToObject(obj, "webauthn_user_verification", value->webauthn_user_verification);
     }
     return obj;
 }
@@ -7148,6 +7163,7 @@ void axiam_mgmt_tenant_settings_override_free(axiam_mgmt_tenant_settings_overrid
     free(value->opaque_ksf);
     free(value->opaque_mode);
     free(value->opaque_suite);
+    free(value->webauthn_user_verification);
     free(value);
 }
 
@@ -7226,6 +7242,8 @@ axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse
     item = cJSON_GetObjectItemCaseSensitive(src, "require_uppercase");
     if (cJSON_IsBool(item)) { out->require_uppercase = cJSON_IsTrue(item) ? 1 : 0;
         out->has_require_uppercase = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "webauthn_user_verification");
+    if (cJSON_IsString(item)) out->webauthn_user_verification = axiam_strdup0(item->valuestring);
     return out;
 }
 
@@ -7304,6 +7322,9 @@ cJSON *axiam_mgmt_tenant_settings_override_build(const axiam_mgmt_tenant_setting
     }
     if (value->has_require_uppercase) {
         cJSON_AddBoolToObject(obj, "require_uppercase", value->require_uppercase);
+    }
+    if (value->webauthn_user_verification) {
+        cJSON_AddStringToObject(obj, "webauthn_user_verification", value->webauthn_user_verification);
     }
     return obj;
 }
@@ -8674,6 +8695,33 @@ cJSON *axiam_mgmt_webauthn_attestation_policy_build(const axiam_mgmt_webauthn_at
     }
     if (value->has_unknown_aaguid) {
         cJSON_AddStringToObject(obj, "unknown_aaguid", axiam_mgmt_unknown_aaguid_action_to_wire(value->unknown_aaguid));
+    }
+    return obj;
+}
+
+void axiam_mgmt_webauthn_policy_free(axiam_mgmt_webauthn_policy_t *value) {
+    if (!value) return;
+    free(value->webauthn_user_verification);
+    free(value);
+}
+
+axiam_mgmt_webauthn_policy_t *axiam_mgmt_webauthn_policy_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_webauthn_policy_t *out = (axiam_mgmt_webauthn_policy_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "webauthn_user_verification");
+    if (cJSON_IsString(item)) out->webauthn_user_verification = axiam_strdup0(item->valuestring);
+    return out;
+}
+
+cJSON *axiam_mgmt_webauthn_policy_build(const axiam_mgmt_webauthn_policy_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->webauthn_user_verification) {
+        cJSON_AddStringToObject(obj, "webauthn_user_verification", value->webauthn_user_verification);
     }
     return obj;
 }

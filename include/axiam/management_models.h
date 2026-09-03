@@ -992,6 +992,7 @@ typedef struct axiam_mgmt_update_user_request axiam_mgmt_update_user_request_t;
 typedef struct axiam_mgmt_update_webhook_request axiam_mgmt_update_webhook_request_t;
 typedef struct axiam_mgmt_user_response axiam_mgmt_user_response_t;
 typedef struct axiam_mgmt_webauthn_attestation_policy axiam_mgmt_webauthn_attestation_policy_t;
+typedef struct axiam_mgmt_webauthn_policy axiam_mgmt_webauthn_policy_t;
 typedef struct axiam_mgmt_webhook_response axiam_mgmt_webhook_response_t;
 
 /**
@@ -4547,6 +4548,10 @@ struct axiam_mgmt_security_settings {
      * The server's `updated_at` field.
      */
     char *updated_at;
+    /**
+     * The server's `webauthn` field.
+     */
+    axiam_mgmt_webauthn_policy_t *webauthn;
 };
 
 /**
@@ -4806,6 +4811,10 @@ struct axiam_mgmt_set_org_settings {
      * The server's `require_uppercase` field.
      */
     int require_uppercase;
+    /**
+     * The server's `webauthn_user_verification` field. Optional.
+     */
+    char *webauthn_user_verification;
 };
 
 /**
@@ -5118,6 +5127,10 @@ struct axiam_mgmt_tenant_settings_override {
      */
     int require_uppercase;
     int has_require_uppercase; /**< 1 when `require_uppercase` is set. */
+    /**
+     * The server's `webauthn_user_verification` field. Optional.
+     */
+    char *webauthn_user_verification;
 };
 
 /**
@@ -6002,6 +6015,31 @@ struct axiam_mgmt_webauthn_attestation_policy {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_webauthn_attestation_policy_free(axiam_mgmt_webauthn_attestation_policy_t *value);
+
+/**
+ * WebAuthn ceremony policy. One field today. It is a struct rather than a bare field on
+ * [`SecuritySettings`] so that the next WebAuthn control has an obvious home, and so the
+ * admin UI can group them. The *attestation* policy is deliberately not here: it lives in
+ * [`crate::models::webauthn_policy::WebauthnAttestationPolicy`], is tenant-only, and cannot
+ * join this model because AAGUID allow/block lists have no "more restrictive than" ordering
+ * to validate an override against. User verification does, so it can.
+ */
+struct axiam_mgmt_webauthn_policy {
+    /**
+     * How hard the authenticator must prove *who* is present. Applies to enrolment and to
+     * second-factor authentication. Usernameless sign-in is held to `required` whatever
+     * this says — see [`WebauthnUserVerification`].
+     */
+    char *webauthn_user_verification;
+};
+
+/**
+ * Free a WebauthnPolicy and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_webauthn_policy_free(axiam_mgmt_webauthn_policy_t *value);
 
 /**
  * Webhook response — omits the shared secret.
