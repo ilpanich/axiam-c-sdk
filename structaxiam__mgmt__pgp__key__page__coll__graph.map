@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_pgp_key_page" name="axiam_mgmt_pgp_key_page">
+<area shape="rect" id="Node000001" title="One page of PgpKey objects (27.4 rule 4)." alt="" coords="85,93,294,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__pgp__key.html" title="An OpenPGP key stored by AXIAM." alt="" coords="5,5,176,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="116,38,177,91,174,95,113,42"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="200,5,376,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="266,42,205,95,201,91,263,38"/>
+</map>

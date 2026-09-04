@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_update_federation_config_request" name="axiam_mgmt_update_federation_config_request">
+<area shape="rect" id="Node000001" title="The UpdateFederationConfigRequest schema from the server&#39;s OpenAPI document." alt="" coords="5,108,240,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__token__exchange__trust__request.html" title="X4 trust for exchanging this provider&#39;s tokens (RFC 8693, external issuer)." alt="" coords="11,5,234,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="125,59,125,108,120,108,120,59"/>
+</map>

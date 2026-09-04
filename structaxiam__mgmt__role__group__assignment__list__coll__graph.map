@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_role_group_assignment_list" name="axiam_mgmt_role_group_assignment_list">
+<area shape="rect" id="Node000001" title="A plain list of RoleGroupAssignment objects." alt="" coords="5,196,191,236"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__role__group__assignment.html" title="A group together with the resource scope of its assignment of this role." alt="" coords="5,93,191,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="101,147,101,196,95,196,95,147"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__group.html" title="A group of users that can access resources based on their roles and permissions." alt="" coords="21,5,175,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="101,44,101,93,95,93,95,44"/>
+</map>

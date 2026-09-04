@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_webhook_response" name="axiam_mgmt_webhook_response">
+<area shape="rect" id="Node000001" title="Webhook response — omits the shared secret." alt="" coords="15,93,189,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__retry__policy.html" title="Retry policy for failed webhook deliveries." alt="" coords="5,5,199,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="105,44,105,93,99,93,99,44"/>
+</map>

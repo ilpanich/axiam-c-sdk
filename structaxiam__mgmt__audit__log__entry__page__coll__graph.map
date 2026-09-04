@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_audit_log_entry_page" name="axiam_mgmt_audit_log_entry_page">
+<area shape="rect" id="Node000001" title="One page of AuditLogEntry objects (27.4 rule 4)." alt="" coords="105,108,281,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__audit__log__entry.html" title="The AuditLogEntry schema from the server&#39;s OpenAPI document." alt="" coords="5,5,181,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="123,53,176,106,173,110,120,57"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="205,13,381,38"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="274,50,214,110,210,106,270,46"/>
+</map>
