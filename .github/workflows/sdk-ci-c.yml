@@ -233,7 +233,10 @@ jobs:
 
   release:
     name: release tarball
-    needs: [build-test, tls-bypass-gate, verify-tag-on-main]
+    # R-2 (T-235): `management-drift-check` joins this list. It already ran on
+    # tag pushes, but nothing depended on it, so a red drift-check did not stop
+    # the tag from becoming the release.
+    needs: [build-test, management-drift-check, tls-bypass-gate, verify-tag-on-main]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
