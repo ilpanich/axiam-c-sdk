@@ -59,6 +59,18 @@ const char *oidc_require_client_secret(axiam_client_t *c, const char *operation,
 /** Append `?tenant_id=<uuid>` to an absolute endpoint. malloc'd, or NULL. */
 char *oidc_endpoint_with_tenant(const char *endpoint, const char *tenant_uuid);
 
+/** 1 when the client presents a §6.1 mTLS identity (CONTRACT.md §21.3 rule 2). */
+int oidc_presents_client_certificate(const axiam_client_t *client);
+
+/**
+ * The endpoint to use, preferring its RFC 8705 §5 alias when this client
+ * presents a §6.1 certificate (CONTRACT.md §21.3 rule 2). See the definition in
+ * oidc.c for the three ways this rule gets implemented wrongly.
+ */
+const char *oidc_preferred_endpoint(const axiam_client_t *client,
+                                    const axiam_oidc_config_t *config, const char *alias,
+                                    const char *top_level);
+
 /**
  * §12.1 rule 3: `code_challenge = BASE64URL-ENCODE(SHA256(ASCII(verifier)))`,
  * without padding. malloc'd, or NULL.

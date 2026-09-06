@@ -97,8 +97,13 @@ axiam_error_kind_t axiam_oidc_par(axiam_client_t *client,
     }
     if (oidc_client_unusable(client, err)) return AXIAM_ERR_NETWORK;
 
-    if (!config->pushed_authorization_request_endpoint ||
-        !config->pushed_authorization_request_endpoint[0]) {
+    /* §21.3 rule 2: prefer the mTLS alias when this call presents a client
+     * certificate. Absent at BOTH levels still means "unsupported" — never a
+     * cue to build <issuer>/oauth2/par by concatenation (§26.1). */
+    const char *par_endpoint = oidc_preferred_endpoint(
+        client, config, config->mtls_endpoint_aliases.pushed_authorization_request_endpoint,
+        config->pushed_authorization_request_endpoint);
+    if (!par_endpoint || !par_endpoint[0]) {
         /* §12.7.2 rule 1's discipline: never synthesise the URL from the issuer.
          * Client-side, with no wire call. */
         axiam_error_set(err, AXIAM_ERR_AUTH, 0,
@@ -146,7 +151,7 @@ axiam_error_kind_t axiam_oidc_par(axiam_client_t *client,
     free(scopes);
     free(challenge);
 
-    char *url = oidc_endpoint_with_tenant(config->pushed_authorization_request_endpoint,
+    char *url = oidc_endpoint_with_tenant(par_endpoint,
                                           tenant_uuid);
     if (!url || form.failed) {
         oidc_form_dispose(&form);
