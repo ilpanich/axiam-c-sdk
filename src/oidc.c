@@ -199,6 +199,53 @@ const char *oidc_require_client_secret(axiam_client_t *c, const char *operation,
     return NULL;
 }
 
+/*
+ * Whether this client presents a §6.1 mTLS client certificate, and so whether
+ * CONTRACT.md §21.3 rule 2 applies to the calls it makes.
+ *
+ * The identity is configured once and presented on every request, so "is this
+ * call going over mutual TLS" has a whole-client answer here rather than a
+ * per-call one.
+ */
+int oidc_presents_client_certificate(const axiam_client_t *client) {
+    return client && client->cfg && client->cfg->client_cert_pem &&
+           client->cfg->client_cert_pem[0];
+}
+
+/*
+ * The endpoint a call should use, preferring its RFC 8705 §5 alias when this
+ * client presents a §6.1 certificate (§21.3 rule 2).
+ *
+ * Three things this deliberately does NOT do, each of them a documented way to
+ * get rule 2 wrong:
+ *
+ *   - An absent `mtls_endpoint_aliases` is never an error. It means "no
+ *     separate mTLS host", not "mTLS unsupported" — a deployment running
+ *     `client_auth = optional` on one listener serves both populations at the
+ *     conventional endpoints and correctly publishes nothing.
+ *   - `alias` is always a member of axiam_mtls_endpoint_aliases_t, which
+ *     carries only the six aliasable endpoints, so `authorization_endpoint`,
+ *     `end_session_endpoint` and `jwks_uri` have nothing to pass here: they are
+ *     front-channel or public, and an mTLS host would raise a
+ *     certificate-chooser dialog in the user's browser.
+ *   - `issuer` is untouched. It is an identifier, not an endpoint, and §12.4
+ *     rule 3 still compares a token's `iss` against `config->issuer` by exact
+ *     string — including for a token minted at an alias endpoint.
+ *
+ * A NULL result for a conditionally-advertised endpoint still means "this
+ * server does not support the feature" — the caller raises that, and never
+ * concatenates a URL onto the issuer.
+ */
+const char *oidc_preferred_endpoint(const axiam_client_t *client,
+                                    const axiam_oidc_config_t *config, const char *alias,
+                                    const char *top_level) {
+    if (oidc_presents_client_certificate(client) && config->has_mtls_endpoint_aliases && alias &&
+        alias[0]) {
+        return alias;
+    }
+    return top_level;
+}
+
 char *oidc_endpoint_with_tenant(const char *endpoint, const char *tenant_uuid) {
     if (!endpoint || !tenant_uuid) return NULL;
     size_t n = strlen(endpoint) + strlen(tenant_uuid) + 16;
@@ -365,6 +412,27 @@ static axiam_error_kind_t parse_discovery(const char *json, axiam_oidc_config_t 
      * than a malformed document. */
     out->pushed_authorization_request_endpoint =
         json_opt(root, "pushed_authorization_request_endpoint");
+    /* §21.3 rule 2 / RFC 8705 §5 (contract 1.40): absent means "no separate
+     * mTLS host", never "mTLS unsupported", and each member is read
+     * independently so a partial object — which RFC 8705 §5 permits — aliases
+     * what it names and leaves the rest falling back, rather than failing the
+     * whole document. */
+    {
+        const cJSON *aliases = cJSON_GetObjectItemCaseSensitive(root, "mtls_endpoint_aliases");
+        if (cJSON_IsObject(aliases)) {
+            out->has_mtls_endpoint_aliases = 1;
+            out->mtls_endpoint_aliases.token_endpoint = json_opt(aliases, "token_endpoint");
+            out->mtls_endpoint_aliases.userinfo_endpoint = json_opt(aliases, "userinfo_endpoint");
+            out->mtls_endpoint_aliases.revocation_endpoint =
+                json_opt(aliases, "revocation_endpoint");
+            out->mtls_endpoint_aliases.introspection_endpoint =
+                json_opt(aliases, "introspection_endpoint");
+            out->mtls_endpoint_aliases.device_authorization_endpoint =
+                json_opt(aliases, "device_authorization_endpoint");
+            out->mtls_endpoint_aliases.pushed_authorization_request_endpoint =
+                json_opt(aliases, "pushed_authorization_request_endpoint");
+        }
+    }
     out->scopes_supported = json_strings(root, "scopes_supported", &out->scopes_supported_count);
     out->response_types_supported =
         json_strings(root, "response_types_supported", &out->response_types_supported_count);
@@ -633,7 +701,9 @@ axiam_error_kind_t oidc_token_grant(axiam_client_t *c, oidc_form_t *form,
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
         return AXIAM_ERR_NETWORK;
     }
-    char *url = oidc_endpoint_with_tenant(config->token_endpoint, tenant_uuid);
+    const char *token_endpoint = oidc_preferred_endpoint(
+        c, config, config->mtls_endpoint_aliases.token_endpoint, config->token_endpoint);
+    char *url = oidc_endpoint_with_tenant(token_endpoint, tenant_uuid);
     if (!url) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
         return AXIAM_ERR_NETWORK;
@@ -816,9 +886,12 @@ static axiam_error_kind_t oidc_token_admin_call(
      * URL rather than onto the issuer — §12.7.2 rule 1 makes the same point
      * about `end_session_endpoint`, and the reasoning is identical here: the
      * issuer may legitimately be some other origin behind a proxy. */
-    const char *endpoint = (strcmp(operation, "introspect") == 0)
-                               ? config.introspection_endpoint
-                               : config.revocation_endpoint;
+    const int is_introspect = (strcmp(operation, "introspect") == 0);
+    const char *endpoint = oidc_preferred_endpoint(
+        client, &config,
+        is_introspect ? config.mtls_endpoint_aliases.introspection_endpoint
+                      : config.mtls_endpoint_aliases.revocation_endpoint,
+        is_introspect ? config.introspection_endpoint : config.revocation_endpoint);
     char *joined = NULL;
     if (!endpoint || !endpoint[0]) {
         size_t blen = strlen(client->cfg->base_url);

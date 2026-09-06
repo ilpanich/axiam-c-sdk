@@ -46,6 +46,12 @@ void axiam_oidc_config_dispose(axiam_oidc_config_t *cfg) {
     free(cfg->end_session_endpoint);
     free(cfg->device_authorization_endpoint);
     free(cfg->pushed_authorization_request_endpoint);
+    free(cfg->mtls_endpoint_aliases.token_endpoint);
+    free(cfg->mtls_endpoint_aliases.userinfo_endpoint);
+    free(cfg->mtls_endpoint_aliases.revocation_endpoint);
+    free(cfg->mtls_endpoint_aliases.introspection_endpoint);
+    free(cfg->mtls_endpoint_aliases.device_authorization_endpoint);
+    free(cfg->mtls_endpoint_aliases.pushed_authorization_request_endpoint);
     string_array_free(cfg->scopes_supported, cfg->scopes_supported_count);
     string_array_free(cfg->response_types_supported, cfg->response_types_supported_count);
     string_array_free(cfg->id_token_signing_alg_values_supported,
@@ -527,6 +533,19 @@ axiam_error_kind_t oidc_config_copy(const axiam_oidc_config_t *src, axiam_oidc_c
     dst->device_authorization_endpoint = axiam_strdup0(src->device_authorization_endpoint);
     dst->pushed_authorization_request_endpoint =
         axiam_strdup0(src->pushed_authorization_request_endpoint);
+    dst->has_mtls_endpoint_aliases = src->has_mtls_endpoint_aliases;
+    dst->mtls_endpoint_aliases.token_endpoint =
+        axiam_strdup0(src->mtls_endpoint_aliases.token_endpoint);
+    dst->mtls_endpoint_aliases.userinfo_endpoint =
+        axiam_strdup0(src->mtls_endpoint_aliases.userinfo_endpoint);
+    dst->mtls_endpoint_aliases.revocation_endpoint =
+        axiam_strdup0(src->mtls_endpoint_aliases.revocation_endpoint);
+    dst->mtls_endpoint_aliases.introspection_endpoint =
+        axiam_strdup0(src->mtls_endpoint_aliases.introspection_endpoint);
+    dst->mtls_endpoint_aliases.device_authorization_endpoint =
+        axiam_strdup0(src->mtls_endpoint_aliases.device_authorization_endpoint);
+    dst->mtls_endpoint_aliases.pushed_authorization_request_endpoint =
+        axiam_strdup0(src->mtls_endpoint_aliases.pushed_authorization_request_endpoint);
     dst->scopes_supported = string_array_copy(src->scopes_supported, src->scopes_supported_count);
     dst->scopes_supported_count = dst->scopes_supported ? src->scopes_supported_count : 0;
     dst->response_types_supported =

@@ -193,6 +193,53 @@ Strict server verification is **always on** and cannot be disabled — there is 
   ```
   Presenting a client certificate never relaxes server verification.
 
+### RFC 8705 §5 `mtls_endpoint_aliases` (contract 1.40, CONTRACT.md §21.3 rule 2)
+
+A TLS listener decides whether to ask for a client certificate during the
+handshake, before it has seen a byte of HTTP, so "request one on
+`/oauth2/token` but not on `/oauth2/authorize`" is not something a single
+listener can do. A deployment that wants both runs two — and
+`mtls_endpoint_aliases` in the discovery document is how the second one is
+named.
+
+Once a client is configured with `axiam_client_config_set_client_cert`, every
+request it makes presents that certificate, so the §12 operations **prefer the
+alias** over the top-level entry of the same name wherever the document
+publishes one:
+
+| Operation | Endpoint aliased |
+|---|---|
+| `axiam_oidc_exchange`, `axiam_oidc_refresh`, `axiam_login_client_credentials`, `axiam_device_poll`, `axiam_token_exchange` | `token_endpoint` |
+| `axiam_introspect` | `introspection_endpoint` |
+| `axiam_revoke` | `revocation_endpoint` |
+| `axiam_device_authorize` | `device_authorization_endpoint` |
+| `axiam_oidc_par` | `pushed_authorization_request_endpoint` |
+
+The parsed document exposes them as `axiam_oidc_config_t.mtls_endpoint_aliases`,
+guarded by `has_mtls_endpoint_aliases`. Three things this deliberately does
+**not** do:
+
+- **`has_mtls_endpoint_aliases == 0` is not an error.** It means "this
+  deployment terminates mutual TLS on the issuer's own host", so the
+  conventional endpoints keep being used. A deployment running
+  `client_auth = optional` on one listener serves both populations there and
+  correctly publishes nothing. The same holds one level in: every member of the
+  alias struct may be `NULL`, and an endpoint the object does not name falls
+  back rather than failing the document.
+- **No alias is ever synthesised.** Only the six endpoints RFC 8705 §5 lists
+  can be aliased — never `authorization_endpoint`, `end_session_endpoint` or
+  `jwks_uri`. The first two are front-channel and the third is public key
+  material; sending a browser to an mTLS host raises a native
+  certificate-chooser dialog most users cannot answer.
+- **`issuer` does not move.** It is an identifier, not an endpoint. §12.4
+  rule 3 still requires a token's `iss` to equal the document's `issuer` by
+  exact string comparison, including for a token minted at an alias endpoint —
+  the expected issuer is never derived from the host that was called.
+
+A client without a certificate keeps using the top-level endpoints even when the
+document publishes aliases: the alias exists for the handshake, and there is no
+handshake to make.
+
 ## Contract behaviors
 
 | §    | Behavior | Where |

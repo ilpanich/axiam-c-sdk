@@ -46,7 +46,13 @@ axiam_error_kind_t axiam_device_authorize(axiam_client_t *client, const char *sc
     axiam_oidc_config_t config;
     axiam_error_kind_t kind = axiam_oidc_discover(client, &config, err);
     if (kind != AXIAM_OK) return kind;
-    if (!config.device_authorization_endpoint) {
+    /* §21.3 rule 2: prefer the mTLS alias when this call presents a client
+     * certificate. NULL at BOTH levels still means "unsupported" — never a cue
+     * to build the URL by concatenation (§14.1). */
+    const char *device_endpoint = oidc_preferred_endpoint(
+        client, &config, config.mtls_endpoint_aliases.device_authorization_endpoint,
+        config.device_authorization_endpoint);
+    if (!device_endpoint) {
         axiam_oidc_config_dispose(&config);
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
                         "the discovery document advertises no device_authorization_endpoint");
@@ -65,7 +71,7 @@ axiam_error_kind_t axiam_device_authorize(axiam_client_t *client, const char *sc
     oidc_form_add(&form, "client_id", client_id);
     oidc_form_add(&form, "scope", scope);
 
-    char *url = oidc_endpoint_with_tenant(config.device_authorization_endpoint, tenant);
+    char *url = oidc_endpoint_with_tenant(device_endpoint, tenant);
     /*
      * ZERO-INITIALISED, and that is load-bearing rather than defensive. The
      * POST below is skipped whenever the URL or the form could not be
