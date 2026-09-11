@@ -296,6 +296,70 @@ void test_supported_arrays_of_awkward_shapes_are_parsed_defensively(void) {
     axiam_client_free(c);
 }
 
+void test_contract_1_42_the_two_new_rfc_8414_members_are_read_and_optional(void) {
+    /*
+     * §21.5 (contract 1.42): `code_challenge_methods_supported` and
+     * `token_endpoint_auth_signing_alg_values_supported`. AXIAM always
+     * publishes both — `openapi.json` marks them required — and this SDK reads
+     * them as OPTIONAL anyway.
+     *
+     * That is deliberate, and §21.5 gives the reason: RFC 8414 defines no
+     * default for either, so an ABSENT member says nothing at all, and in
+     * particular absence is not `["S256"]`. This struct also has to parse a
+     * discovery document from a non-AXIAM OP, and every neighbouring
+     * `*_supported` member here is already modelled the same way. Requiring
+     * them would reject documents the SDK accepts today.
+     *
+     * Both are informational: §12.5 pins the challenge method to S256 and §5
+     * rule 3 pins client authentication to `client_secret_post`, whatever the
+     * lists say.
+     */
+    g_discovery_body =
+        "{\"issuer\":\"" OIDC_ISSUER "\","
+        "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","
+        "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","
+        "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","
+        "\"code_challenge_methods_supported\":[\"S256\",\"plain\"],"
+        "\"token_endpoint_auth_signing_alg_values_supported\":[\"ES256\",\"EdDSA\"],"
+        "\"response_types_supported\":[\"code\"],"
+        "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}";
+
+    axiam_client_t *c = wire_client(1);
+    axiam_error_t err;
+    axiam_oidc_config_t cfg;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL_size_t(2, cfg.code_challenge_methods_supported_count);
+    TEST_ASSERT_EQUAL_STRING("S256", cfg.code_challenge_methods_supported[0]);
+    TEST_ASSERT_EQUAL_STRING("plain", cfg.code_challenge_methods_supported[1]);
+    TEST_ASSERT_EQUAL_size_t(2, cfg.token_endpoint_auth_signing_alg_values_supported_count);
+    TEST_ASSERT_EQUAL_STRING("ES256", cfg.token_endpoint_auth_signing_alg_values_supported[0]);
+    axiam_oidc_config_dispose(&cfg);
+
+    /* The cached copy round-trips both — they go through oidc_config_copy(),
+     * not only through the parser. */
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.discovery_calls);
+    TEST_ASSERT_EQUAL_size_t(2, cfg.code_challenge_methods_supported_count);
+    TEST_ASSERT_EQUAL_STRING("plain", cfg.code_challenge_methods_supported[1]);
+    TEST_ASSERT_EQUAL_size_t(2, cfg.token_endpoint_auth_signing_alg_values_supported_count);
+    TEST_ASSERT_EQUAL_STRING("EdDSA", cfg.token_endpoint_auth_signing_alg_values_supported[1]);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+
+    /* A document carrying NEITHER still parses — that is the whole point. The
+     * absent list reads as absent, never as an assumed ["S256"]. */
+    oidc_reset();
+    g_discovery_body = NULL;  /* ODD_DISCOVERY: has neither member */
+    c = wire_client(1);
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_NULL(cfg.code_challenge_methods_supported);
+    TEST_ASSERT_EQUAL_size_t(0, cfg.code_challenge_methods_supported_count);
+    TEST_ASSERT_NULL(cfg.token_endpoint_auth_signing_alg_values_supported);
+    TEST_ASSERT_EQUAL_size_t(0, cfg.token_endpoint_auth_signing_alg_values_supported_count);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
 void test_each_required_discovery_member_is_required_on_its_own(void) {
     const char *bodies[] = {
         /* no authorization_endpoint */
@@ -498,6 +562,7 @@ int main(void) {
     RUN_TEST(test_a_token_exchange_response_with_no_body_is_refused);
     RUN_TEST(test_an_empty_device_code_is_refused_before_the_wire);
     RUN_TEST(test_supported_arrays_of_awkward_shapes_are_parsed_defensively);
+    RUN_TEST(test_contract_1_42_the_two_new_rfc_8414_members_are_read_and_optional);
     RUN_TEST(test_each_required_discovery_member_is_required_on_its_own);
     RUN_TEST(test_a_discovery_failure_stops_every_operation_that_depends_on_it);
     RUN_TEST(test_the_openid_scope_check_matches_whole_tokens_only);

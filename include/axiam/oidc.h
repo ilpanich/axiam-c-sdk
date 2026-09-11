@@ -243,6 +243,38 @@ typedef struct axiam_oidc_config {
     axiam_mtls_endpoint_aliases_t mtls_endpoint_aliases;
     /** 1 when the document carried an `mtls_endpoint_aliases` object. */
     int has_mtls_endpoint_aliases;
+    /**
+     * RFC 7636 §4.2 / RFC 8414: the PKCE code-challenge methods the OP supports
+     * (§21.5, contract 1.42).
+     *
+     * NULL — with a count of 0 — when the document carried none, and that is
+     * NOT the same as `["S256"]`. RFC 8414 defines no default for this member,
+     * so its absence says nothing about what the OP accepts; §21.5 states this
+     * explicitly. `openapi.json` marks the member required because AXIAM always
+     * publishes it, but this struct must still parse a document from a
+     * non-AXIAM OP, exactly as every neighbouring `*_supported` member here is
+     * already modelled as "may be absent".
+     *
+     * INFORMATIONAL ONLY, like the algorithm list above: §12.5 pins this SDK to
+     * S256 unconditionally, so a document omitting it — or advertising `plain`
+     * — changes nothing about what axiam_oidc_begin() sends.
+     */
+    char **code_challenge_methods_supported;
+    size_t code_challenge_methods_supported_count;
+    /**
+     * RFC 8414 §2: the JWS algorithms the token endpoint accepts for the
+     * signature on a `private_key_jwt` or `client_secret_jwt` assertion
+     * (§21.5, contract 1.42).
+     *
+     * NULL with a count of 0 when absent, for the same reason as above. This
+     * SDK authenticates with `client_secret_post` (§5 rule 3) and so never
+     * signs such an assertion; the member is surfaced so a caller can report
+     * what the deployment supports, not so the SDK can act on it (§21.5: an
+     * advertised capability is a statement about the deployment, not an
+     * instruction to the client).
+     */
+    char **token_endpoint_auth_signing_alg_values_supported;
+    size_t token_endpoint_auth_signing_alg_values_supported_count;
 } axiam_oidc_config_t;
 
 /**

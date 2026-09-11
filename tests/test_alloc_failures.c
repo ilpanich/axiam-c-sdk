@@ -388,6 +388,7 @@ static void test_oidc_config_copy_alloc_failure_sweep(void) {
     const char *scopes[] = {"openid", "profile", "email"};
     const char *resp_types[] = {"code"};
     const char *algs[] = {"EdDSA"};
+    const char *challenge_methods[] = {"S256"};
 
     axiam_oidc_config_t src;
     memset(&src, 0, sizeof(src));
@@ -406,8 +407,14 @@ static void test_oidc_config_copy_alloc_failure_sweep(void) {
     src.response_types_supported_count = 1;
     src.id_token_signing_alg_values_supported = dup_strv(algs, 1);
     src.id_token_signing_alg_values_supported_count = 1;
+    /* §21.5 (contract 1.42) — two more owned arrays on the same copy path, so
+     * two more allocations whose failure arm has to unwind the ones before it. */
+    src.code_challenge_methods_supported = dup_strv(challenge_methods, 1);
+    src.code_challenge_methods_supported_count = 1;
+    src.token_endpoint_auth_signing_alg_values_supported = dup_strv(algs, 1);
+    src.token_endpoint_auth_signing_alg_values_supported_count = 1;
 
-    for (long i = 1; i <= 40; i++) {
+    for (long i = 1; i <= 48; i++) {
         axiam_oidc_config_t dst;
         alloc_fail_after(i);
         axiam_error_kind_t k = oidc_config_copy(&src, &dst);
@@ -430,6 +437,9 @@ static void test_oidc_config_copy_alloc_failure_sweep(void) {
     free_strv(src.response_types_supported, src.response_types_supported_count);
     free_strv(src.id_token_signing_alg_values_supported,
              src.id_token_signing_alg_values_supported_count);
+    free_strv(src.code_challenge_methods_supported, src.code_challenge_methods_supported_count);
+    free_strv(src.token_endpoint_auth_signing_alg_values_supported,
+             src.token_endpoint_auth_signing_alg_values_supported_count);
 }
 
 /* ------------------------------------------------------------------ */

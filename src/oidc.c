@@ -439,6 +439,19 @@ static axiam_error_kind_t parse_discovery(const char *json, axiam_oidc_config_t 
     out->id_token_signing_alg_values_supported =
         json_strings(root, "id_token_signing_alg_values_supported",
                      &out->id_token_signing_alg_values_supported_count);
+    /* §21.5 (contract 1.42). Both are marked required in `openapi.json` because
+     * AXIAM always publishes them, and both are read as OPTIONAL here: RFC 8414
+     * defines no default for either, so an absent member means "this document
+     * does not say", not "S256" — and this struct must still parse a discovery
+     * document from a non-AXIAM OP. Neither steers a decision: §12.5 pins the
+     * challenge method to S256 and §5 rule 3 pins client authentication to
+     * `client_secret_post`, whatever these lists hold. */
+    out->code_challenge_methods_supported =
+        json_strings(root, "code_challenge_methods_supported",
+                     &out->code_challenge_methods_supported_count);
+    out->token_endpoint_auth_signing_alg_values_supported =
+        json_strings(root, "token_endpoint_auth_signing_alg_values_supported",
+                     &out->token_endpoint_auth_signing_alg_values_supported_count);
     cJSON_Delete(root);
 
     /* The four §12 cannot work without. The optional endpoints stay NULL and

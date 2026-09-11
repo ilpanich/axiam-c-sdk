@@ -56,6 +56,10 @@ void axiam_oidc_config_dispose(axiam_oidc_config_t *cfg) {
     string_array_free(cfg->response_types_supported, cfg->response_types_supported_count);
     string_array_free(cfg->id_token_signing_alg_values_supported,
                       cfg->id_token_signing_alg_values_supported_count);
+    string_array_free(cfg->code_challenge_methods_supported,
+                      cfg->code_challenge_methods_supported_count);
+    string_array_free(cfg->token_endpoint_auth_signing_alg_values_supported,
+                      cfg->token_endpoint_auth_signing_alg_values_supported_count);
     memset(cfg, 0, sizeof(*cfg));
 }
 
@@ -558,6 +562,18 @@ axiam_error_kind_t oidc_config_copy(const axiam_oidc_config_t *src, axiam_oidc_c
     dst->id_token_signing_alg_values_supported_count =
         dst->id_token_signing_alg_values_supported
             ? src->id_token_signing_alg_values_supported_count
+            : 0;
+    dst->code_challenge_methods_supported =
+        string_array_copy(src->code_challenge_methods_supported,
+                          src->code_challenge_methods_supported_count);
+    dst->code_challenge_methods_supported_count =
+        dst->code_challenge_methods_supported ? src->code_challenge_methods_supported_count : 0;
+    dst->token_endpoint_auth_signing_alg_values_supported =
+        string_array_copy(src->token_endpoint_auth_signing_alg_values_supported,
+                          src->token_endpoint_auth_signing_alg_values_supported_count);
+    dst->token_endpoint_auth_signing_alg_values_supported_count =
+        dst->token_endpoint_auth_signing_alg_values_supported
+            ? src->token_endpoint_auth_signing_alg_values_supported_count
             : 0;
     if (!dst->issuer || !dst->authorization_endpoint || !dst->token_endpoint || !dst->jwks_uri) {
         axiam_oidc_config_dispose(dst);
