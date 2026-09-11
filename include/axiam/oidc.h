@@ -318,8 +318,43 @@ typedef struct axiam_id_token_claims {
     long long issued_at;
     char *nonce;            /**< NULL when the token carried none. */
     char *authorized_party; /**< `azp`; required by §12.4 rule 4 when `aud` is multi-valued. */
+    /**
+     * OIDC Core §5.1 `email`.
+     *
+     * NULL AGAINST AXIAM AS OF CONTRACT 1.42. AXIAM no longer puts `email` in
+     * the ID token: OIDC Core §5.4 reserves the standard claims for UserInfo
+     * and for an ID token whose request asked for them, and an ID token is an
+     * authentication receipt rather than a profile. The field is kept, and is
+     * still parsed, because an ID token from a NON-AXIAM OP may legitimately
+     * carry one — but code that read a user's address out of here against
+     * AXIAM now reads NULL, silently, on every login.
+     *
+     * Where the address actually is: the `email` member of
+     * ::axiam_login_result_t, which the §3 login response fills directly.
+     */
     char *email;
     char *preferred_username;
+    /**
+     * AXIAM's non-standard `tenant_id` claim.
+     *
+     * NULL AGAINST AXIAM AS OF CONTRACT 1.42, for the same reason as `email`
+     * above, and with the same consequence: silently absent rather than wrong.
+     * Still parsed, because this SDK is a general OIDC relying party and must
+     * keep whatever claims the OP it is pointed at actually sends.
+     *
+     * Where the tenant actually is, in preference order:
+     *
+     *   - the ACCESS TOKEN's claims. `axiam_jwt_verify()` hands back the
+     *     verified payload as JSON, and `tenant_id` and `org_id` are both on
+     *     it. This is the authoritative pair — it is the one the SDK itself
+     *     uses, in `resolve_ids_from_login()`.
+     *   - ::axiam_login_result_t's `tenant_id` / `principal_tenant_id`, filled
+     *     from the §3 login response body.
+     *   - ::axiam_mgmt_resolved_tenant_id(), for the tenant a §27 call would
+     *     address.
+     *
+     * Do not reach for the ID token for either identifier.
+     */
     char *tenant_id;
     char **roles;
     size_t roles_count;

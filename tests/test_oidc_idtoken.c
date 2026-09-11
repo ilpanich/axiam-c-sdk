@@ -129,6 +129,79 @@ void test_a_valid_id_token_yields_claims_and_preserves_unknown_ones(void) {
     axiam_client_free(c);
 }
 
+/*
+ * Contract 1.42, BREAKING: AXIAM no longer mints `tenant_id`, `org_id` or
+ * `email` into the ID token (OIDC Core §5.4 — an ID token is an authentication
+ * receipt, not a profile).
+ *
+ * What this pins is that the absence is handled as ABSENCE. The typed fields
+ * must come back NULL rather than as an empty string that a caller would
+ * mistake for a present-but-blank value, the token must still VALIDATE — the
+ * three were never inputs to any §12.4 rule and losing them must not turn a
+ * good login into an AXIAM_ERR_AUTH — and every other claim must survive
+ * untouched.
+ *
+ * The fields themselves stay in the struct, and the test above still asserts
+ * `email` round-trips: a non-AXIAM OP may legitimately send them, and §12.1
+ * forbids discarding a claim the SDK was handed.
+ */
+void test_contract_1_42_an_id_token_without_tenant_org_or_email_still_validates(void) {
+    char payload[1024];
+    mint(good_claims(payload, sizeof(payload),
+                     ",\"preferred_username\":\"ada\",\"roles\":[\"admin\",\"auditor\"],"
+                     "\"department\":\"ops\""));
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, exchange_with_id_token(c, g_token, "the-nonce", &set, &err));
+
+    TEST_ASSERT_NOT_NULL(set.id_claims);
+    /* Absent, not empty. A caller testing `claims->email[0]` would segfault on
+     * an empty-string-as-present representation; NULL is the only answer that
+     * lets `if (claims->email)` mean what it reads as. */
+    TEST_ASSERT_NULL(set.id_claims->email);
+    TEST_ASSERT_NULL(set.id_claims->tenant_id);
+    /* `org_id` was never a typed member — it lived only in the raw claim set —
+     * so its disappearance is visible there and nowhere else. */
+    TEST_ASSERT_NULL(strstr(set.id_claims->raw_claims_json, "org_id"));
+
+    /* Everything else is intact. The token is a perfectly good one. */
+    TEST_ASSERT_EQUAL_STRING("user-1", set.id_claims->subject);
+    TEST_ASSERT_EQUAL_STRING(OIDC_ISSUER, set.id_claims->issuer);
+    TEST_ASSERT_EQUAL_STRING("the-nonce", set.id_claims->nonce);
+    TEST_ASSERT_EQUAL_STRING("ada", set.id_claims->preferred_username);
+    TEST_ASSERT_EQUAL_size_t(2, set.id_claims->roles_count);
+    TEST_ASSERT_NOT_NULL(strstr(set.id_claims->raw_claims_json, "\"department\":\"ops\""));
+    TEST_ASSERT_EQUAL_STRING("the-access-token", axiam_sensitive_reveal(set.access_token));
+
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
+/* The other half of the same decision: the fields are KEPT, so an OP that does
+ * send them is still understood. Deleting the members would have been a source
+ * break on top of a behavioural one, and would have made this SDK worse at
+ * being a general OIDC relying party. */
+void test_contract_1_42_a_non_axiam_op_may_still_send_tenant_id_and_email(void) {
+    char payload[1024];
+    mint(good_claims(payload, sizeof(payload),
+                     ",\"email\":\"ada@lovelace.test\","
+                     "\"tenant_id\":\"11111111-1111-1111-1111-111111111111\""));
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, exchange_with_id_token(c, g_token, "the-nonce", &set, &err));
+
+    TEST_ASSERT_NOT_NULL(set.id_claims);
+    TEST_ASSERT_EQUAL_STRING("ada@lovelace.test", set.id_claims->email);
+    TEST_ASSERT_EQUAL_STRING("11111111-1111-1111-1111-111111111111", set.id_claims->tenant_id);
+
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
 /* ------------------------------------------------------------------ */
 /* Rule 1 — algorithm                                                 */
 /* ------------------------------------------------------------------ */
@@ -470,6 +543,8 @@ void test_rule_6_is_skipped_for_a_refresh_issued_id_token(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_a_valid_id_token_yields_claims_and_preserves_unknown_ones);
+    RUN_TEST(test_contract_1_42_an_id_token_without_tenant_org_or_email_still_validates);
+    RUN_TEST(test_contract_1_42_a_non_axiam_op_may_still_send_tenant_id_and_email);
     RUN_TEST(test_rule_1_alg_none_is_rejected);
     RUN_TEST(test_rule_1_hs256_confusion_is_rejected_before_any_key_is_consulted);
     RUN_TEST(test_rule_2_a_kid_no_key_matches_is_rejected);

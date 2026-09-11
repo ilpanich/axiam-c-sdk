@@ -346,6 +346,20 @@ static axiam_id_token_claims_t *build_claims(cJSON *root, const char *raw) {
     out->issued_at = json_int(root, "iat", 0);
     out->nonce = json_str(root, "nonce");
     out->authorized_party = json_str(root, "azp");
+    /* `email` and `tenant_id`: STILL PARSED, and NULL against AXIAM as of
+     * contract 1.42.
+     *
+     * AXIAM stopped minting either into the ID token — OIDC Core §5.4 — so both
+     * read NULL on every AXIAM login. They are not deleted, for two reasons:
+     * removing a public struct member is a source break piled on top of a
+     * behavioural one, and this SDK is a general OIDC relying party that must
+     * keep parsing what a non-AXIAM OP sends. json_str() already returns NULL
+     * for an absent claim, so the absence surfaces as absence rather than as
+     * an empty string that looks like a value.
+     *
+     * Callers wanting the tenant read the ACCESS token's claims
+     * (axiam_jwt_verify(), which carries `tenant_id` and `org_id` — see
+     * resolve_ids_from_login() in client.c) or axiam_login_result_t. */
     out->email = json_str(root, "email");
     out->preferred_username = json_str(root, "preferred_username");
     out->tenant_id = json_str(root, "tenant_id");
