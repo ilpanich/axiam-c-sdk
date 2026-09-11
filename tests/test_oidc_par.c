@@ -51,6 +51,23 @@
     "\"response_types_supported\":[\"code\"],"                                 \
     "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}"
 
+/*
+ * What AXIAM actually publishes for a tenant-scoped discovery request
+ * (contract 1.42): the tenant is INSIDE the advertised URLs, on the
+ * authorization endpoint and the PAR endpoint alike.
+ */
+#define PAR_FOREIGN_TENANT "bbbbbbbb-0000-0000-0000-000000000002"
+#define PAR_DISCOVERY_TENANT_SCOPED                                            \
+    "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
+    "\"authorization_endpoint\":\"" OIDC_BASE                                   \
+    "/oauth2/authorize?tenant_id=" PAR_FOREIGN_TENANT "\","                    \
+    "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","                        \
+    "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","                              \
+    "\"pushed_authorization_request_endpoint\":\"" OIDC_BASE                    \
+    "/oauth2/par?tenant_id=" PAR_FOREIGN_TENANT "\","                          \
+    "\"response_types_supported\":[\"code\"],"                                  \
+    "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}"
+
 #define PAR_OK_BODY \
     "{\"request_uri\":\"" PAR_REQUEST_URI "\",\"expires_in\":90}"
 
@@ -342,6 +359,131 @@ void test_a_pre_existing_query_on_the_endpoint_is_dropped(void) {
     TEST_ASSERT_NOT_NULL(strstr(par.url, "/oauth2/authorize?client_id="));
 
     axiam_pushed_authorization_request_dispose(&par);
+    axiam_authorization_request_dispose(&req);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
+void test_contract_1_42_the_tenant_survives_into_the_par_redirect(void) {
+    /*
+     * REGRESSION, contract 1.42. §26.2 rule 2 drops the discovered endpoint's
+     * query, and that is right for every AUTHORIZATION parameter: re-adding one
+     * inline next to a `request_uri` is the parameter-confusion attack the rule
+     * exists to prevent.
+     *
+     * `tenant_id` is not one. It is not in `PushedAuthorizationRequest`, it was
+     * never pushed, so there is no pushed copy for an inline value to disagree
+     * with — it is ROUTING, selecting which tenant's `/oauth2/authorize` is
+     * being addressed. AXIAM publishes it on `authorization_endpoint` whenever
+     * the discovery request named a tenant, and a browser arriving without it
+     * has no session to match: the server answers 401 instead of rendering the
+     * login page. Dropping it made PAR unusable on exactly the deployments that
+     * scope discovery.
+     *
+     * The value carried is the RESOLVED tenant — the one this push was made
+     * against — not the string the document happened to hold. A `request_uri`
+     * is only valid for the tenant that minted it, so the two must not differ.
+     */
+    g_oidc.discovery_body = PAR_DISCOVERY_TENANT_SCOPED;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_oidc_config_t cfg;
+    axiam_authorization_request_t req;
+    axiam_pushed_authorization_request_t par;
+
+    TEST_ASSERT_EQUAL(AXIAM_OK, push(c, "openid", &cfg, &req, &par, &err));
+
+    TEST_ASSERT_NOT_NULL(strstr(par.url, "/oauth2/authorize?client_id=" OIDC_CLIENT_ID));
+    TEST_ASSERT_NOT_NULL(strstr(par.url, "request_uri="));
+    TEST_ASSERT_NOT_NULL(strstr(par.url, "&tenant_id=" AXIAM_TEST_TENANT_ID));
+    TEST_ASSERT_NULL(strstr(par.url, PAR_FOREIGN_TENANT));
+    /* And still nothing else: three parameters, not the whole published query. */
+    int amps = 0;
+    for (const char *p = strchr(par.url, '?'); p && *p; p++) {
+        if (*p == '&') amps++;
+    }
+    TEST_ASSERT_EQUAL_INT(2, amps);
+
+    axiam_pushed_authorization_request_dispose(&par);
+    axiam_authorization_request_dispose(&req);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
+void test_contract_1_42_the_push_url_carries_one_tenant_id(void) {
+    /* The push itself, against a PAR endpoint that already names a tenant:
+     * replace, never append. `?tenant_id=A&tenant_id=B` leaves the server
+     * choosing, which is not a choice a client should delegate. */
+    g_oidc.discovery_body = PAR_DISCOVERY_TENANT_SCOPED;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_oidc_config_t cfg;
+    axiam_authorization_request_t req;
+    axiam_pushed_authorization_request_t par;
+
+    TEST_ASSERT_EQUAL(AXIAM_OK, push(c, "openid", &cfg, &req, &par, &err));
+
+    int i = oidc_last_call("/oauth2/par");
+    TEST_ASSERT_TRUE(i >= 0);
+    TEST_ASSERT_EQUAL_STRING(OIDC_BASE "/oauth2/par?tenant_id=" AXIAM_TEST_TENANT_ID,
+                             g_oidc.urls[i]);
+
+    axiam_pushed_authorization_request_dispose(&par);
+    axiam_authorization_request_dispose(&req);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
+void test_contract_1_42_dpop_jkt_is_pushed_only_when_the_caller_supplies_one(void) {
+    /*
+     * RFC 9449 §10.1 (contract 1.42). `dpop_jkt` binds the authorization code
+     * to a DPoP key at push time, so a code intercepted in the browser cannot
+     * be redeemed by a client holding a different one.
+     *
+     * CALLER-SUPPLIED. CONTRACT.md §21.9 records this SDK as declining §21.7.2:
+     * it generates no proofs and verifies none, so the thumbprint comes from
+     * whatever holds the key and is passed through verbatim. Absent by default,
+     * and an EMPTY string is absent too — a blank `dpop_jkt` on the wire is a
+     * different statement from no `dpop_jkt`, and not one any caller means.
+     */
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_oidc_config_t cfg;
+    axiam_authorization_request_t req;
+    axiam_pushed_authorization_request_t par;
+
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      axiam_oidc_begin(c, &cfg, OIDC_REDIRECT_URI, "openid", &req, &err));
+
+    /* 1. The plain entry point never sends it. */
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_par(c, &cfg, &req, OIDC_REDIRECT_URI, "openid",
+                                               NULL, &par, &err));
+    TEST_ASSERT_FALSE(oidc_body_has_field("/oauth2/par", "dpop_jkt"));
+    axiam_pushed_authorization_request_dispose(&par);
+
+    /* 2. NULL and "" through the _ex entry point are both "absent". */
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_par_ex(c, &cfg, &req, OIDC_REDIRECT_URI, "openid",
+                                                  NULL, "", &par, &err));
+    TEST_ASSERT_FALSE(oidc_body_has_field("/oauth2/par", "dpop_jkt"));
+    axiam_pushed_authorization_request_dispose(&par);
+
+    /* 3. A supplied thumbprint goes out verbatim. */
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      axiam_oidc_par_ex(c, &cfg, &req, OIDC_REDIRECT_URI, "openid", NULL,
+                                        "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs", &par,
+                                        &err));
+    TEST_ASSERT_TRUE(oidc_body_has_field("/oauth2/par", "dpop_jkt"));
+    char value[128];
+    TEST_ASSERT_TRUE(par_form_value(value, sizeof(value), "dpop_jkt"));
+    TEST_ASSERT_EQUAL_STRING("NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs", value);
+    axiam_pushed_authorization_request_dispose(&par);
+
     axiam_authorization_request_dispose(&req);
     axiam_oidc_config_dispose(&cfg);
     axiam_client_free(c);
@@ -670,6 +812,9 @@ int main(void) {
     RUN_TEST(test_openid_is_added_to_the_pushed_scope_when_absent);
     RUN_TEST(test_the_redirect_url_carries_exactly_client_id_and_request_uri);
     RUN_TEST(test_a_pre_existing_query_on_the_endpoint_is_dropped);
+    RUN_TEST(test_contract_1_42_the_tenant_survives_into_the_par_redirect);
+    RUN_TEST(test_contract_1_42_the_push_url_carries_one_tenant_id);
+    RUN_TEST(test_contract_1_42_dpop_jkt_is_pushed_only_when_the_caller_supplies_one);
     RUN_TEST(test_the_request_uri_is_percent_encoded_in_the_redirect);
     RUN_TEST(test_the_push_is_not_retried_on_a_5xx);
     RUN_TEST(test_the_push_is_not_retried_on_a_transport_failure);

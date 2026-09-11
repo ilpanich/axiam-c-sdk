@@ -1392,7 +1392,8 @@ static void test_webhook_verify_headers_body_malloc_failure(void) {
  */
 #define PAR_ALLOC_DISCOVERY_BODY                                               \
     "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
-    "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","           \
+    "\"authorization_endpoint\":\"" OIDC_BASE                                   \
+    "/oauth2/authorize?tenant_id=dddddddd-0000-0000-0000-000000000004\","      \
     "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","                       \
     "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","                              \
     "\"pushed_authorization_request_endpoint\":\"" OIDC_BASE "/oauth2/par\","  \
@@ -1661,10 +1662,15 @@ static void test_account_alloc_failure_sweep(void) {
 
 static void test_oidc_par_alloc_failure_sweep(void) {
     /* src/oidc_par.c: normalize_scope, the S256 challenge, the form, the
-     * tenant-qualified URL, the redirect URL's two percent-encodings and the
+     * tenant-qualified URL, the redirect URL's THREE percent-encodings and the
      * all-or-nothing check at the end. That last one is the important arm: a
      * result missing its url or its verifier is not a partial success, because
-     * the caller would redirect with an empty request_uri. */
+     * the caller would redirect with an empty request_uri.
+     *
+     * The third encode is the tenant (contract 1.42), reached only because
+     * PAR_ALLOC_DISCOVERY_BODY's authorization endpoint names one — the shape
+     * AXIAM publishes for a tenant-scoped discovery request. `dpop_jkt` is
+     * supplied too, so the RFC 9449 §10.1 form field's copy is on the path. */
     axiam_client_t *c = c128_alloc_make_client();
     TEST_ASSERT_NOT_NULL(c);
 
@@ -1679,8 +1685,9 @@ static void test_oidc_par_alloc_failure_sweep(void) {
         }
         axiam_pushed_authorization_request_t par;
         alloc_fail_after(i);
-        axiam_error_kind_t k = axiam_oidc_par(c, &cfg, &req, OIDC_REDIRECT_URI,
-                                              "openid profile", NULL, &par, NULL);
+        axiam_error_kind_t k = axiam_oidc_par_ex(c, &cfg, &req, OIDC_REDIRECT_URI,
+                                                 "openid profile", NULL, "the-jkt", &par,
+                                                 NULL);
         alloc_fail_reset();
         if (k == AXIAM_OK) {
             TEST_ASSERT_NOT_NULL(par.url);

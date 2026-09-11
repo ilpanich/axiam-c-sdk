@@ -1183,6 +1183,34 @@ axiam_error_kind_t axiam_oidc_par(axiam_client_t *client,
                                   axiam_pushed_authorization_request_t *out,
                                   axiam_error_t *err);
 
+/**
+ * axiam_oidc_par() plus RFC 9449 §10.1 `dpop_jkt` (§26.1, contract 1.42).
+ *
+ * Identical in every other respect — axiam_oidc_par() is literally this call
+ * with `dpop_jkt` NULL, kept so no existing caller has to change.
+ *
+ * @param dpop_jkt the base64url-unpadded RFC 7638 SHA-256 thumbprint of the
+ *                 DPoP public key the eventual token request will be signed
+ *                 with, or NULL. Pushing it binds the authorization code to
+ *                 that key, so a code intercepted in the browser cannot be
+ *                 redeemed by a client holding a different one.
+ *
+ *                 THE CALLER COMPUTES IT. CONTRACT.md §21.9 records this SDK as
+ *                 declining §21.7.2: it neither generates DPoP proofs nor
+ *                 verifies them, and this parameter does not change that — it
+ *                 is a pass-through for an application that manages its own
+ *                 DPoP key and signs its own proofs. An empty string is treated
+ *                 as NULL; the parameter is omitted from the form rather than
+ *                 sent blank.
+ */
+axiam_error_kind_t axiam_oidc_par_ex(axiam_client_t *client,
+                                     const axiam_oidc_config_t *config,
+                                     const axiam_authorization_request_t *request,
+                                     const char *redirect_uri, const char *scope,
+                                     const char *tenant_id, const char *dpop_jkt,
+                                     axiam_pushed_authorization_request_t *out,
+                                     axiam_error_t *err);
+
 #ifdef __cplusplus
 }
 #endif
