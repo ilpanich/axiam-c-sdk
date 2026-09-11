@@ -103,6 +103,118 @@ void test_a_token_endpoint_that_already_has_a_query_gets_an_ampersand(void) {
     axiam_client_free(c);
 }
 
+#define FOREIGN_TENANT "aaaaaaaa-0000-0000-0000-000000000001"
+
+/* A document whose token endpoint ALREADY names a tenant, alongside an
+ * unrelated parameter on either side of it. This is what AXIAM publishes
+ * whenever the discovery request named a tenant, or the deployment sets
+ * `oauth2_default_tenant_id` (contract 1.42). */
+#define TENANT_SCOPED_DISCOVERY                                                \
+    "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
+    "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize?tenant_id=" \
+    FOREIGN_TENANT "\","                                                       \
+    "\"token_endpoint\":\"" OIDC_BASE                                         \
+    "/oauth2/token?v=2&tenant_id=" FOREIGN_TENANT "&audit=on\","                \
+    "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","                              \
+    "\"revocation_endpoint\":\"" OIDC_BASE "/oauth2/revoke?tenant_id="          \
+    FOREIGN_TENANT "\","                                                       \
+    "\"pushed_authorization_request_endpoint\":\"" OIDC_BASE                    \
+    "/oauth2/par?tenant_id=" FOREIGN_TENANT "\","                              \
+    "\"response_types_supported\":[\"code\"],"                                  \
+    "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}"
+
+/* Count non-overlapping occurrences of `needle` in `haystack`. */
+static int count_occurrences(const char *haystack, const char *needle) {
+    int n = 0;
+    size_t len = strlen(needle);
+    for (const char *p = strstr(haystack, needle); p; p = strstr(p + len, needle)) n++;
+    return n;
+}
+
+void test_contract_1_42_a_tenant_scoped_endpoint_is_not_doubled(void) {
+    /*
+     * REGRESSION, contract 1.42. AXIAM's discovery document publishes the
+     * tenant INSIDE the advertised token / revocation / introspection /
+     * device-authorization / PAR / end-session URLs. The old builder appended
+     * unconditionally, so the wire carried `?tenant_id=A&tenant_id=B` and which
+     * of the two the server read was a coin toss the client should never have
+     * been flipping.
+     *
+     * Three assertions, and all three matter: exactly ONE tenant_id, it is the
+     * RESOLVED one (the tenant the caller actually authenticated against, not
+     * whatever the document happened to name), and every OTHER parameter the
+     * server put there survives — RFC 6749 §3.1/§3.2 require a client to retain
+     * the endpoint's own query component, and `v=2` and `audit=on` are the
+     * server's, not ours to drop.
+     */
+    g_discovery_body = TENANT_SCOPED_DISCOVERY;
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"at\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = wire_client(1);
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_login_client_credentials(c, NULL, NULL, &set, &err));
+
+    int i = oidc_last_call("/oauth2/token");
+    TEST_ASSERT_EQUAL_INT(1, count_occurrences(g_oidc.urls[i], "tenant_id="));
+    TEST_ASSERT_NOT_NULL(strstr(g_oidc.urls[i], "tenant_id=" AXIAM_TEST_TENANT_ID));
+    TEST_ASSERT_NULL(strstr(g_oidc.urls[i], FOREIGN_TENANT));
+    TEST_ASSERT_NOT_NULL(strstr(g_oidc.urls[i], "v=2"));
+    TEST_ASSERT_NOT_NULL(strstr(g_oidc.urls[i], "audit=on"));
+
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
+void test_contract_1_42_a_tenant_scoped_endpoint_with_no_other_query_is_clean(void) {
+    /* The same fix on an endpoint whose ONLY parameter was the tenant: the
+     * result must be a single clean `?tenant_id=<resolved>`, with no stray
+     * separator left where the dropped pair used to be. */
+    g_discovery_body = TENANT_SCOPED_DISCOVERY;
+    g_oidc.revoke_answer = (oidc_answer_t){200, "", 0};
+
+    axiam_client_t *c = wire_client(1);
+    axiam_error_t err;
+    axiam_sensitive_t *tok = axiam_sensitive_new("the-token");
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_revoke(c, tok, NULL, NULL, &err));
+    axiam_sensitive_free(tok);
+
+    int i = oidc_last_call("/oauth2/revoke");
+    TEST_ASSERT_EQUAL_STRING(OIDC_BASE "/oauth2/revoke?tenant_id=" AXIAM_TEST_TENANT_ID,
+                             g_oidc.urls[i]);
+    axiam_client_free(c);
+}
+
+void test_contract_1_42_a_parameter_merely_prefixed_tenant_id_survives(void) {
+    /* `tenant_idx` is a legal, unrelated parameter. A strncmp-only match would
+     * eat it — the drop is length-bounded for exactly this reason. */
+    g_discovery_body =
+        "{\"issuer\":\"" OIDC_ISSUER "\","
+        "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","
+        "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token?tenant_idx=keep\","
+        "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","
+        "\"response_types_supported\":[\"code\"],"
+        "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}";
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"at\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = wire_client(1);
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_login_client_credentials(c, NULL, NULL, &set, &err));
+
+    int i = oidc_last_call("/oauth2/token");
+    TEST_ASSERT_EQUAL_STRING(
+        OIDC_BASE "/oauth2/token?tenant_idx=keep&tenant_id=" AXIAM_TEST_TENANT_ID,
+        g_oidc.urls[i]);
+
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
 void test_an_empty_explicit_tenant_id_falls_back_to_the_configured_one(void) {
     /* An empty string is not an override. Treating it as one would send
      * `?tenant_id=` and produce a server error for something the client already
@@ -553,6 +665,9 @@ void test_sso_start_sends_whichever_tenant_and_org_form_the_client_carries(void)
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_a_token_endpoint_that_already_has_a_query_gets_an_ampersand);
+    RUN_TEST(test_contract_1_42_a_tenant_scoped_endpoint_is_not_doubled);
+    RUN_TEST(test_contract_1_42_a_tenant_scoped_endpoint_with_no_other_query_is_clean);
+    RUN_TEST(test_contract_1_42_a_parameter_merely_prefixed_tenant_id_survives);
     RUN_TEST(test_an_empty_explicit_tenant_id_falls_back_to_the_configured_one);
     RUN_TEST(test_disabling_retry_makes_an_eligible_operation_a_single_attempt);
     RUN_TEST(test_an_error_body_with_an_empty_error_field_falls_back_to_the_status);

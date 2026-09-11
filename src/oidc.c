@@ -246,16 +246,87 @@ const char *oidc_preferred_endpoint(const axiam_client_t *client,
     return top_level;
 }
 
+/*
+ * True when one `&`-delimited query segment IS the tenant_id parameter —
+ * `tenant_id=...`, or the valueless `tenant_id`. Length-bounded rather than
+ * strncmp-only so that `tenant_idx=1`, a perfectly legal unrelated parameter,
+ * survives.
+ */
+static int query_pair_is_tenant_id(const char *pair, size_t len) {
+    return len >= 9 && strncmp(pair, "tenant_id", 9) == 0 && (len == 9 || pair[9] == '=');
+}
+
+/*
+ * The endpoint URL with exactly one `tenant_id` on it: the resolved one.
+ *
+ * REPLACE, NEVER APPEND (contract 1.42). AXIAM's discovery document publishes
+ * the tenant INSIDE the advertised token / revocation / introspection /
+ * device-authorization / PAR / end-session URLs whenever the discovery request
+ * named a tenant or the deployment sets `oauth2_default_tenant_id`. An SDK that
+ * appends its own therefore sends `?tenant_id=A&tenant_id=B`, and which of the
+ * two the server reads is not something a client should be betting on.
+ *
+ * Every OTHER query parameter the endpoint carried is preserved byte-for-byte,
+ * in its original order: RFC 6749 §3.1/§3.2 require a client to retain the
+ * endpoint's own query component, and re-encoding a value the server wrote is
+ * how a correctly-escaped parameter becomes a differently-escaped one.
+ *
+ * The RESOLVED value wins a disagreement. It is the tenant the caller and the
+ * session actually authenticated against, and a deterministic override beats a
+ * silent mismatch between two tenants in one URL.
+ *
+ * No fragment handling: RFC 6749 §3.1 forbids a fragment component on these
+ * endpoints, so there is none to preserve.
+ */
 char *oidc_endpoint_with_tenant(const char *endpoint, const char *tenant_uuid) {
     if (!endpoint || !tenant_uuid) return NULL;
+
+    const char *q = strchr(endpoint, '?');
+    size_t base_len = q ? (size_t)(q - endpoint) : strlen(endpoint);
+    const char *query = q ? q + 1 : "";
+
+    /* Worst case is "every existing pair kept": that costs the query's own
+     * bytes plus one separator, which strlen(endpoint) + 16 already covers. */
     size_t n = strlen(endpoint) + strlen(tenant_uuid) + 16;
     char *url = malloc(n);
     if (!url) return NULL;
+
+    memcpy(url, endpoint, base_len);
+    size_t at = base_len;
+    url[at++] = '?';
+
+    for (const char *p = query; *p;) {
+        const char *amp = strchr(p, '&');
+        size_t len = amp ? (size_t)(amp - p) : strlen(p);
+        if (!query_pair_is_tenant_id(p, len)) {
+            memcpy(url + at, p, len);
+            at += len;
+            url[at++] = '&';
+        }
+        p = amp ? amp + 1 : p + len;
+    }
+
     /* §12.1 note 2: tenant_id is a QUERY parameter and never a body field —
      * TokenRequest, IntrospectRequest and RevokeRequest have no such property. */
-    snprintf(url, n, "%s%ctenant_id=%s", endpoint,
-             strchr(endpoint, '?') ? '&' : '?', tenant_uuid);
+    snprintf(url + at, n - at, "tenant_id=%s", tenant_uuid);
     return url;
+}
+
+/*
+ * Whether a discovered endpoint URL already names a tenant. §26.2 rule 2's
+ * redirect builder needs this: it drops the endpoint's whole query, so it has
+ * to know whether the server put a tenant there.
+ */
+int oidc_endpoint_names_tenant(const char *endpoint) {
+    const char *q = endpoint ? strchr(endpoint, '?') : NULL;
+    if (!q) return 0;
+    for (const char *p = q + 1; *p;) {
+        const char *amp = strchr(p, '&');
+        size_t len = amp ? (size_t)(amp - p) : strlen(p);
+        if (query_pair_is_tenant_id(p, len)) return 1;
+        p = amp ? amp + 1 : p + len;
+    }
+    return 0;
 }
 
 /* ------------------------------------------------------------------ */

@@ -56,8 +56,16 @@ const char *oidc_require_client_id(axiam_client_t *c, const char *operation,
 const char *oidc_require_client_secret(axiam_client_t *c, const char *operation,
                                        axiam_error_t *err);
 
-/** Append `?tenant_id=<uuid>` to an absolute endpoint. malloc'd, or NULL. */
+/**
+ * An absolute endpoint carrying exactly one `tenant_id=<uuid>`: the resolved
+ * one. REPLACES any `tenant_id` the discovery document already published on
+ * that endpoint (contract 1.42) and preserves every other query parameter
+ * byte-for-byte (RFC 6749 §3.1/§3.2). malloc'd, or NULL.
+ */
 char *oidc_endpoint_with_tenant(const char *endpoint, const char *tenant_uuid);
+
+/** 1 when a discovered endpoint URL already carries a `tenant_id` parameter. */
+int oidc_endpoint_names_tenant(const char *endpoint);
 
 /** 1 when the client presents a §6.1 mTLS identity (CONTRACT.md §21.3 rule 2). */
 int oidc_presents_client_certificate(const axiam_client_t *client);

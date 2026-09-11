@@ -622,6 +622,74 @@ void test_the_sensitive_accessor_is_safe_on_a_null_handle(void) {
     axiam_sensitive_free(s);
 }
 
+/*
+ * The tenant-query builder, directly — contract 1.42.
+ *
+ * It is three lines of string surgery reached by nine operations, and the
+ * shapes below are the ones a real discovery document produces: a bare
+ * endpoint, an endpoint the deployment versioned, an endpoint AXIAM already
+ * scoped to a tenant, and the two near-misses (`tenant_idx`, a valueless
+ * `tenant_id`) that a strncmp-only implementation gets wrong in opposite
+ * directions.
+ */
+void test_the_tenant_query_builder_replaces_rather_than_appends(void) {
+    static const char *const uuid = "cccccccc-0000-0000-0000-000000000003";
+    struct {
+        const char *endpoint;
+        const char *want;
+    } cases[] = {
+        /* No query at all: the ordinary case. */
+        {"https://op.test/oauth2/token",
+         "https://op.test/oauth2/token?tenant_id=cccccccc-0000-0000-0000-000000000003"},
+        /* A query the deployment owns, and no tenant: appended, nothing lost. */
+        {"https://op.test/oauth2/token?v=2",
+         "https://op.test/oauth2/token?v=2&tenant_id=cccccccc-0000-0000-0000-000000000003"},
+        /* AXIAM's own tenant-scoped shape: replaced, not doubled. */
+        {"https://op.test/oauth2/token?tenant_id=aaaa",
+         "https://op.test/oauth2/token?tenant_id=cccccccc-0000-0000-0000-000000000003"},
+        /* Tenant in the middle: the neighbours keep their order. */
+        {"https://op.test/oauth2/token?v=2&tenant_id=aaaa&audit=on",
+         "https://op.test/oauth2/token?v=2&audit=on&tenant_id="
+         "cccccccc-0000-0000-0000-000000000003"},
+        /* `tenant_idx` is an unrelated parameter and must survive. */
+        {"https://op.test/oauth2/token?tenant_idx=1",
+         "https://op.test/oauth2/token?tenant_idx=1&tenant_id="
+         "cccccccc-0000-0000-0000-000000000003"},
+        /* A VALUELESS `tenant_id` is still the tenant parameter, and still
+         * goes: leaving it would put two of them on the wire, one of them
+         * empty, which is the ambiguity this whole function exists to remove. */
+        {"https://op.test/oauth2/token?tenant_id&v=2",
+         "https://op.test/oauth2/token?v=2&tenant_id=cccccccc-0000-0000-0000-000000000003"},
+        /* An empty query component: no stray separator survives it. */
+        {"https://op.test/oauth2/token?",
+         "https://op.test/oauth2/token?tenant_id=cccccccc-0000-0000-0000-000000000003"},
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        char *got = oidc_endpoint_with_tenant(cases[i].endpoint, uuid);
+        TEST_ASSERT_NOT_NULL(got);
+        TEST_ASSERT_EQUAL_STRING(cases[i].want, got);
+        free(got);
+    }
+
+    /* Either argument absent is NULL, never a half-built URL. */
+    TEST_ASSERT_NULL(oidc_endpoint_with_tenant(NULL, uuid));
+    TEST_ASSERT_NULL(oidc_endpoint_with_tenant("https://op.test/oauth2/token", NULL));
+}
+
+void test_whether_a_discovered_endpoint_already_names_a_tenant(void) {
+    /* §26.2 rule 2's redirect builder asks this before deciding whether to put
+     * a tenant on the URL it hands the browser. Both near-misses again, from
+     * the other side. */
+    TEST_ASSERT_TRUE(oidc_endpoint_names_tenant("https://op.test/a?tenant_id=x"));
+    TEST_ASSERT_TRUE(oidc_endpoint_names_tenant("https://op.test/a?v=2&tenant_id=x&z=1"));
+    TEST_ASSERT_TRUE(oidc_endpoint_names_tenant("https://op.test/a?tenant_id"));
+    TEST_ASSERT_FALSE(oidc_endpoint_names_tenant("https://op.test/a?tenant_idx=1"));
+    TEST_ASSERT_FALSE(oidc_endpoint_names_tenant("https://op.test/a?v=2"));
+    TEST_ASSERT_FALSE(oidc_endpoint_names_tenant("https://op.test/a"));
+    TEST_ASSERT_FALSE(oidc_endpoint_names_tenant(NULL));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_only_a_well_formed_uuid_satisfies_the_tenant_rule);
@@ -646,5 +714,7 @@ int main(void) {
     RUN_TEST(test_a_discovery_document_with_empty_optional_endpoints_reads_as_absent);
     RUN_TEST(test_every_operation_tolerates_a_null_error_out_parameter);
     RUN_TEST(test_the_sensitive_accessor_is_safe_on_a_null_handle);
+    RUN_TEST(test_the_tenant_query_builder_replaces_rather_than_appends);
+    RUN_TEST(test_whether_a_discovered_endpoint_already_names_a_tenant);
     return UNITY_END();
 }
