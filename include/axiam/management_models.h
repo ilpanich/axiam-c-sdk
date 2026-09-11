@@ -131,6 +131,52 @@ int axiam_mgmt_audit_outcome_from_wire(const char *value, axiam_mgmt_audit_outco
 const char *axiam_mgmt_audit_outcome_to_wire(axiam_mgmt_audit_outcome_t value);
 
 /**
+ * Whether this client's authorization requests may carry OpenID Connect's
+ * authentication-request parameters, or whether they are ignored (X7.1).
+ *
+ * The bundle this governs is `prompt`, `max_age`, `acr_values`, `claims`, `id_token_hint`,
+ * `login_hint`, `display`, `ui_locales` and `claims_locales`. It is **one** field rather
+ * than nine booleans for the same reason [`ClientProfile`] is one field rather than a
+ * dozen: a client that honours `max_age` but ignores `prompt=none` is not "mostly
+ * conformant", it is a client a relying party cannot reason about.
+ *
+ * [`Ignore`](Self::Ignore) is the serde default and is exactly what AXIAM has always done —
+ * unknown authorization-request parameters are dropped by the query deserialiser and never
+ * reach a decision. Every row written before schema v54 therefore decodes to the behaviour
+ * it already had.
+ */
+typedef enum axiam_mgmt_authn_request_params_mode {
+    AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_IGNORE = 0, /**< Wire value `ignore`. */
+    AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_HONOUR, /**< Wire value `honour`. */
+    AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_authn_request_params_mode_t;
+
+/**
+ * Parse a wire value into an AuthnRequestParamsMode.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN` for a value this
+ * SDK's copy of the spec does not list, rather than reporting a failure the caller would
+ * have to fail the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a
+ * NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_authn_request_params_mode_from_wire(const char *value, axiam_mgmt_authn_request_params_mode_t *out);
+
+/**
+ * The wire spelling of an AuthnRequestParamsMode. Never NULL.
+ *
+ * `AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN` spells as the empty string, which no
+ * server value is: carrying an unrecognised value back into an update is refused by the
+ * server rather than written as a spelling it never used.
+ */
+const char *axiam_mgmt_authn_request_params_mode_to_wire(axiam_mgmt_authn_request_params_mode_t value);
+
+/**
  * Status of a certificate in its lifecycle.
  */
 typedef enum axiam_mgmt_certificate_status {
@@ -252,6 +298,7 @@ const char *axiam_mgmt_certification_level_to_wire(axiam_mgmt_certification_leve
  */
 typedef enum axiam_mgmt_client_auth_method {
     AXIAM_MGMT_CLIENT_AUTH_METHOD_CLIENT_SECRET_POST = 0, /**< Wire value `client_secret_post`. */
+    AXIAM_MGMT_CLIENT_AUTH_METHOD_CLIENT_SECRET_BASIC, /**< Wire value `client_secret_basic`. */
     AXIAM_MGMT_CLIENT_AUTH_METHOD_TLS_CLIENT_AUTH, /**< Wire value `tls_client_auth`. */
     AXIAM_MGMT_CLIENT_AUTH_METHOD_SELF_SIGNED_TLS_CLIENT_AUTH, /**< Wire value `self_signed_tls_client_auth`. */
     AXIAM_MGMT_CLIENT_AUTH_METHOD_PRIVATE_KEY_JWT, /**< Wire value `private_key_jwt`. */
@@ -888,6 +935,7 @@ typedef struct axiam_mgmt_ca_certificate axiam_mgmt_ca_certificate_t;
 typedef struct axiam_mgmt_certificate axiam_mgmt_certificate_t;
 typedef struct axiam_mgmt_certificate_policy axiam_mgmt_certificate_policy_t;
 typedef struct axiam_mgmt_compliance_report_entry axiam_mgmt_compliance_report_entry_t;
+typedef struct axiam_mgmt_consent_view axiam_mgmt_consent_view_t;
 typedef struct axiam_mgmt_create_ca_certificate_request axiam_mgmt_create_ca_certificate_request_t;
 typedef struct axiam_mgmt_create_certificate_request axiam_mgmt_create_certificate_request_t;
 typedef struct axiam_mgmt_create_federation_config_request axiam_mgmt_create_federation_config_request_t;
@@ -919,6 +967,7 @@ typedef struct axiam_mgmt_generated_ca_certificate axiam_mgmt_generated_ca_certi
 typedef struct axiam_mgmt_generated_certificate axiam_mgmt_generated_certificate_t;
 typedef struct axiam_mgmt_generated_pgp_key axiam_mgmt_generated_pgp_key_t;
 typedef struct axiam_mgmt_grant_permission_request axiam_mgmt_grant_permission_request_t;
+typedef struct axiam_mgmt_grant_scope_consent axiam_mgmt_grant_scope_consent_t;
 typedef struct axiam_mgmt_granted_scope axiam_mgmt_granted_scope_t;
 typedef struct axiam_mgmt_group axiam_mgmt_group_t;
 typedef struct axiam_mgmt_health_response axiam_mgmt_health_response_t;
@@ -938,6 +987,7 @@ typedef struct axiam_mgmt_oidc_authorize_request axiam_mgmt_oidc_authorize_reque
 typedef struct axiam_mgmt_oidc_authorize_response axiam_mgmt_oidc_authorize_response_t;
 typedef struct axiam_mgmt_oidc_callback_request axiam_mgmt_oidc_callback_request_t;
 typedef struct axiam_mgmt_oidc_callback_response axiam_mgmt_oidc_callback_response_t;
+typedef struct axiam_mgmt_oidc_policy axiam_mgmt_oidc_policy_t;
 typedef struct axiam_mgmt_opaque_enrollment axiam_mgmt_opaque_enrollment_t;
 typedef struct axiam_mgmt_opaque_policy axiam_mgmt_opaque_policy_t;
 typedef struct axiam_mgmt_organization axiam_mgmt_organization_t;
@@ -1483,6 +1533,39 @@ struct axiam_mgmt_compliance_report_entry {
 void axiam_mgmt_compliance_report_entry_free(axiam_mgmt_compliance_report_entry_t *value);
 
 /**
+ * One consent record, as the subject sees it.
+ */
+struct axiam_mgmt_consent_view {
+    /**
+     * The server's `accepted_at` field.
+     */
+    char *accepted_at;
+    /**
+     * What was consented to, e.g. `terms_of_service` or `oidc_scope_release:<client_id>`.
+     */
+    char *consent_type;
+    /**
+     * The document version or, for a scope release, the consented scopes.
+     */
+    char *version;
+    /**
+     * Whether this record can be withdrawn here. `false` for `terms_of_service`:
+     * withdrawing it is not a consent operation but an erasure, and it has its own endpoint
+     * with its own grace period. Reported rather than silently absent so the self-service
+     * page can show the record and explain it.
+     */
+    int withdrawable;
+};
+
+/**
+ * Free a ConsentView and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_consent_view_free(axiam_mgmt_consent_view_t *value);
+
+/**
  * The `CreateCaCertificateRequest` schema from the server's OpenAPI document.
  */
 struct axiam_mgmt_create_ca_certificate_request {
@@ -1778,10 +1861,30 @@ void axiam_mgmt_create_notification_rule_request_free(axiam_mgmt_create_notifica
  */
 struct axiam_mgmt_create_o_auth2_client_request {
     /**
+     * X7.1 — whether this client's authorization requests may carry the OpenID Connect
+     * authentication-request parameters (`prompt`, `max_age`, `acr_values`, `claims`,
+     * `id_token_hint`, `login_hint`, `display`, `ui_locales`, `claims_locales`). `"ignore"`
+     * (the default) is what every AXIAM client has always done: they are dropped and reach
+     * no decision. `"honour"` opts in, and is **refused on a `fapi2` client** at both this
+     * gate and the authorization endpoint — the two are different answers to the same
+     * question about what a request from this client means. Optional.
+     */
+    axiam_mgmt_authn_request_params_mode_t authn_request_params;
+    int has_authn_request_params; /**< 1 when `authn_request_params` is set. */
+    /**
      * B5 — where OIDC back-channel logout tokens are delivered. Omit for a client that does
      * not participate. Optional.
      */
     char *backchannel_logout_uri;
+    /**
+     * X7.3 — whether an unauthenticated authorization request from this client may be
+     * answered with a redirect to the login page rather than the `401` AXIAM answers today.
+     * Accepted and stored, but **nothing reads it yet**: the login hop it gates is a later
+     * wave. Unlike `authn_request_params` it is permitted on a `fapi2` client, because it
+     * relaxes nothing — it decides only how an anonymous browser is answered. Optional.
+     */
+    int browser_sso;
+    int has_browser_sso; /**< 1 when `browser_sso` is set. */
     /**
      * RFC 9449 §5.2 — issue DPoP-bound (sender-constrained) access tokens to this client.
      * Independent of both the authentication method and
@@ -2932,6 +3035,30 @@ struct axiam_mgmt_grant_permission_request {
 void axiam_mgmt_grant_permission_request_free(axiam_mgmt_grant_permission_request_t *value);
 
 /**
+ * Body for recording an OIDC scope-release consent.
+ */
+struct axiam_mgmt_grant_scope_consent {
+    /**
+     * The relying party the claims would be released to.
+     */
+    char *client_id;
+    /**
+     * The sensitive scopes being consented to. Order does not matter; the record is written
+     * in the canonical order so that the same consent has one name.
+     */
+    char **scopes;
+    size_t scopes_count; /**< Entries in `scopes`. */
+};
+
+/**
+ * Free a GrantScopeConsent and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_grant_scope_consent_free(axiam_mgmt_grant_scope_consent_t *value);
+
+/**
  * A scope named by a grant, resolved to something a human can read.
  */
 struct axiam_mgmt_granted_scope {
@@ -3394,6 +3521,15 @@ void axiam_mgmt_o_auth2_client_created_response_free(axiam_mgmt_o_auth2_client_c
  */
 struct axiam_mgmt_o_auth2_client_response {
     /**
+     * X7.1 — echoed so an operator can audit which clients act on the OIDC
+     * authentication-request parameters, from this endpoint rather than from the database.
+     */
+    axiam_mgmt_authn_request_params_mode_t authn_request_params;
+    /**
+     * X7.3 — echoed for the same reason.
+     */
+    int browser_sso;
+    /**
      * The server's `client_id` field.
      */
     char *client_id;
@@ -3606,6 +3742,56 @@ struct axiam_mgmt_oidc_callback_response {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_oidc_callback_response_free(axiam_mgmt_oidc_callback_response_t *value);
+
+/**
+ * OpenID Connect surface controls (X7 G8, plan §4.6/§4.8). Two settings that are not
+ * password rules, and are here because this is the org-baseline-plus-tenant-override
+ * surface every other per-tenant control lives on. They are also the two settings in this
+ * model that are *not* of the same kind as each other, so it is worth saying which is
+ * which: * [`Self::sensitive_scopes_enabled`] **is** ordered. Releasing personal data is
+ * the less-restrictive direction, so it is validated disable-only — the mirror image of
+ * `mfa_enforced` — and a tenant can turn its organization's decision off but never on. *
+ * [`Self::default_locale`] is **not** ordered, and no ordering is invented for it. A
+ * language is a presentation preference; there is no sense in which Italian is stricter
+ * than French. [`validate_tenant_override`] therefore does not check it and
+ * [`clamp_overrides_to_org`] never clears it. The model's rule is "a tenant may only be
+ * more restrictive", which binds every field that *has* a restrictiveness; a field that has
+ * none cannot violate it.
+ */
+struct axiam_mgmt_oidc_policy {
+    /**
+     * The BCP 47 tag the sign-in page falls back to when the relying party's `ui_locales`
+     * selects nothing (W5's chain, plan §4.6). `None` means "no tenant preference", which
+     * lands on the deployment default (`en`) — the behaviour every deployment had before
+     * this field existed. A tag this build does not ship also lands there: the parse is
+     * exact rather than a language lookup, so a stored `fr-CA` reads as "somebody wrote
+     * something this binary does not ship" rather than as a guess at French. Stored as a
+     * string rather than as the `Locale` enum because that enum lives in `axiam-oauth2`,
+     * four layers above this crate, and the crate layering points inward. Optional.
+     */
+    char *default_locale;
+    /**
+     * Whether `address` and `phone` may be registered on a client, requested at the
+     * authorization endpoint, and released at UserInfo (X7 G8). **Off unless an
+     * organization turns it on.** The two scopes release a postal address and a telephone
+     * number — categories of personal data AXIAM has no other use for — so the deployment
+     * that has never thought about them releases nothing, and the operator who has thought
+     * about them says so once, at the organization level, where the lawful basis for
+     * holding the data was decided. The switch is a *capability*, not a grant: with it on,
+     * a client still has to register the scope, the request still has to ask for it, and
+     * the user still has to have consented. It is the first of four gates, and it is the
+     * only one an operator can close for everybody at once.
+     */
+    int sensitive_scopes_enabled;
+};
+
+/**
+ * Free a OidcPolicy and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_oidc_policy_free(axiam_mgmt_oidc_policy_t *value);
 
 /**
  * The client-supplied half of an OPAQUE enrolment, as it appears inside registration /
@@ -4521,6 +4707,10 @@ struct axiam_mgmt_security_settings {
      */
     axiam_mgmt_notification_policy_t *notification;
     /**
+     * The server's `oidc` field.
+     */
+    axiam_mgmt_oidc_policy_t *oidc;
+    /**
      * The server's `opaque` field.
      */
     axiam_mgmt_opaque_policy_t *opaque;
@@ -4727,6 +4917,10 @@ struct axiam_mgmt_set_org_settings {
      */
     long default_cert_validity_days;
     /**
+     * The server's `default_locale` field. Optional.
+     */
+    char *default_locale;
+    /**
      * The server's `deletion_grace_period_days` field. Optional.
      */
     long deletion_grace_period_days;
@@ -4811,6 +5005,11 @@ struct axiam_mgmt_set_org_settings {
      * The server's `require_uppercase` field.
      */
     int require_uppercase;
+    /**
+     * The server's `sensitive_scopes_enabled` field. Optional.
+     */
+    int sensitive_scopes_enabled;
+    int has_sensitive_scopes_enabled; /**< 1 when `sensitive_scopes_enabled` is set. */
     /**
      * The server's `webauthn_user_verification` field. Optional.
      */
@@ -5026,6 +5225,11 @@ struct axiam_mgmt_tenant_settings_override {
     long default_cert_validity_days;
     int has_default_cert_validity_days; /**< 1 when `default_cert_validity_days` is set. */
     /**
+     * The tenant's fallback UI language. Not ordered, therefore not validated against the
+     * baseline and never clamped — see [`OidcPolicy`]. Optional.
+     */
+    char *default_locale;
+    /**
      * The server's `deletion_grace_period_days` field. Optional.
      */
     long deletion_grace_period_days;
@@ -5127,6 +5331,11 @@ struct axiam_mgmt_tenant_settings_override {
      */
     int require_uppercase;
     int has_require_uppercase; /**< 1 when `require_uppercase` is set. */
+    /**
+     * The server's `sensitive_scopes_enabled` field. Optional.
+     */
+    int sensitive_scopes_enabled;
+    int has_sensitive_scopes_enabled; /**< 1 when `sensitive_scopes_enabled` is set. */
     /**
      * The server's `webauthn_user_verification` field. Optional.
      */
@@ -5446,10 +5655,20 @@ void axiam_mgmt_update_notification_rule_request_free(axiam_mgmt_update_notifica
  */
 struct axiam_mgmt_update_o_auth2_client_request {
     /**
+     * The server's `authn_request_params` field. Optional.
+     */
+    axiam_mgmt_authn_request_params_mode_t authn_request_params;
+    int has_authn_request_params; /**< 1 when `authn_request_params` is set. */
+    /**
      * Pass an empty string to clear a previously registered URI — the one edit an operator
      * makes when an RP is decommissioned. Optional.
      */
     char *backchannel_logout_uri;
+    /**
+     * X7.3 — see [`CreateOAuth2ClientRequest::browser_sso`]. Optional.
+     */
+    int browser_sso;
+    int has_browser_sso; /**< 1 when `browser_sso` is set. */
     /**
      * The server's `dpop_bound_access_tokens` field. Optional.
      */
@@ -6427,6 +6646,23 @@ typedef struct axiam_mgmt_compliance_report_entry_list {
  * Free a list of ComplianceReportEntry objects and every item in it. Safe to pass NULL.
  */
 void axiam_mgmt_compliance_report_entry_list_free(axiam_mgmt_compliance_report_entry_list_t *list);
+
+/**
+ * A plain list of ConsentView objects.
+ *
+ * This is what a BARE-ARRAY endpoint returns. 27.4 rule 4 is explicit that such a response
+ * MUST NOT be modelled as a page: there is no `total`, no offset and no next page, and
+ * dressing it as one would invite a caller to walk something that has already ended.
+ */
+typedef struct axiam_mgmt_consent_view_list {
+    axiam_mgmt_consent_view_t **items; /**< Every item the server returned. */
+    size_t count;              /**< How many. */
+} axiam_mgmt_consent_view_list_t;
+
+/**
+ * Free a list of ConsentView objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_consent_view_list_free(axiam_mgmt_consent_view_list_t *list);
 
 /**
  * A plain list of FederationLinkResponse objects.

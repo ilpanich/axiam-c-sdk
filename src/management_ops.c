@@ -40,6 +40,8 @@ axiam_mgmt_certificate_policy_t *axiam_mgmt_certificate_policy_parse(const cJSON
 cJSON *axiam_mgmt_certificate_policy_build(const axiam_mgmt_certificate_policy_t *value);
 axiam_mgmt_compliance_report_entry_t *axiam_mgmt_compliance_report_entry_parse(const cJSON *src);
 cJSON *axiam_mgmt_compliance_report_entry_build(const axiam_mgmt_compliance_report_entry_t *value);
+axiam_mgmt_consent_view_t *axiam_mgmt_consent_view_parse(const cJSON *src);
+cJSON *axiam_mgmt_consent_view_build(const axiam_mgmt_consent_view_t *value);
 axiam_mgmt_create_ca_certificate_request_t *axiam_mgmt_create_ca_certificate_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_ca_certificate_request_build(const axiam_mgmt_create_ca_certificate_request_t *value);
 axiam_mgmt_create_certificate_request_t *axiam_mgmt_create_certificate_request_parse(const cJSON *src);
@@ -102,6 +104,8 @@ axiam_mgmt_generated_pgp_key_t *axiam_mgmt_generated_pgp_key_parse(const cJSON *
 cJSON *axiam_mgmt_generated_pgp_key_build(const axiam_mgmt_generated_pgp_key_t *value);
 axiam_mgmt_grant_permission_request_t *axiam_mgmt_grant_permission_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_grant_permission_request_build(const axiam_mgmt_grant_permission_request_t *value);
+axiam_mgmt_grant_scope_consent_t *axiam_mgmt_grant_scope_consent_parse(const cJSON *src);
+cJSON *axiam_mgmt_grant_scope_consent_build(const axiam_mgmt_grant_scope_consent_t *value);
 axiam_mgmt_granted_scope_t *axiam_mgmt_granted_scope_parse(const cJSON *src);
 cJSON *axiam_mgmt_granted_scope_build(const axiam_mgmt_granted_scope_t *value);
 axiam_mgmt_group_t *axiam_mgmt_group_parse(const cJSON *src);
@@ -140,6 +144,8 @@ axiam_mgmt_oidc_callback_request_t *axiam_mgmt_oidc_callback_request_parse(const
 cJSON *axiam_mgmt_oidc_callback_request_build(const axiam_mgmt_oidc_callback_request_t *value);
 axiam_mgmt_oidc_callback_response_t *axiam_mgmt_oidc_callback_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_oidc_callback_response_build(const axiam_mgmt_oidc_callback_response_t *value);
+axiam_mgmt_oidc_policy_t *axiam_mgmt_oidc_policy_parse(const cJSON *src);
+cJSON *axiam_mgmt_oidc_policy_build(const axiam_mgmt_oidc_policy_t *value);
 axiam_mgmt_opaque_enrollment_t *axiam_mgmt_opaque_enrollment_parse(const cJSON *src);
 cJSON *axiam_mgmt_opaque_enrollment_build(const axiam_mgmt_opaque_enrollment_t *value);
 axiam_mgmt_opaque_policy_t *axiam_mgmt_opaque_policy_parse(const cJSON *src);
@@ -5064,6 +5070,77 @@ axiam_error_kind_t axiam_privacy_cancel_delete(axiam_client_t *c, const char *to
     cJSON *json = NULL;
     axiam_error_kind_t rc = axiam_mgmt_send(
         c, "privacy.cancel_delete", "GET", "/api/v1/auth/account/delete/cancel", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_privacy_list_consents(axiam_client_t *c, axiam_mgmt_consent_view_list_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/account/consents", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "privacy.list_consents: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "privacy.list_consents", "GET", "/api/v1/account/consents", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_consent_view_list_t *result = (axiam_mgmt_consent_view_list_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    size_t n = cJSON_IsArray(json) ? (size_t) cJSON_GetArraySize(json) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_consent_view_t **) calloc(n, sizeof(axiam_mgmt_consent_view_t *));
+        if (!result->items) { axiam_mgmt_consent_view_list_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_consent_view_parse(cJSON_GetArrayItem(json, (int) i));
+        result->count = n;
+    }
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_consent_view_list_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_privacy_grant_scope_consent(axiam_client_t *c, const axiam_mgmt_grant_scope_consent_t *body, axiam_error_t *err) {
+    char *path = axiam_mgmt_path("/api/v1/account/consents/oidc-scopes", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "privacy.grant_scope_consent: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_grant_scope_consent_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "privacy.grant_scope_consent", "POST", "/api/v1/account/consents/oidc-scopes", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_privacy_withdraw_scope_consent(axiam_client_t *c, const char *client_id, axiam_error_t *err) {
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "client_id";
+    path_values[0] = client_id;
+    char *path = axiam_mgmt_path("/api/v1/account/consents/oidc-scopes/{client_id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "privacy.withdraw_scope_consent: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "privacy.withdraw_scope_consent", "DELETE", "/api/v1/account/consents/oidc-scopes/{client_id}", path, body_json,
         &json, err);
     free(path);
     free(body_json);

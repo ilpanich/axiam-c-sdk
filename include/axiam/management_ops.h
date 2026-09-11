@@ -2425,6 +2425,52 @@ axiam_error_kind_t axiam_privacy_request_delete(axiam_client_t *c, axiam_error_t
  */
 axiam_error_kind_t axiam_privacy_cancel_delete(axiam_client_t *c, const char *token, axiam_error_t *err);
 
+/**
+ * `GET /api/v1/account/consents` — the caller's own consent records.
+ *
+ * `GET /api/v1/account/consents`.
+ *
+ * Returns the server's complete list. This endpoint is NOT paginated, so the result is a
+ * plain list and never a page (27.4 rule 4).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param out Receives the list on success; free with axiam_mgmt_consent_view_list_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_privacy_list_consents(axiam_client_t *c, axiam_mgmt_consent_view_list_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/account/consents/oidc-scopes` — record a scope-release consent.
+ *
+ * `POST /api/v1/account/consents/oidc-scopes`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param body The request body.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_privacy_grant_scope_consent(axiam_client_t *c, const axiam_mgmt_grant_scope_consent_t *body, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/account/consents/oidc-scopes/{client_id}` — withdraw.
+ *
+ * `DELETE /api/v1/account/consents/oidc-scopes/{client_id}`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param client_id The `{client_id}` path parameter.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_privacy_withdraw_scope_consent(axiam_client_t *c, const char *client_id, axiam_error_t *err);
+
 /* ============================================================================ */
 /*
  * platform -- Deployment-level probes and FIDO metadata state. Unauthenticated where the

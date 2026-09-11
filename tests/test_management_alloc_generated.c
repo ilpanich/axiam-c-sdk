@@ -2155,7 +2155,7 @@ static void test_webhooks_delete_survives_oom(void) {
 static void test_oauth2_clients_list_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        mgmt_mount(200, "{\"items\": [{\"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -2199,7 +2199,7 @@ static void test_oauth2_clients_create_survives_oom(void) {
 static void test_oauth2_clients_get_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+        mgmt_mount(200, "{\"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -2220,7 +2220,7 @@ static void test_oauth2_clients_get_survives_oom(void) {
 static void test_oauth2_clients_update_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+        mgmt_mount(200, "{\"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -2730,7 +2730,7 @@ static void test_email_config_test_tenant_survives_oom(void) {
 static void test_settings_get_org_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
+        mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"default_locale\": \"example\", \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -2751,7 +2751,7 @@ static void test_settings_get_org_survives_oom(void) {
 static void test_settings_set_org_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
+        mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"default_locale\": \"example\", \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -2774,7 +2774,7 @@ static void test_settings_set_org_survives_oom(void) {
 static void test_settings_get_effective_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
+        mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"default_locale\": \"example\", \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -2795,7 +2795,7 @@ static void test_settings_get_effective_survives_oom(void) {
 static void test_settings_set_effective_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
+        mgmt_mount(200, "{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"default_locale\": \"example\", \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -2818,7 +2818,7 @@ static void test_settings_set_effective_survives_oom(void) {
 static void test_settings_get_tenant_override_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"default_cert_validity_days\": 1, \"deletion_grace_period_days\": 1, \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"webauthn_user_verification\": \"example\"}");
+        mgmt_mount(200, "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -2839,7 +2839,7 @@ static void test_settings_get_tenant_override_survives_oom(void) {
 static void test_settings_set_tenant_override_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"default_cert_validity_days\": 1, \"deletion_grace_period_days\": 1, \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"webauthn_user_verification\": \"example\"}");
+        mgmt_mount(200, "{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"webauthn_user_verification\": \"example\"}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -3252,6 +3252,67 @@ static void test_privacy_cancel_delete_survives_oom(void) {
     TEST_PASS();
 }
 
+static void test_privacy_list_consents_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "[{\"accepted_at\": \"2026-08-26T00:00:00Z\", \"consent_type\": \"example\", \"version\": \"example\", \"withdrawable\": true}]");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_consent_view_list_t *result = NULL;
+        arm(n);
+        (void) axiam_privacy_list_consents(c, &result, &err);
+        disarm();
+        axiam_mgmt_consent_view_list_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_privacy_grant_scope_consent_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_grant_scope_consent_t body;
+        memset(&body, 0, sizeof(body));
+        arm(n);
+        (void) axiam_privacy_grant_scope_consent(c, &body, &err);
+        disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_privacy_withdraw_scope_consent_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        arm(n);
+        (void) axiam_privacy_withdraw_scope_consent(c, "11111111-1111-4111-8111-111111111111", &err);
+        disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
 static void test_platform_health_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
@@ -3489,6 +3550,9 @@ int main(void) {
     RUN_TEST(test_privacy_download_export_survives_oom);
     RUN_TEST(test_privacy_request_delete_survives_oom);
     RUN_TEST(test_privacy_cancel_delete_survives_oom);
+    RUN_TEST(test_privacy_list_consents_survives_oom);
+    RUN_TEST(test_privacy_grant_scope_consent_survives_oom);
+    RUN_TEST(test_privacy_withdraw_scope_consent_survives_oom);
     RUN_TEST(test_platform_health_survives_oom);
     RUN_TEST(test_platform_ready_survives_oom);
     RUN_TEST(test_platform_mds_status_survives_oom);
