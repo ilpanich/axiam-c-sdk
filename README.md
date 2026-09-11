@@ -811,6 +811,23 @@ axiam_oidc_exchange(client, &p, &tokens, &err);
  * the rule. */
 ```
 
+**The ID token no longer carries `tenant_id`, `org_id` or `email` (contract
+1.42, OIDC Core §5.4).** AXIAM mints all three as absent — an ID token is an
+authentication receipt, and OIDC Core §5.4 puts the standard claims in UserInfo
+and in an ID token whose request asked for them. `tokens.id_claims->email` and
+`tokens.id_claims->tenant_id` therefore read `NULL` against AXIAM. The members
+are kept, and still parsed, because a non-AXIAM OP may legitimately send them
+and §12.1 forbids discarding a claim the SDK was handed.
+
+Where those identifiers actually are:
+
+| Want | Read |
+|---|---|
+| tenant / organization UUID | the **access token's** claims — `axiam_jwt_verify()` hands back the verified payload as JSON with `tenant_id` and `org_id` on it. This is the pair the SDK uses itself. |
+| tenant, after a §3 login | `axiam_login_result_t.tenant_id` / `.principal_tenant_id` |
+| tenant a §27 call would address | `axiam_mgmt_resolved_tenant_id()` |
+| e-mail address | `axiam_login_result_t.email` |
+
 Three things this surface will not do, each because a section says so:
 
 - **It stores no correlation values** (§12.3 rule 1). See above.
@@ -1194,13 +1211,40 @@ axiam_oidc_par(client, &doc, &req, redirect_uri, "openid profile", NULL, &pushed
 success predicate written `== 200` treats every successful push as a failure
 while passing every other check.
 
-**The redirect carries exactly two parameters (§26.2 rule 2).** AXIAM refuses a
-request that mixes a `request_uri` with inline authorization parameters rather
-than merging them, because merging is where parameter confusion lives: an
-attacker supplies the inline value they want and lets the pushed copy satisfy
-whichever check reads the other one. Re-adding `scope` "for compatibility"
-restores the attack — which is why any query the *discovered* authorization
-endpoint already carried is dropped here rather than merged.
+**The redirect carries exactly the two parameters, plus the tenant when the
+server published one (§26.2 rule 2; corrected in contract 1.42).** AXIAM
+refuses a request that mixes a `request_uri` with inline *authorization*
+parameters rather than merging them, because merging is where parameter
+confusion lives: an attacker supplies the inline value they want and lets the
+pushed copy satisfy whichever check reads the other one. Re-adding `scope`
+"for compatibility" restores the attack — which is why any query the
+*discovered* authorization endpoint carried is dropped rather than merged.
+
+`tenant_id` is the one exception, and dropping it was a bug. It is not a member
+of `PushedAuthorizationRequest`, it is never pushed, so no pushed copy exists
+for an inline value to disagree with — it is routing, selecting whose
+`/oauth2/authorize` is being addressed. AXIAM publishes it inside
+`authorization_endpoint` whenever the discovery request named a tenant or the
+deployment sets `oauth2_default_tenant_id`, and a browser that arrives without
+it has no session to match: the server answers `401` rather than rendering the
+login page. The redirect therefore carries `tenant_id` when — and only when —
+the discovered endpoint carried one, holding the tenant the push was actually
+made against, since a `request_uri` is only valid for the tenant that minted it.
+
+**RFC 9449 §10.1 `dpop_jkt` (contract 1.42).** `axiam_oidc_par_ex()` takes one
+extra argument, the base64url RFC 7638 thumbprint of the DPoP public key the
+eventual token request will be signed with; pushing it binds the authorization
+code to that key. It goes on the form only when set (`NULL` and `""` are both
+"absent"). `axiam_oidc_par()` is that call with `NULL`, so nothing existing
+changes. **The caller computes the thumbprint** — CONTRACT.md §21.9 records
+this SDK as declining §21.7.2, so it generates no DPoP proofs and verifies
+none, and this parameter does not change that.
+
+`request_uri` is **not** on this SDK's PAR surface even though contract 1.42
+adds it to `PushedAuthorizationRequest`. RFC 9126 §2.1 makes it the one
+authorization parameter a client MUST NOT push; the server models it in order
+to refuse it, and a client able to send it is a client able to build the
+chained-request attack.
 
 **One generator, not two (§26.2 rule 1).** The push sends the `state`, `nonce`
 and PKCE pair `axiam_oidc_begin()` produced, and hands them back out on the
@@ -1301,7 +1345,7 @@ Worked example, including a transport skeleton:
 
 ## §27 Management API
 
-147 administrative operations across 24 namespaces, as **flat symbols** —
+158 administrative operations across 24 namespaces, as **flat symbols** —
 `axiam_<namespace>_<operation>()`, the exact shape CONTRACT.md **§27.3's** per-language
 table gives C (its row reads `axiam_service_accounts_rotate_secret(client, id, &out)`).
 C is the only SDK that takes it; every other language in that table, C++ included, gets a

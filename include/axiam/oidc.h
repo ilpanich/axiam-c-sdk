@@ -243,6 +243,38 @@ typedef struct axiam_oidc_config {
     axiam_mtls_endpoint_aliases_t mtls_endpoint_aliases;
     /** 1 when the document carried an `mtls_endpoint_aliases` object. */
     int has_mtls_endpoint_aliases;
+    /**
+     * RFC 7636 §4.2 / RFC 8414: the PKCE code-challenge methods the OP supports
+     * (§21.5, contract 1.42).
+     *
+     * NULL — with a count of 0 — when the document carried none, and that is
+     * NOT the same as `["S256"]`. RFC 8414 defines no default for this member,
+     * so its absence says nothing about what the OP accepts; §21.5 states this
+     * explicitly. `openapi.json` marks the member required because AXIAM always
+     * publishes it, but this struct must still parse a document from a
+     * non-AXIAM OP, exactly as every neighbouring `*_supported` member here is
+     * already modelled as "may be absent".
+     *
+     * INFORMATIONAL ONLY, like the algorithm list above: §12.5 pins this SDK to
+     * S256 unconditionally, so a document omitting it — or advertising `plain`
+     * — changes nothing about what axiam_oidc_begin() sends.
+     */
+    char **code_challenge_methods_supported;
+    size_t code_challenge_methods_supported_count;
+    /**
+     * RFC 8414 §2: the JWS algorithms the token endpoint accepts for the
+     * signature on a `private_key_jwt` or `client_secret_jwt` assertion
+     * (§21.5, contract 1.42).
+     *
+     * NULL with a count of 0 when absent, for the same reason as above. This
+     * SDK authenticates with `client_secret_post` (§5 rule 3) and so never
+     * signs such an assertion; the member is surfaced so a caller can report
+     * what the deployment supports, not so the SDK can act on it (§21.5: an
+     * advertised capability is a statement about the deployment, not an
+     * instruction to the client).
+     */
+    char **token_endpoint_auth_signing_alg_values_supported;
+    size_t token_endpoint_auth_signing_alg_values_supported_count;
 } axiam_oidc_config_t;
 
 /**
@@ -286,8 +318,43 @@ typedef struct axiam_id_token_claims {
     long long issued_at;
     char *nonce;            /**< NULL when the token carried none. */
     char *authorized_party; /**< `azp`; required by §12.4 rule 4 when `aud` is multi-valued. */
+    /**
+     * OIDC Core §5.1 `email`.
+     *
+     * NULL AGAINST AXIAM AS OF CONTRACT 1.42. AXIAM no longer puts `email` in
+     * the ID token: OIDC Core §5.4 reserves the standard claims for UserInfo
+     * and for an ID token whose request asked for them, and an ID token is an
+     * authentication receipt rather than a profile. The field is kept, and is
+     * still parsed, because an ID token from a NON-AXIAM OP may legitimately
+     * carry one — but code that read a user's address out of here against
+     * AXIAM now reads NULL, silently, on every login.
+     *
+     * Where the address actually is: the `email` member of
+     * ::axiam_login_result_t, which the §3 login response fills directly.
+     */
     char *email;
     char *preferred_username;
+    /**
+     * AXIAM's non-standard `tenant_id` claim.
+     *
+     * NULL AGAINST AXIAM AS OF CONTRACT 1.42, for the same reason as `email`
+     * above, and with the same consequence: silently absent rather than wrong.
+     * Still parsed, because this SDK is a general OIDC relying party and must
+     * keep whatever claims the OP it is pointed at actually sends.
+     *
+     * Where the tenant actually is, in preference order:
+     *
+     *   - the ACCESS TOKEN's claims. `axiam_jwt_verify()` hands back the
+     *     verified payload as JSON, and `tenant_id` and `org_id` are both on
+     *     it. This is the authoritative pair — it is the one the SDK itself
+     *     uses, in `resolve_ids_from_login()`.
+     *   - ::axiam_login_result_t's `tenant_id` / `principal_tenant_id`, filled
+     *     from the §3 login response body.
+     *   - ::axiam_mgmt_resolved_tenant_id(), for the tenant a §27 call would
+     *     address.
+     *
+     * Do not reach for the ID token for either identifier.
+     */
     char *tenant_id;
     char **roles;
     size_t roles_count;
@@ -1150,6 +1217,34 @@ axiam_error_kind_t axiam_oidc_par(axiam_client_t *client,
                                   const char *tenant_id,
                                   axiam_pushed_authorization_request_t *out,
                                   axiam_error_t *err);
+
+/**
+ * axiam_oidc_par() plus RFC 9449 §10.1 `dpop_jkt` (§26.1, contract 1.42).
+ *
+ * Identical in every other respect — axiam_oidc_par() is literally this call
+ * with `dpop_jkt` NULL, kept so no existing caller has to change.
+ *
+ * @param dpop_jkt the base64url-unpadded RFC 7638 SHA-256 thumbprint of the
+ *                 DPoP public key the eventual token request will be signed
+ *                 with, or NULL. Pushing it binds the authorization code to
+ *                 that key, so a code intercepted in the browser cannot be
+ *                 redeemed by a client holding a different one.
+ *
+ *                 THE CALLER COMPUTES IT. CONTRACT.md §21.9 records this SDK as
+ *                 declining §21.7.2: it neither generates DPoP proofs nor
+ *                 verifies them, and this parameter does not change that — it
+ *                 is a pass-through for an application that manages its own
+ *                 DPoP key and signs its own proofs. An empty string is treated
+ *                 as NULL; the parameter is omitted from the form rather than
+ *                 sent blank.
+ */
+axiam_error_kind_t axiam_oidc_par_ex(axiam_client_t *client,
+                                     const axiam_oidc_config_t *config,
+                                     const axiam_authorization_request_t *request,
+                                     const char *redirect_uri, const char *scope,
+                                     const char *tenant_id, const char *dpop_jkt,
+                                     axiam_pushed_authorization_request_t *out,
+                                     axiam_error_t *err);
 
 #ifdef __cplusplus
 }

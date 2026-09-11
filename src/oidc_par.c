@@ -45,38 +45,64 @@ static char *normalize_scope(const char *scope) {
 }
 
 /**
- * §26.2 rule 2: the redirect URL carries EXACTLY `client_id` and `request_uri`.
+ * §26.2 rule 2: the redirect URL carries EXACTLY `client_id`, `request_uri` and
+ * — when the server put one there — the tenant.
  *
  * The server REFUSES a request carrying both a request_uri and any inline
- * authorization parameter rather than merging them: an attacker supplies the
+ * AUTHORIZATION parameter rather than merging them: an attacker supplies the
  * inline value they want and lets the pushed copy satisfy whichever check reads
- * the other one. Re-adding them "for compatibility" restores the attack — which
- * is why any query the discovered endpoint already carried is DROPPED here
- * rather than merged.
+ * the other one. Re-adding `scope`, `redirect_uri`, `state` or the PKCE
+ * challenge "for compatibility" restores that attack, which is why the
+ * discovered endpoint's query is dropped rather than merged.
+ *
+ * `tenant_id` IS NOT ONE OF THEM, and dropping it was a bug (contract 1.42).
+ * It is not an authorization parameter — it does not appear in
+ * `PushedAuthorizationRequest`, it was never pushed, and so there is no pushed
+ * copy for an inline value to disagree with. It is routing: it selects which
+ * tenant's `/oauth2/authorize` is being addressed. AXIAM's discovery document
+ * publishes it inside `authorization_endpoint` whenever the discovery request
+ * named a tenant or the deployment sets `oauth2_default_tenant_id`, and a
+ * browser arriving without it has no session to match, so the server answers
+ * 401 rather than rendering the login page.
+ *
+ * `tenant_uuid` — the tenant this push was actually made against — is what goes
+ * on, not the string the endpoint carried. The `request_uri` is only valid for
+ * the tenant that minted it, so those two must not be allowed to differ. When
+ * the endpoint named no tenant, neither does the redirect: this builder does
+ * not invent routing the server did not publish.
  */
 static char *build_redirect_url(const char *authorization_endpoint, const char *client_id,
-                                const char *request_uri) {
+                                const char *request_uri, const char *tenant_uuid) {
     size_t base_len = strlen(authorization_endpoint);
     const char *q = strchr(authorization_endpoint, '?');
     if (q) base_len = (size_t)(q - authorization_endpoint);
 
+    const char *tenant = oidc_endpoint_names_tenant(authorization_endpoint) ? tenant_uuid : NULL;
+
     char *encoded_client = axiam_url_encode(client_id);
     char *encoded_uri = axiam_url_encode(request_uri);
-    if (!encoded_client || !encoded_uri) {
+    char *encoded_tenant = tenant ? axiam_url_encode(tenant) : NULL;
+    if (!encoded_client || !encoded_uri || (tenant && !encoded_tenant)) {
         free(encoded_client);
         free(encoded_uri);
+        free(encoded_tenant);
         return NULL;
     }
 
-    size_t need = base_len + strlen("?client_id=&request_uri=") + strlen(encoded_client) +
-                  strlen(encoded_uri) + 1;
+    size_t need = base_len + strlen("?client_id=&request_uri=&tenant_id=") +
+                  strlen(encoded_client) + strlen(encoded_uri) +
+                  (encoded_tenant ? strlen(encoded_tenant) : 0) + 1;
     char *url = malloc(need);
     if (url) {
-        snprintf(url, need, "%.*s?client_id=%s&request_uri=%s", (int)base_len,
-                 authorization_endpoint, encoded_client, encoded_uri);
+        int n = snprintf(url, need, "%.*s?client_id=%s&request_uri=%s", (int)base_len,
+                         authorization_endpoint, encoded_client, encoded_uri);
+        if (encoded_tenant) {
+            snprintf(url + n, need - (size_t)n, "&tenant_id=%s", encoded_tenant);
+        }
     }
     free(encoded_client);
     free(encoded_uri);
+    free(encoded_tenant);
     return url;
 }
 
@@ -87,6 +113,17 @@ axiam_error_kind_t axiam_oidc_par(axiam_client_t *client,
                                   const char *tenant_id,
                                   axiam_pushed_authorization_request_t *out,
                                   axiam_error_t *err) {
+    return axiam_oidc_par_ex(client, config, request, redirect_uri, scope, tenant_id, NULL, out,
+                             err);
+}
+
+axiam_error_kind_t axiam_oidc_par_ex(axiam_client_t *client,
+                                     const axiam_oidc_config_t *config,
+                                     const axiam_authorization_request_t *request,
+                                     const char *redirect_uri, const char *scope,
+                                     const char *tenant_id, const char *dpop_jkt,
+                                     axiam_pushed_authorization_request_t *out,
+                                     axiam_error_t *err) {
     axiam_error_reset(err);
     if (out) memset(out, 0, sizeof(*out));
     if (!client || !config || !request || !redirect_uri || !redirect_uri[0] || !out) {
@@ -144,6 +181,17 @@ axiam_error_kind_t axiam_oidc_par(axiam_client_t *client,
     oidc_form_add(&form, "nonce", request->nonce);
     oidc_form_add(&form, "code_challenge", challenge);
     oidc_form_add(&form, "code_challenge_method", "S256");
+    /* RFC 9449 §10.1 (contract 1.42): bind the eventual authorization code to a
+     * DPoP key at push time, so the code cannot be redeemed by a client holding
+     * a different one.
+     *
+     * CALLER-SUPPLIED, and only that. §21.9 records this SDK as declining
+     * §21.7.2: it neither generates DPoP proofs nor verifies them, so the
+     * thumbprint is computed by whatever does hold the key and is passed
+     * through verbatim. Emitted only when set — an empty `dpop_jkt` on the wire
+     * is not the same as no `dpop_jkt`, and the server would have to decide
+     * which one it meant. */
+    if (dpop_jkt && dpop_jkt[0]) oidc_form_add(&form, "dpop_jkt", dpop_jkt);
     if (client->cfg->oidc_client_secret) {
         oidc_form_add(&form, "client_secret",
                       axiam_sensitive_reveal(client->cfg->oidc_client_secret));
@@ -196,7 +244,7 @@ axiam_error_kind_t axiam_oidc_par(axiam_client_t *client,
     const cJSON *expires = cJSON_GetObjectItemCaseSensitive(root, "expires_in");
 
     out->url = build_redirect_url(config->authorization_endpoint, client_id,
-                                  request_uri->valuestring);
+                                  request_uri->valuestring, tenant_uuid);
     out->request_uri = axiam_sensitive_new(request_uri->valuestring);
     out->expires_in = cJSON_IsNumber(expires) ? (long)expires->valuedouble : 0L;
     out->state = axiam_strdup0(request->state);

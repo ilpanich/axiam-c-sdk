@@ -7,7 +7,122 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Breaking
+
+- **The ID token no longer carries `tenant_id`, `org_id` or `email` (SDK
+  contract 1.42, OIDC Core §5.4).** This is a SERVER-SIDE change absorbed by
+  this re-vendor, not a change of mind in the SDK: AXIAM now mints all three as
+  absent, because an ID token is an authentication receipt and OIDC Core §5.4
+  places the standard claims in UserInfo and in an ID token whose request asked
+  for them.
+
+  **What breaks.** `axiam_id_token_claims_t`'s `email` and `tenant_id` members
+  read `NULL` against AXIAM on every login from now on. They used to be
+  populated. Nothing errors and nothing logs — code that reached into the ID
+  token for either identifier now quietly has none, which is the worst shape a
+  behavioural change can take, and is why this sits under a Breaking heading
+  rather than in Changed.
+
+  **What did NOT change, deliberately.** Both members stay in the struct and
+  are still parsed. Removing them would be a source break stacked on top of a
+  behavioural one, and this SDK is a general OIDC relying party: an ID token
+  from a non-AXIAM OP may legitimately carry either, and §12.1 forbids
+  discarding a claim the SDK was handed. `json_str()` yields `NULL` for an
+  absent claim, so the absence surfaces as absence rather than as an
+  empty string that reads like a value.
+
+  **Where the identifiers actually are**, in preference order:
+
+  - the **access token's** claims. `axiam_jwt_verify()` returns the verified
+    payload as JSON, carrying both `tenant_id` and `org_id`. This is the pair
+    the SDK itself uses (`resolve_ids_from_login()` in `src/client.c`), and it
+    is unaffected by this change.
+  - `axiam_login_result_t`'s `tenant_id` / `principal_tenant_id` / `email`,
+    filled straight from the §3 login response body.
+  - `axiam_mgmt_resolved_tenant_id()`, for the tenant a §27 call would address.
+
+  A regression test in `tests/test_oidc_idtoken.c` pins both halves: an ID token
+  carrying none of the three validates and yields `NULL` (not `""`) for the
+  typed members with every other claim intact, and one that does carry them is
+  still parsed.
+
+### Fixed
+
+- **A tenant-scoped discovery document produced `?tenant_id=A&tenant_id=B`
+  (contract 1.42).** AXIAM publishes the tenant INSIDE the advertised token,
+  revocation, introspection, device-authorization, PAR and end-session URLs
+  whenever the discovery request named a tenant or the deployment sets
+  `oauth2_default_tenant_id`. `oidc_endpoint_with_tenant()` appended its own
+  unconditionally, so the wire carried two and which one the server read was
+  not something a client should have been betting on.
+
+  It now REPLACES: any `tenant_id` the endpoint already carried is dropped and
+  the resolved one — the tenant the caller actually authenticated against —
+  is set. Every other query parameter survives byte-for-byte in its original
+  order, as RFC 6749 §3.1/§3.2 require, and a parameter merely PREFIXED
+  `tenant_id` (`tenant_idx=…`) is left alone.
+
+- **PAR dropped the tenant out of its redirect URL, yielding a 401 (contract
+  1.42).** §26.2 rule 2 has the redirect carry only `client_id` and
+  `request_uri`, and the builder implemented that by discarding the discovered
+  `authorization_endpoint`'s whole query. That is right for every
+  *authorization* parameter — re-adding one inline beside a `request_uri` is
+  the parameter-confusion attack the rule exists to stop — but `tenant_id` is
+  not one of those. It is not a member of `PushedAuthorizationRequest`, it was
+  never pushed, so no pushed copy exists for an inline value to disagree with:
+  it is routing. A browser reaching a tenant-scoped deployment's
+  `/oauth2/authorize` without it has no session to match and is answered 401
+  instead of a login page.
+
+  The redirect now carries `tenant_id` when — and only when — the discovered
+  `authorization_endpoint` carried one, and carries the tenant the push was
+  made against rather than the string the document held, since a `request_uri`
+  is only valid for the tenant that minted it. No other published parameter is
+  restored.
+
 ### Added
+
+- **Two RFC 8414 discovery members (SDK contract 1.42, CONTRACT.md §21.5).**
+  `axiam_oidc_config_t` gains `code_challenge_methods_supported` and
+  `token_endpoint_auth_signing_alg_values_supported`, each with its `_count`.
+  AXIAM always honoured both and simply did not advertise them; the first
+  OpenID Foundation conformance run found the omission.
+
+  Both are read as OPTIONAL even though `openapi.json` marks them required, and
+  §21.5 says why: RFC 8414 defines no default for either, so an absent member
+  says nothing — in particular, an absent `code_challenge_methods_supported` is
+  NOT `["S256"]`. This struct must keep parsing a discovery document from a
+  non-AXIAM OP, and every neighbouring `*_supported` member is already modelled
+  the same way. Both are informational: §12.5 pins this SDK to S256 and §5 rule
+  3 pins it to `client_secret_post` whatever the lists hold.
+
+  The other three members `OidcDiscoveryDocument` gained across 1.41–1.42
+  (`acr_values_supported`, `claims_parameter_supported`,
+  `request_parameter_supported`) are deliberately NOT modelled: this struct is
+  a curated subset — it does not model `dpop_signing_alg_values_supported`
+  either — and widening it further is new surface rather than a re-sync.
+
+- **`axiam_oidc_par_ex()` — RFC 9449 §10.1 `dpop_jkt` on the pushed
+  authorization request (SDK contract 1.42, CONTRACT.md §26.1).** Identical to
+  `axiam_oidc_par()` with one extra parameter; `axiam_oidc_par()` is now
+  literally that call with `dpop_jkt` `NULL`, so no existing caller changes.
+  Emitted in the `POST /oauth2/par` form only when set — `NULL` and `""` are
+  both "absent", because a blank `dpop_jkt` on the wire is a different
+  statement from no `dpop_jkt` and not one any caller means.
+
+  **The caller computes the thumbprint.** CONTRACT.md §21.9 records this SDK as
+  declining §21.7.2, and that is unchanged: no proof generator and no proof
+  verifier was added, and none will be. This is a pass-through for an
+  application that manages its own DPoP key.
+
+  `request_uri` was NOT added to the PAR surface, despite arriving in
+  `PushedAuthorizationRequest` this revision. RFC 9126 §2.1 makes it the one
+  authorization parameter a client MUST NOT push; upstream models it so the
+  server can REFUSE it. A client able to send it is a client able to build the
+  chained-request attack. The other nine new optional PAR members
+  (`acr_values`, `claims`, `claims_locales`, `display`, `id_token_hint`,
+  `login_hint`, `max_age`, `prompt`, `ui_locales`) are 1.41 additive surface
+  and are likewise out of scope here.
 
 - **RFC 8705 §5 `mtls_endpoint_aliases` (SDK contract 1.40, CONTRACT.md §21.3
   rule 2).** `axiam_oidc_config_t` gains `mtls_endpoint_aliases` (the new
@@ -37,15 +152,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Changed
 
 - Re-vendored `CONTRACT.md`, `openapi.json` and `management-registry.json` from
-  `ilpanich/axiam` at SDK contract 1.40. The registry's 155 operations are
-  unchanged, so the generated §27 surface is unchanged; `openapi.json` gained
-  the `MtlsEndpointAliases` schema and one optional property on
-  `OidcDiscoveryDocument`.
+  `ilpanich/axiam` at **SDK contract 1.42**, spanning two revisions (1.40 →
+  1.42). The registry grows from **155 to 158 operations**, still across 24
+  namespaces: `privacy.list_consents`, `privacy.grant_scope_consent` and
+  `privacy.withdraw_scope_consent`, over `/api/v1/account/consents` and
+  `/api/v1/account/consents/oidc-scopes[/{client_id}]`. The whole §27 delta is
+  generated by `scripts/gen_management.py`; nothing there was hand-written.
 
-  Additive and server-side: no deployment publishes `mtls_endpoint_aliases`
-  until an operator sets `AXIAM__AUTH__OAUTH2_MTLS_BASE_URL`, so every existing
-  consumer keeps working unchanged against every existing deployment. No public
-  API was removed or renamed.
+  The earlier 1.40 entry below is unchanged and still accurate for what it
+  describes.
 
 ## [1.0.0-beta12] - 2026-09-06
 

@@ -103,6 +103,118 @@ void test_a_token_endpoint_that_already_has_a_query_gets_an_ampersand(void) {
     axiam_client_free(c);
 }
 
+#define FOREIGN_TENANT "aaaaaaaa-0000-0000-0000-000000000001"
+
+/* A document whose token endpoint ALREADY names a tenant, alongside an
+ * unrelated parameter on either side of it. This is what AXIAM publishes
+ * whenever the discovery request named a tenant, or the deployment sets
+ * `oauth2_default_tenant_id` (contract 1.42). */
+#define TENANT_SCOPED_DISCOVERY                                                \
+    "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
+    "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize?tenant_id=" \
+    FOREIGN_TENANT "\","                                                       \
+    "\"token_endpoint\":\"" OIDC_BASE                                         \
+    "/oauth2/token?v=2&tenant_id=" FOREIGN_TENANT "&audit=on\","                \
+    "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","                              \
+    "\"revocation_endpoint\":\"" OIDC_BASE "/oauth2/revoke?tenant_id="          \
+    FOREIGN_TENANT "\","                                                       \
+    "\"pushed_authorization_request_endpoint\":\"" OIDC_BASE                    \
+    "/oauth2/par?tenant_id=" FOREIGN_TENANT "\","                              \
+    "\"response_types_supported\":[\"code\"],"                                  \
+    "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}"
+
+/* Count non-overlapping occurrences of `needle` in `haystack`. */
+static int count_occurrences(const char *haystack, const char *needle) {
+    int n = 0;
+    size_t len = strlen(needle);
+    for (const char *p = strstr(haystack, needle); p; p = strstr(p + len, needle)) n++;
+    return n;
+}
+
+void test_contract_1_42_a_tenant_scoped_endpoint_is_not_doubled(void) {
+    /*
+     * REGRESSION, contract 1.42. AXIAM's discovery document publishes the
+     * tenant INSIDE the advertised token / revocation / introspection /
+     * device-authorization / PAR / end-session URLs. The old builder appended
+     * unconditionally, so the wire carried `?tenant_id=A&tenant_id=B` and which
+     * of the two the server read was a coin toss the client should never have
+     * been flipping.
+     *
+     * Three assertions, and all three matter: exactly ONE tenant_id, it is the
+     * RESOLVED one (the tenant the caller actually authenticated against, not
+     * whatever the document happened to name), and every OTHER parameter the
+     * server put there survives — RFC 6749 §3.1/§3.2 require a client to retain
+     * the endpoint's own query component, and `v=2` and `audit=on` are the
+     * server's, not ours to drop.
+     */
+    g_discovery_body = TENANT_SCOPED_DISCOVERY;
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"at\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = wire_client(1);
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_login_client_credentials(c, NULL, NULL, &set, &err));
+
+    int i = oidc_last_call("/oauth2/token");
+    TEST_ASSERT_EQUAL_INT(1, count_occurrences(g_oidc.urls[i], "tenant_id="));
+    TEST_ASSERT_NOT_NULL(strstr(g_oidc.urls[i], "tenant_id=" AXIAM_TEST_TENANT_ID));
+    TEST_ASSERT_NULL(strstr(g_oidc.urls[i], FOREIGN_TENANT));
+    TEST_ASSERT_NOT_NULL(strstr(g_oidc.urls[i], "v=2"));
+    TEST_ASSERT_NOT_NULL(strstr(g_oidc.urls[i], "audit=on"));
+
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
+void test_contract_1_42_a_tenant_scoped_endpoint_with_no_other_query_is_clean(void) {
+    /* The same fix on an endpoint whose ONLY parameter was the tenant: the
+     * result must be a single clean `?tenant_id=<resolved>`, with no stray
+     * separator left where the dropped pair used to be. */
+    g_discovery_body = TENANT_SCOPED_DISCOVERY;
+    g_oidc.revoke_answer = (oidc_answer_t){200, "", 0};
+
+    axiam_client_t *c = wire_client(1);
+    axiam_error_t err;
+    axiam_sensitive_t *tok = axiam_sensitive_new("the-token");
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_revoke(c, tok, NULL, NULL, &err));
+    axiam_sensitive_free(tok);
+
+    int i = oidc_last_call("/oauth2/revoke");
+    TEST_ASSERT_EQUAL_STRING(OIDC_BASE "/oauth2/revoke?tenant_id=" AXIAM_TEST_TENANT_ID,
+                             g_oidc.urls[i]);
+    axiam_client_free(c);
+}
+
+void test_contract_1_42_a_parameter_merely_prefixed_tenant_id_survives(void) {
+    /* `tenant_idx` is a legal, unrelated parameter. A strncmp-only match would
+     * eat it — the drop is length-bounded for exactly this reason. */
+    g_discovery_body =
+        "{\"issuer\":\"" OIDC_ISSUER "\","
+        "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","
+        "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token?tenant_idx=keep\","
+        "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","
+        "\"response_types_supported\":[\"code\"],"
+        "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}";
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"at\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = wire_client(1);
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_login_client_credentials(c, NULL, NULL, &set, &err));
+
+    int i = oidc_last_call("/oauth2/token");
+    TEST_ASSERT_EQUAL_STRING(
+        OIDC_BASE "/oauth2/token?tenant_idx=keep&tenant_id=" AXIAM_TEST_TENANT_ID,
+        g_oidc.urls[i]);
+
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
 void test_an_empty_explicit_tenant_id_falls_back_to_the_configured_one(void) {
     /* An empty string is not an override. Treating it as one would send
      * `?tenant_id=` and produce a server error for something the client already
@@ -292,6 +404,70 @@ void test_supported_arrays_of_awkward_shapes_are_parsed_defensively(void) {
     TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
     TEST_ASSERT_EQUAL_size_t(1, cfg.response_types_supported_count);
     TEST_ASSERT_EQUAL_INT(1, g_oidc.discovery_calls);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
+void test_contract_1_42_the_two_new_rfc_8414_members_are_read_and_optional(void) {
+    /*
+     * §21.5 (contract 1.42): `code_challenge_methods_supported` and
+     * `token_endpoint_auth_signing_alg_values_supported`. AXIAM always
+     * publishes both — `openapi.json` marks them required — and this SDK reads
+     * them as OPTIONAL anyway.
+     *
+     * That is deliberate, and §21.5 gives the reason: RFC 8414 defines no
+     * default for either, so an ABSENT member says nothing at all, and in
+     * particular absence is not `["S256"]`. This struct also has to parse a
+     * discovery document from a non-AXIAM OP, and every neighbouring
+     * `*_supported` member here is already modelled the same way. Requiring
+     * them would reject documents the SDK accepts today.
+     *
+     * Both are informational: §12.5 pins the challenge method to S256 and §5
+     * rule 3 pins client authentication to `client_secret_post`, whatever the
+     * lists say.
+     */
+    g_discovery_body =
+        "{\"issuer\":\"" OIDC_ISSUER "\","
+        "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","
+        "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","
+        "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","
+        "\"code_challenge_methods_supported\":[\"S256\",\"plain\"],"
+        "\"token_endpoint_auth_signing_alg_values_supported\":[\"ES256\",\"EdDSA\"],"
+        "\"response_types_supported\":[\"code\"],"
+        "\"id_token_signing_alg_values_supported\":[\"EdDSA\"]}";
+
+    axiam_client_t *c = wire_client(1);
+    axiam_error_t err;
+    axiam_oidc_config_t cfg;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL_size_t(2, cfg.code_challenge_methods_supported_count);
+    TEST_ASSERT_EQUAL_STRING("S256", cfg.code_challenge_methods_supported[0]);
+    TEST_ASSERT_EQUAL_STRING("plain", cfg.code_challenge_methods_supported[1]);
+    TEST_ASSERT_EQUAL_size_t(2, cfg.token_endpoint_auth_signing_alg_values_supported_count);
+    TEST_ASSERT_EQUAL_STRING("ES256", cfg.token_endpoint_auth_signing_alg_values_supported[0]);
+    axiam_oidc_config_dispose(&cfg);
+
+    /* The cached copy round-trips both — they go through oidc_config_copy(),
+     * not only through the parser. */
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.discovery_calls);
+    TEST_ASSERT_EQUAL_size_t(2, cfg.code_challenge_methods_supported_count);
+    TEST_ASSERT_EQUAL_STRING("plain", cfg.code_challenge_methods_supported[1]);
+    TEST_ASSERT_EQUAL_size_t(2, cfg.token_endpoint_auth_signing_alg_values_supported_count);
+    TEST_ASSERT_EQUAL_STRING("EdDSA", cfg.token_endpoint_auth_signing_alg_values_supported[1]);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+
+    /* A document carrying NEITHER still parses — that is the whole point. The
+     * absent list reads as absent, never as an assumed ["S256"]. */
+    oidc_reset();
+    g_discovery_body = NULL;  /* ODD_DISCOVERY: has neither member */
+    c = wire_client(1);
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_NULL(cfg.code_challenge_methods_supported);
+    TEST_ASSERT_EQUAL_size_t(0, cfg.code_challenge_methods_supported_count);
+    TEST_ASSERT_NULL(cfg.token_endpoint_auth_signing_alg_values_supported);
+    TEST_ASSERT_EQUAL_size_t(0, cfg.token_endpoint_auth_signing_alg_values_supported_count);
     axiam_oidc_config_dispose(&cfg);
     axiam_client_free(c);
 }
@@ -489,6 +665,9 @@ void test_sso_start_sends_whichever_tenant_and_org_form_the_client_carries(void)
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_a_token_endpoint_that_already_has_a_query_gets_an_ampersand);
+    RUN_TEST(test_contract_1_42_a_tenant_scoped_endpoint_is_not_doubled);
+    RUN_TEST(test_contract_1_42_a_tenant_scoped_endpoint_with_no_other_query_is_clean);
+    RUN_TEST(test_contract_1_42_a_parameter_merely_prefixed_tenant_id_survives);
     RUN_TEST(test_an_empty_explicit_tenant_id_falls_back_to_the_configured_one);
     RUN_TEST(test_disabling_retry_makes_an_eligible_operation_a_single_attempt);
     RUN_TEST(test_an_error_body_with_an_empty_error_field_falls_back_to_the_status);
@@ -498,6 +677,7 @@ int main(void) {
     RUN_TEST(test_a_token_exchange_response_with_no_body_is_refused);
     RUN_TEST(test_an_empty_device_code_is_refused_before_the_wire);
     RUN_TEST(test_supported_arrays_of_awkward_shapes_are_parsed_defensively);
+    RUN_TEST(test_contract_1_42_the_two_new_rfc_8414_members_are_read_and_optional);
     RUN_TEST(test_each_required_discovery_member_is_required_on_its_own);
     RUN_TEST(test_a_discovery_failure_stops_every_operation_that_depends_on_it);
     RUN_TEST(test_the_openid_scope_check_matches_whole_tokens_only);

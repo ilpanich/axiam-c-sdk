@@ -56,6 +56,10 @@ void axiam_oidc_config_dispose(axiam_oidc_config_t *cfg) {
     string_array_free(cfg->response_types_supported, cfg->response_types_supported_count);
     string_array_free(cfg->id_token_signing_alg_values_supported,
                       cfg->id_token_signing_alg_values_supported_count);
+    string_array_free(cfg->code_challenge_methods_supported,
+                      cfg->code_challenge_methods_supported_count);
+    string_array_free(cfg->token_endpoint_auth_signing_alg_values_supported,
+                      cfg->token_endpoint_auth_signing_alg_values_supported_count);
     memset(cfg, 0, sizeof(*cfg));
 }
 
@@ -342,6 +346,20 @@ static axiam_id_token_claims_t *build_claims(cJSON *root, const char *raw) {
     out->issued_at = json_int(root, "iat", 0);
     out->nonce = json_str(root, "nonce");
     out->authorized_party = json_str(root, "azp");
+    /* `email` and `tenant_id`: STILL PARSED, and NULL against AXIAM as of
+     * contract 1.42.
+     *
+     * AXIAM stopped minting either into the ID token — OIDC Core §5.4 — so both
+     * read NULL on every AXIAM login. They are not deleted, for two reasons:
+     * removing a public struct member is a source break piled on top of a
+     * behavioural one, and this SDK is a general OIDC relying party that must
+     * keep parsing what a non-AXIAM OP sends. json_str() already returns NULL
+     * for an absent claim, so the absence surfaces as absence rather than as
+     * an empty string that looks like a value.
+     *
+     * Callers wanting the tenant read the ACCESS token's claims
+     * (axiam_jwt_verify(), which carries `tenant_id` and `org_id` — see
+     * resolve_ids_from_login() in client.c) or axiam_login_result_t. */
     out->email = json_str(root, "email");
     out->preferred_username = json_str(root, "preferred_username");
     out->tenant_id = json_str(root, "tenant_id");
@@ -558,6 +576,18 @@ axiam_error_kind_t oidc_config_copy(const axiam_oidc_config_t *src, axiam_oidc_c
     dst->id_token_signing_alg_values_supported_count =
         dst->id_token_signing_alg_values_supported
             ? src->id_token_signing_alg_values_supported_count
+            : 0;
+    dst->code_challenge_methods_supported =
+        string_array_copy(src->code_challenge_methods_supported,
+                          src->code_challenge_methods_supported_count);
+    dst->code_challenge_methods_supported_count =
+        dst->code_challenge_methods_supported ? src->code_challenge_methods_supported_count : 0;
+    dst->token_endpoint_auth_signing_alg_values_supported =
+        string_array_copy(src->token_endpoint_auth_signing_alg_values_supported,
+                          src->token_endpoint_auth_signing_alg_values_supported_count);
+    dst->token_endpoint_auth_signing_alg_values_supported_count =
+        dst->token_endpoint_auth_signing_alg_values_supported
+            ? src->token_endpoint_auth_signing_alg_values_supported_count
             : 0;
     if (!dst->issuer || !dst->authorization_endpoint || !dst->token_endpoint || !dst->jwks_uri) {
         axiam_oidc_config_dispose(dst);
