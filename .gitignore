@@ -55,7 +55,13 @@ dkms.conf
 *.dwo
 
 # --- AXIAM C SDK build artifacts ---
+# `build/` alone was not enough: CI builds the same tree three more times, under
+# build-asan/ and build-vg/ for the sanitizer and valgrind legs, and a committed
+# CMakeCache.txt from one of those fails the NEXT machine's configure step with
+# "the current CMakeCache.txt directory is different than the directory where
+# CMakeCache.txt was created". The glob covers every out-of-source tree.
 build/
+build-*/
 docs/html/
 docs/
 *.gcda
