@@ -7,7 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-beta14] - 2026-09-13
+
 ### Added
+
+- §10.4 revocation feed, §21.3.1 alias refusal, §16 T-262 tests
 
 - **CONTRACT.md §10.4 — an optional session-revocation feed poller (contract
   1.44).** `axiam_client_enable_revocation_feed()`, plus
@@ -39,6 +43,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Re-vendor the final CONTRACT.md (1.44) from the axiam branch
+
 - **A malformed `mtls_endpoint_aliases` entry is now refused instead of falling
   back to the top-level endpoint** (CONTRACT.md §21.3.1 vector C, contract
   1.43).
@@ -67,6 +73,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   `management-registry.json` from `axiam`, and regenerated the §27 management
   surface. The surface gains `SessionResponse`, whose T-254 replay fields were
   published server-side at 1.0.0-beta13.
+
+### Fixed
+
+- Untrack build-asan/, and ignore every out-of-source build tree
 
 ## [1.0.0-beta13] - 2026-09-12
 
