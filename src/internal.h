@@ -291,6 +291,29 @@ struct axiam_client {
      * per token. 0 = no window open. */
     time_t jwks_refetch_cooldown_until;
 
+    /* CONTRACT.md §10.4 (contract 1.44) — the optional session-revocation feed.
+     *
+     * `revocation_on` is 0 by default, and with it 0 this client behaves
+     * exactly as it did before 1.44: a revoked session's access token verifies
+     * locally until it expires, which is the §10.2 posture the feed narrows
+     * rather than replaces.
+     *
+     * `revocation_entries` NULL means "never successfully fetched", which is
+     * NOT the same as a fetched-but-empty document, and is why the pointer
+     * rather than the count is what "do we know anything" is read from. A
+     * document that arrives unusable leaves the previous set in place: a blip
+     * must not un-revoke a session the guard already knows about. */
+    pthread_mutex_t revocation_mtx;
+    int revocation_on;
+    char **revocation_entries;
+    size_t revocation_count;
+    time_t revocation_last_attempt;
+    int revocation_poll_secs;
+    /* A testing seam: when non-NULL, called instead of a real fetch. Private,
+     * because a public hook on a security check is an attractive nuisance. */
+    int (*revocation_fetch_fn)(void *ctx, char **out_body);
+    void *revocation_fetch_ctx;
+
     /* §16 retry. The seams are module-private on purpose: §16.1 forbids
      * raising the table, and a public knob for the jitter source or the sleep
      * would be an attractive nuisance. Tests reach them through internal.h. */
@@ -322,6 +345,19 @@ int   axiam_curl_transport(void *ctx, const axiam_http_request_t *req,
                            axiam_http_response_t *resp);
 
 /* Internal: perform a non-state-changing GET and return the body on 2xx. */
+/**
+ * CONTRACT.md §10.4 — is this session revoked, as far as the client's poller
+ * knows? 0 whenever the answer is not a confident yes: the feed off, never
+ * fetched, unreachable, malformed, or simply not listing this session.
+ *
+ * Never fails closed, and never blocks the request path on a fetch it does not
+ * need. Defined in revocation.c.
+ */
+int axiam_revocation_is_revoked(axiam_client_t *c, const char *sid);
+
+/** Release the cached set. Called from axiam_client_free(). */
+void axiam_revocation_dispose(axiam_client_t *c);
+
 axiam_error_kind_t axiam_client_raw_get(axiam_client_t *c, const char *path,
                                         char **out_body, axiam_error_t *err);
 

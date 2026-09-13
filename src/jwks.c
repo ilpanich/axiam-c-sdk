@@ -226,6 +226,30 @@ static axiam_error_kind_t check_claims(axiam_client_t *client, const char *claim
         }
     }
 
+    /*
+     * §10.4 (contract 1.44) — last, and only ever a rejection. Every rule above
+     * has already decided the token is valid; a feed that is off or cannot be
+     * read, and a token with no session behind it, all change nothing here.
+     *
+     * Inside check_claims rather than beside it, so the payload is parsed once
+     * and so the §12.4 ID-token path — which enters verify_core with flags 0
+     * and applies its own rules — never reaches this at all. Adding a
+     * revocation check there would be a §12.4 change nobody asked for.
+     *
+     * The message names the session rather than the credential: "the session is
+     * gone" is not "this token was never valid", and a guard that conflated
+     * them would report an expired credential for a logout.
+     */
+    {
+        const cJSON *sid = cJSON_GetObjectItemCaseSensitive(root, "sid");
+        if (cJSON_IsString(sid) && sid->valuestring &&
+            axiam_revocation_is_revoked(client, sid->valuestring)) {
+            axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                            "the session behind this token has been revoked");
+            kind = AXIAM_ERR_AUTH;
+        }
+    }
+
 done:
     cJSON_Delete(root);
     return kind;

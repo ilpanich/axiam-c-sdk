@@ -20,6 +20,7 @@
 #include "axiam/config.h"
 #include "axiam/client.h"
 #include "axiam/jwks.h"
+#include "axiam/revocation.h"
 #include "axiam/guard.h"
 #include "axiam/oidc.h"
 #include "axiam/opaque.h"

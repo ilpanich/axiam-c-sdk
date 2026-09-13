@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaxiam_jwtfix.a CMakeFiles/axiam_jwtfix.dir/jwt_fixture.c.o
+/usr/bin/ranlib libaxiam_jwtfix.a

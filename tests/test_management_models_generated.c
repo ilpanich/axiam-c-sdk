@@ -205,6 +205,8 @@ axiam_mgmt_service_account_created_response_t *axiam_mgmt_service_account_create
 cJSON *axiam_mgmt_service_account_created_response_build(const axiam_mgmt_service_account_created_response_t *value);
 axiam_mgmt_service_account_response_t *axiam_mgmt_service_account_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_service_account_response_build(const axiam_mgmt_service_account_response_t *value);
+axiam_mgmt_session_response_t *axiam_mgmt_session_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_session_response_build(const axiam_mgmt_session_response_t *value);
 axiam_mgmt_set_mtls_trust_anchor_t *axiam_mgmt_set_mtls_trust_anchor_parse(const cJSON *src);
 cJSON *axiam_mgmt_set_mtls_trust_anchor_build(const axiam_mgmt_set_mtls_trust_anchor_t *value);
 axiam_mgmt_set_org_email_config_t *axiam_mgmt_set_org_email_config_parse(const cJSON *src);
@@ -6007,6 +6009,81 @@ static void test_service_account_response_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `SessionResponse`: a full wire object parses, builds back and frees. */
+static void test_session_response_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"amr\": [\"example\"], \"authenticated_at\": \"example\", \"created_at\": \"example\", \"expires_at\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"refresh_replay_at\": \"example\", \"refresh_replay_grace_accepted\": 1, \"refresh_replay_refused\": 1, \"refresh_replay_verdict\": \"example\", \"user_agent\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_session_response_t *model = axiam_mgmt_session_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_session_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_session_response_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SessionResponse`: the server omitting every OPTIONAL field is not an error. */
+static void test_session_response_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"amr\": [\"example\"], \"authenticated_at\": \"example\", \"created_at\": \"example\", \"expires_at\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"refresh_replay_grace_accepted\": 1, \"refresh_replay_refused\": 1, \"refresh_replay_verdict\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_session_response_t *model = axiam_mgmt_session_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_session_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_session_response_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SessionResponse`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_session_response_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_session_response_t *model = axiam_mgmt_session_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_session_response_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_session_response_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_session_response_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_session_response_parse(scalar));
+    axiam_mgmt_session_response_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `SetMtlsTrustAnchor`: a full wire object parses, builds back and frees. */
 static void test_set_mtls_trust_anchor_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"enabled\": true}");
@@ -8402,6 +8479,10 @@ int main(void) {
     RUN_TEST(test_service_account_response_parses_without_optionals);
     RUN_TEST(test_service_account_response_parses_an_empty_object);
     RUN_TEST(test_service_account_response_rejects_a_non_object);
+    RUN_TEST(test_session_response_round_trips);
+    RUN_TEST(test_session_response_parses_without_optionals);
+    RUN_TEST(test_session_response_parses_an_empty_object);
+    RUN_TEST(test_session_response_rejects_a_non_object);
     RUN_TEST(test_set_mtls_trust_anchor_round_trips);
     RUN_TEST(test_set_mtls_trust_anchor_parses_an_empty_object);
     RUN_TEST(test_set_mtls_trust_anchor_rejects_a_non_object);

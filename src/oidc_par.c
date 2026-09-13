@@ -137,9 +137,11 @@ axiam_error_kind_t axiam_oidc_par_ex(axiam_client_t *client,
     /* §21.3 rule 2: prefer the mTLS alias when this call presents a client
      * certificate. Absent at BOTH levels still means "unsupported" — never a
      * cue to build <issuer>/oauth2/par by concatenation (§26.1). */
-    const char *par_endpoint = oidc_preferred_endpoint(
+    const char *par_endpoint = NULL;
+    axiam_error_kind_t alias_refusal = oidc_preferred_endpoint(
         client, config, config->mtls_endpoint_aliases.pushed_authorization_request_endpoint,
-        config->pushed_authorization_request_endpoint);
+        config->pushed_authorization_request_endpoint, &par_endpoint, err);
+    if (alias_refusal != AXIAM_OK) return alias_refusal;
     if (!par_endpoint || !par_endpoint[0]) {
         /* §12.7.2 rule 1's discipline: never synthesise the URL from the issuer.
          * Client-side, with no wire call. */

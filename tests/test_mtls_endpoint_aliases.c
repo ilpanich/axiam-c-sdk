@@ -24,6 +24,10 @@
 #include "unity.h"
 #include "axiam/axiam.h"
 #include "oidc_test_util.h"
+/* oidc_assert_usable_mtls_alias is module-private: the validator is asserted
+ * directly as well as through a call, because a table of boundary cases reads
+ * better than five discovery fixtures. */
+#include "../src/oidc_internal.h"
 
 #define MTLS_BASE "https://mtls.api.test"
 
@@ -77,6 +81,46 @@
     "\"introspection_endpoint\":\"" OIDC_BASE "/oauth2/introspect\","          \
     "\"revocation_endpoint\":\"" OIDC_BASE "/oauth2/revoke\","                 \
     "\"mtls_endpoint_aliases\":{\"token_endpoint\":\"" MTLS_BASE "/oauth2/token\"},"  \
+    "\"response_types_supported\":[\"code\"],"                                 \
+    "\"id_token_signing_alg_values_supported\":[\"EdDSA\"],"                   \
+    "\"scopes_supported\":[\"openid\"]}"
+
+/* A relative alias — vector C's first defect. */
+#define RELATIVE_ALIAS_DISCOVERY_BODY                                          \
+    "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
+    "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","           \
+    "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","                       \
+    "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","                              \
+    "\"mtls_endpoint_aliases\":{\"token_endpoint\":\"/oauth2/token\"},"         \
+    "\"response_types_supported\":[\"code\"],"                                 \
+    "\"id_token_signing_alg_values_supported\":[\"EdDSA\"],"                   \
+    "\"scopes_supported\":[\"openid\"]}"
+
+/* An http alias standing in for an https endpoint — vector C's second defect,
+ * and the one that has to compare like with like: this fixture's top-level
+ * endpoint is https, which is what makes the alias a downgrade. */
+#define DOWNGRADE_ALIAS_DISCOVERY_BODY                                         \
+    "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
+    "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","           \
+    "\"token_endpoint\":\"https://iam.example.test/oauth2/token\","            \
+    "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","                              \
+    "\"introspection_endpoint\":\"" OIDC_BASE "/oauth2/introspect\","          \
+    "\"mtls_endpoint_aliases\":"                                               \
+    "{\"token_endpoint\":\"http://mtls.example.test/oauth2/token\"},"           \
+    "\"response_types_supported\":[\"code\"],"                                 \
+    "\"id_token_signing_alg_values_supported\":[\"EdDSA\"],"                   \
+    "\"scopes_supported\":[\"openid\"]}"
+
+/* One malformed alias among well-formed ones: the refusal must be per endpoint. */
+#define ONE_BAD_ALIAS_DISCOVERY_BODY                                           \
+    "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
+    "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","           \
+    "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","                       \
+    "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","                              \
+    "\"introspection_endpoint\":\"" OIDC_BASE "/oauth2/introspect\","          \
+    "\"mtls_endpoint_aliases\":{"                                              \
+    "\"token_endpoint\":\"" MTLS_BASE "/oauth2/token\","                       \
+    "\"introspection_endpoint\":\"not-a-url-at-all\"},"                        \
     "\"response_types_supported\":[\"code\"],"                                 \
     "\"id_token_signing_alg_values_supported\":[\"EdDSA\"],"                   \
     "\"scopes_supported\":[\"openid\"]}"
@@ -404,6 +448,165 @@ void test_the_issuer_does_not_move_with_the_endpoints(void) {
     axiam_client_free(c);
 }
 
+/* ------------------------------------------------------------------ */
+/* Vector C: a malformed alias is refused, never fallen back from     */
+/* ------------------------------------------------------------------ */
+/*
+ * CONTRACT.md §21.3.1 vector C, contract 1.43. Rule 2 had been normative since
+ * 1.40 and, until the 2026-09-12 pass, said nothing about an alias that is
+ * PRESENT and unusable — every SDK that read the member fell back to the
+ * top-level endpoint. Falling back looks like the safe answer and is the
+ * dangerous one: the caller asked to authenticate with a certificate, the
+ * operator published something unusable, and sending the certificate to the
+ * front-channel host authenticates nothing while appearing to work.
+ */
+
+void test_a_relative_alias_is_refused_rather_than_resolved(void) {
+    /* A relative alias resolves against nothing the client holds, and the base
+     * that might seem obvious — the issuer's host — is precisely the host the
+     * alias exists to name a different one from. */
+    g_oidc.discovery_body = RELATIVE_ALIAS_DISCOVERY_BODY;
+    axiam_client_t *c = mtls_client();
+    axiam_oidc_token_set_t set;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      axiam_login_client_credentials(c, NULL, AXIAM_TEST_TENANT_ID, &set, &err));
+
+    /* AXIAM_ERR_AUTH, not AXIAM_ERR_NETWORK: §16.3 retries NETWORK and only
+     * NETWORK, so the other choice would have attempted a permanent,
+     * deterministic misconfiguration three times. */
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "not an absolute URL"));
+    /* And the certificate never reached the conventional host, which is the
+     * whole point of refusing rather than falling back. */
+    TEST_ASSERT_EQUAL_INT(-1, oidc_last_call("/oauth2/token"));
+    axiam_client_free(c);
+}
+
+void test_a_scheme_downgrade_is_refused(void) {
+    /* The comparison is like with like: the alias substitutes for exactly one
+     * top-level endpoint, and that endpoint's scheme is what a downgrade is
+     * measured against. */
+    g_oidc.discovery_body = DOWNGRADE_ALIAS_DISCOVERY_BODY;
+    axiam_client_t *c = mtls_client();
+    axiam_oidc_token_set_t set;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      axiam_login_client_credentials(c, NULL, AXIAM_TEST_TENANT_ID, &set, &err));
+
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "downgrade"));
+    axiam_client_free(c);
+}
+
+void test_an_https_alias_for_an_https_endpoint_is_accepted(void) {
+    /* The I4 twin of the downgrade refusal, and the reason the rule compares
+     * like with like rather than demanding https outright. Every other fixture
+     * in this file pairs an https endpoint with an https alias; a rule written
+     * as "the scheme must be https" would also have passed here, and only this
+     * pair plus the downgrade case above separate the two rules. */
+    g_oidc.discovery_body = ALIAS_DISCOVERY_BODY;
+    g_oidc.token_script[0] = (oidc_answer_t){
+        200, "{\"access_token\":\"a\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 1;
+    axiam_client_t *c = mtls_client();
+    axiam_oidc_token_set_t set;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      axiam_login_client_credentials(c, NULL, AXIAM_TEST_TENANT_ID, &set, &err));
+
+    assert_went_to("/oauth2/token", MTLS_BASE);
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
+void test_a_malformed_alias_cannot_break_a_client_not_doing_mtls(void) {
+    /* The second I4 twin, and the more important one: a client with no
+     * certificate never reads the member at all, not even to validate it. A
+     * deployment whose aliases are malformed cannot break the clients that
+     * never use them. */
+    g_oidc.discovery_body = RELATIVE_ALIAS_DISCOVERY_BODY;
+    g_oidc.token_script[0] = (oidc_answer_t){
+        200, "{\"access_token\":\"a\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, OIDC_BASE);
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
+    axiam_client_config_set_oidc_client_id(cfg, OIDC_CLIENT_ID);
+    axiam_client_config_set_oidc_client_secret(cfg, OIDC_CLIENT_SECRET);
+    axiam_client_config_set_transport(cfg, oidc_fake_transport, &g_oidc);
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      axiam_login_client_credentials(c, NULL, AXIAM_TEST_TENANT_ID, &set, &err));
+
+    assert_went_to("/oauth2/token", OIDC_BASE);
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
+void test_one_malformed_alias_does_not_poison_the_others(void) {
+    /* Per endpoint, like the fallback itself: one malformed alias stops the
+     * calls that would have used it and leaves every other endpoint working. */
+    g_oidc.discovery_body = ONE_BAD_ALIAS_DISCOVERY_BODY;
+    g_oidc.token_script[0] = (oidc_answer_t){
+        200, "{\"access_token\":\"a\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 1;
+    axiam_client_t *c = mtls_client();
+    axiam_oidc_token_set_t set;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      axiam_login_client_credentials(c, NULL, AXIAM_TEST_TENANT_ID, &set, &err));
+    assert_went_to("/oauth2/token", MTLS_BASE);
+    axiam_oidc_token_set_dispose(&set);
+
+    axiam_sensitive_t *token = axiam_sensitive_new("a-token");
+    axiam_introspection_result_t info;
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      axiam_introspect(c, token, NULL, AXIAM_TEST_TENANT_ID, &info, &err));
+    axiam_sensitive_free(token);
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "not an absolute URL"));
+    axiam_client_free(c);
+}
+
+/* The validator itself, asserted directly: the two defects and the two shapes
+ * that are NOT defects. A published alias reaches it only through a call, and a
+ * table like this is what keeps the boundary cases readable. */
+void test_the_alias_validator_refuses_exactly_two_shapes(void) {
+    axiam_error_t err;
+
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      oidc_assert_usable_mtls_alias("/oauth2/token", "https://a.test/x", &err));
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      oidc_assert_usable_mtls_alias("https://", "https://a.test/x", &err));
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      oidc_assert_usable_mtls_alias("http://m.test/x", "https://a.test/x", &err));
+
+    /* http replacing http is a development deployment, not a downgrade. */
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      oidc_assert_usable_mtls_alias("http://m.test/x", "http://a.test/x", &err));
+    /* And https replacing https is the ordinary case. */
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_OK,
+                      oidc_assert_usable_mtls_alias("https://m.test/x", "https://a.test/x", &err));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_discovery_exposes_the_member_when_the_server_publishes_it);
@@ -418,5 +621,11 @@ int main(void) {
     RUN_TEST(test_an_unsupported_grant_is_still_reported_when_neither_level_names_it);
     RUN_TEST(test_the_front_channel_and_jwks_endpoints_are_never_aliased);
     RUN_TEST(test_the_issuer_does_not_move_with_the_endpoints);
+    RUN_TEST(test_a_relative_alias_is_refused_rather_than_resolved);
+    RUN_TEST(test_a_scheme_downgrade_is_refused);
+    RUN_TEST(test_an_https_alias_for_an_https_endpoint_is_accepted);
+    RUN_TEST(test_a_malformed_alias_cannot_break_a_client_not_doing_mtls);
+    RUN_TEST(test_one_malformed_alias_does_not_poison_the_others);
+    RUN_TEST(test_the_alias_validator_refuses_exactly_two_shapes);
     return UNITY_END();
 }

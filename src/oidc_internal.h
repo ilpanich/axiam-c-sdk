@@ -74,10 +74,28 @@ int oidc_presents_client_certificate(const axiam_client_t *client);
  * The endpoint to use, preferring its RFC 8705 §5 alias when this client
  * presents a §6.1 certificate (CONTRACT.md §21.3 rule 2). See the definition in
  * oidc.c for the three ways this rule gets implemented wrongly.
+ *
+ * `*out_endpoint` is the chosen endpoint, which may be NULL when neither level
+ * names one — that still means "this server does not support the feature", and
+ * the caller raises it with its own message rather than concatenating a URL
+ * onto the issuer.
+ *
+ * Returns AXIAM_ERR_AUTH, with `err` set and `*out_endpoint` NULL, when the
+ * document publishes an alias that cannot carry a client certificate
+ * (§21.3.1 vector C) — a refusal, deliberately not a fallback.
  */
-const char *oidc_preferred_endpoint(const axiam_client_t *client,
-                                    const axiam_oidc_config_t *config, const char *alias,
-                                    const char *top_level);
+axiam_error_kind_t oidc_preferred_endpoint(const axiam_client_t *client,
+                                           const axiam_oidc_config_t *config, const char *alias,
+                                           const char *top_level, const char **out_endpoint,
+                                           axiam_error_t *err);
+
+/**
+ * CONTRACT.md §21.3.1 vector C — refuse a published alias that cannot carry a
+ * client certificate. Not static so the conformance suite can assert the two
+ * defects directly as well as through a call. See oidc.c for the argument.
+ */
+axiam_error_kind_t oidc_assert_usable_mtls_alias(const char *alias, const char *replaces,
+                                                 axiam_error_t *err);
 
 /**
  * §12.1 rule 3: `code_challenge = BASE64URL-ENCODE(SHA256(ASCII(verifier)))`,

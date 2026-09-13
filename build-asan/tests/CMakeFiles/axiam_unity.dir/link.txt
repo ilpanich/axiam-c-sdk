@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaxiam_unity.a CMakeFiles/axiam_unity.dir/__/third_party/unity/unity.c.o
+/usr/bin/ranlib libaxiam_unity.a

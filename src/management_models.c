@@ -933,6 +933,8 @@ axiam_mgmt_service_account_created_response_t *axiam_mgmt_service_account_create
 cJSON *axiam_mgmt_service_account_created_response_build(const axiam_mgmt_service_account_created_response_t *value);
 axiam_mgmt_service_account_response_t *axiam_mgmt_service_account_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_service_account_response_build(const axiam_mgmt_service_account_response_t *value);
+axiam_mgmt_session_response_t *axiam_mgmt_session_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_session_response_build(const axiam_mgmt_session_response_t *value);
 axiam_mgmt_set_mtls_trust_anchor_t *axiam_mgmt_set_mtls_trust_anchor_parse(const cJSON *src);
 cJSON *axiam_mgmt_set_mtls_trust_anchor_build(const axiam_mgmt_set_mtls_trust_anchor_t *value);
 axiam_mgmt_set_org_email_config_t *axiam_mgmt_set_org_email_config_parse(const cJSON *src);
@@ -6826,6 +6828,109 @@ cJSON *axiam_mgmt_service_account_response_build(const axiam_mgmt_service_accoun
     return obj;
 }
 
+void axiam_mgmt_session_response_free(axiam_mgmt_session_response_t *value) {
+    if (!value) return;
+    if (value->amr) {
+        for (size_t i = 0; i < value->amr_count; i++) free(value->amr[i]);
+        free(value->amr);
+    }
+    free(value->authenticated_at);
+    free(value->created_at);
+    free(value->expires_at);
+    free(value->id);
+    free(value->ip_address);
+    free(value->refresh_replay_at);
+    free(value->refresh_replay_verdict);
+    free(value->user_agent);
+    free(value);
+}
+
+axiam_mgmt_session_response_t *axiam_mgmt_session_response_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_session_response_t *out = (axiam_mgmt_session_response_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "amr");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->amr = (char **) calloc(n, sizeof(char *));
+            if (!out->amr) { axiam_mgmt_session_response_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->amr[i] = axiam_strdup0(e->valuestring);
+            }
+            out->amr_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "authenticated_at");
+    if (cJSON_IsString(item)) out->authenticated_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "created_at");
+    if (cJSON_IsString(item)) out->created_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "expires_at");
+    if (cJSON_IsString(item)) out->expires_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "id");
+    if (cJSON_IsString(item)) out->id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "ip_address");
+    if (cJSON_IsString(item)) out->ip_address = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "refresh_replay_at");
+    if (cJSON_IsString(item)) out->refresh_replay_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "refresh_replay_grace_accepted");
+    if (cJSON_IsNumber(item)) { out->refresh_replay_grace_accepted = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "refresh_replay_refused");
+    if (cJSON_IsNumber(item)) { out->refresh_replay_refused = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "refresh_replay_verdict");
+    if (cJSON_IsString(item)) out->refresh_replay_verdict = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "user_agent");
+    if (cJSON_IsString(item)) out->user_agent = axiam_strdup0(item->valuestring);
+    return out;
+}
+
+cJSON *axiam_mgmt_session_response_build(const axiam_mgmt_session_response_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->amr) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "amr");
+        for (size_t i = 0; arr && i < value->amr_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->amr[i]));
+    }
+    if (value->authenticated_at) {
+        cJSON_AddStringToObject(obj, "authenticated_at", value->authenticated_at);
+    }
+    if (value->created_at) {
+        cJSON_AddStringToObject(obj, "created_at", value->created_at);
+    }
+    if (value->expires_at) {
+        cJSON_AddStringToObject(obj, "expires_at", value->expires_at);
+    }
+    if (value->id) {
+        cJSON_AddStringToObject(obj, "id", value->id);
+    }
+    if (value->ip_address) {
+        cJSON_AddStringToObject(obj, "ip_address", value->ip_address);
+    }
+    if (value->refresh_replay_at) {
+        cJSON_AddStringToObject(obj, "refresh_replay_at", value->refresh_replay_at);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "refresh_replay_grace_accepted", (double) value->refresh_replay_grace_accepted);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "refresh_replay_refused", (double) value->refresh_replay_refused);
+    }
+    if (value->refresh_replay_verdict) {
+        cJSON_AddStringToObject(obj, "refresh_replay_verdict", value->refresh_replay_verdict);
+    }
+    if (value->user_agent) {
+        cJSON_AddStringToObject(obj, "user_agent", value->user_agent);
+    }
+    return obj;
+}
+
 void axiam_mgmt_set_mtls_trust_anchor_free(axiam_mgmt_set_mtls_trust_anchor_t *value) {
     if (!value) return;
     free(value);
@@ -9319,6 +9424,15 @@ void axiam_mgmt_scope_list_free(axiam_mgmt_scope_list_t *list) {
     if (!list) return;
     if (list->items) {
         for (size_t i = 0; i < list->count; i++) axiam_mgmt_scope_free(list->items[i]);
+        free(list->items);
+    }
+    free(list);
+}
+
+void axiam_mgmt_session_response_list_free(axiam_mgmt_session_response_list_t *list) {
+    if (!list) return;
+    if (list->items) {
+        for (size_t i = 0; i < list->count; i++) axiam_mgmt_session_response_free(list->items[i]);
         free(list->items);
     }
     free(list);
