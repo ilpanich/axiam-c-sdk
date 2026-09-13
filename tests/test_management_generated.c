@@ -673,6 +673,30 @@ static void test_users_list_roles_reaches_its_route_discards_the_result(void) {
     axiam_client_free(c);
 }
 
+static void test_users_list_sessions_reaches_its_route(void) {
+    mgmt_mount(200, "[{\"amr\": [\"example\"], \"authenticated_at\": \"example\", \"created_at\": \"example\", \"expires_at\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"refresh_replay_at\": \"example\", \"refresh_replay_grace_accepted\": 1, \"refresh_replay_refused\": 1, \"refresh_replay_verdict\": \"example\", \"user_agent\": \"example\"}]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_session_response_list_t *result = NULL;
+    axiam_error_kind_t rc = axiam_users_list_sessions(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("GET", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/users/11111111-1111-4111-8111-111111111111/sessions", mgmt_last_path());
+    axiam_mgmt_session_response_list_free(result);
+    axiam_client_free(c);
+}
+
+static void test_users_list_sessions_reaches_its_route_discards_the_result(void) {
+    mgmt_mount(200, "[{\"amr\": [\"example\"], \"authenticated_at\": \"example\", \"created_at\": \"example\", \"expires_at\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"refresh_replay_at\": \"example\", \"refresh_replay_grace_accepted\": 1, \"refresh_replay_refused\": 1, \"refresh_replay_verdict\": \"example\", \"user_agent\": \"example\"}]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_users_list_sessions(c, "11111111-1111-4111-8111-111111111111", NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    axiam_client_free(c);
+}
+
 static void test_groups_list_reaches_its_route(void) {
     mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
     axiam_client_t *c = mgmt_signed_in_client();
@@ -5018,7 +5042,7 @@ void tearDown(void) {}
  * covered.
  */
 static void test_every_registry_operation_has_a_case(void) {
-    TEST_ASSERT_EQUAL_INT(158, mgmt_case_count());
+    TEST_ASSERT_EQUAL_INT(159, mgmt_case_count());
 }
 
 int main(void) {
@@ -5042,6 +5066,7 @@ int main(void) {
     RUN_TEST(test_users_reset_mfa_reaches_its_route);
     RUN_TEST(test_users_unlock_reaches_its_route);
     RUN_TEST(test_users_list_roles_reaches_its_route);
+    RUN_TEST(test_users_list_sessions_reaches_its_route);
     RUN_TEST(test_groups_list_reaches_its_route);
     RUN_TEST(test_groups_create_reaches_its_route);
     RUN_TEST(test_groups_get_reaches_its_route);
@@ -5212,6 +5237,7 @@ int main(void) {
     RUN_TEST(test_users_unlock_reaches_its_route_discards_the_result);
     RUN_TEST(test_users_unlock_reaches_its_route_rejects_a_wrong_shaped_body);
     RUN_TEST(test_users_list_roles_reaches_its_route_discards_the_result);
+    RUN_TEST(test_users_list_sessions_reaches_its_route_discards_the_result);
     RUN_TEST(test_groups_list_reaches_its_route_discards_the_result);
     RUN_TEST(test_groups_create_reaches_its_route_discards_the_result);
     RUN_TEST(test_groups_create_reaches_its_route_rejects_a_wrong_shaped_body);
@@ -5412,4 +5438,4 @@ int main(void) {
 }
 
 /* How many cases this file declares -- read by the assertion above. */
-int mgmt_case_count(void) { return 158; }
+int mgmt_case_count(void) { return 159; }

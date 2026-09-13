@@ -236,14 +236,91 @@ int oidc_presents_client_certificate(const axiam_client_t *client) {
  * server does not support the feature" — the caller raises that, and never
  * concatenates a URL onto the issuer.
  */
-const char *oidc_preferred_endpoint(const axiam_client_t *client,
-                                    const axiam_oidc_config_t *config, const char *alias,
-                                    const char *top_level) {
+axiam_error_kind_t oidc_preferred_endpoint(const axiam_client_t *client,
+                                           const axiam_oidc_config_t *config, const char *alias,
+                                           const char *top_level, const char **out_endpoint,
+                                           axiam_error_t *err) {
     if (oidc_presents_client_certificate(client) && config->has_mtls_endpoint_aliases && alias &&
         alias[0]) {
-        return alias;
+        axiam_error_kind_t refused = oidc_assert_usable_mtls_alias(alias, top_level, err);
+        if (refused != AXIAM_OK) {
+            *out_endpoint = NULL;
+            return refused;
+        }
+        *out_endpoint = alias;
+        return AXIAM_OK;
     }
-    return top_level;
+    *out_endpoint = top_level;
+    return AXIAM_OK;
+}
+
+/* The scheme of `url`, as a length-delimited slice of `url` itself, or NULL
+ * when there is no `://`. Not lowercased and not copied: the two callers below
+ * only ever compare it, and a malloc on a validation path is a failure mode the
+ * validation does not need. */
+static const char *url_scheme(const char *url, size_t *out_len) {
+    const char *sep = strstr(url, "://");
+    if (!sep || sep == url) return NULL;
+    *out_len = (size_t)(sep - url);
+    return url;
+}
+
+static int scheme_is(const char *scheme, size_t len, const char *want) {
+    return scheme && len == strlen(want) && strncasecmp(scheme, want, len) == 0;
+}
+
+/*
+ * Refuse an `mtls_endpoint_aliases` entry that cannot carry a client
+ * certificate (CONTRACT.md §21.3.1 vector C, contract 1.43).
+ *
+ * Falling back to the top-level endpoint looks like the safe answer and is the
+ * dangerous one: the caller asked to authenticate with a certificate, the
+ * operator published something unusable, and sending the certificate to the
+ * front-channel host authenticates nothing while appearing to work.
+ *
+ * Two defects, each a refusal on its own:
+ *
+ *   - NOT AN ABSOLUTE URL. A relative alias resolves against nothing the client
+ *     holds, and the base that might seem obvious — the issuer's host — is
+ *     precisely the host the alias exists to name a different one from.
+ *   - A SCHEME WEAKER THAN THE ENDPOINT IT REPLACES. An alias substitutes for
+ *     exactly one top-level endpoint, so that is what it is compared against:
+ *     https -> http is a downgrade, while http -> http is a development
+ *     deployment, which AXIAM's own build_mtls_aliases supports and this
+ *     suite's harness is.
+ *
+ * The refusal is AXIAM_ERR_AUTH, matching every other "the discovery document
+ * advertises something this client cannot use" in this file. It also matters
+ * operationally: §16.3 retries AXIAM_ERR_NETWORK and only that, so the other
+ * choice would have attempted a permanent, deterministic misconfiguration three
+ * times and reported it as transient.
+ */
+axiam_error_kind_t oidc_assert_usable_mtls_alias(const char *alias, const char *replaces,
+                                                 axiam_error_t *err) {
+    size_t scheme_len = 0;
+    const char *scheme = url_scheme(alias, &scheme_len);
+    /* An absolute URL is scheme://authority — a `://` with something before it
+     * AND something after it. "https://" alone names no host. */
+    if (!scheme || !alias[scheme_len + 3]) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "mtls_endpoint_aliases publishes a value that is not an absolute URL. "
+                        "Refusing rather than falling back to the top-level endpoint: this call "
+                        "presents a client certificate, and sending it to the front-channel host "
+                        "would authenticate nothing while appearing to work "
+                        "(CONTRACT.md §21.3.1 vector C)");
+        return AXIAM_ERR_AUTH;
+    }
+    size_t replaced_len = 0;
+    const char *replaced_scheme = replaces ? url_scheme(replaces, &replaced_len) : NULL;
+    if (scheme_is(replaced_scheme, replaced_len, "https") && !scheme_is(scheme, scheme_len, "https")) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "mtls_endpoint_aliases publishes a cleartext alias in place of an https "
+                        "endpoint. That is a downgrade, and mutual TLS over cleartext is a "
+                        "contradiction; refusing rather than falling back to the top-level "
+                        "endpoint (CONTRACT.md §21.3.1 vector C)");
+        return AXIAM_ERR_AUTH;
+    }
+    return AXIAM_OK;
 }
 
 /*
@@ -785,8 +862,11 @@ axiam_error_kind_t oidc_token_grant(axiam_client_t *c, oidc_form_t *form,
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
         return AXIAM_ERR_NETWORK;
     }
-    const char *token_endpoint = oidc_preferred_endpoint(
-        c, config, config->mtls_endpoint_aliases.token_endpoint, config->token_endpoint);
+    const char *token_endpoint = NULL;
+    axiam_error_kind_t alias_refusal = oidc_preferred_endpoint(
+        c, config, config->mtls_endpoint_aliases.token_endpoint, config->token_endpoint,
+        &token_endpoint, err);
+    if (alias_refusal != AXIAM_OK) return alias_refusal;
     char *url = oidc_endpoint_with_tenant(token_endpoint, tenant_uuid);
     if (!url) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
@@ -971,11 +1051,16 @@ static axiam_error_kind_t oidc_token_admin_call(
      * about `end_session_endpoint`, and the reasoning is identical here: the
      * issuer may legitimately be some other origin behind a proxy. */
     const int is_introspect = (strcmp(operation, "introspect") == 0);
-    const char *endpoint = oidc_preferred_endpoint(
+    const char *endpoint = NULL;
+    axiam_error_kind_t alias_refusal = oidc_preferred_endpoint(
         client, &config,
         is_introspect ? config.mtls_endpoint_aliases.introspection_endpoint
                       : config.mtls_endpoint_aliases.revocation_endpoint,
-        is_introspect ? config.introspection_endpoint : config.revocation_endpoint);
+        is_introspect ? config.introspection_endpoint : config.revocation_endpoint, &endpoint, err);
+    if (alias_refusal != AXIAM_OK) {
+        axiam_oidc_config_dispose(&config);
+        return alias_refusal;
+    }
     char *joined = NULL;
     if (!endpoint || !endpoint[0]) {
         size_t blen = strlen(client->cfg->base_url);

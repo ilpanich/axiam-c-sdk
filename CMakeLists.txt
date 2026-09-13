@@ -70,6 +70,7 @@ set(AXIAM_SOURCES
     src/memo.c
     src/telemetry.c
     src/jwks.c
+    src/revocation.c
     src/guard.c
     src/webhook.c
     src/uma.c

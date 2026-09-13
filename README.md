@@ -240,6 +240,31 @@ A client without a certificate keeps using the top-level endpoints even when the
 document publishes aliases: the alias exists for the handshake, and there is no
 handshake to make.
 
+#### A malformed alias is refused, never fallen back from (contract 1.43)
+
+An alias that is *present* and cannot carry a certificate returns
+`AXIAM_ERR_AUTH` rather than reverting to the top-level endpoint. Falling back
+looks like the safe answer and is the dangerous one: the caller asked to
+authenticate with a certificate, the operator published something unusable, and
+sending the certificate to the front-channel host authenticates nothing while
+appearing to work.
+
+Two defects, each a refusal on its own — **not an absolute URL**, and **a scheme
+weaker than the top-level endpoint the alias replaces**. The second compares like
+with like: an alias substitutes for exactly one endpoint, so `https` → `http` is
+a downgrade, while `http` → `http` is a development deployment and is accepted.
+
+It is `AXIAM_ERR_AUTH`, not `AXIAM_ERR_NETWORK`, and that is not cosmetic: §16.3
+retries `AXIAM_ERR_NETWORK` and only that, so the other choice would have
+attempted a permanent, deterministic misconfiguration three times and reported it
+as transient.
+
+The refusal is per endpoint, like the fallback itself: one malformed alias stops
+the calls that would have used it and leaves every other endpoint working. And a
+client without a certificate never reads the member at all, not even to validate
+it, so a deployment whose aliases are malformed cannot break the clients that
+never use them.
+
 ## Contract behaviors
 
 | §    | Behavior | Where |
@@ -351,6 +376,50 @@ alone cannot be compared against it, and a slug-only client that has not logged
 in refuses every token). `axiam_jwt_verify_ex()` exposes the policy flags —
 `AXIAM_JWT_VERIFY_SIGNATURE_ONLY` reduces the check to the signature and must
 never be used to admit a request.
+
+### The session-revocation feed (§10.4, contract 1.44, opt-in)
+
+§10.2 records the gap this narrows: local verification proves a token was issued
+and has not expired, never that the session behind it still exists. A logout or a
+role removal does not reach a token already in a caller's hands until it expires
+— up to fifteen minutes. The documented answer has been "route the decision
+through gRPC introspection instead", which is correct and costs a round trip
+**per request**.
+
+A deployment can publish `GET /oauth2/revocations`: the hashed ids of the
+sessions revoked within the last access-token lifetime. Turn the poller on and
+`axiam_jwt_verify()` rejects a revoked session within **one poll interval**
+instead, for one cacheable fetch per interval:
+
+```c
+axiam_client_enable_revocation_feed(client, AXIAM_REVOCATION_DEFAULT_POLL_SECS);
+```
+
+**It is not a control, and every property follows from that.** It is off unless
+you make that call — every existing client is unchanged and never fetches the
+feed at all. It is never fetched on the request path once warm, and a feed that
+is *down* is not retried on every request either, because the interval is
+measured from the last *attempt*. And it **never fails closed**: an unreachable
+feed, a non-`200`, a body that does not parse, or an `alg` this build does not
+know all behave exactly as no feed at all — and specifically not as an empty
+list, which would assert that nothing has been revoked and is a guard silently
+honouring no revocations while appearing to honour them. Every rule above runs
+first and still decides; the feed can only ever turn an accept into a reject, and
+the error it sets names the session rather than the credential — "the session is
+gone" is not "this token was never valid".
+
+A token with no `sid` — a client-credentials token, an RPT, a token exchange — is
+never matched against it, and asks the feed no question at all. There is no
+session behind one, and hashing `jti` instead would match nothing while looking
+like it worked.
+
+`AXIAM_REVOCATION_DEFAULT_POLL_SECS` is 30 and `AXIAM_REVOCATION_MIN_POLL_SECS`
+clamps anything shorter to 15; the cached set is bounded at
+`AXIAM_REVOCATION_MAX_ENTRIES`, and a document larger than the bound is treated
+as unusable rather than truncated — a truncated set is a guard that admits some
+revoked sessions and reports none. `axiam_revocation_entry_for()` computes the
+same entry the server publishes, for a caller that wants to check a feed
+document by hand.
 
 ### Decision reason codes (§11 rule 9)
 

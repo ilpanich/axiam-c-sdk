@@ -198,6 +198,8 @@ axiam_mgmt_service_account_created_response_t *axiam_mgmt_service_account_create
 cJSON *axiam_mgmt_service_account_created_response_build(const axiam_mgmt_service_account_created_response_t *value);
 axiam_mgmt_service_account_response_t *axiam_mgmt_service_account_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_service_account_response_build(const axiam_mgmt_service_account_response_t *value);
+axiam_mgmt_session_response_t *axiam_mgmt_session_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_session_response_build(const axiam_mgmt_session_response_t *value);
 axiam_mgmt_set_mtls_trust_anchor_t *axiam_mgmt_set_mtls_trust_anchor_parse(const cJSON *src);
 cJSON *axiam_mgmt_set_mtls_trust_anchor_build(const axiam_mgmt_set_mtls_trust_anchor_t *value);
 axiam_mgmt_set_org_email_config_t *axiam_mgmt_set_org_email_config_parse(const cJSON *src);
@@ -897,6 +899,41 @@ axiam_error_kind_t axiam_users_list_roles(axiam_client_t *c, const char *user_id
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_role_assignment_list_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_users_list_sessions(axiam_client_t *c, const char *user_id, axiam_mgmt_session_response_list_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "user_id";
+    path_values[0] = user_id;
+    char *path = axiam_mgmt_path("/api/v1/users/{user_id}/sessions", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "users.list_sessions: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "users.list_sessions", "GET", "/api/v1/users/{user_id}/sessions", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_session_response_list_t *result = (axiam_mgmt_session_response_list_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    size_t n = cJSON_IsArray(json) ? (size_t) cJSON_GetArraySize(json) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_session_response_t **) calloc(n, sizeof(axiam_mgmt_session_response_t *));
+        if (!result->items) { axiam_mgmt_session_response_list_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_session_response_parse(cJSON_GetArrayItem(json, (int) i));
+        result->count = n;
+    }
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_session_response_list_free(result);
     return AXIAM_OK;
 }
 

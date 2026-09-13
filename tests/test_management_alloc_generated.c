@@ -458,6 +458,27 @@ static void test_users_list_roles_survives_oom(void) {
     TEST_PASS();
 }
 
+static void test_users_list_sessions_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "[{\"amr\": [\"example\"], \"authenticated_at\": \"example\", \"created_at\": \"example\", \"expires_at\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"refresh_replay_at\": \"example\", \"refresh_replay_grace_accepted\": 1, \"refresh_replay_refused\": 1, \"refresh_replay_verdict\": \"example\", \"user_agent\": \"example\"}]");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_session_response_list_t *result = NULL;
+        arm(n);
+        (void) axiam_users_list_sessions(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        disarm();
+        axiam_mgmt_session_response_list_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
 static void test_groups_list_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
@@ -3418,6 +3439,7 @@ int main(void) {
     RUN_TEST(test_users_reset_mfa_survives_oom);
     RUN_TEST(test_users_unlock_survives_oom);
     RUN_TEST(test_users_list_roles_survives_oom);
+    RUN_TEST(test_users_list_sessions_survives_oom);
     RUN_TEST(test_groups_list_survives_oom);
     RUN_TEST(test_groups_create_survives_oom);
     RUN_TEST(test_groups_get_survives_oom);

@@ -255,6 +255,68 @@ static void test_a_non_idempotent_operation_is_never_retried(void) {
     axiam_client_free(c);
 }
 
+/* ------------------------------------------------------------------ */
+/* §16 — AXIAM T-262: the contended-write answer                       */
+/* ------------------------------------------------------------------ */
+/*
+ * Since 2026-09-12 a write that loses an optimistic-concurrency race in the
+ * datastore answers `503 write_contention` with `Retry-After: 1` instead of
+ * `500 internal_error`. Nothing in this SDK changes: §16.3 already retries 5xx
+ * on an eligible operation, and axiam_retry_delay_ms already treats the header
+ * as a floor. That is exactly why the behaviour is pinned here — §16.7 exists
+ * because two SDKs once shipped a retry helper that was exported, unit-tested
+ * and green while no production path called it. Only a request count taken on
+ * the wire distinguishes the two.
+ */
+
+#define CONTENDED_WRITE_BODY                                                   \
+    "{\"error\":\"write_contention\","                                         \
+    "\"message\":\"the datastore is busy; retry this request\"}"
+
+static void test_the_contended_write_answer_is_retried_and_succeeds(void) {
+    g.statuses[0] = 503;
+    g.statuses[1] = 200;
+    g.n_statuses = 2;
+    g.retry_after = "1";
+    axiam_client_t *c = default_client();
+    axiam_check_result_t r;
+    axiam_error_t err;
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_check_access(c, "read", "r-1", NULL, NULL, &r, &err));
+    TEST_ASSERT_EQUAL_INT(1, r.allowed);
+    TEST_ASSERT_EQUAL_INT(2, g.request_count);
+    /* The sleep is observed rather than taken, so the floor is asserted without
+     * the test waiting a second for it. This client pins jitter to its MAXIMUM,
+     * so the un-floored wait would have been the full 200 ms backoff — the
+     * server's 1 s is what raises it, which is exactly what "a floor, never a
+     * ceiling" means and what a test pinning jitter to zero could not show. */
+    TEST_ASSERT_EQUAL_INT(1, g.n_sleeps);
+    TEST_ASSERT_EQUAL_INT(1000, g.sleeps[0]);
+    axiam_check_result_dispose(&r);
+    axiam_client_free(c);
+}
+
+static void test_a_non_idempotent_call_makes_one_attempt_against_the_same_503(void) {
+    /* The half that catches a retry wired at the transport layer instead of at
+     * the operation layer (§16.7). login changes state and consumes a
+     * credential, so a silent retry would replay a spent one and turn a
+     * recoverable blip into a hard failure the caller cannot interpret. */
+    g.statuses[0] = 503;
+    g.n_statuses = 1;
+    g.retry_after = "1";
+    g.body = CONTENDED_WRITE_BODY;
+    axiam_client_t *c = default_client();
+    axiam_login_result_t lr;
+    axiam_error_t err;
+
+    axiam_login(c, "u@example.com", "pw", &lr, &err);
+
+    TEST_ASSERT_EQUAL_INT(1, g.request_count);
+    TEST_ASSERT_EQUAL_INT(0, g.n_sleeps);
+    axiam_login_result_dispose(&lr);
+    axiam_client_free(c);
+}
+
 static void test_the_delay_sequence_with_jitter_pinned_to_max(void) {
     /* §16.1: min(cap, base * 2^(attempt-1)) → 200 ms then 400 ms, both under
      * the 5 s cap. Observed through the injected sleep, never taken. */
@@ -890,6 +952,8 @@ int main(void) {
     RUN_TEST(test_decisive_statuses_make_exactly_one_attempt);
     RUN_TEST(test_retry_disabled_makes_exactly_one_attempt);
     RUN_TEST(test_a_non_idempotent_operation_is_never_retried);
+    RUN_TEST(test_the_contended_write_answer_is_retried_and_succeeds);
+    RUN_TEST(test_a_non_idempotent_call_makes_one_attempt_against_the_same_503);
     RUN_TEST(test_the_delay_sequence_with_jitter_pinned_to_max);
     RUN_TEST(test_jitter_pinned_to_zero_waits_zero_on_the_wire);
     RUN_TEST(test_full_jitter_spans_zero_to_the_backoff);

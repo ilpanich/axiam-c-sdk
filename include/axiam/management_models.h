@@ -1014,6 +1014,7 @@ typedef struct axiam_mgmt_scope axiam_mgmt_scope_t;
 typedef struct axiam_mgmt_security_settings axiam_mgmt_security_settings_t;
 typedef struct axiam_mgmt_service_account_created_response axiam_mgmt_service_account_created_response_t;
 typedef struct axiam_mgmt_service_account_response axiam_mgmt_service_account_response_t;
+typedef struct axiam_mgmt_session_response axiam_mgmt_session_response_t;
 typedef struct axiam_mgmt_set_mtls_trust_anchor axiam_mgmt_set_mtls_trust_anchor_t;
 typedef struct axiam_mgmt_set_org_email_config axiam_mgmt_set_org_email_config_t;
 typedef struct axiam_mgmt_set_org_settings axiam_mgmt_set_org_settings_t;
@@ -4849,6 +4850,71 @@ struct axiam_mgmt_service_account_response {
 void axiam_mgmt_service_account_response_free(axiam_mgmt_service_account_response_t *value);
 
 /**
+ * One of a user's sessions, as an administrator sees it.
+ */
+struct axiam_mgmt_session_response {
+    /**
+     * RFC 8176 method references for that authentication.
+     */
+    char **amr;
+    size_t amr_count; /**< Entries in `amr`. */
+    /**
+     * X7.2 — when the end user actually authenticated, which is not `created_at` on a
+     * session produced by refresh rotation.
+     */
+    char *authenticated_at;
+    /**
+     * The server's `created_at` field.
+     */
+    char *created_at;
+    /**
+     * The server's `expires_at` field.
+     */
+    char *expires_at;
+    /**
+     * The server's `id` field.
+     */
+    char *id;
+    /**
+     * The server's `ip_address` field. Optional.
+     */
+    char *ip_address;
+    /**
+     * T-254 — when a refresh token of this session was last presented after it had already
+     * been rotated. `None` if that has never happened. Optional.
+     */
+    char *refresh_replay_at;
+    /**
+     * T-254 — replays accepted under the FAPI 2.0 §5.3.2.1-9 grace window. Only ever
+     * non-zero for a client registered `profile: fapi2`.
+     */
+    long refresh_replay_grace_accepted;
+    /**
+     * T-254 — replays refused because there was no window to accept them in. Nothing a
+     * conformant client does.
+     */
+    long refresh_replay_refused;
+    /**
+     * T-254 — the badge: `none`, `fapi_grace_retry` or `refused`. Derived from the two
+     * counters below rather than stored, so it cannot disagree with them. A refusal
+     * outranks an accepted grace retry however the counts compare.
+     */
+    char *refresh_replay_verdict;
+    /**
+     * The server's `user_agent` field. Optional.
+     */
+    char *user_agent;
+};
+
+/**
+ * Free a SessionResponse and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_session_response_free(axiam_mgmt_session_response_t *value);
+
+/**
  * Body for `PUT .../ca-certificates/{id}/mtls-trust-anchor`.
  */
 struct axiam_mgmt_set_mtls_trust_anchor {
@@ -6868,6 +6934,23 @@ typedef struct axiam_mgmt_scope_list {
  * Free a list of Scope objects and every item in it. Safe to pass NULL.
  */
 void axiam_mgmt_scope_list_free(axiam_mgmt_scope_list_t *list);
+
+/**
+ * A plain list of SessionResponse objects.
+ *
+ * This is what a BARE-ARRAY endpoint returns. 27.4 rule 4 is explicit that such a response
+ * MUST NOT be modelled as a page: there is no `total`, no offset and no next page, and
+ * dressing it as one would invite a caller to walk something that has already ended.
+ */
+typedef struct axiam_mgmt_session_response_list {
+    axiam_mgmt_session_response_t **items; /**< Every item the server returned. */
+    size_t count;              /**< How many. */
+} axiam_mgmt_session_response_list_t;
+
+/**
+ * Free a list of SessionResponse objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_session_response_list_free(axiam_mgmt_session_response_list_t *list);
 
 #ifdef __cplusplus
 }

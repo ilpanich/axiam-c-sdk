@@ -36,6 +36,11 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
     pthread_mutex_init(&c->refresh_mtx, NULL);
     pthread_cond_init(&c->refresh_cond, NULL);
     pthread_mutex_init(&c->jwks_mtx, NULL);
+    pthread_mutex_init(&c->revocation_mtx, NULL);
+    /* §10.4 is off until a caller enables it; the interval is only read
+     * once it is on, but a sane default keeps the field from being a
+     * zero that would poll on every request if the flag ever moved. */
+    c->revocation_poll_secs = AXIAM_REVOCATION_DEFAULT_POLL_SECS;
     /* §12: the discovery cache and the oidc_refresh single-flight get their own
      * locks. §9 rule 5 permits (and this SDK takes) a dedicated guard for the
      * OAuth2 token namespace rather than reusing the cookie-session one. */
@@ -171,6 +176,8 @@ void axiam_client_free(axiam_client_t *client) {
     pthread_mutex_destroy(&client->state_mtx);
     pthread_mutex_destroy(&client->refresh_mtx);
     pthread_cond_destroy(&client->refresh_cond);
+    axiam_revocation_dispose(client);
+    pthread_mutex_destroy(&client->revocation_mtx);
     pthread_mutex_destroy(&client->jwks_mtx);
     pthread_mutex_destroy(&client->oidc_config_mtx);
     pthread_mutex_destroy(&client->oidc_refresh_mtx);

@@ -101,6 +101,16 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_jwks COMMAND test_jwks)
 
+# §10.4 (contract 1.44): needs the JWT fixture, like every other test that mints
+# a token to verify.
+add_executable(test_revocation test_revocation.c)
+target_include_directories(test_revocation PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_revocation PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_revocation PRIVATE --coverage)
+endif()
+add_test(NAME test_revocation COMMAND test_revocation)
+
 add_executable(test_guard test_guard.c)
 target_include_directories(test_guard PRIVATE ${AXIAM_TEST_INCLUDES})
 target_link_libraries(test_guard PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)

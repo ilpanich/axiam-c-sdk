@@ -49,9 +49,14 @@ axiam_error_kind_t axiam_device_authorize(axiam_client_t *client, const char *sc
     /* §21.3 rule 2: prefer the mTLS alias when this call presents a client
      * certificate. NULL at BOTH levels still means "unsupported" — never a cue
      * to build the URL by concatenation (§14.1). */
-    const char *device_endpoint = oidc_preferred_endpoint(
+    const char *device_endpoint = NULL;
+    axiam_error_kind_t alias_refusal = oidc_preferred_endpoint(
         client, &config, config.mtls_endpoint_aliases.device_authorization_endpoint,
-        config.device_authorization_endpoint);
+        config.device_authorization_endpoint, &device_endpoint, err);
+    if (alias_refusal != AXIAM_OK) {
+        axiam_oidc_config_dispose(&config);
+        return alias_refusal;
+    }
     if (!device_endpoint) {
         axiam_oidc_config_dispose(&config);
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
