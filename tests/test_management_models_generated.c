@@ -215,6 +215,8 @@ axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *sr
 cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *value);
 axiam_mgmt_sign_audit_batch_request_t *axiam_mgmt_sign_audit_batch_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_audit_batch_request_build(const axiam_mgmt_sign_audit_batch_request_t *value);
+axiam_mgmt_sign_certificate_csr_request_t *axiam_mgmt_sign_certificate_csr_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_sign_certificate_csr_request_build(const axiam_mgmt_sign_certificate_csr_request_t *value);
 axiam_mgmt_sign_intermediate_csr_request_t *axiam_mgmt_sign_intermediate_csr_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_intermediate_csr_request_build(const axiam_mgmt_sign_intermediate_csr_request_t *value);
 axiam_mgmt_signed_audit_batch_t *axiam_mgmt_signed_audit_batch_parse(const cJSON *src);
@@ -6340,6 +6342,81 @@ static void test_sign_audit_batch_request_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `SignCertificateCsrRequest`: a full wire object parses, builds back and frees. */
+static void test_sign_certificate_csr_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"validity_days\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_sign_certificate_csr_request_t *model = axiam_mgmt_sign_certificate_csr_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_sign_certificate_csr_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_sign_certificate_csr_request_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SignCertificateCsrRequest`: the server omitting every OPTIONAL field is not an error. */
+static void test_sign_certificate_csr_request_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_sign_certificate_csr_request_t *model = axiam_mgmt_sign_certificate_csr_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_sign_certificate_csr_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_sign_certificate_csr_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SignCertificateCsrRequest`: an EMPTY object parses without crashing. A server that omits
+ * a field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_sign_certificate_csr_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_sign_certificate_csr_request_t *model = axiam_mgmt_sign_certificate_csr_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_sign_certificate_csr_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_sign_certificate_csr_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_sign_certificate_csr_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_sign_certificate_csr_request_parse(scalar));
+    axiam_mgmt_sign_certificate_csr_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `SignIntermediateCsrRequest`: a full wire object parses, builds back and frees. */
 static void test_sign_intermediate_csr_request_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"csr_pem\": \"example\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}");
@@ -8497,6 +8574,10 @@ int main(void) {
     RUN_TEST(test_sign_audit_batch_request_round_trips);
     RUN_TEST(test_sign_audit_batch_request_parses_an_empty_object);
     RUN_TEST(test_sign_audit_batch_request_rejects_a_non_object);
+    RUN_TEST(test_sign_certificate_csr_request_round_trips);
+    RUN_TEST(test_sign_certificate_csr_request_parses_without_optionals);
+    RUN_TEST(test_sign_certificate_csr_request_parses_an_empty_object);
+    RUN_TEST(test_sign_certificate_csr_request_rejects_a_non_object);
     RUN_TEST(test_sign_intermediate_csr_request_round_trips);
     RUN_TEST(test_sign_intermediate_csr_request_parses_an_empty_object);
     RUN_TEST(test_sign_intermediate_csr_request_rejects_a_non_object);

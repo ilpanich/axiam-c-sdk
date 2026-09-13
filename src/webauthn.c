@@ -1,9 +1,21 @@
 /*
  * AXIAM C SDK — WebAuthn / passkeys, the relying-party layer (CONTRACT.md §24).
  *
- * The six wire operations plus §24.6a's JSON bridge. §24.6b's linked-API
+ * The eight wire operations plus §24.6a's JSON bridge. §24.6b's linked-API
  * ceremony helper is deliberately absent: a C program has no authenticator, and
  * rule 2 forbids emulating one in software.
+ *
+ * THE TWO `setup/register/*` OPERATIONS ARE THE ODD ONES OUT (contract 1.45).
+ * Every other operation here either needs a session (`register/*`) or needs
+ * none because it has no subject yet to attach one to (`authenticate/*`,
+ * `discoverable/*`). This pair needs no session for a different reason: it
+ * HAS a subject — the account named by the setup token — but no session has
+ * been issued for it yet, because this IS how that account's first session
+ * gets issued. The setup token is that subject's only credential and travels
+ * in the body, exactly as §25's `mfa_setup_enroll`/`mfa_setup_confirm` do it,
+ * and `setup_register_finish` adopts credentials exactly as
+ * `mfa_setup_confirm` does — see account.c, which this file's finish
+ * deliberately mirrors rather than reimplements.
  *
  * THE ONE THING THIS FILE IS CAREFUL ABOUT. Both *_finish bodies are assembled
  * as TEXT, with the caller's response JSON spliced in unmodified. Parsing it
@@ -27,6 +39,8 @@
 #define PATH_AUTH_FINISH      "/api/v1/auth/webauthn/authenticate/finish"
 #define PATH_DISC_START       "/api/v1/auth/webauthn/authenticate/discoverable/start"
 #define PATH_DISC_FINISH      "/api/v1/auth/webauthn/authenticate/discoverable/finish"
+#define PATH_SETUP_REGISTER_START  "/api/v1/auth/webauthn/setup/register/start"
+#define PATH_SETUP_REGISTER_FINISH "/api/v1/auth/webauthn/setup/register/finish"
 
 /* ------------------------------------------------------------------ */
 /* Disposal                                                           */
@@ -252,6 +266,71 @@ static char *build_finish_body(const axiam_sensitive_t *state_token,
         if (!append_raw(&sb, &len, &cap, ",\"credential_name\":")) goto oom;
         if (!append_json_string(&sb, &len, &cap, credential_name)) goto oom;
     }
+    if (!append_raw(&sb, &len, &cap, ",\"response\":")) goto oom;
+    if (!append_raw(&sb, &len, &cap, trimmed)) goto oom;
+    if (!append_raw(&sb, &len, &cap, "}")) goto oom;
+    return sb;
+
+oom:
+    free(sb);
+    axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+    return NULL;
+}
+
+/**
+ * Build the `setup/register/finish` body as TEXT, splicing `response` in
+ * verbatim exactly as build_finish_body() does — plus the `setup_token` that
+ * pair does not carry, because setup/register's caller has no session and
+ * this token is the only credential it has instead (§24.1, contract 1.45).
+ */
+static char *build_setup_finish_body(const axiam_sensitive_t *setup_token,
+                                     const axiam_sensitive_t *state_token,
+                                     const char *credential_name,
+                                     const char *response,
+                                     const char *operation,
+                                     axiam_error_t *err) {
+    if (!response) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "the authenticator response is NULL");
+        return NULL;
+    }
+
+    /* Trim leading whitespace so the object check sees the first real byte; the
+     * spliced text keeps whatever the platform produced from there on. */
+    const char *trimmed = response;
+    while (*trimmed == ' ' || *trimmed == '\t' || *trimmed == '\n' || *trimmed == '\r') trimmed++;
+
+    cJSON *parsed = cJSON_Parse(trimmed);
+    if (!parsed) {
+        char msg[256];
+        snprintf(msg, sizeof(msg),
+                 "%s: the authenticator response string is not valid JSON. Pass the "
+                 "platform's response JSON verbatim (CONTRACT.md §24.6a)",
+                 operation);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, msg);
+        return NULL;
+    }
+    int is_object = cJSON_IsObject(parsed);
+    cJSON_Delete(parsed);
+    if (!is_object) {
+        char msg[256];
+        snprintf(msg, sizeof(msg),
+                 "%s: the authenticator response must be a JSON object (CONTRACT.md §24.6a)",
+                 operation);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, msg);
+        return NULL;
+    }
+
+    char *sb = NULL;
+    size_t len = 0, cap = 0;
+    const char *setup = setup_token ? axiam_sensitive_reveal(setup_token) : "";
+    const char *state = state_token ? axiam_sensitive_reveal(state_token) : "";
+
+    if (!append_raw(&sb, &len, &cap, "{\"setup_token\":")) goto oom;
+    if (!append_json_string(&sb, &len, &cap, setup)) goto oom;
+    if (!append_raw(&sb, &len, &cap, ",\"state_token\":")) goto oom;
+    if (!append_json_string(&sb, &len, &cap, state)) goto oom;
+    if (!append_raw(&sb, &len, &cap, ",\"credential_name\":")) goto oom;
+    if (!append_json_string(&sb, &len, &cap, credential_name)) goto oom;
     if (!append_raw(&sb, &len, &cap, ",\"response\":")) goto oom;
     if (!append_raw(&sb, &len, &cap, trimmed)) goto oom;
     if (!append_raw(&sb, &len, &cap, "}")) goto oom;
@@ -645,4 +724,109 @@ axiam_error_kind_t axiam_webauthn_discoverable_finish(axiam_client_t *client,
                                                       axiam_error_t *err) {
     return webauthn_finish_login(client, PATH_DISC_FINISH, state_token, response,
                                  "axiam_webauthn_discoverable_finish", out, err);
+}
+
+/* ------------------------------------------------------------------ */
+/* §24.1 / §25.2 rule 2 — forced first-login enrolment, contract 1.45  */
+/* ------------------------------------------------------------------ */
+
+axiam_error_kind_t axiam_webauthn_setup_register_start(axiam_client_t *client,
+                                                       const axiam_sensitive_t *setup_token,
+                                                       axiam_webauthn_challenge_t *out,
+                                                       axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (out) memset(out, 0, sizeof(*out));
+    if (!client || !setup_token) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (axiam_client_is_shut(client)) return axiam_client_shut_error(err);
+
+    /* NO SESSION GUARD. Deliberately the one *_start in this file that does not
+     * call require_session(): there is no session to require. The setup token
+     * IS the credential, and it travels in the body (§24.1, contract 1.45). */
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    cJSON_AddStringToObject(root, "setup_token", axiam_sensitive_reveal(setup_token));
+    char *body = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (!body) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    axiam_error_kind_t kind = webauthn_start(client, PATH_SETUP_REGISTER_START, body, out, err);
+    axiam_secure_zero(body, strlen(body)); /* §7: the body carried the setup token. */
+    free(body);
+    return kind;
+}
+
+axiam_error_kind_t axiam_webauthn_setup_register_finish(axiam_client_t *client,
+                                                        const axiam_sensitive_t *setup_token,
+                                                        const axiam_sensitive_t *state_token,
+                                                        const char *credential_name,
+                                                        const char *response,
+                                                        axiam_login_result_t *out,
+                                                        axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (out) memset(out, 0, sizeof(*out));
+    if (!client || !setup_token || !credential_name) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (axiam_client_is_shut(client)) return axiam_client_shut_error(err);
+
+    char *body = build_setup_finish_body(setup_token, state_token, credential_name, response,
+                                         "axiam_webauthn_setup_register_finish", err);
+    if (!body) return err && err->kind != AXIAM_OK ? err->kind : AXIAM_ERR_AUTH;
+
+    /* §25.2 rule 2 / §24.3 rule 4: this IS the completion of a login, exactly as
+     * axiam_mfa_setup_confirm() is (account.c) — the memo is cleared on the
+     * caller's INTENT, before the wire, not gated on success. */
+    axiam_client_drop_memo(client);
+
+    axiam_http_response_t resp;
+    int rc = axiam_client_send_raw(client, "POST", PATH_SETUP_REGISTER_FINISH, body, &resp);
+    axiam_secure_zero(body, strlen(body)); /* §7: the body carried the setup token. */
+    free(body);
+
+    if (rc != 0 || resp.status == 0) {
+        axiam_error_kind_t kind = transport_failed(&resp, err);
+        axiam_http_response_dispose(&resp);
+        return kind;
+    }
+
+    if (resp.status == 403) {
+        /* §24.4 rule 1, same treatment as axiam_webauthn_register_finish(): this
+         * is the tenant's attestation policy refusing this authenticator, not a
+         * permission problem, and the message is the only thing the person
+         * holding the key can act on. Only the named `message` field is read;
+         * the rest of the body is still discarded. */
+        char context[512];
+        snprintf(context, sizeof(context), "axiam_webauthn_setup_register_finish failed");
+        if (resp.body) {
+            cJSON *body_root = cJSON_Parse(resp.body);
+            if (body_root) {
+                const cJSON *message = cJSON_GetObjectItemCaseSensitive(body_root, "message");
+                if (cJSON_IsString(message) && message->valuestring && message->valuestring[0]) {
+                    snprintf(context, sizeof(context),
+                             "axiam_webauthn_setup_register_finish failed: %s",
+                             message->valuestring);
+                }
+                cJSON_Delete(body_root);
+            }
+        }
+        axiam_error_kind_t kind = map_status(&resp, context, err);
+        axiam_http_response_dispose(&resp);
+        return kind;
+    }
+
+    /* Through the SAME parser login() and mfa_setup_confirm() use, rather than a
+     * second one that could drift on what "adopted" means (§24.3, §25.2 rule 2). */
+    axiam_error_kind_t kind = axiam_client_parse_login(client, &resp, out, err);
+    axiam_http_response_dispose(&resp);
+    return kind;
 }

@@ -208,6 +208,8 @@ axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *sr
 cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *value);
 axiam_mgmt_sign_audit_batch_request_t *axiam_mgmt_sign_audit_batch_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_audit_batch_request_build(const axiam_mgmt_sign_audit_batch_request_t *value);
+axiam_mgmt_sign_certificate_csr_request_t *axiam_mgmt_sign_certificate_csr_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_sign_certificate_csr_request_build(const axiam_mgmt_sign_certificate_csr_request_t *value);
 axiam_mgmt_sign_intermediate_csr_request_t *axiam_mgmt_sign_intermediate_csr_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_intermediate_csr_request_build(const axiam_mgmt_sign_intermediate_csr_request_t *value);
 axiam_mgmt_signed_audit_batch_t *axiam_mgmt_signed_audit_batch_parse(const cJSON *src);
@@ -2704,6 +2706,32 @@ axiam_error_kind_t axiam_certificates_generate(axiam_client_t *c, const axiam_mg
     }
     if (out) *out = result;
     else axiam_mgmt_generated_certificate_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_certificates_sign_csr(axiam_client_t *c, const axiam_mgmt_sign_certificate_csr_request_t *body, axiam_mgmt_certificate_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/certificates/sign-csr", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.sign_csr: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_sign_certificate_csr_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "certificates.sign_csr", "POST", "/api/v1/certificates/sign-csr", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_certificate_t *result = axiam_mgmt_certificate_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.sign_csr: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_certificate_free(result);
     return AXIAM_OK;
 }
 

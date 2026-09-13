@@ -25,6 +25,7 @@
 #define WA_STATE   "state-token-value"
 #define WA_ACCESS  "access-token-value"
 #define WA_REFRESH "refresh-token-value"
+#define WA_SETUP   "setup-token-value"
 
 /*
  * The options exactly as a server sends them: a `publicKey` wrapper, base64url
@@ -83,10 +84,20 @@ typedef struct {
      * can only return HTTP statuses never reaches one. */
     int transport_fails;
     const char *body_auth_start;
+    long status_setup_start;
+    const char *body_setup_start;
+    long status_setup_finish;
+    const char *body_setup_finish;
 
     char methods[MAX_CALLS][8];
     char urls[MAX_CALLS][512];
     char bodies[MAX_CALLS][4096];
+    /* §24.8 (contract 1.45): whether THIS request carried a session credential —
+     * captured per call so a test can assert on a specific one rather than on
+     * "any call ever did", which a mixed test (a signed-in client also calling
+     * setup/register/*) needs. */
+    int saw_authorization[MAX_CALLS];
+    int saw_cookie[MAX_CALLS];
     int n_calls;
 } wa_state_t;
 
@@ -98,6 +109,8 @@ static void record(const axiam_http_request_t *req) {
     snprintf(g.methods[i], sizeof(g.methods[i]), "%s", req->method ? req->method : "");
     snprintf(g.urls[i], sizeof(g.urls[i]), "%s", req->url ? req->url : "");
     snprintf(g.bodies[i], sizeof(g.bodies[i]), "%s", req->body ? req->body : "");
+    g.saw_authorization[i] = axiam_kv_get(req->headers, "Authorization") != NULL;
+    g.saw_cookie[i] = axiam_kv_get(req->headers, "Cookie") != NULL;
 }
 
 static int wa_transport(void *ctx, const axiam_http_request_t *req,
@@ -133,6 +146,19 @@ static int wa_transport(void *ctx, const axiam_http_request_t *req,
                         "\"name\":\"Ada's laptop\",\"credential_type\":\"passkey\","
                         "\"created_at\":\"2026-08-22T10:00:00Z\",\"last_used_at\":null}",
                   NULL);
+        return 0;
+    }
+    if (strstr(url, "/webauthn/setup/register/start")) {
+        resp_fill(resp, g.status_setup_start ? g.status_setup_start : 200,
+                  g.body_setup_start
+                      ? g.body_setup_start
+                      : "{\"challenge\":" WA_CREATE_OPTIONS ",\"state_token\":\"" WA_STATE "\"}",
+                  NULL);
+        return 0;
+    }
+    if (strstr(url, "/webauthn/setup/register/finish")) {
+        resp_fill(resp, g.status_setup_finish ? g.status_setup_finish : 200,
+                  g.body_setup_finish ? g.body_setup_finish : LOGIN_OK_BODY, "csrf-setup");
         return 0;
     }
     if (strstr(url, "/webauthn/authenticate/discoverable/start")) {
@@ -618,6 +644,333 @@ void test_a_503_on_register_start_is_not_retried(void) {
 }
 
 /* ------------------------------------------------------------------ */
+/* §24.1 / §25.2 rule 2 — setup/register/*, contract 1.45              */
+/*                                                                      */
+/* The WebAuthn twin of mfa_setup_enroll/mfa_setup_confirm (test_account.c):  */
+/* no session, a setup token as the only credential, and a finish that       */
+/* adopts credentials exactly as mfa_setup_confirm does.                     */
+/* ------------------------------------------------------------------ */
+
+void test_setup_register_start_needs_no_session_and_returns_the_options_untouched(void) {
+    /* The mirror image of test_register_start_without_a_session_makes_no_wire_call:
+     * here the ABSENCE of a session is exactly right, and the call must reach the
+     * wire regardless. */
+    axiam_client_t *c = make_client();
+    TEST_ASSERT_EQUAL_INT(0, axiam_client_has_session(c));
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+
+    axiam_webauthn_challenge_t ch;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_start(c, setup, &ch, &err));
+
+    TEST_ASSERT_EQUAL_STRING(WA_CREATE_OPTIONS, ch.challenge_json);
+    TEST_ASSERT_EQUAL_STRING(WA_STATE, axiam_sensitive_reveal(ch.state_token));
+    int i = last_call_to("/setup/register/start");
+    TEST_ASSERT_NOT_EQUAL(-1, i);
+    TEST_ASSERT_EQUAL_STRING("POST", g.methods[i]);
+    TEST_ASSERT_NOT_NULL(strstr(g.bodies[i], "\"setup_token\":\"" WA_SETUP "\""));
+
+    axiam_webauthn_challenge_dispose(&ch);
+    axiam_sensitive_free(setup);
+    axiam_client_free(c);
+}
+
+void test_setup_register_start_without_a_setup_token_makes_no_wire_call(void) {
+    /* There is no session to fall back on here — a missing setup token leaves
+     * NOTHING to authenticate the request, so this must be refused client-side. */
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    axiam_webauthn_challenge_t ch;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_start(c, NULL, &ch, &err));
+    TEST_ASSERT_EQUAL_INT(0, g.n_calls);
+
+    axiam_webauthn_challenge_dispose(&ch);
+    axiam_client_free(c);
+}
+
+void test_setup_register_finish_adopts_credentials_exactly_as_mfa_setup_confirm_does(void) {
+    /* §25.2 rule 2 / §24.3's five adoption rules, applied to the SAME assertions
+     * §24.8 requires of authenticate_finish: the client is authenticated, a
+     * cookie-jar SDK has captured the CSRF token, and a state-changing call made
+     * right afterwards carries it. */
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+    axiam_sensitive_t *state = axiam_sensitive_new(WA_STATE);
+
+    axiam_login_result_t r;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_finish(
+        c, setup, state, "Ada's laptop", WA_RESPONSE, &r, &err));
+
+    TEST_ASSERT_EQUAL_INT(1, r.authenticated);
+    TEST_ASSERT_EQUAL_STRING("sess-1", r.session_id);
+    TEST_ASSERT_EQUAL_INT(1, axiam_client_has_session(c));
+
+    int i = last_call_to("/setup/register/finish");
+    TEST_ASSERT_NOT_EQUAL(-1, i);
+    TEST_ASSERT_NOT_NULL(strstr(g.bodies[i], "\"setup_token\":\"" WA_SETUP "\""));
+    TEST_ASSERT_NOT_NULL(strstr(g.bodies[i], "\"credential_name\":\"Ada's laptop\""));
+    TEST_ASSERT_NOT_NULL(strstr(g.bodies[i], WA_STATE));
+    TEST_ASSERT_NOT_NULL(strstr(g.bodies[i], WA_RESPONSE));
+
+    /* The CSRF triple was captured (§24.3 rule 2), so an immediately following
+     * state-changing call carries it without a second round trip to get one. */
+    axiam_check_result_t check;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_check_access(c, "read", "doc-1", NULL, NULL, &check, &err));
+    axiam_check_result_dispose(&check);
+
+    axiam_login_result_dispose(&r);
+    axiam_sensitive_free(setup);
+    axiam_sensitive_free(state);
+    axiam_client_free(c);
+}
+
+void test_setup_register_finish_clears_the_decision_memo(void) {
+    /* The other half of "adopts credentials exactly as mfa_setup_confirm does":
+     * a new subject means a memo entry keyed by the previous one cannot be
+     * reused (§17.1 rule 9 / §24.3 rule 4). */
+    axiam_client_t *c = make_signed_in_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+
+    axiam_check_result_t r1;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_check_access(c, "read", "doc-1", NULL, NULL, &r1, &err));
+    axiam_check_result_dispose(&r1);
+    int after_first = g.n_calls;
+
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+    axiam_sensitive_t *state = axiam_sensitive_new(WA_STATE);
+    axiam_login_result_t r;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_finish(
+        c, setup, state, "key", WA_RESPONSE, &r, &err));
+    axiam_login_result_dispose(&r);
+    int after_ceremony = g.n_calls;
+
+    axiam_check_result_t r2;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_check_access(c, "read", "doc-1", NULL, NULL, &r2, &err));
+    axiam_check_result_dispose(&r2);
+    TEST_ASSERT_EQUAL_INT(after_ceremony + 1, g.n_calls);
+    /* Not a wire call saved between the two checks: the memo was warm before the
+     * ceremony (after_first == after_ceremony would show that), and this proves
+     * the SECOND check went back to the wire rather than serving a cached entry
+     * keyed to the old subject. */
+    (void)after_first;
+
+    axiam_sensitive_free(setup);
+    axiam_sensitive_free(state);
+    axiam_client_free(c);
+}
+
+void test_setup_register_carries_no_session_credential_even_when_one_is_configured(void) {
+    /* §24.1 / §24.8's required test, verbatim: with a session configured AND a
+     * setup token supplied, neither call may send the session's Authorization
+     * header or a Cookie header. The setup token is the credential; attaching a
+     * second one invites a server that changes its mind about which to trust. */
+    axiam_client_t *c = make_signed_in_client();
+    TEST_ASSERT_EQUAL_INT(1, axiam_client_has_session(c));
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+    axiam_sensitive_t *state = axiam_sensitive_new(WA_STATE);
+
+    axiam_webauthn_challenge_t ch;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_start(c, setup, &ch, &err));
+    int i = last_call_to("/setup/register/start");
+    TEST_ASSERT_NOT_EQUAL(-1, i);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, g.saw_authorization[i],
+        "setup/register/start must not send the session's Authorization header");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, g.saw_cookie[i],
+        "setup/register/start must not send the session's Cookie");
+
+    axiam_login_result_t r;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_finish(
+        c, setup, state, "key", WA_RESPONSE, &r, &err));
+    int j = last_call_to("/setup/register/finish");
+    TEST_ASSERT_NOT_EQUAL(-1, j);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, g.saw_authorization[j],
+        "setup/register/finish must not send the session's Authorization header");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, g.saw_cookie[j],
+        "setup/register/finish must not send the session's Cookie");
+
+    axiam_webauthn_challenge_dispose(&ch);
+    axiam_login_result_dispose(&r);
+    axiam_sensitive_free(setup);
+    axiam_sensitive_free(state);
+    axiam_client_free(c);
+}
+
+void test_a_403_on_setup_register_finish_surfaces_the_policy_message(void) {
+    /* §24.4 rule 1, same treatment as register/finish. */
+    g.status_setup_finish = 403;
+    g.body_setup_finish =
+        "{\"error\":\"attestation_rejected\","
+        "\"message\":\"This tenant requires a certified security key from an approved vendor.\"}";
+
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+    axiam_sensitive_t *state = axiam_sensitive_new(WA_STATE);
+
+    axiam_login_result_t r;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTHZ, axiam_webauthn_setup_register_finish(
+        c, setup, state, "key", WA_RESPONSE, &r, &err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "certified security key"));
+    /* And the failed ceremony did NOT sign the client in. */
+    TEST_ASSERT_EQUAL_INT(0, axiam_client_has_session(c));
+
+    axiam_login_result_dispose(&r);
+    axiam_sensitive_free(setup);
+    axiam_sensitive_free(state);
+    axiam_client_free(c);
+}
+
+void test_a_401_on_setup_register_start_is_an_invalid_or_expired_token(void) {
+    g.status_setup_start = 401;
+
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+
+    axiam_webauthn_challenge_t ch;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_webauthn_setup_register_start(c, setup, &ch, &err));
+
+    axiam_webauthn_challenge_dispose(&ch);
+    axiam_sensitive_free(setup);
+    axiam_client_free(c);
+}
+
+void test_a_400_on_setup_register_start_when_the_account_already_has_a_factor(void) {
+    /* The same answer axiam_mfa_setup_enroll() gets: a setup token adds the
+     * FIRST factor, never a second. */
+    g.status_setup_start = 400;
+    g.body_setup_start = "{\"error\":\"mfa_already_configured\"}";
+
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+
+    axiam_webauthn_challenge_t ch;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_start(c, setup, &ch, &err));
+
+    axiam_webauthn_challenge_dispose(&ch);
+    axiam_sensitive_free(setup);
+    axiam_client_free(c);
+}
+
+void test_a_503_on_setup_register_start_is_not_retried(void) {
+    /* §24.4 rule 2, mirrored: a configuration state, not a transient one. */
+    g.status_setup_start = 503;
+
+    axiam_client_t *c = make_client();
+    int before = g.n_calls;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+
+    axiam_webauthn_challenge_t ch;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_start(c, setup, &ch, &err));
+    TEST_ASSERT_EQUAL_INT(before + 1, g.n_calls);
+
+    axiam_webauthn_challenge_dispose(&ch);
+    axiam_sensitive_free(setup);
+    axiam_client_free(c);
+}
+
+void test_setup_register_finish_requires_a_credential_name(void) {
+    axiam_client_t *c = make_client();
+    int before = g.n_calls;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+    axiam_sensitive_t *state = axiam_sensitive_new(WA_STATE);
+
+    axiam_login_result_t r;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK,
+        axiam_webauthn_setup_register_finish(c, setup, state, NULL, WA_RESPONSE, &r, &err));
+    TEST_ASSERT_EQUAL_INT(before, g.n_calls);
+
+    axiam_sensitive_free(setup);
+    axiam_sensitive_free(state);
+    axiam_client_free(c);
+}
+
+void test_setup_register_finish_requires_a_setup_token(void) {
+    axiam_client_t *c = make_client();
+    int before = g.n_calls;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *state = axiam_sensitive_new(WA_STATE);
+
+    axiam_login_result_t r;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK,
+        axiam_webauthn_setup_register_finish(c, NULL, state, "key", WA_RESPONSE, &r, &err));
+    TEST_ASSERT_EQUAL_INT(before, g.n_calls);
+
+    axiam_sensitive_free(state);
+    axiam_client_free(c);
+}
+
+void test_setup_register_finish_rejects_a_non_json_response_with_no_wire_call(void) {
+    /* §24.6a rule 2, ported: the one thing checked client-side is that the
+     * authenticator response IS a JSON object. */
+    axiam_client_t *c = make_client();
+    int before = g.n_calls;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+    axiam_sensitive_t *state = axiam_sensitive_new(WA_STATE);
+
+    axiam_login_result_t r;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_finish(
+        c, setup, state, "key", "not json at all", &r, &err));
+    TEST_ASSERT_EQUAL_INT(before, g.n_calls);
+
+    axiam_sensitive_free(setup);
+    axiam_sensitive_free(state);
+    axiam_client_free(c);
+}
+
+void test_setup_register_start_transport_failure_is_a_network_error(void) {
+    g.transport_fails = 1;
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+
+    axiam_webauthn_challenge_t ch;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_webauthn_setup_register_start(c, setup, &ch, &err));
+
+    axiam_webauthn_challenge_dispose(&ch);
+    axiam_sensitive_free(setup);
+    axiam_client_free(c);
+}
+
+void test_setup_register_tokens_do_not_render_through_the_public_surface(void) {
+    /* §24.5 / §7: state_token, and the setup_token argument itself, must not
+     * leak through anything a caller might print. */
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    axiam_sensitive_t *setup = axiam_sensitive_new(WA_SETUP);
+
+    axiam_webauthn_challenge_t ch;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_webauthn_setup_register_start(c, setup, &ch, &err));
+    TEST_ASSERT_EQUAL_STRING("[SENSITIVE]", axiam_sensitive_to_string(ch.state_token));
+    TEST_ASSERT_EQUAL_STRING("[SENSITIVE]", axiam_sensitive_to_string(setup));
+
+    axiam_webauthn_challenge_dispose(&ch);
+    axiam_sensitive_free(setup);
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------ */
 /* §24.6a — the JSON bridge                                           */
 /* ------------------------------------------------------------------ */
 
@@ -1046,6 +1399,20 @@ int main(void) {
     RUN_TEST(test_a_403_on_register_finish_surfaces_the_policy_message);
     RUN_TEST(test_a_403_with_no_message_still_maps);
     RUN_TEST(test_a_503_on_register_start_is_not_retried);
+    RUN_TEST(test_setup_register_start_needs_no_session_and_returns_the_options_untouched);
+    RUN_TEST(test_setup_register_start_without_a_setup_token_makes_no_wire_call);
+    RUN_TEST(test_setup_register_finish_adopts_credentials_exactly_as_mfa_setup_confirm_does);
+    RUN_TEST(test_setup_register_finish_clears_the_decision_memo);
+    RUN_TEST(test_setup_register_carries_no_session_credential_even_when_one_is_configured);
+    RUN_TEST(test_a_403_on_setup_register_finish_surfaces_the_policy_message);
+    RUN_TEST(test_a_401_on_setup_register_start_is_an_invalid_or_expired_token);
+    RUN_TEST(test_a_400_on_setup_register_start_when_the_account_already_has_a_factor);
+    RUN_TEST(test_a_503_on_setup_register_start_is_not_retried);
+    RUN_TEST(test_setup_register_finish_requires_a_credential_name);
+    RUN_TEST(test_setup_register_finish_requires_a_setup_token);
+    RUN_TEST(test_setup_register_finish_rejects_a_non_json_response_with_no_wire_call);
+    RUN_TEST(test_setup_register_start_transport_failure_is_a_network_error);
+    RUN_TEST(test_setup_register_tokens_do_not_render_through_the_public_surface);
     RUN_TEST(test_request_json_drops_the_publickey_wrapper_and_nothing_else);
     RUN_TEST(test_request_json_passes_bare_options_through);
     RUN_TEST(test_request_json_is_null_safe);
