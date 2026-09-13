@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_role_service_account_assignment_list" name="axiam_mgmt_role_service_account_assignment_list">
+<area shape="rect" id="Node000001" title="A plain list of RoleServiceAccountAssignment objects." alt="" coords="5,211,200,251"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__role__service__account__assignment.html" title="A service account together with the resource scope of its assignment." alt="" coords="5,108,200,148"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="105,162,105,211,100,211,100,162"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__service__account__response.html" title="Public&#45;safe service account representation." alt="" coords="21,5,184,45"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="105,59,105,108,100,108,100,59"/>
+</map>

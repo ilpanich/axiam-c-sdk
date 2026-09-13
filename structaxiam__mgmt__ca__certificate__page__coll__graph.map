@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_ca_certificate_page" name="axiam_mgmt_ca_certificate_page">
+<area shape="rect" id="Node000001" title="One page of CaCertificate objects (27.4 rule 4)." alt="" coords="92,93,335,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__ca__certificate.html" title="A CA (Certificate Authority) certificate at the organization level." alt="" coords="5,5,208,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="133,37,201,91,197,95,130,41"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="232,5,408,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="297,41,229,95,226,91,293,37"/>
+</map>

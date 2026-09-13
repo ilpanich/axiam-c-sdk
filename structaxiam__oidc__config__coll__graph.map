@@ -1,0 +1,5 @@
+<map id="axiam_oidc_config" name="axiam_oidc_config">
+<area shape="rect" id="Node000001" title="The OIDC discovery document (§12.1), read from /.well&#45;known/openid&#45;configuration." alt="" coords="15,108,158,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mtls__endpoint__aliases.html" title="RFC 8705 §5 mtls_endpoint_aliases — the six endpoints re&#45;based on the host that performs the mutual&#45;T..." alt="" coords="5,5,168,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="89,59,89,108,84,108,84,59"/>
+</map>

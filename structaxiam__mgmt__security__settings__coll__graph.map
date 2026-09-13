@@ -1,0 +1,25 @@
+<map id="axiam_mgmt_security_settings" name="axiam_mgmt_security_settings">
+<area shape="rect" id="Node000001" title="Fully resolved security settings (all fields present)." alt="" coords="364,305,532,345"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__certificate__policy.html" title="Certificate issuance constraints." alt="" coords="31,5,213,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="227,42,288,65,316,82,342,103,382,154,411,210,432,263,444,304,439,306,427,265,407,213,377,157,338,107,313,87,285,70,225,47"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__email__verification__policy.html" title="Email verification requirements." alt="" coords="5,69,239,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="234,111,290,134,342,167,374,201,402,238,440,304,435,306,398,241,370,204,338,171,288,139,232,116"/>
+<area shape="rect" id="Node000004" href="$structaxiam__mgmt__lockout__policy.html" title="Account lockout rules." alt="" coords="41,133,203,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="218,170,280,191,341,222,393,263,432,303,428,307,389,267,339,226,278,196,216,176"/>
+<area shape="rect" id="Node000005" href="$structaxiam__mgmt__mfa__policy.html" title="Multi&#45;factor authentication policy." alt="" coords="28,198,216,223"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="203,224,239,233,291,250,341,271,409,303,406,308,339,276,289,255,238,239,202,229"/>
+<area shape="rect" id="Node000006" href="$structaxiam__mgmt__notification__policy.html" title="Admin notification preferences." alt="" coords="27,248,217,288"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="230,283,340,303,364,307,364,312,340,308,229,289"/>
+<area shape="rect" id="Node000007" href="$structaxiam__mgmt__oidc__policy.html" title="OpenID Connect surface controls (X7 G8, plan §4.6/§4.8)." alt="" coords="27,313,217,338"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="231,323,364,323,364,328,231,328"/>
+<area shape="rect" id="Node000008" href="$structaxiam__mgmt__opaque__policy.html" title="Secure Remote Password policy." alt="" coords="17,362,227,387"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="238,358,340,343,363,339,364,344,340,348,239,363"/>
+<area shape="rect" id="Node000009" href="$structaxiam__mgmt__password__policy.html" title="Password complexity and history requirements." alt="" coords="33,412,211,452"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="224,408,339,375,409,343,411,348,341,380,226,414"/>
+<area shape="rect" id="Node000010" href="$structaxiam__mgmt__privacy__policy.html" title="Data&#45;retention rules that apply after a subject asks to be erased." alt="" coords="40,476,204,516"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="216,472,279,450,339,419,388,381,426,344,430,347,391,385,341,424,281,455,218,477"/>
+<area shape="rect" id="Node000011" href="$structaxiam__mgmt__token__policy.html" title="Token lifetime configuration." alt="" coords="23,541,221,566"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="214,535,279,512,310,496,338,475,370,443,397,407,434,344,439,347,401,410,374,447,342,479,313,500,281,517,216,540"/>
+<area shape="rect" id="Node000012" href="$structaxiam__mgmt__webauthn__policy.html" title="WebAuthn ceremony policy." alt="" coords="32,591,212,631"/>
+<area shape="poly" id="edge11_Node000001_Node000012" title=" " alt="" coords="225,594,285,573,313,558,338,539,359,517,378,492,408,438,428,386,439,345,445,346,433,387,412,440,383,495,364,521,342,543,316,563,287,578,227,599"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_session_response_list" name="axiam_mgmt_session_response_list">
+<area shape="rect" id="Node000001" title="A plain list of SessionResponse objects." alt="" coords="5,108,171,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__session__response.html" title="One of a user&#39;s sessions, as an administrator sees it." alt="" coords="5,5,171,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="91,59,91,108,85,108,85,59"/>
+</map>

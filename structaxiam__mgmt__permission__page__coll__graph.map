@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_permission_page" name="axiam_mgmt_permission_page">
+<area shape="rect" id="Node000001" title="One page of Permission objects (27.4 rule 4)." alt="" coords="89,93,315,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__permission.html" title="The Permission schema from the server&#39;s OpenAPI document." alt="" coords="5,5,193,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="126,38,189,91,186,95,122,42"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="218,5,394,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="283,41,218,95,214,91,280,37"/>
+</map>

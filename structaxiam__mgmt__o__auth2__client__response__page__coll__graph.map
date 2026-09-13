@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_o_auth2_client_response_page" name="axiam_mgmt_o_auth2_client_response_page">
+<area shape="rect" id="Node000001" title="One page of OAuth2ClientResponse objects (27.4 rule 4)." alt="" coords="101,108,272,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__o__auth2__client__response.html" title="OAuth2 client response – omits client_secret_hash." alt="" coords="5,5,173,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="119,54,170,106,167,110,115,57"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="197,13,373,38"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="266,50,207,110,203,106,262,46"/>
+</map>
