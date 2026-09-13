@@ -1261,6 +1261,19 @@ axiam_error_kind_t axiam_certificates_list(axiam_client_t *c, const axiam_mgmt_p
 axiam_error_kind_t axiam_certificates_generate(axiam_client_t *c, const axiam_mgmt_create_certificate_request_t *body, axiam_mgmt_generated_certificate_t **out, axiam_error_t *err);
 
 /**
+ * `POST /api/v1/certificates/sign-csr`
+ *
+ * `POST /api/v1/certificates/sign-csr`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_certificate_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_certificates_sign_csr(axiam_client_t *c, const axiam_mgmt_sign_certificate_csr_request_t *body, axiam_mgmt_certificate_t **out, axiam_error_t *err);
+
+/**
  * `GET /api/v1/certificates/{id}`
  *
  * `GET /api/v1/certificates/{id}`.

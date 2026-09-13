@@ -1019,6 +1019,7 @@ typedef struct axiam_mgmt_set_mtls_trust_anchor axiam_mgmt_set_mtls_trust_anchor
 typedef struct axiam_mgmt_set_org_email_config axiam_mgmt_set_org_email_config_t;
 typedef struct axiam_mgmt_set_org_settings axiam_mgmt_set_org_settings_t;
 typedef struct axiam_mgmt_sign_audit_batch_request axiam_mgmt_sign_audit_batch_request_t;
+typedef struct axiam_mgmt_sign_certificate_csr_request axiam_mgmt_sign_certificate_csr_request_t;
 typedef struct axiam_mgmt_sign_intermediate_csr_request axiam_mgmt_sign_intermediate_csr_request_t;
 typedef struct axiam_mgmt_signed_audit_batch axiam_mgmt_signed_audit_batch_t;
 typedef struct axiam_mgmt_smtp_config axiam_mgmt_smtp_config_t;
@@ -5108,6 +5109,44 @@ struct axiam_mgmt_sign_audit_batch_request {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_sign_audit_batch_request_free(axiam_mgmt_sign_audit_batch_request_t *value);
+
+/**
+ * Body of `POST /api/v1/certificates/sign-csr`. No `subject` and no `key_algorithm`: both
+ * are read out of the CSR, which is the only place they can be stated without the row and
+ * the certificate being able to disagree. No key is returned, so there is no key field
+ * anywhere on this exchange.
+ */
+struct axiam_mgmt_sign_certificate_csr_request {
+    /**
+     * The server's `cert_type` field.
+     */
+    axiam_mgmt_certificate_type_t cert_type;
+    /**
+     * PEM-encoded PKCS#10 request — a `BEGIN CERTIFICATE REQUEST` block. The legacy OpenSSL
+     * `BEGIN NEW CERTIFICATE REQUEST` header is not accepted.
+     */
+    char *csr_pem;
+    /**
+     * The server's `issuer_ca_id` field.
+     */
+    char *issuer_ca_id;
+    /**
+     * The server's `metadata` field. Optional.
+     */
+    char *metadata;
+    /**
+     * Validity duration in days.
+     */
+    long validity_days;
+};
+
+/**
+ * Free a SignCertificateCsrRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_sign_certificate_csr_request_free(axiam_mgmt_sign_certificate_csr_request_t *value);
 
 /**
  * Body of `POST .../tenants/{tenant_id}/signing-cas/sign-csr`. Deliberately carries no key

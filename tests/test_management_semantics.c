@@ -12,7 +12,9 @@
 
 #include "unity.h"
 #include "axiam/axiam.h"
+#include "axiam/management_models.h"
 #include "axiam/management_ops.h"
+#include "cJSON.h"
 #include "test_util.h"
 #include "management_test_util.h"
 
@@ -435,6 +437,74 @@ static void test_the_certificate_projection_is_list_only(void) {
     axiam_client_free(c);
 }
 
+/*
+ * `certificates.sign_csr` (F-1/C-1, contract 1.45) answers the EXISTING `Certificate` --
+ * not `GeneratedCertificate`, whose `private_key_pem` is mandatory. There is no key to
+ * return for a CSR-signed certificate, and the type-level guarantee is that
+ * `axiam_certificates_sign_csr`'s `out` is `axiam_mgmt_certificate_t **`: had the generator
+ * emitted `axiam_mgmt_generated_certificate_t **` instead, this file would not compile.
+ */
+static void test_sign_csr_answers_a_plain_certificate_not_a_generated_one(void) {
+    mgmt_mount(200, CERT_UNBOUND_JSON);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_sign_certificate_csr_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.issuer_ca_id = UUID;
+    body.csr_pem = "-----BEGIN CERTIFICATE REQUEST-----";
+    body.cert_type = AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE;
+    body.validity_days = 90;
+    axiam_mgmt_certificate_t *out = NULL;
+
+    axiam_error_kind_t rc = axiam_certificates_sign_csr(c, &body, &out, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_NOT_NULL(out);
+    TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/certificates/sign-csr", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_body(), "-----BEGIN CERTIFICATE REQUEST-----"));
+    /* No key field to leave null or empty -- the STRUCT has no such member. A
+     * `GeneratedCertificate` in this slot would still compile if the field were merely
+     * unpopulated; the guarantee here is stronger than that. */
+    TEST_ASSERT_NULL(strstr(mgmt_last_body(), "private_key"));
+
+    axiam_mgmt_certificate_free(out);
+    axiam_client_free(c);
+}
+
+/*
+ * The struct-level guarantee above holds because `Certificate`'s generated model has no
+ * slot to carry a private key through at all -- proven here at the model layer rather
+ * than assumed from the operation's signature: even a response that carried one (a
+ * malformed or malicious server) cannot make it out through parse+build, because there is
+ * nowhere on the struct for it to land.
+ */
+axiam_mgmt_certificate_t *axiam_mgmt_certificate_parse(const cJSON *src);
+cJSON *axiam_mgmt_certificate_build(const axiam_mgmt_certificate_t *value);
+
+static void test_the_certificate_model_has_no_private_key_field_at_all(void) {
+    char src_json[2048];
+    snprintf(src_json, sizeof src_json, "{%s,\"private_key_pem\":\"MALICIOUS\"}", CERT_FIELDS);
+    cJSON *src = cJSON_Parse(src_json);
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_certificate_t *model = axiam_mgmt_certificate_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_certificate_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    TEST_ASSERT_NULL(cJSON_GetObjectItemCaseSensitive(rebuilt, "private_key_pem"));
+    char *rebuilt_json = cJSON_PrintUnformatted(rebuilt);
+    TEST_ASSERT_NOT_NULL(rebuilt_json);
+    TEST_ASSERT_NULL(strstr(rebuilt_json, "MALICIOUS"));
+    TEST_ASSERT_NULL(strstr(rebuilt_json, "private_key"));
+
+    free(rebuilt_json);
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_certificate_free(model);
+    cJSON_Delete(src);
+}
+
 /* A bare-array endpoint returns a LIST, never a page (§27.4 rule 4). The type system
  * carries the distinction here: there is no `total` to misread. */
 static void test_a_bare_array_is_a_list_not_a_page(void) {
@@ -770,6 +840,8 @@ int main(void) {
     RUN_TEST(test_an_absent_tenant_kind_is_absent);
     RUN_TEST(test_trusted_anchors_keeps_absent_distinct_from_zero);
     RUN_TEST(test_the_certificate_projection_is_list_only);
+    RUN_TEST(test_sign_csr_answers_a_plain_certificate_not_a_generated_one);
+    RUN_TEST(test_the_certificate_model_has_no_private_key_field_at_all);
     RUN_TEST(test_a_bare_array_is_a_list_not_a_page);
     RUN_TEST(test_a_sparse_update_sends_only_what_you_set);
     RUN_TEST(test_an_optional_false_is_sent_not_swallowed);

@@ -7,6 +7,52 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- **`axiam_certificates_sign_csr()` — sign a caller-supplied CSR instead of
+  generating a key pair (CONTRACT.md §27, contract 1.45).** `POST
+  /api/v1/certificates/sign-csr`, generated from the vendored management
+  registry like every other §27 operation: `axiam_mgmt_sign_certificate_csr_request_t`
+  (`issuer_ca_id`, `csr_pem`, `cert_type`, `validity_days`, `metadata`) in,
+  `axiam_mgmt_certificate_t` out.
+
+  The response is the **existing** `Certificate`, not `GeneratedCertificate` —
+  there is no key to return for a certificate whose private half never left
+  the caller's possession, and `Certificate`'s generated model has no slot to
+  carry one even if a server sent one by mistake (asserted at the model layer,
+  not merely assumed from the operation's signature). The management surface
+  moves from 159 to 160 operations across 24 namespaces; the §27 drift-check
+  and the surface test's operation count are both current.
+
+- **`axiam_webauthn_setup_register_start()` / `axiam_webauthn_setup_register_finish()`
+  — a passkey or security key as the first factor during forced MFA setup**
+  (CONTRACT.md §24.1, §24.7, §25.2 rule 2; contract 1.45). The WebAuthn twin of
+  `axiam_mfa_setup_enroll()` / `axiam_mfa_setup_confirm()`: `POST
+  /api/v1/auth/webauthn/setup/register/start` and `.../setup/register/finish`,
+  reached from the same `setup_token` a login's `mfa_setup_required`
+  interruption returns, for a user of an MFA-enforcing tenant who would
+  otherwise be required to own a TOTP app to finish signing in.
+
+  **Neither call takes a session, and neither will ever be given one.** The
+  setup token is the only credential these two accept and it travels in the
+  body — this SDK does not attach a session credential to them, and does not
+  require one to call them, even when the client already has a session
+  configured. A new test asserts this on the transport directly (no
+  `Authorization` header, no `Cookie`, on either call), per CONTRACT.md §24.8's
+  required test for exactly this pair.
+
+  `axiam_webauthn_setup_register_finish()` adopts credentials **exactly as
+  `axiam_mfa_setup_confirm()` does** — it is that same completion of a login,
+  by the same path (`axiam_client_parse_login()`), so the two ways to finish a
+  forced enrolment leave a client in the same state regardless of which factor
+  a user chose. A `403` surfaces the tenant's attestation-policy message
+  verbatim, the same way `axiam_webauthn_register_finish()` does (§24.4 rule
+  1); a `503` on `start` is not retried (§24.4 rule 2).
+
+  No `SignCertificateCsrRequest`-style hand-written model was needed here: the
+  request and response types on both operations already exist
+  (`axiam_webauthn_challenge_t`, `axiam_login_result_t`), reused as-is.
+
 ## [1.0.0-beta14] - 2026-09-13
 
 ### Added

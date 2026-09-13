@@ -943,6 +943,8 @@ axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *sr
 cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *value);
 axiam_mgmt_sign_audit_batch_request_t *axiam_mgmt_sign_audit_batch_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_audit_batch_request_build(const axiam_mgmt_sign_audit_batch_request_t *value);
+axiam_mgmt_sign_certificate_csr_request_t *axiam_mgmt_sign_certificate_csr_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_sign_certificate_csr_request_build(const axiam_mgmt_sign_certificate_csr_request_t *value);
 axiam_mgmt_sign_intermediate_csr_request_t *axiam_mgmt_sign_intermediate_csr_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_intermediate_csr_request_build(const axiam_mgmt_sign_intermediate_csr_request_t *value);
 axiam_mgmt_signed_audit_batch_t *axiam_mgmt_signed_audit_batch_parse(const cJSON *src);
@@ -7232,6 +7234,59 @@ cJSON *axiam_mgmt_sign_audit_batch_request_build(const axiam_mgmt_sign_audit_bat
         cJSON *arr = cJSON_AddArrayToObject(obj, "entry_ids");
         for (size_t i = 0; arr && i < value->entry_ids_count; i++)
             cJSON_AddItemToArray(arr, cJSON_CreateString(value->entry_ids[i]));
+    }
+    return obj;
+}
+
+void axiam_mgmt_sign_certificate_csr_request_free(axiam_mgmt_sign_certificate_csr_request_t *value) {
+    if (!value) return;
+    free(value->csr_pem);
+    free(value->issuer_ca_id);
+    free(value->metadata);
+    free(value);
+}
+
+axiam_mgmt_sign_certificate_csr_request_t *axiam_mgmt_sign_certificate_csr_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_sign_certificate_csr_request_t *out = (axiam_mgmt_sign_certificate_csr_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "cert_type");
+    if (cJSON_IsString(item) && axiam_mgmt_certificate_type_from_wire(item->valuestring, &out->cert_type) == 0) {
+        (void) 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "csr_pem");
+    if (cJSON_IsString(item)) out->csr_pem = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "issuer_ca_id");
+    if (cJSON_IsString(item)) out->issuer_ca_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "metadata");
+    if (item) out->metadata = cJSON_PrintUnformatted(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "validity_days");
+    if (cJSON_IsNumber(item)) { out->validity_days = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_sign_certificate_csr_request_build(const axiam_mgmt_sign_certificate_csr_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (1) {
+        cJSON_AddStringToObject(obj, "cert_type", axiam_mgmt_certificate_type_to_wire(value->cert_type));
+    }
+    if (value->csr_pem) {
+        cJSON_AddStringToObject(obj, "csr_pem", value->csr_pem);
+    }
+    if (value->issuer_ca_id) {
+        cJSON_AddStringToObject(obj, "issuer_ca_id", value->issuer_ca_id);
+    }
+    if (value->metadata) {
+        cJSON *sub = cJSON_Parse(value->metadata);
+        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "validity_days", (double) value->validity_days);
     }
     return obj;
 }

@@ -3,8 +3,8 @@
  *
  * WHAT IS HERE, AND WHAT DELIBERATELY IS NOT.
  *
- * The six relying-party wire operations, plus §24.6a's JSON bridge. What is not
- * here is §24.6b's linked-API ceremony helper: a C program has no authenticator
+ * The eight relying-party wire operations, plus §24.6a's JSON bridge. What is
+ * not here is §24.6b's linked-API ceremony helper: a C program has no authenticator
  * — there is no platform API to link on the targets this SDK serves — and
  * §24.6b rule 2 forbids emulating one in software, because a "credential" held
  * in process memory is not a second factor.
@@ -285,6 +285,62 @@ axiam_error_kind_t axiam_webauthn_discoverable_finish(axiam_client_t *client,
                                                       const char *response,
                                                       axiam_webauthn_login_t *out,
                                                       axiam_error_t *err);
+
+/* ------------------------------------------------------------------ */
+/* §24.1 / §25.2 rule 2 — forced first-login enrolment, contract 1.45  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * POST /api/v1/auth/webauthn/setup/register/start (§24.1, contract 1.45) —
+ * begin enrolling a passkey or security key as the FIRST factor, from the
+ * setup token a login's `mfa_setup_required` interruption returned.
+ *
+ * The WebAuthn twin of axiam_mfa_setup_enroll(): TAKES NO SESSION. The setup
+ * token is the only credential and travels in the request body — this SDK
+ * MUST NOT attach a session credential here even when one is configured, and
+ * MUST NOT require one to call it, exactly as §24.1 requires. The account
+ * being enrolled is named by the token, never by the caller.
+ *
+ * The server refuses an account that already has a factor with the same `400`
+ * axiam_mfa_setup_enroll() gets: a setup token adds the first factor, never a
+ * second.
+ *
+ * A `503` here means the tenant's attestation policy needs FIDO metadata the
+ * server cannot reach: a configuration state, not a transient one, and §24.4
+ * rule 2 deliberately does not retry it.
+ */
+axiam_error_kind_t axiam_webauthn_setup_register_start(axiam_client_t *client,
+                                                       const axiam_sensitive_t *setup_token,
+                                                       axiam_webauthn_challenge_t *out,
+                                                       axiam_error_t *err);
+
+/**
+ * POST /api/v1/auth/webauthn/setup/register/finish (§24.1, contract 1.45) —
+ * finish enrolling the passkey or security key and, with it, the login that
+ * was interrupted.
+ *
+ * Adopts credentials EXACTLY as axiam_mfa_setup_confirm() does (§25.2 rule 2,
+ * §24.3's five adoption rules): the §17 decision memo is cleared, the client
+ * ends up authenticated, and `out` is filled the way axiam_login() fills it.
+ * The two completions of a forced first-login enrolment must leave the client
+ * in the same state, whichever factor the user chose.
+ *
+ * @param response the platform's own response JSON, VERBATIM (§24.6a rule 2),
+ *        exactly as axiam_webauthn_register_finish() takes it. A string that
+ *        is not a JSON object is refused client-side, with no wire call.
+ *
+ * A `403` here is the tenant's attestation policy refusing this authenticator
+ * (§24.4 rule 1): the server's message is surfaced verbatim, the same way
+ * axiam_webauthn_register_finish() surfaces it. A `401` is an invalid,
+ * expired, or wrong-purpose setup token.
+ */
+axiam_error_kind_t axiam_webauthn_setup_register_finish(axiam_client_t *client,
+                                                        const axiam_sensitive_t *setup_token,
+                                                        const axiam_sensitive_t *state_token,
+                                                        const char *credential_name,
+                                                        const char *response,
+                                                        axiam_login_result_t *out,
+                                                        axiam_error_t *err);
 
 #ifdef __cplusplus
 }

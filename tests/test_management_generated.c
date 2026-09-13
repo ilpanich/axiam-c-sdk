@@ -2169,6 +2169,48 @@ static void test_certificates_generate_reaches_its_route_rejects_a_wrong_shaped_
     axiam_client_free(c);
 }
 
+static void test_certificates_sign_csr_reaches_its_route(void) {
+    mgmt_mount(200, "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_sign_certificate_csr_request_t body;
+    memset(&body, 0, sizeof(body));
+    axiam_mgmt_certificate_t *result = NULL;
+    axiam_error_kind_t rc = axiam_certificates_sign_csr(c, &body, &result, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
+    TEST_ASSERT_EQUAL_STRING("/api/v1/certificates/sign-csr", mgmt_last_path());
+    axiam_mgmt_certificate_free(result);
+    axiam_client_free(c);
+}
+
+static void test_certificates_sign_csr_reaches_its_route_discards_the_result(void) {
+    mgmt_mount(200, "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_sign_certificate_csr_request_t body;
+    memset(&body, 0, sizeof(body));
+    axiam_error_kind_t rc = axiam_certificates_sign_csr(c, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    axiam_client_free(c);
+}
+
+static void test_certificates_sign_csr_reaches_its_route_rejects_a_wrong_shaped_body(void) {
+    mgmt_mount(200, "[]");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_sign_certificate_csr_request_t body;
+    memset(&body, 0, sizeof(body));
+    axiam_mgmt_certificate_t *result = NULL;
+    axiam_error_kind_t rc = axiam_certificates_sign_csr(c, &body, &result, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
 static void test_certificates_get_reaches_its_route(void) {
     mgmt_mount(200, "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
     axiam_client_t *c = mgmt_signed_in_client();
@@ -5042,7 +5084,7 @@ void tearDown(void) {}
  * covered.
  */
 static void test_every_registry_operation_has_a_case(void) {
-    TEST_ASSERT_EQUAL_INT(159, mgmt_case_count());
+    TEST_ASSERT_EQUAL_INT(160, mgmt_case_count());
 }
 
 int main(void) {
@@ -5124,6 +5166,7 @@ int main(void) {
     RUN_TEST(test_service_accounts_list_groups_reaches_its_route);
     RUN_TEST(test_certificates_list_reaches_its_route);
     RUN_TEST(test_certificates_generate_reaches_its_route);
+    RUN_TEST(test_certificates_sign_csr_reaches_its_route);
     RUN_TEST(test_certificates_get_reaches_its_route);
     RUN_TEST(test_certificates_revoke_reaches_its_route);
     RUN_TEST(test_ca_certificates_list_reaches_its_route);
@@ -5296,6 +5339,8 @@ int main(void) {
     RUN_TEST(test_certificates_list_reaches_its_route_discards_the_result);
     RUN_TEST(test_certificates_generate_reaches_its_route_discards_the_result);
     RUN_TEST(test_certificates_generate_reaches_its_route_rejects_a_wrong_shaped_body);
+    RUN_TEST(test_certificates_sign_csr_reaches_its_route_discards_the_result);
+    RUN_TEST(test_certificates_sign_csr_reaches_its_route_rejects_a_wrong_shaped_body);
     RUN_TEST(test_certificates_get_reaches_its_route_discards_the_result);
     RUN_TEST(test_certificates_get_reaches_its_route_rejects_a_wrong_shaped_body);
     RUN_TEST(test_ca_certificates_list_reaches_its_route_discards_the_result);
@@ -5438,4 +5483,4 @@ int main(void) {
 }
 
 /* How many cases this file declares -- read by the assertion above. */
-int mgmt_case_count(void) { return 159; }
+int mgmt_case_count(void) { return 160; }

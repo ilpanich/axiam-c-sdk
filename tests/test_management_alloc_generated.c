@@ -1678,6 +1678,29 @@ static void test_certificates_generate_survives_oom(void) {
     TEST_PASS();
 }
 
+static void test_certificates_sign_csr_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_sign_certificate_csr_request_t body;
+        memset(&body, 0, sizeof(body));
+        axiam_mgmt_certificate_t *result = NULL;
+        arm(n);
+        (void) axiam_certificates_sign_csr(c, &body, &result, &err);
+        disarm();
+        axiam_mgmt_certificate_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
 static void test_certificates_get_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
@@ -3497,6 +3520,7 @@ int main(void) {
     RUN_TEST(test_service_accounts_list_groups_survives_oom);
     RUN_TEST(test_certificates_list_survives_oom);
     RUN_TEST(test_certificates_generate_survives_oom);
+    RUN_TEST(test_certificates_sign_csr_survives_oom);
     RUN_TEST(test_certificates_get_survives_oom);
     RUN_TEST(test_certificates_revoke_survives_oom);
     RUN_TEST(test_ca_certificates_list_survives_oom);
