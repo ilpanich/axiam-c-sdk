@@ -7,7 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-beta15] - 2026-09-15
+
 ### Added
+
+- Sign_csr and forced-setup passkey enrolment (F-1, contract 1.45) (#60)
 
 - **`axiam_certificates_sign_csr()` — sign a caller-supplied CSR instead of
   generating a key pair (CONTRACT.md §27, contract 1.45).** `POST
@@ -52,6 +56,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   No `SignCertificateCsrRequest`-style hand-written model was needed here: the
   request and response types on both operations already exist
   (`axiam_webauthn_challenge_t`, `axiam_login_result_t`), reused as-is.
+
+### Changed
+
+- Re-vendor CONTRACT.md at 1.46
 
 ## [1.0.0-beta14] - 2026-09-13
 
