@@ -1,0 +1,49 @@
+<map id="include/axiam/transport.h" name="include/axiam/transport.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="1509,5,1699,31"/>
+<area shape="rect" id="Node000002" href="$axiam_8h.html" title=" " alt="" coords="1037,394,1208,419"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="1664,32,1711,51,1756,78,1776,95,1791,115,1802,138,1805,163,1805,240,1800,262,1787,283,1765,301,1737,317,1663,344,1574,366,1477,381,1378,393,1208,405,1208,400,1378,388,1476,376,1573,360,1662,339,1734,312,1762,296,1783,279,1796,260,1800,239,1800,164,1797,139,1787,118,1772,99,1753,82,1708,56,1662,37"/>
+<area shape="rect" id="Node000003" href="$config_8h.html" title=" " alt="" coords="1454,79,1623,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="1586,43,1551,80,1547,77,1582,39"/>
+<area shape="rect" id="Node000006" href="$guard_8h.html" title=" " alt="" coords="585,306,751,331"/>
+<area shape="poly" id="edge28_Node000001_Node000006" title=" " alt="" coords="1496,24,1234,36,1074,48,909,67,750,93,608,128,547,149,495,172,452,198,421,227,416,238,421,249,445,267,486,282,585,303,584,309,484,287,443,271,417,252,411,238,416,224,449,194,492,168,545,144,607,123,749,88,908,62,1074,43,1234,30,1495,19"/>
+<area shape="rect" id="Node000017" href="$webhook_8h.html" title=" " alt="" coords="1576,152,1765,177"/>
+<area shape="poly" id="edge29_Node000001_Node000017" title=" " alt="" coords="1619,42,1637,78,1668,151,1664,153,1632,80,1614,44"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="1548,117,1556,164,1559,224,1556,256,1549,286,1537,315,1518,341,1496,356,1466,369,1386,387,1294,399,1208,405,1208,400,1294,394,1385,382,1464,364,1494,351,1514,337,1532,313,1544,285,1551,255,1554,224,1551,165,1543,118"/>
+<area shape="rect" id="Node000004" href="$client_8h.html" title=" " alt="" coords="1037,152,1203,177"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="1459,109,1188,155,1187,149,1458,104"/>
+<area shape="poly" id="edge7_Node000004_Node000002" title=" " alt="" coords="1121,192,1114,223,1107,239,1097,253,1074,268,1051,275,1005,274,983,273,962,275,943,283,925,300,917,319,925,337,947,360,975,377,1006,389,1038,397,1036,402,1005,394,973,382,944,364,920,340,912,319,920,297,940,278,961,270,983,268,1006,269,1050,270,1072,264,1093,249,1103,236,1109,221,1116,191"/>
+<area shape="rect" id="Node000005" href="$account_8h.html" title=" " alt="" coords="935,306,1116,331"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="1136,189,1146,219,1146,236,1141,252,1126,272,1106,287,1065,308,1063,304,1104,283,1122,268,1136,249,1141,235,1141,220,1131,191"/>
+<area shape="poly" id="edge8_Node000004_Node000006" title=" " alt="" coords="1023,170,931,175,834,184,749,201,716,213,694,227,681,245,673,266,670,306,665,305,668,265,676,243,690,223,714,208,747,196,833,179,931,169,1023,165"/>
+<area shape="rect" id="Node000007" href="$jwks_8h.html" title=" " alt="" coords="1140,306,1300,331"/>
+<area shape="poly" id="edge10_Node000004_Node000007" title=" " alt="" coords="1138,187,1164,224,1215,304,1211,307,1159,227,1134,190"/>
+<area shape="rect" id="Node000008" href="$management_8h.html" title="CONTRACT.md §27 management API — shared core." alt="" coords="139,225,357,251"/>
+<area shape="poly" id="edge12_Node000004_Node000008" title=" " alt="" coords="1023,177,357,231,356,225,1023,171"/>
+<area shape="rect" id="Node000012" href="$oidc_8h.html" title=" " alt="" coords="1324,306,1481,331"/>
+<area shape="poly" id="edge17_Node000004_Node000012" title=" " alt="" coords="1154,181,1382,303,1380,308,1152,186"/>
+<area shape="rect" id="Node000013" href="$opaque_8h.html" title=" " alt="" coords="1336,225,1515,251"/>
+<area shape="poly" id="edge19_Node000004_Node000013" title=" " alt="" coords="1183,178,1376,223,1375,228,1182,183"/>
+<area shape="rect" id="Node000014" href="$revocation_8h.html" title="CONTRACT.md §10.4 — the optional session&#45;revocation feed (contract 1.44, AXIAM threats T&#45;39 and T&#45;143..." alt="" coords="431,225,630,251"/>
+<area shape="poly" id="edge21_Node000004_Node000014" title=" " alt="" coords="1023,180,626,228,625,223,1022,175"/>
+<area shape="rect" id="Node000015" href="$uma_8h.html" title=" " alt="" coords="705,225,863,251"/>
+<area shape="poly" id="edge23_Node000004_Node000015" title=" " alt="" coords="1053,183,839,228,838,223,1052,178"/>
+<area shape="rect" id="Node000016" href="$webauthn_8h.html" title=" " alt="" coords="888,225,1083,251"/>
+<area shape="poly" id="edge26_Node000004_Node000016" title=" " alt="" coords="1088,186,1009,227,1006,223,1085,181"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="1050,338,1111,391,1107,395,1047,342"/>
+<area shape="poly" id="edge9_Node000006_Node000002" title=" " alt="" coords="743,331,1063,391,1062,397,742,337"/>
+<area shape="poly" id="edge11_Node000007_Node000002" title=" " alt="" coords="1198,342,1138,395,1134,391,1195,338"/>
+<area shape="rect" id="Node000009" href="$management__manifest_8h.html" title="CONTRACT.md §27.6/§27.7 declarative layer — describe a tenant, plan, apply." alt="" coords="285,299,491,339"/>
+<area shape="poly" id="edge13_Node000008_Node000009" title=" " alt="" coords="282,255,356,296,353,301,279,260"/>
+<area shape="rect" id="Node000010" href="$management__models_8h.html" title=" " alt="" coords="5,299,211,339"/>
+<area shape="poly" id="edge14_Node000008_Node000010" title=" " alt="" coords="217,260,143,301,140,296,214,255"/>
+<area shape="rect" id="Node000011" href="$management__ops_8h.html" title=" " alt="" coords="76,387,281,427"/>
+<area shape="poly" id="edge16_Node000008_Node000011" title=" " alt="" coords="247,265,238,301,225,340,196,388,191,385,220,338,233,300,241,264"/>
+<area shape="poly" id="edge15_Node000010_Node000011" title=" " alt="" coords="134,348,165,385,161,388,130,351"/>
+<area shape="poly" id="edge18_Node000012_Node000002" title=" " alt="" coords="1353,338,1161,396,1159,391,1351,333"/>
+<area shape="poly" id="edge20_Node000013_Node000002" title=" " alt="" coords="1456,257,1477,274,1495,295,1503,318,1502,329,1495,340,1476,356,1448,368,1375,387,1290,399,1209,405,1208,400,1289,393,1374,382,1447,363,1473,351,1491,337,1497,328,1498,318,1490,298,1473,278,1453,261"/>
+<area shape="poly" id="edge22_Node000014_Node000002" title=" " alt="" coords="536,263,548,302,559,321,574,337,608,354,656,369,715,380,781,389,917,399,1037,403,1037,408,917,404,780,394,714,386,655,374,606,359,570,341,555,324,543,305,531,265"/>
+<area shape="poly" id="edge24_Node000015_Node000002" title=" " alt="" coords="800,261,828,300,847,320,868,336,909,358,952,374,1038,394,1037,399,951,379,907,363,865,341,843,324,824,304,795,264"/>
+<area shape="poly" id="edge25_Node000015_Node000006" title=" " alt="" coords="757,261,687,308,684,304,754,256"/>
+<area shape="poly" id="edge27_Node000016_Node000002" title=" " alt="" coords="933,258,904,275,881,300,874,319,881,337,905,354,945,370,1043,391,1042,397,943,375,902,359,877,340,869,319,876,297,900,271,930,254"/>
+<area shape="poly" id="edge30_Node000017_Node000002" title=" " alt="" coords="1669,192,1660,226,1645,267,1622,307,1590,341,1561,356,1521,369,1420,387,1309,399,1208,405,1208,400,1309,394,1420,382,1520,364,1559,351,1586,337,1618,304,1640,265,1655,224,1664,190"/>
+</map>

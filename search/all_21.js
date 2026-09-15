@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['§10_201_20rule_209_20§21_207_203_0',['Sender-constrained tokens and DPoP (§10.1 rule 9, §21.7.3)',['../index.html#autotoc_md37',1,'']]],
+  ['§10_204_20contract_201_2044_20opt_20in_1',['The session-revocation feed (§10.4, contract 1.44, opt-in)',['../index.html#autotoc_md16',1,'']]],
+  ['§11_20guard_20§20_203_2',['Emitting a UMA challenge from the §11 guard (§20.3)',['../index.html#autotoc_md18',1,'']]],
+  ['§11_20rule_209_3',['Decision reason codes (§11 rule 9)',['../index.html#autotoc_md17',1,'']]],
+  ['§12_20oidc_20§12_207_20logout_20§14_20device_20grant_20§15_20token_20exchange_4',['§12 OIDC, §12.7 logout, §14 device grant, §15 token exchange',['../index.html#autotoc_md35',1,'']]],
+  ['§13_5',['Webhook signature verification (§13)',['../index.html#autotoc_md19',1,'']]],
+  ['§14_20device_20grant_20§15_20token_20exchange_6',['§12 OIDC, §12.7 logout, §14 device grant, §15 token exchange',['../index.html#autotoc_md35',1,'']]],
+  ['§15_207_20—_20external_20idp_20subject_20tokens_7',['§15.7 — external-IdP subject tokens',['../index.html#autotoc_md38',1,'']]],
+  ['§15_20token_20exchange_8',['§12 OIDC, §12.7 logout, §14 device grant, §15 token exchange',['../index.html#autotoc_md35',1,'']]],
+  ['§16–§19_9',['Retry, memo, shutdown and telemetry (§16–§19)',['../index.html#autotoc_md14',1,'']]],
+  ['§20_203_10',['Emitting a UMA challenge from the §11 guard (§20.3)',['../index.html#autotoc_md18',1,'']]],
+  ['§21_203_20rule_202_11',['RFC 8705 §5 &lt;tt&gt;mtls_endpoint_aliases&lt;/tt&gt; (contract 1.40, CONTRACT.md §21.3 rule 2)',['../index.html#autotoc_md11',1,'']]],
+  ['§21_207_203_12',['Sender-constrained tokens and DPoP (§10.1 rule 9, §21.7.3)',['../index.html#autotoc_md37',1,'']]],
+  ['§22_20reactors_20—_20the_20protocol_20core_20over_20your_20own_20transport_13',['§22 Reactors — the protocol core over your own transport',['../index.html#autotoc_md45',1,'']]],
+  ['§23_14',['OPAQUE — RFC 9807 (§23)',['../index.html#autotoc_md20',1,'']]],
+  ['§23_204_20rule_207_15',['&lt;tt&gt;mode&lt;/tt&gt;, and the one fallback the SDK performs for you (§23.4 rule 7)',['../index.html#autotoc_md27',1,'']]],
+  ['§24_20webauthn_20passkeys_16',['§24 WebAuthn / passkeys',['../index.html#autotoc_md39',1,'']]],
+  ['§25_207_17',['Two resends, and why neither replaces the other (§25.7)',['../index.html#autotoc_md41',1,'']]],
+  ['§25_20account_20lifecycle_20and_20mfa_20enrolment_18',['§25 Account lifecycle and MFA enrolment',['../index.html#autotoc_md40',1,'']]],
+  ['§26_20pushed_20authorization_20requests_20rfc_209126_19',['§26 Pushed Authorization Requests (RFC 9126)',['../index.html#autotoc_md44',1,'']]],
+  ['§27_206_20§27_207_20',['Declarative manifests (§27.6, §27.7)',['../index.html#autotoc_md47',1,'']]],
+  ['§27_20management_20api_21',['§27 Management API',['../index.html#autotoc_md46',1,'']]],
+  ['§5_202_22',['Organization-level principals (§5.2)',['../index.html#autotoc_md42',1,'']]],
+  ['§5_202_201_23',['Signing one in (§5.2.1)',['../index.html#autotoc_md43',1,'']]],
+  ['§5_20tt_20mtls_5fendpoint_5faliases_20tt_20contract_201_2040_20contract_20md_20§21_203_20rule_202_24',['RFC 8705 §5 &lt;tt&gt;mtls_endpoint_aliases&lt;/tt&gt; (contract 1.40, CONTRACT.md §21.3 rule 2)',['../index.html#autotoc_md11',1,'']]]
+];
