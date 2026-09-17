@@ -63,6 +63,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   Refs: `ilpanich/axiam` `claude_dev/mcp-authorization-server-plan.md` T9c
   (T21.9).
 
+### Changed
+
+- **§28.7's C row is corrected in the contract to name
+  `axiam_protected_resource_metadata_url`** (contract 1.49, CONTRACT.md §28.11
+  row R-6, T21.9 T9d). This port reported that the row listed only `_json` and
+  `_path` although §28.1 requires an SDK to expose `metadata_path` *and*
+  `metadata_url`, and shipped the third accessor rather than leave the
+  integrator to concatenate the URL by hand. The cross-SDK review confirmed the
+  gap, confirmed that it is **C-specific** — §28.7 already spelled the C++ row
+  correctly, and every other language returns a value type with all three
+  members — and fixed the table. No code change here: this SDK was already
+  right and the contract was wrong.
+
+- **The contract now states that "raises the SDK's `ValidationError`" is a
+  per-language mapping** (contract 1.49, §28.7, §28.11 row R-10). This port's
+  second finding — that §28.2's and §28.4's wording assumes an exception
+  mechanism C does not have — is accepted. Mapping a §28 refusal onto this
+  SDK's existing `NULL`-return plus `axiam_error_t` out-parameter, with the
+  `AXIAM_ERR_NETWORK` kind it already uses for every other client-side
+  no-wire-call configuration refusal, is conformant: §28.6 forbids inventing a
+  type *for §28*, not using the one a language already has. Six mechanisms
+  across the eleven ports, all refusing at construction, all naming both
+  options.
+
+### Deferred
+
+- **F-28-01 — the vendored `openapi.json` and `CONTRACT.md` re-sync.** This
+  repository's copies were re-synced above from a **phase branch**, which kept
+  moving afterwards; they match neither `ilpanich/axiam`'s current tree nor the
+  four SDK repositories that declined the `openapi.json` re-sync. Across the
+  eleven SDKs the T21.9 T9d cross-SDK review found five distinct byte-states of
+  `CONTRACT.md` and two of `openapi.json`, all calling themselves contract 1.48
+  (CONTRACT.md §28.11 row R-1). Contract **1.49** states the rule that was
+  missing: a vendored artefact is re-synced from a **merged** `main`, never a
+  phase branch. Both artefacts are therefore re-synced here **once**, as
+  F-28-01, after AXIAM Phase 21 lands on `main`, together with a regeneration
+  of the §27 management surface in the same commit. F-28-01 is recorded
+  identically in all eleven SDK repositories so that it cannot be lost.
+
 ## [1.0.0-beta15] - 2026-09-15
 
 ### Added
