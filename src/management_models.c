@@ -233,6 +233,7 @@ int axiam_mgmt_client_auth_method_from_wire(const char *value, axiam_mgmt_client
     if (strcmp(value, "tls_client_auth") == 0) { *out = AXIAM_MGMT_CLIENT_AUTH_METHOD_TLS_CLIENT_AUTH; return 0; }
     if (strcmp(value, "self_signed_tls_client_auth") == 0) { *out = AXIAM_MGMT_CLIENT_AUTH_METHOD_SELF_SIGNED_TLS_CLIENT_AUTH; return 0; }
     if (strcmp(value, "private_key_jwt") == 0) { *out = AXIAM_MGMT_CLIENT_AUTH_METHOD_PRIVATE_KEY_JWT; return 0; }
+    if (strcmp(value, "none") == 0) { *out = AXIAM_MGMT_CLIENT_AUTH_METHOD_NONE; return 0; }
     /*
      * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
      * would make the caller drop the whole record over one field it did not ask about. It
@@ -250,6 +251,7 @@ const char *axiam_mgmt_client_auth_method_to_wire(axiam_mgmt_client_auth_method_
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_TLS_CLIENT_AUTH: return "tls_client_auth";
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_SELF_SIGNED_TLS_CLIENT_AUTH: return "self_signed_tls_client_auth";
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_PRIVATE_KEY_JWT: return "private_key_jwt";
+        case AXIAM_MGMT_CLIENT_AUTH_METHOD_NONE: return "none";
         /*
          * The empty string, which no server value is: an unrecognised value carried back
          * into an update is refused by the server rather than written as a spelling it
@@ -342,6 +344,36 @@ const char *axiam_mgmt_key_algorithm_to_wire(axiam_mgmt_key_algorithm_t value) {
         case AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN: return "";
     }
     return "Rsa4096";
+}
+
+int axiam_mgmt_managed_by_from_wire(const char *value, axiam_mgmt_managed_by_t *out) {
+    if (!value || !out) return -1;
+    if (strcmp(value, "admin") == 0) { *out = AXIAM_MGMT_MANAGED_BY_ADMIN; return 0; }
+    if (strcmp(value, "dcr") == 0) { *out = AXIAM_MGMT_MANAGED_BY_DCR; return 0; }
+    if (strcmp(value, "cimd") == 0) { *out = AXIAM_MGMT_MANAGED_BY_CIMD; return 0; }
+    /*
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
+     */
+    *out = AXIAM_MGMT_MANAGED_BY_UNKNOWN;
+    return 0;
+}
+
+const char *axiam_mgmt_managed_by_to_wire(axiam_mgmt_managed_by_t value) {
+    switch (value) {
+        case AXIAM_MGMT_MANAGED_BY_ADMIN: return "admin";
+        case AXIAM_MGMT_MANAGED_BY_DCR: return "dcr";
+        case AXIAM_MGMT_MANAGED_BY_CIMD: return "cimd";
+        /*
+         * The empty string, which no server value is: an unrecognised value carried back
+         * into an update is refused by the server rather than written as a spelling it
+         * never used.
+         */
+        case AXIAM_MGMT_MANAGED_BY_UNKNOWN: return "";
+    }
+    return "admin";
 }
 
 int axiam_mgmt_mfa_method_type_from_wire(const char *value, axiam_mgmt_mfa_method_type_t *out) {
@@ -2189,6 +2221,10 @@ cJSON *axiam_mgmt_create_notification_rule_request_build(const axiam_mgmt_create
 
 void axiam_mgmt_create_o_auth2_client_request_free(axiam_mgmt_create_o_auth2_client_request_t *value) {
     if (!value) return;
+    if (value->allowed_resources) {
+        for (size_t i = 0; i < value->allowed_resources_count; i++) free(value->allowed_resources[i]);
+        free(value->allowed_resources);
+    }
     free(value->backchannel_logout_uri);
     if (value->grant_types) {
         for (size_t i = 0; i < value->grant_types_count; i++) free(value->grant_types[i]);
@@ -2225,6 +2261,19 @@ axiam_mgmt_create_o_auth2_client_request_t *axiam_mgmt_create_o_auth2_client_req
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allowed_resources");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->allowed_resources = (char **) calloc(n, sizeof(char *));
+            if (!out->allowed_resources) { axiam_mgmt_create_o_auth2_client_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->allowed_resources[i] = axiam_strdup0(e->valuestring);
+            }
+            out->allowed_resources_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "authn_request_params");
     if (cJSON_IsString(item) && axiam_mgmt_authn_request_params_mode_from_wire(item->valuestring, &out->authn_request_params) == 0) {
         out->has_authn_request_params = 1;
@@ -2338,6 +2387,11 @@ cJSON *axiam_mgmt_create_o_auth2_client_request_build(const axiam_mgmt_create_o_
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->allowed_resources) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_resources");
+        for (size_t i = 0; arr && i < value->allowed_resources_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_resources[i]));
+    }
     if (value->has_authn_request_params) {
         cJSON_AddStringToObject(obj, "authn_request_params", axiam_mgmt_authn_request_params_mode_to_wire(value->authn_request_params));
     }
@@ -4750,6 +4804,10 @@ cJSON *axiam_mgmt_o_auth2_client_created_response_build(const axiam_mgmt_o_auth2
 
 void axiam_mgmt_o_auth2_client_response_free(axiam_mgmt_o_auth2_client_response_t *value) {
     if (!value) return;
+    if (value->allowed_resources) {
+        for (size_t i = 0; i < value->allowed_resources_count; i++) free(value->allowed_resources[i]);
+        free(value->allowed_resources);
+    }
     free(value->client_id);
     free(value->created_at);
     if (value->grant_types) {
@@ -4759,6 +4817,7 @@ void axiam_mgmt_o_auth2_client_response_free(axiam_mgmt_o_auth2_client_response_
     free(value->id);
     free(value->jwks);
     free(value->jwks_uri);
+    free(value->last_authorized_at);
     free(value->name);
     if (value->redirect_uris) {
         for (size_t i = 0; i < value->redirect_uris_count; i++) free(value->redirect_uris[i]);
@@ -4786,6 +4845,19 @@ axiam_mgmt_o_auth2_client_response_t *axiam_mgmt_o_auth2_client_response_parse(c
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allowed_resources");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->allowed_resources = (char **) calloc(n, sizeof(char *));
+            if (!out->allowed_resources) { axiam_mgmt_o_auth2_client_response_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->allowed_resources[i] = axiam_strdup0(e->valuestring);
+            }
+            out->allowed_resources_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "authn_request_params");
     if (cJSON_IsString(item) && axiam_mgmt_authn_request_params_mode_from_wire(item->valuestring, &out->authn_request_params) == 0) {
         (void) 0;
@@ -4822,6 +4894,12 @@ axiam_mgmt_o_auth2_client_response_t *axiam_mgmt_o_auth2_client_response_parse(c
     if (cJSON_IsString(item)) out->jwks = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "jwks_uri");
     if (cJSON_IsString(item)) out->jwks_uri = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "last_authorized_at");
+    if (cJSON_IsString(item)) out->last_authorized_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "managed_by");
+    if (cJSON_IsString(item) && axiam_mgmt_managed_by_from_wire(item->valuestring, &out->managed_by) == 0) {
+        (void) 0;
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "name");
     if (cJSON_IsString(item)) out->name = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "profile");
@@ -4894,6 +4972,11 @@ cJSON *axiam_mgmt_o_auth2_client_response_build(const axiam_mgmt_o_auth2_client_
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->allowed_resources) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_resources");
+        for (size_t i = 0; arr && i < value->allowed_resources_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_resources[i]));
+    }
     if (1) {
         cJSON_AddStringToObject(obj, "authn_request_params", axiam_mgmt_authn_request_params_mode_to_wire(value->authn_request_params));
     }
@@ -4925,6 +5008,12 @@ cJSON *axiam_mgmt_o_auth2_client_response_build(const axiam_mgmt_o_auth2_client_
     }
     if (value->jwks_uri) {
         cJSON_AddStringToObject(obj, "jwks_uri", value->jwks_uri);
+    }
+    if (value->last_authorized_at) {
+        cJSON_AddStringToObject(obj, "last_authorized_at", value->last_authorized_at);
+    }
+    if (1) {
+        cJSON_AddStringToObject(obj, "managed_by", axiam_mgmt_managed_by_to_wire(value->managed_by));
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -5138,7 +5227,20 @@ cJSON *axiam_mgmt_oidc_callback_response_build(const axiam_mgmt_oidc_callback_re
 
 void axiam_mgmt_oidc_policy_free(axiam_mgmt_oidc_policy_t *value) {
     if (!value) return;
+    if (value->dcr_allowed_redirect_hosts) {
+        for (size_t i = 0; i < value->dcr_allowed_redirect_hosts_count; i++) free(value->dcr_allowed_redirect_hosts[i]);
+        free(value->dcr_allowed_redirect_hosts);
+    }
+    if (value->dcr_allowed_scopes) {
+        for (size_t i = 0; i < value->dcr_allowed_scopes_count; i++) free(value->dcr_allowed_scopes[i]);
+        free(value->dcr_allowed_scopes);
+    }
     free(value->default_locale);
+    free(value->dynamic_registration);
+    if (value->external_client_allowed_resources) {
+        for (size_t i = 0; i < value->external_client_allowed_resources_count; i++) free(value->external_client_allowed_resources[i]);
+        free(value->external_client_allowed_resources);
+    }
     free(value);
 }
 
@@ -5148,8 +5250,55 @@ axiam_mgmt_oidc_policy_t *axiam_mgmt_oidc_policy_parse(const cJSON *src) {
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_allowed_redirect_hosts");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->dcr_allowed_redirect_hosts = (char **) calloc(n, sizeof(char *));
+            if (!out->dcr_allowed_redirect_hosts) { axiam_mgmt_oidc_policy_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->dcr_allowed_redirect_hosts[i] = axiam_strdup0(e->valuestring);
+            }
+            out->dcr_allowed_redirect_hosts_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_allowed_scopes");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->dcr_allowed_scopes = (char **) calloc(n, sizeof(char *));
+            if (!out->dcr_allowed_scopes) { axiam_mgmt_oidc_policy_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->dcr_allowed_scopes[i] = axiam_strdup0(e->valuestring);
+            }
+            out->dcr_allowed_scopes_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_max_clients");
+    if (cJSON_IsNumber(item)) { out->dcr_max_clients = (long) item->valuedouble;
+        out->has_dcr_max_clients = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_unused_client_ttl_days");
+    if (cJSON_IsNumber(item)) { out->dcr_unused_client_ttl_days = (long) item->valuedouble;
+        out->has_dcr_unused_client_ttl_days = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "default_locale");
     if (cJSON_IsString(item)) out->default_locale = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "dynamic_registration");
+    if (cJSON_IsString(item)) out->dynamic_registration = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "external_client_allowed_resources");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->external_client_allowed_resources = (char **) calloc(n, sizeof(char *));
+            if (!out->external_client_allowed_resources) { axiam_mgmt_oidc_policy_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->external_client_allowed_resources[i] = axiam_strdup0(e->valuestring);
+            }
+            out->external_client_allowed_resources_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "sensitive_scopes_enabled");
     if (cJSON_IsBool(item)) { out->sensitive_scopes_enabled = cJSON_IsTrue(item) ? 1 : 0;
     }
@@ -5160,8 +5309,32 @@ cJSON *axiam_mgmt_oidc_policy_build(const axiam_mgmt_oidc_policy_t *value) {
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->dcr_allowed_redirect_hosts) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_redirect_hosts");
+        for (size_t i = 0; arr && i < value->dcr_allowed_redirect_hosts_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->dcr_allowed_redirect_hosts[i]));
+    }
+    if (value->dcr_allowed_scopes) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_scopes");
+        for (size_t i = 0; arr && i < value->dcr_allowed_scopes_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->dcr_allowed_scopes[i]));
+    }
+    if (value->has_dcr_max_clients) {
+        cJSON_AddNumberToObject(obj, "dcr_max_clients", (double) value->dcr_max_clients);
+    }
+    if (value->has_dcr_unused_client_ttl_days) {
+        cJSON_AddNumberToObject(obj, "dcr_unused_client_ttl_days", (double) value->dcr_unused_client_ttl_days);
+    }
     if (value->default_locale) {
         cJSON_AddStringToObject(obj, "default_locale", value->default_locale);
+    }
+    if (value->dynamic_registration) {
+        cJSON_AddStringToObject(obj, "dynamic_registration", value->dynamic_registration);
+    }
+    if (value->external_client_allowed_resources) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "external_client_allowed_resources");
+        for (size_t i = 0; arr && i < value->external_client_allowed_resources_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->external_client_allowed_resources[i]));
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "sensitive_scopes_enabled", value->sensitive_scopes_enabled);
@@ -7014,7 +7187,20 @@ cJSON *axiam_mgmt_set_org_email_config_build(const axiam_mgmt_set_org_email_conf
 
 void axiam_mgmt_set_org_settings_free(axiam_mgmt_set_org_settings_t *value) {
     if (!value) return;
+    if (value->dcr_allowed_redirect_hosts) {
+        for (size_t i = 0; i < value->dcr_allowed_redirect_hosts_count; i++) free(value->dcr_allowed_redirect_hosts[i]);
+        free(value->dcr_allowed_redirect_hosts);
+    }
+    if (value->dcr_allowed_scopes) {
+        for (size_t i = 0; i < value->dcr_allowed_scopes_count; i++) free(value->dcr_allowed_scopes[i]);
+        free(value->dcr_allowed_scopes);
+    }
     free(value->default_locale);
+    free(value->dynamic_registration);
+    if (value->external_client_allowed_resources) {
+        for (size_t i = 0; i < value->external_client_allowed_resources_count; i++) free(value->external_client_allowed_resources[i]);
+        free(value->external_client_allowed_resources);
+    }
     free(value->opaque_ksf);
     free(value->opaque_mode);
     free(value->opaque_suite);
@@ -7034,6 +7220,38 @@ axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *sr
     item = cJSON_GetObjectItemCaseSensitive(src, "admin_notifications_enabled");
     if (cJSON_IsBool(item)) { out->admin_notifications_enabled = cJSON_IsTrue(item) ? 1 : 0;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_allowed_redirect_hosts");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->dcr_allowed_redirect_hosts = (char **) calloc(n, sizeof(char *));
+            if (!out->dcr_allowed_redirect_hosts) { axiam_mgmt_set_org_settings_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->dcr_allowed_redirect_hosts[i] = axiam_strdup0(e->valuestring);
+            }
+            out->dcr_allowed_redirect_hosts_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_allowed_scopes");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->dcr_allowed_scopes = (char **) calloc(n, sizeof(char *));
+            if (!out->dcr_allowed_scopes) { axiam_mgmt_set_org_settings_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->dcr_allowed_scopes[i] = axiam_strdup0(e->valuestring);
+            }
+            out->dcr_allowed_scopes_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_max_clients");
+    if (cJSON_IsNumber(item)) { out->dcr_max_clients = (long) item->valuedouble;
+        out->has_dcr_max_clients = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_unused_client_ttl_days");
+    if (cJSON_IsNumber(item)) { out->dcr_unused_client_ttl_days = (long) item->valuedouble;
+        out->has_dcr_unused_client_ttl_days = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "default_cert_validity_days");
     if (cJSON_IsNumber(item)) { out->default_cert_validity_days = (long) item->valuedouble;
     }
@@ -7042,11 +7260,26 @@ axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *sr
     item = cJSON_GetObjectItemCaseSensitive(src, "deletion_grace_period_days");
     if (cJSON_IsNumber(item)) { out->deletion_grace_period_days = (long) item->valuedouble;
         out->has_deletion_grace_period_days = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dynamic_registration");
+    if (cJSON_IsString(item)) out->dynamic_registration = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "email_verification_grace_period_hours");
     if (cJSON_IsNumber(item)) { out->email_verification_grace_period_hours = (long) item->valuedouble;
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "email_verification_required");
     if (cJSON_IsBool(item)) { out->email_verification_required = cJSON_IsTrue(item) ? 1 : 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "external_client_allowed_resources");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->external_client_allowed_resources = (char **) calloc(n, sizeof(char *));
+            if (!out->external_client_allowed_resources) { axiam_mgmt_set_org_settings_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->external_client_allowed_resources[i] = axiam_strdup0(e->valuestring);
+            }
+            out->external_client_allowed_resources_count = n;
+        }
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "hibp_check_enabled");
     if (cJSON_IsBool(item)) { out->hibp_check_enabled = cJSON_IsTrue(item) ? 1 : 0;
@@ -7117,6 +7350,22 @@ cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *va
     if (1) {
         cJSON_AddBoolToObject(obj, "admin_notifications_enabled", value->admin_notifications_enabled);
     }
+    if (value->dcr_allowed_redirect_hosts) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_redirect_hosts");
+        for (size_t i = 0; arr && i < value->dcr_allowed_redirect_hosts_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->dcr_allowed_redirect_hosts[i]));
+    }
+    if (value->dcr_allowed_scopes) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_scopes");
+        for (size_t i = 0; arr && i < value->dcr_allowed_scopes_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->dcr_allowed_scopes[i]));
+    }
+    if (value->has_dcr_max_clients) {
+        cJSON_AddNumberToObject(obj, "dcr_max_clients", (double) value->dcr_max_clients);
+    }
+    if (value->has_dcr_unused_client_ttl_days) {
+        cJSON_AddNumberToObject(obj, "dcr_unused_client_ttl_days", (double) value->dcr_unused_client_ttl_days);
+    }
     if (1) {
         cJSON_AddNumberToObject(obj, "default_cert_validity_days", (double) value->default_cert_validity_days);
     }
@@ -7126,11 +7375,19 @@ cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *va
     if (value->has_deletion_grace_period_days) {
         cJSON_AddNumberToObject(obj, "deletion_grace_period_days", (double) value->deletion_grace_period_days);
     }
+    if (value->dynamic_registration) {
+        cJSON_AddStringToObject(obj, "dynamic_registration", value->dynamic_registration);
+    }
     if (1) {
         cJSON_AddNumberToObject(obj, "email_verification_grace_period_hours", (double) value->email_verification_grace_period_hours);
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "email_verification_required", value->email_verification_required);
+    }
+    if (value->external_client_allowed_resources) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "external_client_allowed_resources");
+        for (size_t i = 0; arr && i < value->external_client_allowed_resources_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->external_client_allowed_resources[i]));
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "hibp_check_enabled", value->hibp_check_enabled);
@@ -7528,7 +7785,20 @@ cJSON *axiam_mgmt_tenant_build(const axiam_mgmt_tenant_t *value) {
 
 void axiam_mgmt_tenant_settings_override_free(axiam_mgmt_tenant_settings_override_t *value) {
     if (!value) return;
+    if (value->dcr_allowed_redirect_hosts) {
+        for (size_t i = 0; i < value->dcr_allowed_redirect_hosts_count; i++) free(value->dcr_allowed_redirect_hosts[i]);
+        free(value->dcr_allowed_redirect_hosts);
+    }
+    if (value->dcr_allowed_scopes) {
+        for (size_t i = 0; i < value->dcr_allowed_scopes_count; i++) free(value->dcr_allowed_scopes[i]);
+        free(value->dcr_allowed_scopes);
+    }
     free(value->default_locale);
+    free(value->dynamic_registration);
+    if (value->external_client_allowed_resources) {
+        for (size_t i = 0; i < value->external_client_allowed_resources_count; i++) free(value->external_client_allowed_resources[i]);
+        free(value->external_client_allowed_resources);
+    }
     free(value->opaque_ksf);
     free(value->opaque_mode);
     free(value->opaque_suite);
@@ -7548,6 +7818,38 @@ axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse
     item = cJSON_GetObjectItemCaseSensitive(src, "admin_notifications_enabled");
     if (cJSON_IsBool(item)) { out->admin_notifications_enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_admin_notifications_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_allowed_redirect_hosts");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->dcr_allowed_redirect_hosts = (char **) calloc(n, sizeof(char *));
+            if (!out->dcr_allowed_redirect_hosts) { axiam_mgmt_tenant_settings_override_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->dcr_allowed_redirect_hosts[i] = axiam_strdup0(e->valuestring);
+            }
+            out->dcr_allowed_redirect_hosts_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_allowed_scopes");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->dcr_allowed_scopes = (char **) calloc(n, sizeof(char *));
+            if (!out->dcr_allowed_scopes) { axiam_mgmt_tenant_settings_override_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->dcr_allowed_scopes[i] = axiam_strdup0(e->valuestring);
+            }
+            out->dcr_allowed_scopes_count = n;
+        }
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_max_clients");
+    if (cJSON_IsNumber(item)) { out->dcr_max_clients = (long) item->valuedouble;
+        out->has_dcr_max_clients = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dcr_unused_client_ttl_days");
+    if (cJSON_IsNumber(item)) { out->dcr_unused_client_ttl_days = (long) item->valuedouble;
+        out->has_dcr_unused_client_ttl_days = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "default_cert_validity_days");
     if (cJSON_IsNumber(item)) { out->default_cert_validity_days = (long) item->valuedouble;
         out->has_default_cert_validity_days = 1; }
@@ -7556,12 +7858,27 @@ axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse
     item = cJSON_GetObjectItemCaseSensitive(src, "deletion_grace_period_days");
     if (cJSON_IsNumber(item)) { out->deletion_grace_period_days = (long) item->valuedouble;
         out->has_deletion_grace_period_days = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "dynamic_registration");
+    if (cJSON_IsString(item)) out->dynamic_registration = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "email_verification_grace_period_hours");
     if (cJSON_IsNumber(item)) { out->email_verification_grace_period_hours = (long) item->valuedouble;
         out->has_email_verification_grace_period_hours = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "email_verification_required");
     if (cJSON_IsBool(item)) { out->email_verification_required = cJSON_IsTrue(item) ? 1 : 0;
         out->has_email_verification_required = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "external_client_allowed_resources");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->external_client_allowed_resources = (char **) calloc(n, sizeof(char *));
+            if (!out->external_client_allowed_resources) { axiam_mgmt_tenant_settings_override_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->external_client_allowed_resources[i] = axiam_strdup0(e->valuestring);
+            }
+            out->external_client_allowed_resources_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "hibp_check_enabled");
     if (cJSON_IsBool(item)) { out->hibp_check_enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_hibp_check_enabled = 1; }
@@ -7631,6 +7948,22 @@ cJSON *axiam_mgmt_tenant_settings_override_build(const axiam_mgmt_tenant_setting
     if (value->has_admin_notifications_enabled) {
         cJSON_AddBoolToObject(obj, "admin_notifications_enabled", value->admin_notifications_enabled);
     }
+    if (value->dcr_allowed_redirect_hosts) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_redirect_hosts");
+        for (size_t i = 0; arr && i < value->dcr_allowed_redirect_hosts_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->dcr_allowed_redirect_hosts[i]));
+    }
+    if (value->dcr_allowed_scopes) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_scopes");
+        for (size_t i = 0; arr && i < value->dcr_allowed_scopes_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->dcr_allowed_scopes[i]));
+    }
+    if (value->has_dcr_max_clients) {
+        cJSON_AddNumberToObject(obj, "dcr_max_clients", (double) value->dcr_max_clients);
+    }
+    if (value->has_dcr_unused_client_ttl_days) {
+        cJSON_AddNumberToObject(obj, "dcr_unused_client_ttl_days", (double) value->dcr_unused_client_ttl_days);
+    }
     if (value->has_default_cert_validity_days) {
         cJSON_AddNumberToObject(obj, "default_cert_validity_days", (double) value->default_cert_validity_days);
     }
@@ -7640,11 +7973,19 @@ cJSON *axiam_mgmt_tenant_settings_override_build(const axiam_mgmt_tenant_setting
     if (value->has_deletion_grace_period_days) {
         cJSON_AddNumberToObject(obj, "deletion_grace_period_days", (double) value->deletion_grace_period_days);
     }
+    if (value->dynamic_registration) {
+        cJSON_AddStringToObject(obj, "dynamic_registration", value->dynamic_registration);
+    }
     if (value->has_email_verification_grace_period_hours) {
         cJSON_AddNumberToObject(obj, "email_verification_grace_period_hours", (double) value->email_verification_grace_period_hours);
     }
     if (value->has_email_verification_required) {
         cJSON_AddBoolToObject(obj, "email_verification_required", value->email_verification_required);
+    }
+    if (value->external_client_allowed_resources) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "external_client_allowed_resources");
+        for (size_t i = 0; arr && i < value->external_client_allowed_resources_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->external_client_allowed_resources[i]));
     }
     if (value->has_hibp_check_enabled) {
         cJSON_AddBoolToObject(obj, "hibp_check_enabled", value->hibp_check_enabled);
@@ -8191,6 +8532,10 @@ cJSON *axiam_mgmt_update_notification_rule_request_build(const axiam_mgmt_update
 
 void axiam_mgmt_update_o_auth2_client_request_free(axiam_mgmt_update_o_auth2_client_request_t *value) {
     if (!value) return;
+    if (value->allowed_resources) {
+        for (size_t i = 0; i < value->allowed_resources_count; i++) free(value->allowed_resources[i]);
+        free(value->allowed_resources);
+    }
     free(value->backchannel_logout_uri);
     if (value->grant_types) {
         for (size_t i = 0; i < value->grant_types_count; i++) free(value->grant_types[i]);
@@ -8227,6 +8572,19 @@ axiam_mgmt_update_o_auth2_client_request_t *axiam_mgmt_update_o_auth2_client_req
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allowed_resources");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->allowed_resources = (char **) calloc(n, sizeof(char *));
+            if (!out->allowed_resources) { axiam_mgmt_update_o_auth2_client_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->allowed_resources[i] = axiam_strdup0(e->valuestring);
+            }
+            out->allowed_resources_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "authn_request_params");
     if (cJSON_IsString(item) && axiam_mgmt_authn_request_params_mode_from_wire(item->valuestring, &out->authn_request_params) == 0) {
         out->has_authn_request_params = 1;
@@ -8340,6 +8698,11 @@ cJSON *axiam_mgmt_update_o_auth2_client_request_build(const axiam_mgmt_update_o_
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->allowed_resources) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "allowed_resources");
+        for (size_t i = 0; arr && i < value->allowed_resources_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->allowed_resources[i]));
+    }
     if (value->has_authn_request_params) {
         cJSON_AddStringToObject(obj, "authn_request_params", axiam_mgmt_authn_request_params_mode_to_wire(value->authn_request_params));
     }

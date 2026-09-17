@@ -33,6 +33,7 @@ void axiam_client_config_free(axiam_client_config_t *cfg) {
     free(cfg->client_cert_pem);
     free(cfg->expected_issuer);
     free(cfg->expected_audience);
+    free(cfg->resource_metadata_url);
     free(cfg->oidc_client_id);
     axiam_sensitive_free(cfg->client_key);
     axiam_sensitive_free(cfg->oidc_client_secret);
@@ -68,6 +69,13 @@ void axiam_client_config_set_expected_issuer(axiam_client_config_t *cfg, const c
 }
 void axiam_client_config_set_expected_audience(axiam_client_config_t *cfg, const char *v) {
     if (cfg) set_str(&cfg->expected_audience, (v && v[0]) ? v : NULL);
+}
+
+/* §28.5: format validation happens in axiam_client_config_validate() rather
+ * than here, alongside the rule-2 pairing check — one place for both rather
+ * than a format check here plus a pairing check there. */
+void axiam_client_config_set_resource_metadata_url(axiam_client_config_t *cfg, const char *v) {
+    if (cfg) set_str(&cfg->resource_metadata_url, (v && v[0]) ? v : NULL);
 }
 
 axiam_error_kind_t axiam_client_config_set_custom_ca(axiam_client_config_t *cfg,
@@ -219,6 +227,22 @@ axiam_error_kind_t axiam_client_config_validate(const axiam_client_config_t *cfg
                         "org_slug must not be blank — leave it NULL or name the organization");
         return AXIAM_ERR_NETWORK;
     }
+    /* CONTRACT.md §28.5 rule 2: announcing "resource" obliges this server to
+     * check an inbound token's `aud` against it. The refusal names both
+     * options so the fix is one line, and it happens here — at construction,
+     * before the first request — rather than as a surprise on the 401 path. */
+    if (cfg->resource_metadata_url) {
+        if (!cfg->expected_audience || cfg->expected_audience[0] == '\0') {
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                            "resource_metadata_url requires expected_audience to be set "
+                            "(CONTRACT.md §28.5 rule 2) — a resource server that publishes "
+                            "\"tokens for me carry this aud\" and does not check aud is opened "
+                            "by a token minted for a different resource server");
+            return AXIAM_ERR_NETWORK;
+        }
+        axiam_error_kind_t k = axiam_mcp_validate_resource_metadata_url(cfg->resource_metadata_url, err);
+        if (k != AXIAM_OK) return k;
+    }
     return AXIAM_OK;
 }
 
@@ -235,6 +259,7 @@ axiam_client_config_t *axiam_client_config_clone(const axiam_client_config_t *sr
     c->client_cert_pem = axiam_strdup0(src->client_cert_pem);
     c->expected_issuer = axiam_strdup0(src->expected_issuer);
     c->expected_audience = axiam_strdup0(src->expected_audience);
+    c->resource_metadata_url = axiam_strdup0(src->resource_metadata_url);
     c->oidc_client_id = axiam_strdup0(src->oidc_client_id);
     c->oidc_discovery_ttl_s = src->oidc_discovery_ttl_s;
     c->oidc_clock_skew_s = src->oidc_clock_skew_s;

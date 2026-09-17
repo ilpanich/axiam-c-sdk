@@ -2,6 +2,7 @@
 #include <string.h>
 #include <strings.h>
 
+#include "axiam/mcp.h"
 #include "cJSON.h"
 #include "internal.h"
 
@@ -121,7 +122,9 @@ static axiam_guard_status_t require_access_impl(axiam_client_t *client,
                                                 const char *action, const char *resource_id,
                                                 const char *scope,
                                                 const axiam_uma_challenger_t *challenger,
-                                                char **out_challenge) {
+                                                char **out_challenge,
+                                                char **out_reason_code) {
+    if (out_reason_code) *out_reason_code = NULL;
     if (!client) return AXIAM_GUARD_UNAVAILABLE;
     /* §11.2(3): unresolvable/empty resource id is a 400, never a silent allow. */
     if (!resource_id || resource_id[0] == '\0') return AXIAM_GUARD_BAD_REQUEST;
@@ -156,6 +159,9 @@ static axiam_guard_status_t require_access_impl(axiam_client_t *client,
     } else {
         out = AXIAM_GUARD_UNAVAILABLE; /* §11.2(5): fail closed on network error */
     }
+    if (out == AXIAM_GUARD_DENIED && out_reason_code && k == AXIAM_OK) {
+        *out_reason_code = axiam_strdup0(res.reason_code);
+    }
     axiam_check_result_dispose(&res);
 
     if (out == AXIAM_GUARD_DENIED && challenger && out_challenge) {
@@ -168,7 +174,7 @@ axiam_guard_status_t axiam_require_access(axiam_client_t *client,
                                           const axiam_headers_t *headers,
                                           const char *action, const char *resource_id,
                                           const char *scope) {
-    return require_access_impl(client, headers, action, resource_id, scope, NULL, NULL);
+    return require_access_impl(client, headers, action, resource_id, scope, NULL, NULL, NULL);
 }
 
 axiam_guard_status_t axiam_require_access_uma(axiam_client_t *client,
@@ -179,7 +185,7 @@ axiam_guard_status_t axiam_require_access_uma(axiam_client_t *client,
                                               char **out_challenge) {
     if (out_challenge) *out_challenge = NULL;
     return require_access_impl(client, headers, action, resource_id, scope,
-                               challenger, out_challenge);
+                               challenger, out_challenge, NULL);
 }
 
 axiam_guard_status_t axiam_require_role(axiam_client_t *client,
@@ -208,4 +214,99 @@ axiam_guard_status_t axiam_require_role(axiam_client_t *client,
     }
     free(claims);
     return matched ? AXIAM_GUARD_ALLOW : AXIAM_GUARD_DENIED;
+}
+
+/*
+ * CONTRACT.md §28.5 — the guard-side integration of the RFC 6750 challenge.
+ * Additive, exactly as axiam_require_access_uma() is additive over
+ * axiam_require_access(): axiam_require_auth() and axiam_require_access()
+ * are UNTOUCHED by this addition, and the two functions below are separate
+ * entry points a caller opts into.
+ *
+ * "Opt-in" has two independent gates here, and both must be open before
+ * either function produces a challenge:
+ *   1. client->cfg->resource_metadata_url must be set (axiam_client_new()
+ *      already refused a config that set this without expected_audience,
+ *      so by the time a client_t exists, resource_metadata_url implies
+ *      expected_audience — §28.5 rule 2).
+ *   2. the caller passed a non-NULL out_challenge.
+ * With either gate closed, these two functions are byte-for-byte
+ * axiam_require_auth() / axiam_require_access() — see test_mcp_guard.c's
+ * regression.
+ */
+
+/* Was a credential presented at all? (§28.4's first test vector vs. its
+ * second: "no credential" is not "a bad credential", and RFC 6750 §3 says a
+ * resource server SHOULD NOT name an error code in the first case.) Reuses
+ * the exact extraction the verification path uses, so this can never
+ * disagree with it about what counts as "presented". */
+static int credential_was_presented(const axiam_headers_t *headers) {
+    char *token = extract_token(headers);
+    int present = token != NULL;
+    free(token);
+    return present;
+}
+
+/* Build the §28.4 challenge for a 401, or NULL when §28 is off for this
+ * client. Shared by both entry points below. */
+static char *challenge_for_401(axiam_client_t *client, const axiam_headers_t *headers) {
+    if (!client->cfg->resource_metadata_url) return NULL;
+    axiam_bearer_challenge_options_t opts;
+    memset(&opts, 0, sizeof(opts));
+    opts.resource_metadata_url = client->cfg->resource_metadata_url;
+    opts.error = credential_was_presented(headers) ? AXIAM_BEARER_ERROR_INVALID_TOKEN : NULL;
+    axiam_error_t err; /* the config was already validated at construction; a
+                          refusal here would mean resource_metadata_url was
+                          mutated after axiam_client_new() copied it, which
+                          this SDK's config API gives no way to do. */
+    return axiam_bearer_challenge(&opts, &err);
+}
+
+axiam_guard_status_t axiam_require_auth_mcp(axiam_client_t *client,
+                                            const axiam_headers_t *headers,
+                                            char **out_challenge) {
+    if (out_challenge) *out_challenge = NULL;
+    axiam_guard_status_t st = axiam_require_auth(client, headers);
+    if (!client || !out_challenge) return st;
+    /* §28.5 rule 4: every 401 the guard emits carries the challenge.
+     * Rule 7: no other response is touched — not ALLOW (200), not
+     * UNAVAILABLE (503, not part of §28's vocabulary). */
+    if (st == AXIAM_GUARD_UNAUTHENTICATED) {
+        *out_challenge = challenge_for_401(client, headers);
+    }
+    return st;
+}
+
+axiam_guard_status_t axiam_require_access_mcp(axiam_client_t *client,
+                                              const axiam_headers_t *headers,
+                                              const char *action, const char *resource_id,
+                                              const char *scope,
+                                              char **out_challenge) {
+    if (out_challenge) *out_challenge = NULL;
+    char *reason_code = NULL;
+    axiam_guard_status_t st = require_access_impl(client, headers, action, resource_id, scope,
+                                                  NULL, NULL, &reason_code);
+    if (!client || !out_challenge) {
+        free(reason_code);
+        return st;
+    }
+    if (st == AXIAM_GUARD_UNAUTHENTICATED) {
+        *out_challenge = challenge_for_401(client, headers);
+    } else if (st == AXIAM_GUARD_DENIED && client->cfg->resource_metadata_url && scope &&
+              reason_code && strcmp(reason_code, AXIAM_REASON_CODE_NO_GRANT) == 0) {
+        /* §28.5 rule 5: the ONE class of 403 that carries a challenge.
+         * `denied_by_rule`, an absent/unrecognised code, or no `scope`
+         * argument all carry none — checked by their absence from this
+         * condition, not by a second branch, so there is exactly one place
+         * that can emit vector 3. */
+        axiam_bearer_challenge_options_t opts;
+        memset(&opts, 0, sizeof(opts));
+        opts.resource_metadata_url = client->cfg->resource_metadata_url;
+        opts.error = AXIAM_BEARER_ERROR_INSUFFICIENT_SCOPE;
+        opts.scope = scope;
+        axiam_error_t err;
+        *out_challenge = axiam_bearer_challenge(&opts, &err);
+    }
+    free(reason_code);
+    return st;
 }

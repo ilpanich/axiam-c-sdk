@@ -44,6 +44,7 @@ axiam_add_test(test_singleflight test_singleflight.c)
 axiam_add_test(test_refresh_org test_refresh_org.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
 axiam_add_test(test_webhook test_webhook.c)
+axiam_add_test(test_mcp test_mcp.c)
 axiam_add_test(test_uma test_uma.c)
 axiam_add_test(test_uma_branches test_uma_branches.c)
 
@@ -147,6 +148,17 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_uma_challenge PRIVATE --coverage)
 endif()
 add_test(NAME test_uma_challenge COMMAND test_uma_challenge)
+
+# §28.9 tests 3-5 + the off-by-default regression: axiam_require_auth_mcp() /
+# axiam_require_access_mcp() against a real signed token, like test_uma_challenge.c
+# does for §20.3's emit half.
+add_executable(test_mcp_guard test_mcp_guard.c)
+target_include_directories(test_mcp_guard PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_mcp_guard PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_mcp_guard PRIVATE --coverage)
+endif()
+add_test(NAME test_mcp_guard COMMAND test_mcp_guard)
 
 # ---- C2 branch-coverage depth (round 2): crypto-dependent branch sweeps ----
 add_executable(test_guard_branches test_guard_branches.c)

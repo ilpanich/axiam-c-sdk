@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26 and §27 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's six wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27 and §28 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's six wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -28,6 +28,12 @@ framework-agnostic route guard and declarative authorization helpers.
 > and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
 > follow-ups (see [Scope](#scope--follow-ups)). Per §1.1 the REST
 > `/oauth2/userinfo` endpoint is not substituted for the gRPC operation.
+>
+> **§28 note:** SHOULD-level and opt-in — every part of it is off unless you
+> call `axiam_client_config_set_resource_metadata_url()`. **C has no router**
+> (§28.3, §28.7), so there is no `serve_protected_resource_metadata`; instead
+> `axiam_protected_resource_metadata_json()`/`_path()`/`_url()` return the
+> pieces a CivetWeb (or any other) handler serves, documented below.
 
 - **Language:** C11 (public API is C, usable from C and C++).
 - **HTTP / TLS / mTLS:** [libcurl](https://curl.se/libcurl/) with in-memory PEM blobs.
@@ -1570,6 +1576,257 @@ See `examples/management_basics.c`, `examples/management_manifest.c` and
 a `Device` certificate from the tenant's signing CA, binds it to a service account,
 writes the one-time private key at `0600`, then authenticates as the device over §6.1
 mutual TLS with no password anywhere.
+
+## §28 MCP Resource-Server Helpers (RFC 9728)
+
+The resource-server half of the Model Context Protocol authorization
+handshake: publishing the RFC 9728 protected-resource metadata document that
+tells an MCP client which AXIAM deployment guards this resource, and emitting
+the `WWW-Authenticate` challenge that starts the client's discovery. AXIAM is
+the authorization server here and implements none of this — §28 is the *MCP
+server's* side, and this SDK implements exactly that middle row.
+
+**SHOULD-level and entirely opt-in.** Nothing in this section runs until you
+call `axiam_client_config_set_resource_metadata_url()`. With it unset, every
+guard behaves byte-for-byte as it did before this section existed — no
+`WWW-Authenticate` header on any response, no status changed, no path
+exempted. `tests/test_mcp_guard.c`'s off-by-default suite asserts the header's
+**absence**, not the status, because a 401 that quietly grew a header is still
+a 401.
+
+**No network I/O.** `axiam_protected_resource_metadata_json()`, `_path()`,
+`_url()` and `axiam_bearer_challenge()` are pure local computation, like
+`axiam_oidc_begin()` and `axiam_uma_parse_challenge()` — §16 retry and §9
+single-flight refresh do not apply to any of them.
+
+### The three operations, and the ownership contract
+
+```c
+#include <axiam/mcp.h>
+
+axiam_protected_resource_metadata_options_t opts = {0};
+opts.resource = "https://mcp.example.com/mcp";
+static const char *servers[] = { "https://axiam.example.com" };
+opts.authorization_servers = servers;
+opts.authorization_server_count = 1;
+static const char *scopes[] = { "mcp:read", "mcp:tools" };
+opts.scopes_supported = scopes;
+opts.scopes_supported_count = 2;
+
+axiam_error_t err;
+char *document = axiam_protected_resource_metadata_json(&opts, &err);
+char *path     = axiam_protected_resource_metadata_path(&opts, &err);
+char *url      = axiam_protected_resource_metadata_url(&opts, &err);
+/* document/path/url are each malloc'd on success, NULL on a §28.2 validation
+ * refusal or OOM — free every non-NULL one with free(). */
+
+axiam_client_config_set_expected_audience(cfg, opts.resource);   /* §28.5 rule 2 */
+axiam_client_config_set_resource_metadata_url(cfg, url);         /* turns §28 on */
+
+free(document);
+free(path);
+free(url);
+```
+
+**Ownership, explicitly.** All three functions follow the ownership contract
+this SDK already uses for every other malloc'd-string return (see
+`axiam_uma_challenge_header()`, `axiam_reactor_routing_key()`): on success,
+you get back a malloc'd, NUL-terminated string, freed with plain `free()` —
+this SDK has no separate `axiam_string_free()`. On a §28.2 validation refusal
+or an allocation failure, the function returns `NULL` and, when `err` is
+non-`NULL`, fills it with `AXIAM_ERR_NETWORK` and a message naming the field
+and rule — the same kind this SDK already uses for every other client-side
+configuration mistake caught with no wire call (`axiam_client_config_validate()`,
+`oidc_client_unusable()`). §28 has no `ValidationError` type of its own to
+port; this SDK had none to begin with, and `AXIAM_ERR_NETWORK` is the one it
+already uses for exactly this situation. Nothing is partially built: a refused
+call touches nothing else.
+
+**Validation refuses; it never repairs.** A relative `resource`, one with a
+query or a fragment, an `http://` scheme on anything but `127.0.0.1`/`[::1]`/
+`localhost`, an empty `authorization_servers`, a duplicate scope, a
+`bearer_methods_supported` other than exactly `["header"]` — every one of
+these is a `NULL` return, not a silently corrected document.
+
+**Why three functions, not two.** CONTRACT.md §28.7's C row names only
+`axiam_protected_resource_metadata_json` and `_path`; §28.1 separately
+requires an SDK to expose **both** `metadata_path` and `metadata_url`, so an
+integrator feeds the guard's `resource_metadata_url` from the value this SDK
+derived rather than hand-concatenating scheme + authority + path a second
+time. This SDK ships `axiam_protected_resource_metadata_url()` for that MUST
+— a divergence from §28.7's literal naming table, not from §28.1's own rule.
+
+### The challenge
+
+```c
+axiam_bearer_challenge_options_t ch = {0};
+ch.resource_metadata_url = url;                 /* always present */
+ch.error = AXIAM_BEARER_ERROR_INSUFFICIENT_SCOPE;
+ch.scope = "mcp:tools";
+char *value = axiam_bearer_challenge(&ch, &err);
+/* Bearer error="insufficient_scope", scope="mcp:tools", resource_metadata="..." */
+free(value);
+```
+
+Returns the header **value**, never the whole `WWW-Authenticate:` line — you
+set the header. Every parameter is quoted; none is ever escaped: RFC 6750 §3
+already excludes `"` and `\` from every parameter's character set, so a value
+that needs escaping is refused rather than escaped, truncated or stripped.
+
+### Guarded requests: `axiam_require_auth_mcp` / `axiam_require_access_mcp`
+
+Two additive entry points, over `axiam_require_auth()` and
+`axiam_require_access()` exactly the way `axiam_require_access_uma()` is
+additive over `axiam_require_access()` for §20.3 — the originals are
+untouched, and these differ only in an extra `char **out_challenge`:
+
+```c
+char *challenge = NULL;
+axiam_guard_status_t st = axiam_require_auth_mcp(client, headers, &challenge);
+if (st == AXIAM_GUARD_UNAUTHENTICATED) {
+    /* challenge is "Bearer resource_metadata=\"...\""            (no credential)
+     *           or "Bearer error=\"invalid_token\", resource_metadata=\"...\""
+     *              (a credential was presented and rejected — expired, wrong
+     *              tenant, wrong audience, bad signature: all indistinguishable,
+     *              deliberately — §28.4, §28.8)
+     */
+}
+free(challenge); /* NULL on ALLOW/UNAVAILABLE, or when §28 is off */
+```
+
+`axiam_require_access_mcp()` additionally attaches `insufficient_scope` (with
+the route's own `scope`, verbatim, never synthesised) on **exactly one** class
+of `AXIAM_GUARD_DENIED`: a `scope` argument was given, and the decision's
+`reason_code` was `AXIAM_REASON_CODE_NO_GRANT`. A `denied_by_rule` denial, an
+absent/unrecognised `reason_code`, or a denial with no `scope` argument all
+carry **no** challenge — an administrator already decided, and re-authorizing
+cannot change that (§28.5 rule 5).
+
+Both gates — `resource_metadata_url` configured, and a non-`NULL`
+`out_challenge` — must be open before either function differs at all from its
+un-suffixed counterpart; `tests/test_mcp_guard.c` proves the off state is
+byte-for-byte identical.
+
+### `axiam_mcp_check_resource_metadata` — the `serve_`-less cross-check
+
+Other languages' `serve_protected_resource_metadata(app, metadata, guard?)`
+takes an optional `guard` argument and, when given, refuses at startup unless
+the guard's `resource_metadata_url`/`expected_audience` agree with the
+document's own `metadata_url`/`resource` (§28.5 rule 3). **C has no
+`serve_` function** (§28.3, §28.7 — no router), so there is nothing to hang
+that argument on. `axiam_mcp_check_resource_metadata(cfg, &opts, &err)` is the
+same check as a standalone call — run it once at startup, after configuring
+both:
+
+```c
+if (axiam_mcp_check_resource_metadata(cfg, &opts, &err) != AXIAM_OK) {
+    fprintf(stderr, "%s\n", err.message);
+    exit(1);
+}
+```
+
+It returns `AXIAM_OK` immediately when the config's `resource_metadata_url` is
+unset (§28 is off — nothing to check).
+
+### CivetWeb adapter (documented, not implemented)
+
+This SDK vendors no HTTP server, so there is no `axiam_mcp_serve_civetweb()`
+in the library — the six §28.3 response rules bind whatever handler you write,
+and this is that handler:
+
+```c
+#include <civetweb.h>
+#include <axiam/axiam.h>
+
+typedef struct { char *body; size_t len; char *metadata_path; } mcp_metadata_ctx_t;
+
+/* §28.3 rule 2: served WITHOUT authentication — register this handler on
+ * metadata_path and make sure your own auth callback exempts it explicitly
+ * when it runs globally (mg_set_auth_handler / a per-request check ahead of
+ * this one). A document that answers 401 cannot start the handshake it
+ * exists to start. */
+static int serve_metadata(struct mg_connection *conn, void *cbdata) {
+    mcp_metadata_ctx_t *ctx = cbdata;
+    /* §28.3 rule 1, 5, 6: 200, application/json, Cache-Control, CORS *,
+     * no Access-Control-Allow-Credentials. Rule 4: identical for every
+     * caller — nothing here reads the request. */
+    mg_printf(conn,
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: application/json\r\n"
+        "Cache-Control: public, max-age=3600\r\n"
+        "Access-Control-Allow-Origin: *\r\n"
+        "Content-Length: %zu\r\n\r\n", ctx->len);
+    mg_write(conn, ctx->body, ctx->len);
+    return 200;
+}
+
+/* A protected route's 401/403 path, using axiam_require_access_mcp(): */
+static int serve_tool(struct mg_connection *conn, void *cbdata) {
+    axiam_client_t *client = cbdata;
+    axiam_headers_t *headers = /* populate from mg_get_header(...) */ NULL;
+
+    char *challenge = NULL;
+    axiam_guard_status_t st = axiam_require_access_mcp(
+        client, headers, "mcp:invoke", "tool-1", "mcp:tools", &challenge);
+
+    if (st != AXIAM_GUARD_ALLOW) {
+        if (challenge) {
+            mg_printf(conn, "HTTP/1.1 %d %s\r\nWWW-Authenticate: %s\r\n"
+                            "Content-Type: application/json\r\n\r\n"
+                            "{\"error\":\"%s\"}",
+                      (int)st, st == AXIAM_GUARD_UNAUTHENTICATED ? "Unauthorized" : "Forbidden",
+                      challenge,
+                      st == AXIAM_GUARD_UNAUTHENTICATED ? "authentication_failed"
+                                                        : "authorization_denied");
+            free(challenge);
+        } else {
+            mg_send_http_error(conn, (int)st, "%s",
+                st == AXIAM_GUARD_UNAUTHENTICATED ? "authentication_failed"
+                                                  : "authorization_denied");
+        }
+        return (int)st;
+    }
+    axiam_kv_free(headers);
+    /* ... serve the tool ... */
+    return 200;
+}
+
+/* Wiring, once at startup: */
+axiam_protected_resource_metadata_options_t opts = { /* ... */ };
+char *document = axiam_protected_resource_metadata_json(&opts, &err);
+char *path     = axiam_protected_resource_metadata_path(&opts, &err);
+char *url      = axiam_protected_resource_metadata_url(&opts, &err);
+axiam_client_config_set_expected_audience(cfg, opts.resource);
+axiam_client_config_set_resource_metadata_url(cfg, url);
+/* axiam_mcp_check_resource_metadata(cfg, &opts, &err) here, per above */
+
+mcp_metadata_ctx_t ctx = { document, strlen(document), path };
+mg_set_request_handler(mg_ctx, path, serve_metadata, &ctx);
+mg_set_request_handler(mg_ctx, "/tool", serve_tool, client);
+```
+
+### What this port found in §28
+
+Two things worth recording for the cross-SDK review (T21.9's plan explicitly
+asks a REST-only port to look for exactly this):
+
+1. **§28.7's C row is incomplete against §28.1's own MUST.** It names
+   `axiam_protected_resource_metadata_json`/`_path` but not a `metadata_url`
+   accessor, while §28.1 requires an SDK to expose both `metadata_path` *and*
+   `metadata_url`. This port adds `axiam_protected_resource_metadata_url()` to
+   satisfy the MUST rather than leave the integrator to hand-concatenate the
+   resource's scheme and authority onto the path a second time — exactly the
+   duplication §28.1 says is "the surface on which the two disagree."
+2. **§28.2's "validation refuses at construction" and §28.4's "raises the
+   SDK's `ValidationError`" both assume a value type and an exception
+   mechanism.** C has neither. The document has nowhere to "be constructed"
+   except a local struct the caller supplies per call, and a refusal is a
+   `NULL` return plus an out-parameter, not a thrown type. Neither is a defect
+   in §28 so much as a reminder that "returns … or raises …" is a two-outcome
+   contract that a language without exceptions has to spell as two return
+   channels — which is exactly what §28.7's own C row already anticipates by
+   saying the operations "return the SDK's validation error rather than a
+   string when it fails."
 
 ## Scope / follow-ups
 

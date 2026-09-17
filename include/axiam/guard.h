@@ -148,6 +148,69 @@ axiam_guard_status_t axiam_require_access_uma(axiam_client_t *client,
                                               const axiam_uma_challenger_t *challenger,
                                               char **out_challenge);
 
+/**
+ * §28.5's guard-side integration of the RFC 6750 `WWW-Authenticate`
+ * challenge (CONTRACT.md §28), over axiam_require_auth().
+ *
+ * ADDITIVE AND OPT-IN, exactly as axiam_require_access_uma() is additive over
+ * axiam_require_access(): axiam_require_auth() itself is untouched by this
+ * function's existence. This one produces the identical axiam_guard_status_t
+ * as axiam_require_auth() in every case; additionally, when the client was
+ * configured with axiam_client_config_set_resource_metadata_url() (which
+ * makes expected_audience mandatory, §28.5 rule 2) and `out_challenge` is
+ * non-NULL:
+ *
+ *   - AXIAM_GUARD_UNAUTHENTICATED (401): *out_challenge is set to a malloc'd
+ *     `WWW-Authenticate` VALUE (not the header line) — "no credential
+ *     presented" when the request carried none, or `error="invalid_token"`
+ *     when one was presented and rejected. §28.4: expired, wrong tenant,
+ *     wrong audience, bad signature and a revoked sid are all
+ *     `invalid_token`, indistinguishably; the challenge never says which.
+ *   - AXIAM_GUARD_ALLOW / AXIAM_GUARD_UNAVAILABLE: *out_challenge is NULL
+ *     (§28.5 rule 7 — no challenge on a success, and 503 is outside §28's
+ *     vocabulary).
+ *
+ * With resource_metadata_url unset, or `out_challenge` NULL, *out_challenge
+ * (when non-NULL) is always NULL and every other observable is
+ * byte-for-byte axiam_require_auth()'s — the §28.9 regression that matters
+ * more than the five required tests.
+ *
+ * @param out_challenge May be NULL. Free a non-NULL result with free().
+ */
+axiam_guard_status_t axiam_require_auth_mcp(axiam_client_t *client,
+                                            const axiam_headers_t *headers,
+                                            char **out_challenge);
+
+/**
+ * §28.5's guard-side integration, over axiam_require_access(). Identical
+ * outcome to axiam_require_access() in every case; additionally, under the
+ * same two gates axiam_require_auth_mcp() documents:
+ *
+ *   - AXIAM_GUARD_UNAUTHENTICATED (401): the same two challenge vectors
+ *     axiam_require_auth_mcp() produces.
+ *   - AXIAM_GUARD_DENIED (403): a challenge naming `insufficient_scope` and
+ *     `scope` — verbatim, never synthesised — ONLY when `scope` is non-NULL
+ *     and the server's decision carried reason_code AXIAM_REASON_CODE_NO_GRANT
+ *     (§28.5 rule 5). A `denied_by_rule` denial, an absent or unrecognised
+ *     reason_code, or a denial with no `scope` argument all carry NO
+ *     challenge — `denied_by_rule` means an administrator already decided,
+ *     and re-authorizing cannot change that.
+ *   - AXIAM_GUARD_ALLOW / AXIAM_GUARD_BAD_REQUEST / AXIAM_GUARD_UNAVAILABLE:
+ *     *out_challenge is NULL.
+ *
+ * The JSON body a caller ultimately sends is unchanged either way — this SDK
+ * builds no HTTP response, only the status and, here, the header value a
+ * framework adapter attaches alongside it (README.md's CivetWeb walkthrough).
+ *
+ * @param out_challenge May be NULL. Free a non-NULL result with free().
+ */
+axiam_guard_status_t axiam_require_access_mcp(axiam_client_t *client,
+                                              const axiam_headers_t *headers,
+                                              const char *action,
+                                              const char *resource_id,
+                                              const char *scope,
+                                              char **out_challenge);
+
 /* --- §11 convenience macros (C analog of annotations). --- */
 
 /** Evaluate to the guard status for (action, resource, scope). */
