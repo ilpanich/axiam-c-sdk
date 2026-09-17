@@ -51,6 +51,33 @@ void axiam_client_config_set_expected_issuer(axiam_client_config_t *cfg, const c
 void axiam_client_config_set_expected_audience(axiam_client_config_t *cfg, const char *audience);
 
 /**
+ * CONTRACT.md §28.5 — the MCP resource-server metadata URL. OFF by default
+ * (unset), and off means axiam_require_auth() / axiam_require_access() /
+ * axiam_require_role() behave byte-for-byte as they do today: no
+ * `WWW-Authenticate` on any response. Setting it is what turns §28 on for
+ * this client, and enables axiam_require_auth_mcp() / axiam_require_access_mcp()
+ * (axiam/guard.h) to attach the RFC 6750 challenge.
+ *
+ * §28.5 rule 2 makes `expected_audience` MANDATORY once this is set — a
+ * resource server that publishes "tokens for me carry this `aud`" and does
+ * not check `aud` is opened by a token minted for a different resource
+ * server. axiam_client_config_validate() (called from axiam_client_new())
+ * refuses the configuration, naming both options, when this is set and
+ * expected_audience is not; it does not check here, because the two setters
+ * may be called in either order.
+ *
+ * The value itself is validated at the same point: an absolute URL under the
+ * same scheme rule as `resource` (§28.2 rule 2), MAY carry a query and a
+ * fragment, but no '"', no '\', no space and no control character (§28.4).
+ * Feed this from axiam_protected_resource_metadata_url() (axiam/mcp.h)
+ * rather than retyping it — a hand-typed second copy is how the two come to
+ * disagree.
+ *
+ * Passing NULL or "" clears it (§28 off again).
+ */
+void axiam_client_config_set_resource_metadata_url(axiam_client_config_t *cfg, const char *url);
+
+/**
  * Add a custom CA certificate to the verification chain (§6). PEM only.
  * This NEVER relaxes verification — it augments the trust store for dev/
  * self-signed servers. Returns AXIAM_ERR_NETWORK if the value is not PEM.

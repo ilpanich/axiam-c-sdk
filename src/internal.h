@@ -46,6 +46,12 @@ struct axiam_client_config {
      * to a hardcoded value. */
     char *expected_issuer;    /* owned, may be NULL */
     char *expected_audience;  /* owned, may be NULL */
+    /* CONTRACT §28.5: the MCP resource-server metadata URL. NULL = §28 is
+     * off, and off means every guard behaves byte-for-byte as it did before
+     * §28 existed. Setting it makes `expected_audience` mandatory (rule 2),
+     * enforced in axiam_client_config_validate() rather than here, because
+     * the two setters can run in either order. */
+    char *resource_metadata_url; /* owned, may be NULL */
     axiam_sensitive_t *client_key; /* mTLS private key behind Sensitive (§7) */
     /* §12 relying-party identity. client_id is not a per-call argument (§12.1):
      * §12.4 rule 4 compares the ID token's `aud` against the SAME value, and
@@ -598,5 +604,17 @@ char *axiam_build_opaque_register_start_body(const char *registration_request,
 
 /** POST /api/v1/auth/opaque/login/finish body (§23.5). */
 char *axiam_build_opaque_login_finish_body(const char *opaque_session, const char *ke3);
+
+/* ---- §28 MCP resource-server helpers — shared with config.c ---- */
+
+/**
+ * §28.4's `resource_metadata` rule, applied to a config's own
+ * `resource_metadata_url` at construction time (axiam_client_config_validate)
+ * rather than at every axiam_bearer_challenge() call: an absolute URL under
+ * the same scheme rule as `resource` (query/fragment allowed), carrying none
+ * of '"', '\\', a space or a control character. Defined in mcp.c so the rule
+ * lives in exactly one place.
+ */
+axiam_error_kind_t axiam_mcp_validate_resource_metadata_url(const char *url, axiam_error_t *err);
 
 #endif /* AXIAM_INTERNAL_H */

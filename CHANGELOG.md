@@ -7,6 +7,62 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- **MCP resource-server helpers (CONTRACT.md §28, contract 1.48).** The
+  resource-server half of the Model Context Protocol authorization handshake
+  — publishing the RFC 9728 protected-resource metadata document and emitting
+  the RFC 6750 `WWW-Authenticate` challenge. AXIAM implements none of this;
+  §28 is the MCP server's own side, and this SDK implements exactly that.
+
+  `axiam_protected_resource_metadata_json()` / `_path()` / `_url()` and
+  `axiam_bearer_challenge()` are pure local computation — no network I/O, so
+  §16 retry and §9 single-flight refresh do not apply — each returning a
+  malloc'd string on success (freed with `free()`, this SDK's existing
+  string-free convention) or `NULL` with `axiam_error_t` describing the §28.2
+  / §28.4 rule that refused it. `_url()` is not named in CONTRACT.md §28.7's
+  C row, which lists only `_json`/`_path`; it is added here because §28.1
+  itself requires an SDK to expose both `metadata_path` and `metadata_url`,
+  and the alternative would make an integrator hand-concatenate the resource's
+  scheme and authority onto the path a second time.
+
+  `axiam_client_config_set_resource_metadata_url()` is the new opt-in switch
+  (`axiam/config.h`): unset, every guard is byte-for-byte what it was before
+  this section existed. Setting it makes `expected_audience` mandatory
+  (§28.5 rule 2) — `axiam_client_config_validate()` (called from
+  `axiam_client_new()`) refuses the pairing at construction, naming both
+  options, and validates the URL's own RFC 6750 §3 character-set rule at the
+  same point.
+
+  `axiam_require_auth_mcp()` / `axiam_require_access_mcp()` (`axiam/guard.h`)
+  are additive over `axiam_require_auth()` / `axiam_require_access()` —
+  themselves untouched — mirroring the precedent `axiam_require_access_uma()`
+  already set for §20.3: an extra `char **out_challenge` that receives the
+  §28.4 challenge value on a 401 (always), and on the one class of 403 §28.5
+  rule 5 names (a route's own `scope`, a `no_grant` decision), or `NULL`
+  otherwise. `axiam_mcp_check_resource_metadata()` is the §28.5 rule 3
+  cross-check other SDKs attach as an optional argument to
+  `serve_protected_resource_metadata`; C has no `serve_` function (§28.3,
+  §28.7 — no router), so it is a standalone call instead, run once at
+  startup.
+
+  README.md documents the CivetWeb adapter this SDK does not ship code for —
+  the unauthenticated metadata handler and the guarded-route 401/403 path,
+  built entirely on the four functions above.
+
+  `tests/test_mcp.c` and `tests/test_mcp_guard.c` carry CONTRACT.md §28.9's
+  five required tests plus the off-by-default regression, against the same
+  fixture the TypeScript reference implementation (`axiam-typescript-sdk`,
+  contract 1.48) uses.
+
+  Vendored `CONTRACT.md` and `openapi.json` re-synced to contract 1.48 from
+  `ilpanich/axiam`'s `claude_dev/mcp-authorization-server-plan.md` branch
+  (ahead of `axiam` main until Phase 21 lands). No `proto/` directory exists
+  in this repository to re-sync — C implements no gRPC transport (§1.1).
+
+  Refs: `ilpanich/axiam` `claude_dev/mcp-authorization-server-plan.md` T9c
+  (T21.9).
+
 ## [1.0.0-beta15] - 2026-09-15
 
 ### Added

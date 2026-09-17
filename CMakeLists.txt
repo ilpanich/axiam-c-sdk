@@ -72,6 +72,7 @@ set(AXIAM_SOURCES
     src/jwks.c
     src/revocation.c
     src/guard.c
+    src/mcp.c
     src/webhook.c
     src/uma.c
     src/oidc.c
