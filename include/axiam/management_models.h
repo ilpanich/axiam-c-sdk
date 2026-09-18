@@ -987,6 +987,7 @@ typedef struct axiam_mgmt_bind_certificate axiam_mgmt_bind_certificate_t;
 typedef struct axiam_mgmt_ca_certificate axiam_mgmt_ca_certificate_t;
 typedef struct axiam_mgmt_certificate axiam_mgmt_certificate_t;
 typedef struct axiam_mgmt_certificate_policy axiam_mgmt_certificate_policy_t;
+typedef struct axiam_mgmt_cimd_policy axiam_mgmt_cimd_policy_t;
 typedef struct axiam_mgmt_compliance_report_entry axiam_mgmt_compliance_report_entry_t;
 typedef struct axiam_mgmt_consent_view axiam_mgmt_consent_view_t;
 typedef struct axiam_mgmt_create_ca_certificate_request axiam_mgmt_create_ca_certificate_request_t;
@@ -999,6 +1000,8 @@ typedef struct axiam_mgmt_create_o_auth2_client_request axiam_mgmt_create_o_auth
 typedef struct axiam_mgmt_create_permission_request axiam_mgmt_create_permission_request_t;
 typedef struct axiam_mgmt_create_pgp_key_request axiam_mgmt_create_pgp_key_request_t;
 typedef struct axiam_mgmt_create_reactor_request axiam_mgmt_create_reactor_request_t;
+typedef struct axiam_mgmt_create_registration_token_request axiam_mgmt_create_registration_token_request_t;
+typedef struct axiam_mgmt_create_registration_token_response axiam_mgmt_create_registration_token_response_t;
 typedef struct axiam_mgmt_create_resource_request axiam_mgmt_create_resource_request_t;
 typedef struct axiam_mgmt_create_role_request axiam_mgmt_create_role_request_t;
 typedef struct axiam_mgmt_create_scim_token_request axiam_mgmt_create_scim_token_request_t;
@@ -1053,6 +1056,7 @@ typedef struct axiam_mgmt_provider_config axiam_mgmt_provider_config_t;
 typedef struct axiam_mgmt_reactor_event_descriptor axiam_mgmt_reactor_event_descriptor_t;
 typedef struct axiam_mgmt_reactor_response axiam_mgmt_reactor_response_t;
 typedef struct axiam_mgmt_ready_response axiam_mgmt_ready_response_t;
+typedef struct axiam_mgmt_registration_token_response axiam_mgmt_registration_token_response_t;
 typedef struct axiam_mgmt_resolved_permission_grant axiam_mgmt_resolved_permission_grant_t;
 typedef struct axiam_mgmt_resource axiam_mgmt_resource_t;
 typedef struct axiam_mgmt_retry_policy axiam_mgmt_retry_policy_t;
@@ -1540,6 +1544,126 @@ struct axiam_mgmt_certificate_policy {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_certificate_policy_free(axiam_mgmt_certificate_policy_t *value);
+
+/**
+ * Whether, and on what terms, a `client_id` that is a URL is resolved by fetching the
+ * document it names (T21.5, `draft-ietf-oauth-client-id-metadata-document`). # Why this is
+ * one nested policy rather than nine fields Every field here is a term of a single decision
+ * — *do we fetch a stranger's URL and make a client out of what comes back* — and none of
+ * them means anything without [`Self::enabled`]. A tenant that states a CIMD posture states
+ * all of it; a tenant that states none inherits its organization's whole posture rather
+ * than half of one, which is the only merge that cannot produce a combination neither party
+ * wrote. # The two fields that can widen, and the seven that cannot [`Self::enabled`] and
+ * [`Self::allow_http`] are **ordered**: a tenant may turn either off but never on, exactly
+ * as `dynamic_registration` may only move down its ladder. Everything else names *this
+ * tenant's* domains or *this tenant's* bounds, and there is no sense in which one tenant's
+ * list of trusted publishers is stricter than another's — the same argument [`OidcPolicy`]
+ * already makes for `dcr_allowed_redirect_hosts`. # Every bound here is a security control
+ * [`Self::max_metadata_bytes`], [`Self::min_cache_secs`] and [`Self::max_cache_secs`] are
+ * not tuning knobs. They are, respectively, the ceiling on a read from an attacker-chosen
+ * URL, the floor under how often that read may be repeated, and the ceiling on how long its
+ * result may be trusted. Each is clamped again in code against the three constants above,
+ * so a settings row written by hand cannot lift them.
+ *
+ * Every member is optional, so this is a SPARSE body (27.4 rule 5): a NULL pointer -- or a
+ * `has_` flag left 0 -- means the field is OMITTED from the request entirely, not sent as
+ * null. On a sparse update those say opposite things, and only omission means "leave it
+ * alone".
+ */
+struct axiam_mgmt_cimd_policy {
+    /**
+     * Permit an `http://` `client_id` and an `http://` fetch. **Development only, and it
+     * does more than its name says.** AXIAM's shared SSRF guard couples the scheme rule to
+     * the address rule — the same seam that lets an integration test point a fetch at a
+     * loopback mock server — so a tenant that allows `http` also allows the first hop to
+     * resolve to a private address. Redirect hops are validated strictly whatever this
+     * says, and a public deployment that sets it has removed the control that makes
+     * `169.254.169.254` unreachable. Optional.
+     */
+    int allow_http;
+    int has_allow_http; /**< 1 when `allow_http` is set. */
+    /**
+     * Refuse a document whose `token_endpoint_auth_method` is `none`. Off by default,
+     * because `none` is what every MCP desktop client is. A tenant that turns it on accepts
+     * only `private_key_jwt` documents, which is the posture for a deployment whose CIMD
+     * clients are servers rather than desktops. Optional.
+     */
+    int confidential_only;
+    int has_confidential_only; /**< 1 when `confidential_only` is set. */
+    /**
+     * **Off unless somebody turns it on** (I1). With this `false`, a URL-shaped `client_id`
+     * is exactly today's unknown client: nothing is fetched, nothing is materialised, and
+     * the ordinary repository lookup answers as it always has. Optional.
+     */
+    int enabled;
+    int has_enabled; /**< 1 when `enabled` is set. */
+    /**
+     * The ceiling on a document's cache lifetime, in seconds. Clamped to
+     * [`CIMD_MAX_CACHE_CEILING_SECS`]. Optional.
+     */
+    long max_cache_secs;
+    int has_max_cache_secs; /**< 1 when `max_cache_secs` is set. */
+    /**
+     * The hard cap on how many bytes of a document are read, before it is parsed. Clamped
+     * to [`CIMD_MAX_METADATA_BYTES_CEILING`]. Optional.
+     */
+    long max_metadata_bytes;
+    int has_max_metadata_bytes; /**< 1 when `max_metadata_bytes` is set. */
+    /**
+     * The floor under a document's cache lifetime, in seconds. Clamped to
+     * [`CIMD_MIN_CACHE_FLOOR_SECS`]. Optional.
+     */
+    long min_cache_secs;
+    int has_min_cache_secs; /**< 1 when `min_cache_secs` is set. */
+    /**
+     * Require every `redirect_uris` host in the document to equal the host of the
+     * `client_id` URL itself. **On by default**, because the document says who the client
+     * is and a redirect to somewhere else is the one thing a stolen or mirrored document
+     * would want to change. It is turned **off** for the desktop MCP clients, whose
+     * callbacks are on loopback and therefore can never share a host with a `https://`
+     * `client_id`; `docs/admin/client-id-metadata-documents.md` says so and says why.
+     * Optional.
+     */
+    int restrict_same_domain;
+    int has_restrict_same_domain; /**< 1 when `restrict_same_domain` is set. */
+    /**
+     * The hosts whose documents this tenant will fetch at all, as globs (`mcp.example.com`,
+     * or `*.example.com` for every host under one domain). **An empty list resolves
+     * nothing**, and enabling CIMD while it is empty is refused — see
+     * [`validate_cimd_policy`]. That is a deliberate departure from "a URL is a client
+     * identifier, so any URL will do": the fetch is triggered by an unauthenticated request
+     * naming the URL, so an unrestricted list is a request-forgery primitive offered to
+     * strangers, bounded only by the SSRF guard's address rules. Naming the publishers a
+     * tenant actually fronts costs one settings field and removes the class. **`*` is
+     * refused here, and so is a wildcard over a whole top-level domain** (`*.com`): both
+     * are the posture the empty list is refused for, spelled differently, and a control
+     * with no second control behind it cannot have a one-character bypass and still be the
+     * control. It is a floor and not a public-suffix check — `*.github.io` passes, and
+     * trusting shared hosting stays the operator's decision, bounded by the per-tenant
+     * quota rather than by this field. `*` remains valid in
+     * [`CimdPolicy::trusted_redirect_domains`], whose entries are not fetch targets.
+     * Optional.
+     */
+    char **trusted_client_id_domains;
+    size_t trusted_client_id_domains_count; /**< Entries in `trusted_client_id_domains`. */
+    /**
+     * The hosts a document's `redirect_uris` may point at, as globs. The loopback hosts
+     * (`127.0.0.1`, `[::1]`, `localhost`) are always allowed, because RFC 8252 §7.3 is how
+     * every desktop MCP client receives its callback — so an empty list is not a refusal of
+     * everything, it is "loopback only", which is exactly the Claude Code and VS Code
+     * profile. Optional.
+     */
+    char **trusted_redirect_domains;
+    size_t trusted_redirect_domains_count; /**< Entries in `trusted_redirect_domains`. */
+};
+
+/**
+ * Free a CimdPolicy and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_cimd_policy_free(axiam_mgmt_cimd_policy_t *value);
 
 /**
  * One credential's compliance outcome (D9).
@@ -2176,6 +2300,54 @@ struct axiam_mgmt_create_reactor_request {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_create_reactor_request_free(axiam_mgmt_create_reactor_request_t *value);
+
+/**
+ * Request body for [`create_registration_token`].
+ */
+struct axiam_mgmt_create_registration_token_request {
+    /**
+     * Lifetime in hours. Defaults to 24 and is refused above 168 (a week) — see
+     * `axiam_core::models::oauth2_registration_token`. Optional.
+     */
+    long expires_in_hours;
+    int has_expires_in_hours; /**< 1 when `expires_in_hours` is set. */
+    /**
+     * Operator-facing label, e.g. `"mcp-inspector-demo"`, so a tenant with several
+     * outstanding tokens can tell them apart.
+     */
+    char *name;
+};
+
+/**
+ * Free a CreateRegistrationTokenRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_create_registration_token_request_free(axiam_mgmt_create_registration_token_request_t *value);
+
+/**
+ * The one response that carries the handle.
+ */
+struct axiam_mgmt_create_registration_token_response {
+    /**
+     * The plaintext handle, shown exactly once. Presented by the registering client as
+     * `Authorization: Bearer <this>`.
+     */
+    char *initial_access_token;
+    /**
+     * The token's metadata.
+     */
+    axiam_mgmt_registration_token_response_t *token;
+};
+
+/**
+ * Free a CreateRegistrationTokenResponse and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_create_registration_token_response_free(axiam_mgmt_create_registration_token_response_t *value);
 
 /**
  * The `CreateResourceRequest` schema from the server's OpenAPI document.
@@ -3874,6 +4046,14 @@ void axiam_mgmt_oidc_callback_response_free(axiam_mgmt_oidc_callback_response_t 
  */
 struct axiam_mgmt_oidc_policy {
     /**
+     * T21.5 — whether a URL-shaped `client_id` is resolved by fetching the document it
+     * names, and on what terms. See [`CimdPolicy`]; off unless somebody turns it on (I1).
+     * Nested, and therefore inherited or overridden **whole**: the fields are terms of one
+     * decision, and a half-merged posture is one neither the organization nor the tenant
+     * wrote. Optional.
+     */
+    axiam_mgmt_cimd_policy_t *cimd;
+    /**
      * T21.4 — hosts a self-registered client's `redirect_uris` may point at, as globs
      * (`*.example.com`, or `*` for any). The loopback hosts (`127.0.0.1`, `[::1]`,
      * `localhost`) are always allowed whatever this says, because RFC 8252 §7.3 is how
@@ -3893,15 +4073,28 @@ struct axiam_mgmt_oidc_policy {
     char **dcr_allowed_scopes;
     size_t dcr_allowed_scopes_count; /**< Entries in `dcr_allowed_scopes`. */
     /**
-     * T21.4 — how many `managed_by: dcr` clients this tenant may hold. See
-     * [`DEFAULT_DCR_MAX_CLIENTS`]. Optional.
+     * T21.4 — how many externally registered clients this tenant may hold. See
+     * [`DEFAULT_DCR_MAX_CLIENTS`]. **Counted once per mechanism, against the same number**
+     * (T21.8): `managed_by: dcr` rows and `managed_by: cimd` rows each have this many. So a
+     * tenant running both cannot have shadow rows materialised from documents exhaust the
+     * allowance for self-registration, or the reverse. The CIMD count is checked *before*
+     * the document is fetched, so a tenant at its ceiling is not an outbound amplifier
+     * either. It keeps its `dcr_` name because dynamic registration defined it, on the same
+     * precedent as [`Self::dcr_allowed_scopes`]. Optional.
      */
     long dcr_max_clients;
     int has_dcr_max_clients; /**< 1 when `dcr_max_clients` is set. */
     /**
-     * T21.4 — how long a `managed_by: dcr` client survives without being authorized. See
+     * T21.4 — how long an externally registered client survives without being used. See
      * [`DEFAULT_DCR_UNUSED_CLIENT_TTL_DAYS`]. `0` disables the sweep for this tenant, which
-     * an operator who prunes out of band may legitimately want. Optional.
+     * an operator who prunes out of band may legitimately want. **Two sweeps read it, over
+     * different clocks** (T21.8). A `managed_by: dcr` row is measured from its last
+     * authorization, falling back to when it was registered. A `managed_by: cimd` row is
+     * measured from the last time its document was *presented*, which every authorize,
+     * token and PAR request moves — so a document in daily use is never swept however old
+     * its registration is, and one nobody has presented since the window is, and
+     * re-materialises on the next request if it is still published. Like the ceiling, it
+     * keeps its `dcr_` name. Optional.
      */
     long dcr_unused_client_ttl_days;
     int has_dcr_unused_client_ttl_days; /**< 1 when `dcr_unused_client_ttl_days` is set. */
@@ -4445,6 +4638,55 @@ struct axiam_mgmt_ready_response {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_ready_response_free(axiam_mgmt_ready_response_t *value);
+
+/**
+ * Metadata only. The handle exists in plaintext exactly once, in
+ * [`CreateRegistrationTokenResponse`].
+ */
+struct axiam_mgmt_registration_token_response {
+    /**
+     * Row creation time.
+     */
+    char *created_at;
+    /**
+     * The administrator who minted it.
+     */
+    char *created_by;
+    /**
+     * When it stops being usable.
+     */
+    char *expires_at;
+    /**
+     * Row identity.
+     */
+    char *id;
+    /**
+     * The operator-facing label.
+     */
+    char *name;
+    /**
+     * The tenant a registration on this token lands in.
+     */
+    char *tenant_id;
+    /**
+     * When it was spent, if it was. Optional.
+     */
+    char *used_at;
+    /**
+     * Reserved; always absent in this build. See
+     * `axiam_core::models::oauth2_registration_token::OAuth2RegistrationToken::used_by_client_id`
+     * — the registration a token produced is recorded in the audit log, not here. Optional.
+     */
+    char *used_by_client_id;
+};
+
+/**
+ * Free a RegistrationTokenResponse and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_registration_token_response_free(axiam_mgmt_registration_token_response_t *value);
 
 /**
  * A permission grant with its scopes resolved. A superset of [`PermissionGrant`]:
@@ -5143,6 +5385,12 @@ struct axiam_mgmt_set_org_settings {
      */
     int admin_notifications_enabled;
     /**
+     * T21.5 — defaulted, so an API client written before this task lands on `enabled:
+     * false`, which is what every deployment did before client ID metadata documents
+     * existed (I1). Optional.
+     */
+    axiam_mgmt_cimd_policy_t *cimd;
+    /**
      * The server's `dcr_allowed_redirect_hosts` field. Optional.
      */
     char **dcr_allowed_redirect_hosts;
@@ -5516,6 +5764,10 @@ struct axiam_mgmt_tenant_settings_override {
      */
     int admin_notifications_enabled;
     int has_admin_notifications_enabled; /**< 1 when `admin_notifications_enabled` is set. */
+    /**
+     * The server's `cimd` field. Optional.
+     */
+    axiam_mgmt_cimd_policy_t *cimd;
     /**
      * The server's `dcr_allowed_redirect_hosts` field. Optional.
      */
@@ -7063,6 +7315,23 @@ typedef struct axiam_mgmt_reactor_event_descriptor_list {
  * Free a list of ReactorEventDescriptor objects and every item in it. Safe to pass NULL.
  */
 void axiam_mgmt_reactor_event_descriptor_list_free(axiam_mgmt_reactor_event_descriptor_list_t *list);
+
+/**
+ * A plain list of RegistrationTokenResponse objects.
+ *
+ * This is what a BARE-ARRAY endpoint returns. 27.4 rule 4 is explicit that such a response
+ * MUST NOT be modelled as a page: there is no `total`, no offset and no next page, and
+ * dressing it as one would invite a caller to walk something that has already ended.
+ */
+typedef struct axiam_mgmt_registration_token_response_list {
+    axiam_mgmt_registration_token_response_t **items; /**< Every item the server returned. */
+    size_t count;              /**< How many. */
+} axiam_mgmt_registration_token_response_list_t;
+
+/**
+ * Free a list of RegistrationTokenResponse objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_registration_token_response_list_free(axiam_mgmt_registration_token_response_list_t *list);
 
 /**
  * A plain list of ResolvedPermissionGrant objects.

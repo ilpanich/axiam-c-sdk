@@ -38,6 +38,8 @@ axiam_mgmt_certificate_t *axiam_mgmt_certificate_parse(const cJSON *src);
 cJSON *axiam_mgmt_certificate_build(const axiam_mgmt_certificate_t *value);
 axiam_mgmt_certificate_policy_t *axiam_mgmt_certificate_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_certificate_policy_build(const axiam_mgmt_certificate_policy_t *value);
+axiam_mgmt_cimd_policy_t *axiam_mgmt_cimd_policy_parse(const cJSON *src);
+cJSON *axiam_mgmt_cimd_policy_build(const axiam_mgmt_cimd_policy_t *value);
 axiam_mgmt_compliance_report_entry_t *axiam_mgmt_compliance_report_entry_parse(const cJSON *src);
 cJSON *axiam_mgmt_compliance_report_entry_build(const axiam_mgmt_compliance_report_entry_t *value);
 axiam_mgmt_consent_view_t *axiam_mgmt_consent_view_parse(const cJSON *src);
@@ -62,6 +64,10 @@ axiam_mgmt_create_pgp_key_request_t *axiam_mgmt_create_pgp_key_request_parse(con
 cJSON *axiam_mgmt_create_pgp_key_request_build(const axiam_mgmt_create_pgp_key_request_t *value);
 axiam_mgmt_create_reactor_request_t *axiam_mgmt_create_reactor_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_reactor_request_build(const axiam_mgmt_create_reactor_request_t *value);
+axiam_mgmt_create_registration_token_request_t *axiam_mgmt_create_registration_token_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_create_registration_token_request_build(const axiam_mgmt_create_registration_token_request_t *value);
+axiam_mgmt_create_registration_token_response_t *axiam_mgmt_create_registration_token_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_create_registration_token_response_build(const axiam_mgmt_create_registration_token_response_t *value);
 axiam_mgmt_create_resource_request_t *axiam_mgmt_create_resource_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_resource_request_build(const axiam_mgmt_create_resource_request_t *value);
 axiam_mgmt_create_role_request_t *axiam_mgmt_create_role_request_parse(const cJSON *src);
@@ -170,6 +176,8 @@ axiam_mgmt_reactor_response_t *axiam_mgmt_reactor_response_parse(const cJSON *sr
 cJSON *axiam_mgmt_reactor_response_build(const axiam_mgmt_reactor_response_t *value);
 axiam_mgmt_ready_response_t *axiam_mgmt_ready_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_ready_response_build(const axiam_mgmt_ready_response_t *value);
+axiam_mgmt_registration_token_response_t *axiam_mgmt_registration_token_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_registration_token_response_build(const axiam_mgmt_registration_token_response_t *value);
 axiam_mgmt_resolved_permission_grant_t *axiam_mgmt_resolved_permission_grant_parse(const cJSON *src);
 cJSON *axiam_mgmt_resolved_permission_grant_build(const axiam_mgmt_resolved_permission_grant_t *value);
 axiam_mgmt_resource_t *axiam_mgmt_resource_parse(const cJSON *src);
@@ -3673,6 +3681,63 @@ axiam_error_kind_t axiam_oauth2_clients_delete(axiam_client_t *c, const char *id
     free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_oauth2_clients_create_registration_token(axiam_client_t *c, const axiam_mgmt_create_registration_token_request_t *body, axiam_mgmt_create_registration_token_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/oauth2-clients/registration-tokens", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oauth2_clients.create_registration_token: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_create_registration_token_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "oauth2_clients.create_registration_token", "POST", "/api/v1/oauth2-clients/registration-tokens", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_create_registration_token_response_t *result = axiam_mgmt_create_registration_token_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oauth2_clients.create_registration_token: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_create_registration_token_response_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_oauth2_clients_list_registration_tokens(axiam_client_t *c, axiam_mgmt_registration_token_response_list_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/oauth2-clients/registration-tokens", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oauth2_clients.list_registration_tokens: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "oauth2_clients.list_registration_tokens", "GET", "/api/v1/oauth2-clients/registration-tokens", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_registration_token_response_list_t *result = (axiam_mgmt_registration_token_response_list_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    size_t n = cJSON_IsArray(json) ? (size_t) cJSON_GetArraySize(json) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_registration_token_response_t **) calloc(n, sizeof(axiam_mgmt_registration_token_response_t *));
+        if (!result->items) { axiam_mgmt_registration_token_response_list_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_registration_token_response_parse(cJSON_GetArrayItem(json, (int) i));
+        result->count = n;
+    }
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_registration_token_response_list_free(result);
     return AXIAM_OK;
 }
 

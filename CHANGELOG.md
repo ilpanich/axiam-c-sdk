@@ -87,20 +87,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   across the eleven ports, all refusing at construction, all naming both
   options.
 
-### Deferred
+- **F-28-01 — `CONTRACT.md` (1.49), `openapi.json` and
+  `management-registry.json` re-synced from a merged `main`** (CONTRACT.md
+  §28.11 row R-1, contract 1.49's vendoring rule). The phase-branch re-sync
+  above left this repository matching neither `ilpanich/axiam`'s tree nor the
+  other ten SDKs. All three artefacts are now byte-copies of
+  `ilpanich/axiam` `main` @ `e4c62180e`, after Phase 21 landed there:
 
-- **F-28-01 — the vendored `openapi.json` and `CONTRACT.md` re-sync.** This
-  repository's copies were re-synced above from a **phase branch**, which kept
-  moving afterwards; they match neither `ilpanich/axiam`'s current tree nor the
-  four SDK repositories that declined the `openapi.json` re-sync. Across the
-  eleven SDKs the T21.9 T9d cross-SDK review found five distinct byte-states of
-  `CONTRACT.md` and two of `openapi.json`, all calling themselves contract 1.48
-  (CONTRACT.md §28.11 row R-1). Contract **1.49** states the rule that was
-  missing: a vendored artefact is re-synced from a **merged** `main`, never a
-  phase branch. Both artefacts are therefore re-synced here **once**, as
-  F-28-01, after AXIAM Phase 21 lands on `main`, together with a regeneration
-  of the §27 management surface in the same commit. F-28-01 is recorded
-  identically in all eleven SDK repositories so that it cannot be lost.
+  | Artefact | Git blob |
+  |----------|----------|
+  | `CONTRACT.md` (contract 1.49) | `2493348c32852fd1972696d3c1672021cb8f878c` |
+  | `openapi.json` | `b75e30eaa3597d2e1063bb50e7c0e469634ba60b` |
+  | `management-registry.json` | `4619f441aac0b1f4ed18da7ad45178ca14a3f449` |
+
+  No `proto/` directory exists here to re-sync (§1.1). The §27 management
+  surface is regenerated in the same commit with
+  `python3 scripts/gen_management.py`, nothing hand-edited: **160 → 162 flat
+  operations**. New: `axiam_oauth2_clients_create_registration_token`
+  (`POST /api/v1/oauth2-clients/registration-tokens`) and
+  `axiam_oauth2_clients_list_registration_tokens` (`GET` on the same path) —
+  the T21.4 initial-access tokens for RFC 7591 dynamic client registration —
+  with the models `axiam_mgmt_create_registration_token_request_t`,
+  `axiam_mgmt_create_registration_token_response_t` (carries the one-time
+  `initial_access_token`), `axiam_mgmt_registration_token_response_t` (and its
+  `_list_t`), and `axiam_mgmt_cimd_policy_t` (T21.5 client ID metadata
+  documents), each with its `_free`. `axiam_mgmt_cimd_policy_t *cimd` is a new
+  optional member of `axiam_mgmt_oidc_policy`, `axiam_mgmt_set_org_settings`
+  and `axiam_mgmt_tenant_settings_override`, so those three structs grow by
+  one pointer — source-compatible for designated or zero initialisation, but
+  code that depends on their size must rebuild. The `dcr_*` member docs now say
+  "externally registered" and record T21.8's per-mechanism counting. The
+  README's conformance statement already names §28 and no contract version, so
+  it is unchanged.
 
 ## [1.0.0-beta15] - 2026-09-15
 

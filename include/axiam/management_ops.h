@@ -1714,6 +1714,34 @@ axiam_error_kind_t axiam_oauth2_clients_update(axiam_client_t *c, const char *id
  */
 axiam_error_kind_t axiam_oauth2_clients_delete(axiam_client_t *c, const char *id, axiam_error_t *err);
 
+/**
+ * `POST /api/v1/oauth2-clients/registration-tokens`
+ *
+ * `POST /api/v1/oauth2-clients/registration-tokens`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_create_registration_token_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_oauth2_clients_create_registration_token(axiam_client_t *c, const axiam_mgmt_create_registration_token_request_t *body, axiam_mgmt_create_registration_token_response_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/oauth2-clients/registration-tokens`
+ *
+ * `GET /api/v1/oauth2-clients/registration-tokens`.
+ *
+ * Returns the server's complete list. This endpoint is NOT paginated, so the result is a
+ * plain list and never a page (27.4 rule 4).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param out Receives the list on success; free with axiam_mgmt_registration_token_response_list_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_oauth2_clients_list_registration_tokens(axiam_client_t *c, axiam_mgmt_registration_token_response_list_t **out, axiam_error_t *err);
+
 /* ============================================================================ */
 /* federation -- Upstream IdP configuration and the per-user links it produces. */
 /* ============================================================================ */
