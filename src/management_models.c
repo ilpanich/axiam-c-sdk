@@ -2782,7 +2782,7 @@ cJSON *axiam_mgmt_create_registration_token_request_build(const axiam_mgmt_creat
 
 void axiam_mgmt_create_registration_token_response_free(axiam_mgmt_create_registration_token_response_t *value) {
     if (!value) return;
-    free(value->initial_access_token);
+    axiam_sensitive_free(value->initial_access_token);
     axiam_mgmt_registration_token_response_free(value->token);
     free(value);
 }
@@ -2794,7 +2794,7 @@ axiam_mgmt_create_registration_token_response_t *axiam_mgmt_create_registration_
     const cJSON *item;
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "initial_access_token");
-    if (cJSON_IsString(item)) out->initial_access_token = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) out->initial_access_token = axiam_sensitive_new(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "token");
     if (cJSON_IsObject(item)) out->token = axiam_mgmt_registration_token_response_parse(item);
     return out;
@@ -2805,7 +2805,7 @@ cJSON *axiam_mgmt_create_registration_token_response_build(const axiam_mgmt_crea
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
     if (value->initial_access_token) {
-        cJSON_AddStringToObject(obj, "initial_access_token", value->initial_access_token);
+        cJSON_AddStringToObject(obj, "initial_access_token", axiam_sensitive_reveal(value->initial_access_token));
     }
     if (value->token) {
         cJSON *sub = axiam_mgmt_registration_token_response_build(value->token);

@@ -1719,6 +1719,9 @@ axiam_error_kind_t axiam_oauth2_clients_delete(axiam_client_t *c, const char *id
  *
  * `POST /api/v1/oauth2-clients/registration-tokens`.
  *
+ * The response carries a ONE-TIME secret (`initial_access_token`): the server will not
+ * return it again, so a caller that does not persist it here cannot recover it (27.5).
+ *
  * @param c The client. Must have an active session (27.4 rule 1).
  * @param body The request body.
  * @param out Receives the object on success; free with axiam_mgmt_create_registration_token_response_free(). Set to NULL on failure.
