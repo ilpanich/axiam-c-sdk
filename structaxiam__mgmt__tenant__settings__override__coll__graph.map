@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_tenant_settings_override" name="axiam_mgmt_tenant_settings_override">
+<area shape="rect" id="Node000001" title="Partial tenant overrides." alt="" coords="5,93,223,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__cimd__policy.html" title="Whether, and on what terms, a client_id that is a URL is resolved by fetching the document it names (..." alt="" coords="17,5,211,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="117,44,117,93,111,93,111,44"/>
+</map>
