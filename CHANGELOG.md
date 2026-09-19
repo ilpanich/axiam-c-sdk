@@ -7,7 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.0.0-beta16] - 2026-09-19
+
 ### Added
+
+- Resource-server helpers (CONTRACT.md §28, contract 1.48)
 
 - **MCP resource-server helpers (CONTRACT.md §28, contract 1.48).** The
   resource-server half of the Model Context Protocol authorization handshake
@@ -65,6 +69,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- F-28-01 — re-sync CONTRACT.md 1.49, openapi.json and management-registry.json from axiam main @ e4c62180e
+
+- Record the §28.7 C-row fix, the ValidationError mapping and F-28-01 (T21.9 T9d)
+
 - **§28.7's C row is corrected in the contract to name
   `axiam_protected_resource_metadata_url`** (contract 1.49, CONTRACT.md §28.11
   row R-6, T21.9 T9d). This port reported that the row listed only `_json` and
@@ -119,6 +127,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   "externally registered" and record T21.8's per-mechanism counting. The
   README's conformance statement already names §28 and no contract version, so
   it is unchanged.
+
+### Fixed
+
+- 1.50 — initial_access_token becomes axiam_sensitive_t (#480)
 
 ### Breaking
 
