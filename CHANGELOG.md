@@ -120,6 +120,58 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   README's conformance statement already names §28 and no contract version, so
   it is unchanged.
 
+### Breaking
+
+- **`axiam_mgmt_create_registration_token_response_t::initial_access_token` is
+  now `axiam_sensitive_t *`, was `char *`** (CONTRACT.md §27.5, contract 1.50,
+  #480). The RFC 7591 §1.2 initial access token is returned exactly once and
+  never retrievable, but it was missing from the registry's curated
+  `(schema, field)` table, so the generator emitted a bare `char *` and the
+  credential rendered in the clear wherever the struct was printed or logged —
+  the leak §7 rule 1 and §27.5 exist to prevent.
+  `management-registry.json` now publishes
+  `sensitive_response_fields: ["initial_access_token"]` for
+  `oauth2_clients.create_registration_token`, making it the **fifteenth**
+  §27.5 operation, and `scripts/gen_management.py` wraps the member like the
+  fourteen before it.
+
+  Migration — read the token through the explicit reveal, and let the
+  response's `_free` release it:
+
+  ```c
+  axiam_mgmt_create_registration_token_response_t *out = NULL;
+  axiam_oauth2_clients_create_registration_token(c, &body, &out);
+  /* before: const char *token = out->initial_access_token; */
+  const char *token = axiam_sensitive_reveal(out->initial_access_token);
+  /* ... copy it now; the server will not return it again ... */
+  axiam_mgmt_create_registration_token_response_free(out);
+  ```
+
+  There is deliberately **no** plain-`char *` accessor kept alongside it: the
+  plain accessor is precisely the leak (contract 1.50). The member is freed
+  with `axiam_sensitive_free()` by the generated `_free`, parsed with
+  `axiam_sensitive_new()` and serialised with `axiam_sensitive_reveal()`, so
+  the JSON on the wire is unchanged — `openapi.json` did not move, and there is
+  no `proto/` here to move (§1.1). The struct keeps its size and member order;
+  only the member's type changes, so a caller that touches the field must be
+  recompiled and edited, and one that ignores it need only be recompiled.
+
+- **`CONTRACT.md` (1.50) and `management-registry.json` re-synced from a merged
+  `main`** — byte-copies of `ilpanich/axiam` `main` @ `da94e1d04`:
+
+  | Artefact | Git blob |
+  |----------|----------|
+  | `CONTRACT.md` (contract 1.50) | `28c163e32d253edca01f3040540e01212c5460f2` |
+  | `management-registry.json` | `aab87fd799101457ebd92223643cb2ad10a6bbe7` |
+
+  `openapi.json` (`b75e30eaa3597d2e1063bb50e7c0e469634ba60b`) is unchanged and
+  was not touched. The §27 surface is regenerated in the same commit with
+  `python3 scripts/gen_management.py`, nothing hand-edited — still **162 flat
+  operations**, the one member above being the only generated change (plus the
+  §27.5 rule 3 once-only note on
+  `axiam_oauth2_clients_create_registration_token`). The README's conformance
+  statement names no contract version, so it is unchanged.
+
 ## [1.0.0-beta15] - 2026-09-15
 
 ### Added

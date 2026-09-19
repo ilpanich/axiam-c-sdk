@@ -2334,7 +2334,7 @@ struct axiam_mgmt_create_registration_token_response {
      * The plaintext handle, shown exactly once. Presented by the registering client as
      * `Authorization: Bearer <this>`.
      */
-    char *initial_access_token;
+    axiam_sensitive_t *initial_access_token;
     /**
      * The token's metadata.
      */
