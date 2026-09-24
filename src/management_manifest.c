@@ -655,14 +655,22 @@ axiam_error_kind_t axiam_mgmt_plan(axiam_client_t *c, const axiam_mgmt_manifest_
 
 /*
  * Perform one entity change. Writes the entity's id back into `ch->id` on a
- * successful CREATE (it arrives with none) so a binding planned/applied against a
- * subject or resource created in THIS SAME apply can resolve it.
+ * successful CREATE (it arrives with none) so a binding -- or a CHILD resource's
+ * parent_id -- planned/applied against a subject/resource created in THIS SAME apply
+ * can resolve it.
+ *
+ * `plan` is what a resource's `depends_on` (its manifest-local PARENT key -- the same
+ * field §27.6 rule 5 already orders a parent before its child with) resolves through,
+ * via resolved_id_for_key(): order_entities() guarantees the parent's entry in
+ * `plan->changes[]` -- and so its `.id` -- is already populated (existing, or just
+ * created) by the time a child resource's perform() runs (§13 row 17 defect #1).
  *
  * `out_secret` is non-NULL only when the caller is prepared to receive a
  * service-account Create's one-time client_secret (CONTRACT.md §27.5 rule 5); every
  * other path leaves `*out_secret` untouched (NULL, from the caller's own init).
  */
-static axiam_error_kind_t perform(axiam_client_t *c, axiam_mgmt_planned_change_t *ch,
+static axiam_error_kind_t perform(axiam_client_t *c, const axiam_mgmt_plan_t *plan,
+                                  axiam_mgmt_planned_change_t *ch,
                                   axiam_sensitive_t **out_secret, axiam_error_t *err) {
     const axiam_mgmt_manifest_entity_t *e = ch->entity;
     int create = ch->action == AXIAM_MGMT_CHANGE_CREATE;
@@ -677,6 +685,10 @@ static axiam_error_kind_t perform(axiam_client_t *c, axiam_mgmt_planned_change_t
              * before any request -- there is no fallback here to silently invent. */
             body.resource_type = (char *) e->resource_type;
             body.metadata = (char *) e->metadata_json;
+            /* §13 row 17 defect #1: a nested resource's parent, resolved to the
+             * PARENT's server id -- NULL (omitted) for a root resource, whose
+             * `depends_on` is NULL. */
+            body.parent_id = (char *) resolved_id_for_key(plan, e->depends_on);
             axiam_mgmt_resource_t *out = NULL;
             axiam_error_kind_t rc = axiam_resources_create(c, &body, &out, err);
             if (rc == AXIAM_OK && out) ch->id = axiam_strdup0(out->id);
@@ -958,7 +970,7 @@ axiam_error_kind_t axiam_mgmt_apply(axiam_client_t *c, const axiam_mgmt_manifest
     /* Phase 1: resources, permissions, roles, groups. */
     for (size_t i = 0; i < sa_entity_start; i++) {
         if (plan->changes[i].action == AXIAM_MGMT_CHANGE_UNCHANGED) continue;
-        rc = perform(c, &plan->changes[i], NULL, err);
+        rc = perform(c, plan, &plan->changes[i], NULL, err);
         if (rc != AXIAM_OK) {
             /* §27.7: stop here, do not undo what landed. A partial apply against a live
              * IAM tenant is a state an operator inspects and resumes from; an automatic
@@ -988,7 +1000,7 @@ axiam_error_kind_t axiam_mgmt_apply(axiam_client_t *c, const axiam_mgmt_manifest
     for (size_t i = sa_entity_start; i < plan->count; i++) {
         if (plan->changes[i].action == AXIAM_MGMT_CHANGE_UNCHANGED) continue;
         axiam_sensitive_t *secret = NULL;
-        rc = perform(c, &plan->changes[i], &secret, err);
+        rc = perform(c, plan, &plan->changes[i], &secret, err);
         if (secret) {
             /* §27.5 rule 5: recorded even when a LATER action of this same apply
              * fails -- this happens BEFORE the failure check below, not after. */

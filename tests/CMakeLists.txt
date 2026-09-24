@@ -364,6 +364,8 @@ axiam_add_test(test_management_manifest test_management_manifest.c management_te
 axiam_add_test(test_manifest_additions test_manifest_additions.c management_test_util.c)
 # §13 row 17 defect #2: resource_type silently defaulted to "folder".
 axiam_add_test(test_manifest_resource_type_defect test_manifest_resource_type_defect.c management_test_util.c)
+# §13 row 17 defect #1: a nested resource's parent_id was never sent.
+axiam_add_test(test_manifest_parent_id_defect test_manifest_parent_id_defect.c management_test_util.c)
 axiam_add_test(test_management_models_generated test_management_models_generated.c)
 # CONTRACT.md §27.13 (contract 1.51): the two generator defects the re-vendor exposed
 # (SubjectAltName's externally-tagged oneOf, and `inherit` defaulting true when absent
