@@ -76,6 +76,15 @@ static axiam_mgmt_manifest_entity_t sa_entity(const char *key, const char *name)
     return e;
 }
 
+static axiam_mgmt_manifest_entity_t sa_entity_with_roles(const char *key, const char *name,
+                                                         const axiam_mgmt_role_binding_t *roles,
+                                                         size_t roles_count) {
+    axiam_mgmt_manifest_entity_t e = sa_entity(key, name);
+    e.roles = roles;
+    e.roles_count = roles_count;
+    return e;
+}
+
 /* ------------------------------------------------------------------------
  * 1. resources[].metadata
  * ---------------------------------------------------------------------- */
@@ -340,6 +349,67 @@ static void test_one_role_bound_to_two_different_subjects_is_allowed(void) {
     axiam_client_free(c);
 }
 
+/* A binding naming a role_key this manifest does not declare as a ROLE is refused
+ * before any request -- the same dangling-reference discipline as parent_id/
+ * depends_on, just on the role side of a binding. */
+static void test_binding_an_undeclared_role_refused_zero_wire_calls(void) {
+    axiam_mgmt_role_binding_t rb = { "no_such_role", NULL, 0 };
+    axiam_mgmt_manifest_entity_t entities[1] = {
+        group_entity("g1", "eng", &rb, 1),
+    };
+    axiam_mgmt_manifest_t m = { entities, 1 };
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    int before = mgmt_request_count();
+    axiam_mgmt_plan_t *plan = NULL;
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_mgmt_plan(c, &m, &plan, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+/* Same, on the resource side: a binding's resource_key must name a RESOURCE this
+ * manifest declares. */
+static void test_binding_an_undeclared_resource_refused_zero_wire_calls(void) {
+    axiam_mgmt_role_binding_t rb = { "role1", "no_such_resource", 0 };
+    axiam_mgmt_manifest_entity_t entities[2] = {
+        role_entity("role1", "editor", 0),
+        group_entity("g1", "eng", &rb, 1),
+    };
+    axiam_mgmt_manifest_t m = { entities, 2 };
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    int before = mgmt_request_count();
+    axiam_mgmt_plan_t *plan = NULL;
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_mgmt_plan(c, &m, &plan, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+/* inherit:false with NO resource at all -- distinct from the global-role case
+ * below, which always declares a resource_key; this is "there is no resource to
+ * stop inheriting at in the first place". */
+static void test_inherit_false_without_a_resource_refused_zero_wire_calls(void) {
+    axiam_mgmt_role_binding_t rb = { "role1", NULL, 1 };
+    axiam_mgmt_manifest_entity_t entities[2] = {
+        role_entity("role1", "editor", 0),
+        group_entity("g1", "eng", &rb, 1),
+    };
+    axiam_mgmt_manifest_t m = { entities, 2 };
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    int before = mgmt_request_count();
+    axiam_mgmt_plan_t *plan = NULL;
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_mgmt_plan(c, &m, &plan, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
 static void test_global_role_with_inherit_false_refused_zero_wire_calls(void) {
     axiam_mgmt_role_binding_t rb = { "role1", "res1", 1 };
     axiam_mgmt_manifest_entity_t entities[3] = {
@@ -404,6 +474,74 @@ static void test_plain_binding_over_scoped_server_assignment_is_update(void) {
     axiam_client_free(c);
 }
 
+/* A declared scoped binding that already matches the server's -- same resource,
+ * same inherit -- is a NoChange, not an Update: the other branch of the resource-
+ * matches comparison from the test above (that one compares a PLAIN declared
+ * binding against a SCOPED existing one; this one compares two SCOPED bindings
+ * that agree). */
+static void test_scoped_binding_matching_existing_is_nochange(void) {
+    axiam_mgmt_role_binding_t rb = { "role1", "res1", 0 }; /* inherit true, scoped to res1 */
+    axiam_mgmt_manifest_entity_t entities[3] = {
+        role_entity("role1", "editor", 0),
+        resource_entity("res1", "proj", NULL),
+        group_entity("g1", "eng", &rb, 1),
+    };
+    axiam_mgmt_manifest_t m = { entities, 3 };
+
+    mgmt_mount(200, "{\"items\":[{\"id\":\"" RES_ID "\",\"name\":\"proj\"}],\"total\":1}");
+    mgmt_mount_next(200, "{\"items\":[{\"id\":\"" ROLE_ID "\",\"name\":\"editor\","
+                    "\"is_global\":false}],\"total\":1}");
+    mgmt_mount_next(200, "{\"items\":[{\"id\":\"" GROUP_ID "\",\"name\":\"eng\"}],\"total\":1}");
+    /* existing: SAME resource, SAME (true) inherit. */
+    mgmt_mount_next(200, "[{\"inherit\":true,\"resource_id\":\"" RES_ID "\","
+                    "\"role\":{\"id\":\"" ROLE_ID "\",\"name\":\"editor\",\"is_global\":false}}]");
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_plan_t *plan = NULL;
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_mgmt_plan(c, &m, &plan, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(1, (int) plan->binding_count);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_MGMT_BINDING_NOCHANGE, plan->bindings[0].action,
+                                  "a scoped binding matching the server's is a NoChange");
+    axiam_mgmt_plan_free(plan);
+    axiam_client_free(c);
+}
+
+/* Listing an existing subject's bindings can itself fail (the server, a network
+ * blip); plan() must surface that error cleanly rather than crash or silently
+ * treat "list failed" as "no bindings exist". */
+static void test_plan_fails_cleanly_when_listing_a_subjects_bindings_fails(void) {
+    axiam_mgmt_role_binding_t rb = { "role1", NULL, 0 };
+    axiam_mgmt_manifest_entity_t entities[2] = {
+        role_entity("role1", "editor", 0),
+        group_entity("g1", "eng", &rb, 1),
+    };
+    axiam_mgmt_manifest_t m = { entities, 2 };
+
+    mgmt_mount(200, "{\"items\":[{\"id\":\"" ROLE_ID "\",\"name\":\"editor\","
+                    "\"is_global\":false}],\"total\":1}");
+    mgmt_mount_next(200, "{\"items\":[{\"id\":\"" GROUP_ID "\",\"name\":\"eng\"}],\"total\":1}");
+    /* 403, not 500: a GET is §16-retryable up to 3 attempts on a 5xx, and this rig's
+     * fake transport answers an exhausted queue with 204 -- a single queued 500 would
+     * be retried straight into an accidental "success" on attempt 2. A 4xx is decisive
+     * (never retried) and so is the one status that proves this in a single request. */
+    mgmt_mount_next(403, "{}"); /* listing g1's role bindings FAILS */
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_plan_t *plan = NULL;
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_error_kind_t rc = axiam_mgmt_plan(c, &m, &plan, &err);
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, rc);
+    TEST_ASSERT_NULL(plan);
+    /* roles-list, groups-list, then the failing bindings-list -- three requests
+     * after login, not four: a decisive 4xx must not be retried. */
+    TEST_ASSERT_EQUAL_INT_MESSAGE(before + 3, mgmt_request_count(),
+                                  "a decisive 4xx must not be retried");
+    axiam_client_free(c);
+}
+
 /* ------------------------------------------------------------------------
  * 6. service_accounts: reconciled by name; ambiguous name fails plan.
  * ---------------------------------------------------------------------- */
@@ -458,6 +596,33 @@ static void test_created_secret_kept_in_report_after_a_later_action_fails(void) 
     axiam_client_free(c);
 }
 
+/* A drifted description on an EXISTING service account is an Update -- the
+ * axiam_service_accounts_update() branch of perform(), never a create and never
+ * touching client_secret at all. */
+static void test_service_account_description_drift_is_updated(void) {
+    axiam_mgmt_manifest_entity_t e = sa_entity("sa_a", "svc-a");
+    e.description = "the new description";
+    axiam_mgmt_manifest_t m = { &e, 1 };
+
+    mgmt_mount(200, "{\"items\":[{\"id\":\"" SA_ID_1 "\",\"name\":\"svc-a\","
+                    "\"description\":\"the old description\"}],\"total\":1}");
+    mgmt_mount_next(200, "{\"id\":\"" SA_ID_1 "\",\"name\":\"svc-a\","
+                    "\"description\":\"the new description\"}"); /* update response */
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_apply_report_t report;
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_mgmt_apply(c, &m, &report, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(1, report.applied);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int) report.created_secrets_count,
+                                  "an update must never mint or touch a client_secret");
+    TEST_ASSERT_EQUAL_STRING("PUT", mgmt_last_method());
+    TEST_ASSERT_TRUE_MESSAGE(strstr(mgmt_last_body(), "the new description"), mgmt_last_body());
+    axiam_mgmt_apply_report_dispose(&report);
+    axiam_client_free(c);
+}
+
 static void test_second_apply_of_created_service_account_is_nochange_no_rotate(void) {
     axiam_mgmt_manifest_entity_t e = sa_entity("sa_a", "svc-a");
     axiam_mgmt_manifest_t m = { &e, 1 };
@@ -472,6 +637,114 @@ static void test_second_apply_of_created_service_account_is_nochange_no_rotate(v
     TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CHANGE_UNCHANGED, plan->changes[0].action);
     TEST_ASSERT_EQUAL_INT(before + 1, mgmt_request_count()); /* one list call only */
     axiam_mgmt_plan_free(plan);
+    axiam_client_free(c);
+}
+
+/* ------------------------------------------------------------------------
+ * 7. A role binding whose SUBJECT is a service_accounts entity, not a group --
+ *    §27.6.1's binding shape covers both subject kinds, and phase 4 of
+ *    axiam_mgmt_apply() (service-account bindings, after service-account
+ *    entities themselves exist) is what runs it.
+ * ---------------------------------------------------------------------- */
+
+static void test_service_account_subject_binding_created_on_apply(void) {
+    axiam_mgmt_role_binding_t rb = { "role1", NULL, 0 };
+    axiam_mgmt_manifest_entity_t entities[2] = {
+        role_entity("role1", "editor", 0),
+        sa_entity_with_roles("sa1", "svc1", &rb, 1),
+    };
+    axiam_mgmt_manifest_t m = { entities, 2 };
+
+    mgmt_mount(200, "{\"items\":[{\"id\":\"" ROLE_ID "\",\"name\":\"editor\","
+                    "\"is_global\":false}],\"total\":1}"); /* roles: role1 exists */
+    mgmt_mount_next(200, "{\"items\":[],\"total\":0}");    /* service_accounts: none yet */
+    mgmt_mount_next(200, "{\"id\":\"" SA_ID_1 "\",\"name\":\"svc1\"}"); /* create sa1 */
+    mgmt_mount_next(204, NULL);                             /* assign role1 to sa1 */
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_apply_report_t report;
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_mgmt_apply(c, &m, &report, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, report.bindings_applied,
+                                  "the service-account's binding must have been applied");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(mgmt_last_body(), "\"service_account_id\":\"" SA_ID_1 "\""),
+                             mgmt_last_body());
+    TEST_ASSERT_TRUE_MESSAGE(strstr(mgmt_last_url(), ROLE_ID),
+                             "role_id is a path parameter, not a body field");
+    axiam_mgmt_apply_report_dispose(&report);
+    axiam_client_free(c);
+}
+
+/* An existing service account's binding rebinds the same way a group's does:
+ * unassign the old, assign the new, restore on failure -- this is the
+ * is_group==false half of perform_binding(), exercised nowhere else in this
+ * file (every rebind test above uses a group subject). */
+static void test_service_account_subject_rebind_restores_on_failure(void) {
+    axiam_mgmt_role_binding_t rb = { "role1", "res1", 0 }; /* declared: scoped to res1 */
+    axiam_mgmt_manifest_entity_t entities[3] = {
+        role_entity("role1", "editor", 0),
+        resource_entity("res1", "proj", NULL),
+        sa_entity_with_roles("sa1", "svc1", &rb, 1),
+    };
+    axiam_mgmt_manifest_t m = { entities, 3 };
+
+    mgmt_mount(200, "{\"items\":[{\"id\":\"" RES_ID "\",\"name\":\"proj\"}],\"total\":1}");
+    mgmt_mount_next(200, "{\"items\":[{\"id\":\"" ROLE_ID "\",\"name\":\"editor\","
+                    "\"is_global\":false}],\"total\":1}");
+    mgmt_mount_next(200, "{\"items\":[{\"id\":\"" SA_ID_1 "\",\"name\":\"svc1\"}],\"total\":1}");
+    /* existing binding: scoped to a DIFFERENT resource -> mismatch -> Update */
+    mgmt_mount_next(200, "[{\"inherit\":true,\"resource_id\":\"" OLD_RES_ID "\","
+                    "\"role\":{\"id\":\"" ROLE_ID "\",\"name\":\"editor\",\"is_global\":false}}]");
+    mgmt_mount_next(204, NULL);            /* unassign: succeeds */
+    mgmt_mount_next(500, "{}");            /* assign (new): FAILS */
+    mgmt_mount_next(204, NULL);            /* restore (reassign the OLD binding): succeeds */
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_apply_report_t report;
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_mgmt_apply(c, &m, &report, &err);
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, report.restore_attempted, "a restore must be attempted");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, report.restore_succeeded, "the restore itself succeeded");
+    TEST_ASSERT_TRUE_MESSAGE(strstr(mgmt_last_body(), "\"resource_id\":\"" OLD_RES_ID "\""),
+                             "the restore call must name the OLD resource, not the new one");
+    axiam_mgmt_apply_report_dispose(&report);
+    axiam_client_free(c);
+}
+
+/* When a binding fails partway through, the report counts how many PENDING
+ * bindings are still left after it -- distinct from every restore-on-failure test
+ * above, which all use a single binding (so "remaining" is always zero there). */
+static void test_binding_failure_reports_the_remaining_pending_count(void) {
+    axiam_mgmt_role_binding_t rb1[1] = { { "role1", NULL, 0 } };
+    axiam_mgmt_role_binding_t rb2[1] = { { "role1", NULL, 0 } };
+    axiam_mgmt_manifest_entity_t entities[3] = {
+        role_entity("role1", "editor", 0),
+        group_entity("g1", "eng", rb1, 1),
+        group_entity("g2", "sales", rb2, 1),
+    };
+    axiam_mgmt_manifest_t m = { entities, 3 };
+
+    mgmt_mount(200, "{\"items\":[{\"id\":\"" ROLE_ID "\",\"name\":\"editor\","
+                    "\"is_global\":false}],\"total\":1}");
+    mgmt_mount_next(200, "{\"items\":[{\"id\":\"" GROUP_ID "\",\"name\":\"eng\"},"
+                    "{\"id\":\"" SA_ID_2 "\",\"name\":\"sales\"}],\"total\":2}");
+    mgmt_mount_next(200, "[]"); /* g1's existing bindings: none */
+    mgmt_mount_next(200, "[]"); /* g2's existing bindings: none */
+    mgmt_mount_next(500, "{}"); /* assign role1 to g1 (bound first): FAILS -- a POST, so
+                                 * decisive on one attempt, never retried into a false pass */
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_apply_report_t report;
+    axiam_error_t err;
+    axiam_error_kind_t rc = axiam_mgmt_apply(c, &m, &report, &err);
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(0, report.bindings_applied);
+    TEST_ASSERT_EQUAL_INT(0L, report.failed_binding);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, (int) report.bindings_remaining,
+                                  "g2's still-pending binding must be counted as remaining");
+    axiam_mgmt_apply_report_dispose(&report);
     axiam_client_free(c);
 }
 
@@ -521,14 +794,23 @@ int main(void) {
     RUN_TEST(test_plain_binding_sends_no_inherit_key);
     RUN_TEST(test_rebind_unassigns_then_assigns_carrying_tenant_scope);
     RUN_TEST(test_rebind_restores_the_previous_binding_when_assign_fails);
+    RUN_TEST(test_binding_an_undeclared_role_refused_zero_wire_calls);
+    RUN_TEST(test_binding_an_undeclared_resource_refused_zero_wire_calls);
+    RUN_TEST(test_inherit_false_without_a_resource_refused_zero_wire_calls);
     RUN_TEST(test_one_role_bound_twice_refused_zero_wire_calls);
     RUN_TEST(test_one_role_bound_to_two_different_subjects_is_allowed);
     RUN_TEST(test_global_role_with_inherit_false_refused_zero_wire_calls);
     RUN_TEST(test_non_global_role_with_inherit_false_is_allowed);
     RUN_TEST(test_plain_binding_over_scoped_server_assignment_is_update);
+    RUN_TEST(test_scoped_binding_matching_existing_is_nochange);
+    RUN_TEST(test_plan_fails_cleanly_when_listing_a_subjects_bindings_fails);
     RUN_TEST(test_ambiguous_service_account_name_fails_plan_before_any_write);
     RUN_TEST(test_created_secret_kept_in_report_after_a_later_action_fails);
+    RUN_TEST(test_service_account_description_drift_is_updated);
     RUN_TEST(test_second_apply_of_created_service_account_is_nochange_no_rotate);
+    RUN_TEST(test_service_account_subject_binding_created_on_apply);
+    RUN_TEST(test_service_account_subject_rebind_restores_on_failure);
+    RUN_TEST(test_binding_failure_reports_the_remaining_pending_count);
     RUN_TEST(test_existing_binding_not_named_by_the_manifest_is_untouched);
     return UNITY_END();
 }

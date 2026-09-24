@@ -405,6 +405,38 @@ static void test_logout_clears_acting_tenant_and_gate(void) {
     axiam_client_free(c);
 }
 
+/* Same reset, but with a NON-EMPTY reachable_tenant_ids to free -- the test above
+ * logs in with none at all (org_level_login_body(NULL)), so it never exercises the
+ * array-free loop reset_acting_tenant_and_gate() runs when there IS one. */
+static void test_logout_frees_a_populated_reachable_tenant_ids(void) {
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    g_fake.next_status = 200;
+    g_fake.next_body = org_level_login_body("[\"" OTHER_TENANT "\"]");
+    axiam_login_result_t res;
+    axiam_login(c, "root", "pw", &res, &err);
+    axiam_login_result_dispose(&res);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK,
+                          axiam_client_set_acting_tenant(c, OTHER_TENANT, &err));
+
+    g_fake.next_status = 200;
+    g_fake.next_body = NULL;
+    axiam_logout(c, &err);
+
+    /* The gate itself resets to "unknown" along with the freed array (the same
+     * "no session to gate on" shape as test_set_acting_tenant_with_no_login_
+     * result_sends_header above): the call succeeds -- it no longer consults the
+     * PREVIOUS session's reachable_tenant_ids at all, freed or not. Read under
+     * ASan/valgrind, this is also the check that the free left no dangling read:
+     * a stale gate that still thought organization_level was true would instead
+     * dereference the just-freed array while re-checking membership. */
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        AXIAM_OK, axiam_client_set_acting_tenant(c, OTHER_TENANT, &err),
+        "post-logout the gate is unknown, not a stale organization_level=true "
+        "still pointing at the freed array");
+    axiam_client_free(c);
+}
+
 /* ------------------------------------------------------------------------
  * 5. §17 memo key includes the acting tenant (contract 1.51; the memo key
  *    predates §5.2 rule 1 and, before this, could answer tenant B's question
@@ -491,6 +523,7 @@ int main(void) {
     RUN_TEST(test_set_acting_tenant_with_no_login_result_sends_header);
     RUN_TEST(test_gate_resets_on_session_with_no_login_user_info);
     RUN_TEST(test_logout_clears_acting_tenant_and_gate);
+    RUN_TEST(test_logout_frees_a_populated_reachable_tenant_ids);
     RUN_TEST(test_memo_key_includes_acting_tenant);
     return UNITY_END();
 }

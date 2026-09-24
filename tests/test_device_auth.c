@@ -45,6 +45,11 @@ typedef struct {
     const char *queue_body[4];
     int queue_len;
     int queue_pos;
+    /* Simulates a transport-layer failure (DNS, connect refused, TLS handshake
+     * rejected -- the certificate itself unrecognised by the server's TLS layer,
+     * never reaching HTTP at all): axiam_authenticate_device() must report this
+     * as AXIAM_ERR_NETWORK rather than crash on an uninitialised response. */
+    int simulate_transport_failure;
 } fake_state_t;
 
 static fake_state_t g_fake;
@@ -61,6 +66,11 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
     st->last_had_cookie_header = cookie != NULL;
     snprintf(st->last_cookie, sizeof(st->last_cookie), "%s", cookie ? cookie : "");
     memset(resp, 0, sizeof(*resp));
+    if (st->simulate_transport_failure) {
+        resp->transport_err = 7; /* an arbitrary nonzero curl-shaped errno */
+        resp->transport_msg = strdup("could not connect to host");
+        return 1;
+    }
     if (st->queue_pos < st->queue_len) {
         resp->status = st->queue_status[st->queue_pos];
         const char *body = st->queue_body[st->queue_pos];
@@ -132,6 +142,63 @@ static void test_reachable_with_client_cert(void) {
     TEST_ASSERT_EQUAL_STRING("Bearer", out.token_type);
     TEST_ASSERT_EQUAL_INT(900, (int) out.expires_in);
     axiam_device_auth_result_dispose(&out);
+    axiam_client_free(c);
+}
+
+/* A transport-layer failure (never reaching HTTP status at all) is reported as
+ * AXIAM_ERR_NETWORK, not treated as a 401/AuthError and not crashed on. */
+static void test_transport_failure_is_reported(void) {
+    axiam_client_t *c = make_client_with_cert();
+    g_fake.simulate_transport_failure = 1;
+    axiam_device_auth_result_t out;
+    axiam_error_t err;
+    axiam_error_kind_t k = axiam_authenticate_device(c, &out, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, k);
+    TEST_ASSERT_NULL(out.access_token);
+    TEST_ASSERT_EQUAL_STRING("could not connect to host", err.message);
+    axiam_client_free(c);
+}
+
+/* A 200 response whose body does not even parse as JSON -- distinct from "parses
+ * fine but lacks access_token" below: this is cJSON_Parse() itself returning NULL. */
+static void test_response_with_unparseable_body_is_refused(void) {
+    axiam_client_t *c = make_client_with_cert();
+    g_fake.next_status = 200;
+    g_fake.next_body = "not a json object";
+    axiam_device_auth_result_t out;
+    axiam_error_t err;
+    axiam_error_kind_t k = axiam_authenticate_device(c, &out, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, k);
+    TEST_ASSERT_NULL(out.access_token);
+    axiam_client_free(c);
+}
+
+/* A 200 response with no `access_token` field is malformed -- refused, not
+ * adopted as an empty credential. */
+static void test_response_with_no_access_token_is_refused(void) {
+    axiam_client_t *c = make_client_with_cert();
+    g_fake.next_status = 200;
+    g_fake.next_body = "{\"token_type\":\"Bearer\",\"expires_in\":900}";
+    axiam_device_auth_result_t out;
+    axiam_error_t err;
+    axiam_error_kind_t k = axiam_authenticate_device(c, &out, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, k);
+    TEST_ASSERT_NULL(out.access_token);
+    axiam_client_free(c);
+}
+
+/* An unmapped non-401/429 status (a plain server error) goes through the
+ * ordinary §2 status mapping like every other route -- rule 8 only mandates
+ * the 401 case specifically. */
+static void test_500_status_is_not_an_auth_error(void) {
+    axiam_client_t *c = make_client_with_cert();
+    g_fake.next_status = 500;
+    g_fake.next_body = "{\"error\":\"internal\"}";
+    axiam_device_auth_result_t out;
+    axiam_error_t err;
+    axiam_error_kind_t k = axiam_authenticate_device(c, &out, &err);
+    TEST_ASSERT_NOT_EQUAL_MESSAGE(AXIAM_ERR_AUTH, k, "a plain 500 is not an auth error");
+    TEST_ASSERT_NULL(out.access_token);
     axiam_client_free(c);
 }
 
@@ -289,6 +356,10 @@ int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_unreachable_without_client_cert_zero_wire_calls);
     RUN_TEST(test_reachable_with_client_cert);
+    RUN_TEST(test_transport_failure_is_reported);
+    RUN_TEST(test_response_with_unparseable_body_is_refused);
+    RUN_TEST(test_response_with_no_access_token_is_refused);
+    RUN_TEST(test_500_status_is_not_an_auth_error);
     RUN_TEST(test_posts_no_body_to_the_device_path);
     RUN_TEST(test_401_maps_to_auth_error);
     RUN_TEST(test_429_is_not_an_auth_error_and_is_not_retried);
