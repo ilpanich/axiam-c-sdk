@@ -59,6 +59,42 @@ void axiam_client_free(axiam_client_t *client);
 unsigned long axiam_client_refresh_count(const axiam_client_t *client);
 
 /* ------------------------------------------------------------------ */
+/* §5.2 rule 1 — acting tenant                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Rebind the acting tenant on an existing client (CONTRACT.md §5.2 rule 1,
+ * contract 1.51). `X-Axiam-Tenant` is then sent on every subsequent REST
+ * request this client makes, until cleared. Meaningful only for an
+ * organization-level principal — see axiam/config.h's
+ * axiam_client_config_set_acting_tenant() for the construction-time form and
+ * the full rule.
+ *
+ * Refused client-side (AXIAM_ERR_NETWORK, zero wire calls, this client's
+ * acting tenant left UNCHANGED) when:
+ *   - `tenant_id` is not a UUID;
+ *   - this client holds a login result (a response that carried
+ *     `LoginUserInfo` completed its current session) and that principal is
+ *     not organization_level;
+ *   - this client holds a login result whose `reachable_tenant_ids` is
+ *     present and does not name `tenant_id` (§5.2.3 rule 4).
+ * A client holding NO login result — a service account from client
+ * credentials or the device login (axiam_authenticate_device()), or a token
+ * this process never logged in for — has nothing to gate on: the header is
+ * sent as asked, and the server's 403 is the answer.
+ */
+axiam_error_kind_t axiam_client_set_acting_tenant(axiam_client_t *client,
+                                                  const char *tenant_id,
+                                                  axiam_error_t *err);
+
+/**
+ * Clear an acting tenant set by axiam_client_set_acting_tenant() (or at
+ * construction). The next request sends no `X-Axiam-Tenant` header at all —
+ * byte for byte as before contract 1.51. Safe when none is set; safe on NULL.
+ */
+void axiam_client_clear_acting_tenant(axiam_client_t *client);
+
+/* ------------------------------------------------------------------ */
 /* Auth                                                               */
 /* ------------------------------------------------------------------ */
 

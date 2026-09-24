@@ -32,6 +32,10 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
         return NULL;
     }
+    /* §5.2 rule 1: the construction-time acting tenant seeds the mutable one
+     * axiam_client_set_acting_tenant() rebinds. Already validated as a UUID by
+     * axiam_client_config_set_acting_tenant(), so no second check here. */
+    c->acting_tenant = axiam_strdup0(c->cfg->acting_tenant);
     pthread_mutex_init(&c->state_mtx, NULL);
     pthread_mutex_init(&c->refresh_mtx, NULL);
     pthread_cond_init(&c->refresh_cond, NULL);
@@ -170,6 +174,12 @@ void axiam_client_free(axiam_client_t *client) {
     free(client->resolved_tenant_id);
     free(client->resolved_org_id);
     free(client->principal_tenant_id);
+    free(client->acting_tenant);
+    if (client->reachable_tenant_ids) {
+        for (size_t i = 0; i < client->reachable_tenant_ids_count; i++)
+            free(client->reachable_tenant_ids[i]);
+        free(client->reachable_tenant_ids);
+    }
     axiam_uma_config_dispose(&client->uma_config);
     axiam_oidc_config_dispose(&client->oidc_config);
     axiam_memo_destroy(&client->memo);
@@ -227,10 +237,29 @@ static const char *tenant_header_value(const axiam_client_t *c) {
     return c->cfg->tenant_slug;
 }
 
+/* A malloc'd copy of the currently-set acting tenant (NULL if none), taken under
+ * the lock that also guards axiam_client_set_acting_tenant()'s writes. Shared by
+ * build_headers() and the §17 memo key. */
+static char *current_acting_tenant(axiam_client_t *c) {
+    pthread_mutex_lock(&c->state_mtx);
+    char *copy = axiam_strdup0(c->acting_tenant);
+    pthread_mutex_unlock(&c->state_mtx);
+    return copy;
+}
+
 static axiam_kv_t *build_headers(axiam_client_t *c, int state_changing, int has_body) {
     axiam_kv_t *h = NULL;
     /* §5: X-Tenant-ID on every request. */
     h = axiam_kv_append(h, "X-Tenant-ID", tenant_header_value(c));
+    /* §5.2 rule 1 (contract 1.51): X-Axiam-Tenant is sent on EVERY /api/v1 REST
+     * call -- management, check_access/batch_check, refresh, logout, and the
+     * self-service and WebAuthn POSTs -- exactly when set, and absent byte for
+     * byte as before 1.51 when it is not. §5.2.2 rule 4 forbids clearing or
+     * rewriting it for the self-service routes; this function draws no such
+     * distinction, so none is made. */
+    char *acting = current_acting_tenant(c);
+    if (acting) h = axiam_kv_append(h, "X-Axiam-Tenant", acting);
+    free(acting);
     if (has_body) h = axiam_kv_append(h, "Content-Type", "application/json");
     h = axiam_kv_append(h, "Accept", "application/json");
     /* §3: echo captured CSRF token on state-changing methods. */
@@ -588,6 +617,81 @@ static void read_principal_scope(axiam_client_t *c, const cJSON *user,
     }
 }
 
+/*
+ * CONTRACT.md §5.2 rule 1's gate, refreshed on every response that COMPLETES A NEW
+ * SESSION -- reset first, unconditionally, then populated ONLY when `user` is
+ * non-NULL (a response that actually carries LoginUserInfo: password login,
+ * verify_mfa, OPAQUE finish, an MFA or WebAuthn setup completion). A response
+ * without one -- WebAuthn AUTHENTICATE, the device mTLS login -- leaves the gate at
+ * "nothing to gate on" (principal_gate_known = 0) rather than recording
+ * organization_level = false by default, which would refuse a caller the server
+ * would admit.
+ *
+ * This is what makes axiam_client_set_acting_tenant() correct across a credential
+ * change on one client object without a fresh axiam_client_t: a previous session's
+ * organization_level must never leak into a new one that reports nothing (the
+ * defect found in the TypeScript/C#/Go ports — C-4/C-5's lesson).
+ */
+static void update_principal_gate(axiam_client_t *c, const cJSON *user) {
+    pthread_mutex_lock(&c->state_mtx);
+    c->organization_level = 0;
+    if (c->reachable_tenant_ids) {
+        for (size_t i = 0; i < c->reachable_tenant_ids_count; i++)
+            free(c->reachable_tenant_ids[i]);
+        free(c->reachable_tenant_ids);
+        c->reachable_tenant_ids = NULL;
+        c->reachable_tenant_ids_count = 0;
+    }
+    c->principal_gate_known = 0;
+    if (user) {
+        const cJSON *org_level = cJSON_GetObjectItemCaseSensitive(user, "organization_level");
+        c->organization_level = cJSON_IsTrue(org_level) ? 1 : 0;
+        const cJSON *reach = cJSON_GetObjectItemCaseSensitive(user, "reachable_tenant_ids");
+        if (cJSON_IsArray(reach)) {
+            size_t n = (size_t) cJSON_GetArraySize(reach);
+            if (n > 0) {
+                char **ids = (char **) calloc(n, sizeof(char *));
+                if (ids) {
+                    size_t kept = 0;
+                    for (size_t i = 0; i < n; i++) {
+                        const cJSON *e = cJSON_GetArrayItem(reach, (int) i);
+                        if (cJSON_IsString(e) && e->valuestring)
+                            ids[kept++] = axiam_strdup0(e->valuestring);
+                    }
+                    if (kept > 0) {
+                        c->reachable_tenant_ids = ids;
+                        c->reachable_tenant_ids_count = kept;
+                    } else {
+                        free(ids);
+                    }
+                }
+            }
+        }
+        c->principal_gate_known = 1;
+    }
+    pthread_mutex_unlock(&c->state_mtx);
+}
+
+/* §5.2 rule 1 / §17.1 rule 9-shaped hygiene: a credential change clears what the
+ * PREVIOUS credential was allowed to do. Frees the current acting tenant and drops
+ * the gate to "unknown" without asserting a new one -- the caller re-establishes it
+ * by logging in again or by calling axiam_client_set_acting_tenant() explicitly. */
+static void reset_acting_tenant_and_gate(axiam_client_t *c) {
+    pthread_mutex_lock(&c->state_mtx);
+    free(c->acting_tenant);
+    c->acting_tenant = NULL;
+    c->organization_level = 0;
+    c->principal_gate_known = 0;
+    if (c->reachable_tenant_ids) {
+        for (size_t i = 0; i < c->reachable_tenant_ids_count; i++)
+            free(c->reachable_tenant_ids[i]);
+        free(c->reachable_tenant_ids);
+        c->reachable_tenant_ids = NULL;
+        c->reachable_tenant_ids_count = 0;
+    }
+    pthread_mutex_unlock(&c->state_mtx);
+}
+
 static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_response_t *resp,
                                            axiam_login_result_t *out, axiam_error_t *err) {
     long status = resp->status;
@@ -628,6 +732,10 @@ static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_respons
         /* D-14: the login body carries tenant_id/org_slug but not org_id —
          * recover both UUIDs from the access-token cookie for refresh(). */
         resolve_ids_from_login(c, resp);
+        /* §5.2 rule 1's gate: this response completes a new session, so refresh
+         * it -- populated from `user` when this response carries one, reset to
+         * "unknown" when it does not (never a guessed false). */
+        update_principal_gate(c, root ? cJSON_GetObjectItemCaseSensitive(root, "user") : NULL);
     } else if (status == 403 && root &&
                cJSON_IsBool(cJSON_GetObjectItemCaseSensitive(root, "mfa_setup_required"))) {
         /* MFA enrollment required — not an authorization denial. */
@@ -655,6 +763,11 @@ void axiam_client_adopt_session(axiam_client_t *c, axiam_http_response_t *resp) 
     c->authenticated = 1;
     pthread_mutex_unlock(&c->state_mtx);
     if (resp) resolve_ids_from_login(c, resp);
+    /* §5.2 rule 1's gate: this call completes a new session (a §24.3 ceremony
+     * adoption, e.g. WebAuthn AUTHENTICATE) whose response carries no
+     * LoginUserInfo at all -- reset to "unknown" rather than let a PREVIOUS
+     * session's organization_level leak into this one. */
+    update_principal_gate(c, NULL);
 }
 
 axiam_error_kind_t axiam_login(axiam_client_t *client, const char *username_or_email,
@@ -1099,12 +1212,94 @@ axiam_error_kind_t axiam_logout(axiam_client_t *client, axiam_error_t *err) {
         pthread_mutex_lock(&client->state_mtx);
         client->authenticated = 0;
         pthread_mutex_unlock(&client->state_mtx);
+        /* §5.2 rule 1: a logged-out client holds no session to gate an acting
+         * tenant on, so it holds no acting tenant either. */
+        reset_acting_tenant_and_gate(client);
     } else {
         kind = axiam_error_kind_from_http_status(resp.status);
         axiam_error_set(err, kind, resp.status, "logout failed");
     }
     axiam_http_response_dispose(&resp);
     return kind;
+}
+
+/* ------------------------------------------------------------------ */
+/* §5.2 rule 1 — acting tenant, on-client form                        */
+/* ------------------------------------------------------------------ */
+
+axiam_error_kind_t axiam_client_set_acting_tenant(axiam_client_t *client,
+                                                  const char *tenant_id,
+                                                  axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (!client || !tenant_id || !tenant_id[0]) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (client_is_closed(client)) return closed_error(err);
+
+    /* The value is a tenant UUID, checked client-side (§5.2 rule 1): the server
+     * silently DROPS a header that does not parse and acts on the caller's own
+     * tenant instead, so forwarding one would report success about the wrong
+     * tenant. Checked before any lock or wire call. */
+    if (!oidc_is_uuid(tenant_id)) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "acting tenant must be a UUID (CONTRACT.md \xc2\xa7"
+                        "5.2 rule 1) -- the server silently ignores a value "
+                        "that is not one");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    pthread_mutex_lock(&client->state_mtx);
+    int gate_known = client->principal_gate_known;
+    int org_level = client->organization_level;
+    char **reach = client->reachable_tenant_ids;
+    size_t reach_count = client->reachable_tenant_ids_count;
+    int reach_ok = 1;
+    if (gate_known && reach) {
+        reach_ok = 0;
+        for (size_t i = 0; i < reach_count; i++) {
+            if (reach[i] && strcmp(reach[i], tenant_id) == 0) { reach_ok = 1; break; }
+        }
+    }
+    pthread_mutex_unlock(&client->state_mtx);
+
+    /* Gate it on what the SDK KNOWS, and let the server decide the rest (§5.2
+     * rule 1). A client holding no login result -- gate_known == 0, which
+     * covers a service account from client credentials or the device login,
+     * and an injected token -- has nothing to gate on: it sends the header as
+     * asked, and the server's 403 is the answer. */
+    if (gate_known && !org_level) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "acting tenant is meaningful only for an "
+                        "organization-level principal (CONTRACT.md \xc2\xa7"
+                        "5.2 rule 1); this client's signed-in principal is not one");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (gate_known && !reach_ok) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "acting tenant is outside this principal's "
+                        "reachable_tenant_ids (CONTRACT.md \xc2\xa7""5.2.3 rule 4)");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    char *copy = axiam_strdup0(tenant_id);
+    if (!copy) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    pthread_mutex_lock(&client->state_mtx);
+    free(client->acting_tenant);
+    client->acting_tenant = copy;
+    pthread_mutex_unlock(&client->state_mtx);
+    return AXIAM_OK;
+}
+
+void axiam_client_clear_acting_tenant(axiam_client_t *client) {
+    if (!client) return;
+    pthread_mutex_lock(&client->state_mtx);
+    free(client->acting_tenant);
+    client->acting_tenant = NULL;
+    pthread_mutex_unlock(&client->state_mtx);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1259,7 +1454,11 @@ axiam_error_kind_t axiam_check_access(axiam_client_t *client, const char *action
      * actually returned. */
     char *key = NULL;
     if (axiam_memo_enabled(&client->memo) && out) {
-        key = axiam_memo_key(subject_id, resource_id, action, scope);
+        /* §5.2 rule 1 / §17: the acting tenant is part of what a check ANSWERS
+         * since contract 1.51 -- see axiam_memo_key()'s doc comment. */
+        char *acting = current_acting_tenant(client);
+        key = axiam_memo_key(subject_id, resource_id, action, scope, acting);
+        free(acting);
         if (key && axiam_memo_get(&client->memo, key, out)) {
             free(key);
             return AXIAM_OK;

@@ -39,6 +39,12 @@ struct axiam_client_config {
     char *tenant_id;
     char *org_slug;
     char *org_id;
+    /* CONTRACT.md §5.2 rule 1 (contract 1.51), construction-time form. A tenant
+     * UUID, validated at set-time (axiam_client_config_set_acting_tenant), NOT at
+     * axiam_client_new() -- the same "refuse before any wire call" rule the
+     * on-client form applies, applied as early as it can be. NULL = unset =
+     * every request before 1.51's X-Axiam-Tenant existed. */
+    char *acting_tenant;
     char *custom_ca_pem;      /* owned, may be NULL */
     char *client_cert_pem;    /* owned, may be NULL */
     /* Optional local-verification expectations (CONTRACT §10.1 rules 5/6).
@@ -202,7 +208,8 @@ long axiam_memo_effective_ttl_ms(const axiam_memo_t *m);
  * Returns a malloc'd string, or NULL on OOM.
  */
 char *axiam_memo_key(const char *subject_id, const char *resource_id,
-                     const char *action, const char *scope);
+                     const char *action, const char *scope,
+                     const char *acting_tenant);
 /** Copy a live decision into `out` and return 1, or return 0 on a miss. */
 int axiam_memo_get(axiam_memo_t *m, const char *key, axiam_check_result_t *out);
 /** Memoize a decision the server actually returned (§17.1 rule 7: successes only). */
@@ -249,6 +256,43 @@ struct axiam_client {
      * account's own tenant rather than whichever one this client is pointed at.
      * NULL until a login completes. Guarded by state_mtx. */
     char *principal_tenant_id;
+
+    /*
+     * CONTRACT.md §5.2 rule 1 (contract 1.51) — the acting tenant, sent as
+     * X-Axiam-Tenant when non-NULL. Guarded by state_mtx.
+     *
+     * This SDK's client is already the single mutable session object every other
+     * piece of §5/§9 state above lives on (the CSRF token, the resolved ids, the
+     * principal tenant) -- the acting tenant follows that same convention rather
+     * than the reference SDK's per-call handle that shares an underlying session.
+     * A caller running two tenants concurrently from one login constructs two
+     * axiam_client_t instances (cheap: axiam_client_config_clone()) rather than
+     * sharing one, exactly the granularity every other piece of mutable
+     * per-request state here already uses.
+     */
+    char *acting_tenant;
+
+    /*
+     * CONTRACT.md §5.2 rule 1's gate: what THIS client currently knows about the
+     * signed-in principal's reach, so axiam_client_set_acting_tenant() can refuse
+     * client-side rather than let the server's 403 be the only answer.
+     *
+     * `principal_gate_known` is 0 until a response that carries LoginUserInfo (a
+     * `user` object) succeeds -- password login, verify_mfa, OPAQUE finish, an MFA
+     * or WebAuthn SETUP completion -- and is reset to 0 by any OTHER call that
+     * completes a new session without one (WebAuthn AUTHENTICATE, the device mTLS
+     * login) and by logout/close. 0 means "nothing to gate on": the setter sends
+     * the header as asked and lets the server's 403 decide, per the rule's own
+     * "a client holding no login result" clause -- it does NOT mean
+     * organization_level is false, which is why this is a separate flag rather
+     * than organization_level defaulting to 0 doing double duty.
+     *
+     * Guarded by state_mtx.
+     */
+    int principal_gate_known;
+    int organization_level;             /* valid only when principal_gate_known */
+    char **reachable_tenant_ids;        /* valid only when principal_gate_known; NULL = unrestricted */
+    size_t reachable_tenant_ids_count;
 
     /* single-flight refresh (§9) */
     pthread_mutex_t refresh_mtx;
@@ -431,6 +475,14 @@ void axiam_oidc_client_dispose(axiam_client_t *c);
 /* ---- Small helpers ---- */
 char *axiam_strdup0(const char *s); /* strdup that tolerates NULL -> NULL */
 int   axiam_str_ieq(const char *a, const char *b);
+
+/* RFC 4122 textual-form check (defined in oidc.c, shared here for CONTRACT.md §5.2
+ * rule 1's client-side acting-tenant validation and §27.4 rule 2's identifier
+ * validation): 8-4-4-4-12 hex digits and dashes, case-insensitive. NOT a version/
+ * variant check -- the server is the authority on whether a syntactically valid UUID
+ * names anything, and this SDK's job is only to refuse what it can already tell will
+ * be silently dropped rather than 404/403 against the server. */
+int oidc_is_uuid(const char *s);
 
 /* RFC 3986 percent-encode every byte outside the unreserved set. Returns a
  * malloc'd string, or NULL on OOM/NULL input. Used wherever a caller-supplied

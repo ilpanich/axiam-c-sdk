@@ -42,6 +42,8 @@ axiam_add_test(test_client_failing_transport test_client_failing_transport.c)
 axiam_add_test(test_authz test_authz.c)
 axiam_add_test(test_singleflight test_singleflight.c)
 axiam_add_test(test_refresh_org test_refresh_org.c)
+# CONTRACT.md §5.2 rule 1 (contract 1.51): the acting-tenant helper.
+axiam_add_test(test_acting_tenant test_acting_tenant.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
 axiam_add_test(test_webhook test_webhook.c)
 axiam_add_test(test_mcp test_mcp.c)

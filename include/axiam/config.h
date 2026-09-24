@@ -36,6 +36,25 @@ void axiam_client_config_set_tenant_id(axiam_client_config_t *cfg, const char *t
 void axiam_client_config_set_org_slug(axiam_client_config_t *cfg, const char *org_slug);
 void axiam_client_config_set_org_id(axiam_client_config_t *cfg, const char *org_id);
 
+/**
+ * CONTRACT.md §5.2 rule 1 (contract 1.51) — the acting-tenant helper,
+ * construction-time form. `tenant_id` is a UUID; `X-Axiam-Tenant` is sent on
+ * every REST request while it is set, and the header is meaningful only for an
+ * organization-level principal (§5.2), which this SDK cannot know at
+ * construction time — the server is the authority on whether the caller may
+ * use it, and answers 403 when it may not.
+ *
+ * Refused client-side (AXIAM_ERR_NETWORK) before any wire call when
+ * `tenant_id` does not parse as a UUID: the server silently drops a value
+ * that does not, and acts on the caller's own tenant instead, so forwarding
+ * one would report success about the wrong tenant. Passing NULL or ""
+ * clears it. To change it on an already-constructed client, see
+ * axiam_client_set_acting_tenant() (axiam/client.h), which additionally
+ * gates on what that client knows about the signed-in principal.
+ */
+axiam_error_kind_t axiam_client_config_set_acting_tenant(axiam_client_config_t *cfg,
+                                                         const char *tenant_id);
+
 /* --- Local token-verification expectations (§10.1 rules 5 and 6). ---
  *
  * Both are OPTIONAL and default to UNSET. When unset, the corresponding claim
