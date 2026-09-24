@@ -1296,7 +1296,11 @@ axiam_error_kind_t axiam_client_set_acting_tenant(axiam_client_t *client,
     if (gate_known && reach) {
         reach_ok = 0;
         for (size_t i = 0; i < reach_count; i++) {
-            if (reach[i] && strcmp(reach[i], tenant_id) == 0) { reach_ok = 1; break; }
+            /* CONTRACT.md §5.2 rule 1 (contract 1.52 N-5.6, C-12): tenant ids
+             * compare as UUIDs, never as strings -- case and formatting MUST NOT
+             * decide reach. `tenant_id` already passed the UUID-shape check above, so
+             * a case-insensitive compare is exactly "same UUID", not a looser match. */
+            if (reach[i] && axiam_str_ieq(reach[i], tenant_id)) { reach_ok = 1; break; }
         }
     }
     pthread_mutex_unlock(&client->state_mtx);

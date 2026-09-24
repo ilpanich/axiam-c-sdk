@@ -67,6 +67,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
+- **`axiam_client_set_acting_tenant()` compares `reachable_tenant_ids` as
+  UUIDs, not as strings** (CONTRACT.md §5.2 rule 1, contract 1.52 N-5.6,
+  C-12). The reach check used `strcmp()`, so an upper-case spelling of a
+  reachable tenant id was refused even though it names the exact same
+  tenant as the server's lower-case one. `tenant_id` already passed the
+  UUID-shape check earlier in the same function, so a case-insensitive
+  compare (`axiam_str_ieq()`, already used elsewhere in this file) is
+  exactly "same UUID," not a looser match. Every existing fixture used
+  all-digit UUIDs, which have no letter to differ in case and so never
+  exercised this path; the new tests use a UUID with hex letters.
+
 - **§13 row 17, defect #1: a nested resource's `parent_id` now reaches the
   wire.** The manifest used to create a nested resource tree flat — the
   parent was resolved from `depends_on` for ORDERING only, never sent on the
