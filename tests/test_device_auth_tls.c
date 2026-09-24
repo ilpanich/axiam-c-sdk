@@ -169,8 +169,15 @@ static void handle_one(int listen_fd, const char *resp_body, const char *set_coo
                         "Content-Length: %zu\r\nConnection: close\r\n\r\n%s",
                         strlen(resp_body), resp_body);
         }
-        if (n > 0) SSL_write(ssl, resp, n);
+        /* Mark the round complete BEFORE the response leaves: the client can only
+         * read it after SSL_write, so the socket orders this store before the
+         * main thread's check of round1_ok, which happens once
+         * axiam_client_raw_get() has returned, before any pthread_join. Set after
+         * the write, the main thread could see the response and read the flag
+         * before this thread ran again -- a race valgrind's serialised
+         * scheduling made visible on CI. */
         if (out_ok) *out_ok = 1;
+        if (n > 0) SSL_write(ssl, resp, n);
     }
 
     SSL_shutdown(ssl);
