@@ -119,6 +119,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   instead. `axiam_jwt_verify_certificate_binding()`'s standalone behaviour is
   unchanged.
 
+- **`axiam_client_set_acting_tenant()`'s client-side gate refusals are now
+  `AXIAM_ERR_AUTHZ`** (CONTRACT.md §5.2 rule 1, contract 1.52 N-5.4, C-12).
+  Refusing an acting tenant because the signed-in principal is not
+  `organization_level`, or because the tenant is outside
+  `reachable_tenant_ids`, used to return `AXIAM_ERR_NETWORK` — this
+  taxonomy's connectivity/programming-error member. Both are the client-side
+  echo of the `403` the server would answer, which §2 calls `AuthzError`, so
+  they now return `AXIAM_ERR_AUTHZ` instead. The UUID-shape check ("not a
+  UUID at all") is unchanged: it is a malformed-input refusal, not a gate
+  refusal, and stays `AXIAM_ERR_NETWORK`.
+
+  **Migration:** a caller matching on `AXIAM_ERR_NETWORK` to detect this
+  specific refusal now sees `AXIAM_ERR_AUTHZ`.
+
 ### Declined
 
 - **§6.1 rule 7 as a typestate.** The contract lets an SDK express

@@ -252,7 +252,9 @@ static void test_set_acting_tenant_refused_for_non_organization_level(void) {
     axiam_login_result_dispose(&res);
 
     int before = g_fake.request_count;
-    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
+    /* CONTRACT.md §5.2 rule 1 (contract 1.52 N-5.4, C-12): a gate refusal is
+     * the §2 AuthzError the server's 403 maps to, not AuthError/NetworkError. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ,
                           axiam_client_set_acting_tenant(c, OTHER_TENANT, &err));
     TEST_ASSERT_EQUAL_INT_MESSAGE(before, g_fake.request_count,
                                   "zero wire calls on refusal");
@@ -284,8 +286,9 @@ static void test_set_acting_tenant_refused_outside_reachable_tenant_ids(void) {
     axiam_login_result_dispose(&res);
 
     int before = g_fake.request_count;
+    /* CONTRACT.md §5.2 rule 1 (contract 1.52 N-5.4, C-12): AuthzError. */
     TEST_ASSERT_EQUAL_INT(
-        AXIAM_ERR_NETWORK,
+        AXIAM_ERR_AUTHZ,
         axiam_client_set_acting_tenant(c, UNREACHABLE_TENANT, &err));
     TEST_ASSERT_EQUAL_INT(before, g_fake.request_count);
     axiam_client_free(c);
@@ -540,7 +543,7 @@ static axiam_client_t *make_client_restricted_to_other_tenant(void) {
 static void assert_refused_for_unreachable_tenant(axiam_client_t *c, const char *why) {
     axiam_error_t err;
     int before = g_fake.request_count;
-    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_ERR_NETWORK,
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_ERR_AUTHZ,
                                   axiam_client_set_acting_tenant(c, UNREACHABLE_TENANT, &err), why);
     TEST_ASSERT_EQUAL_INT_MESSAGE(before, g_fake.request_count, "refused: zero wire calls");
 }
