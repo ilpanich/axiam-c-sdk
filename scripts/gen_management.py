@@ -1124,6 +1124,22 @@ def emit_external_tag_model(rendered: str) -> list[str]:
     out.append("}")
     out.append("")
 
+    out.append(f"int {model_prefix(rendered)}_valid(const {model_type(rendered)} *value) {{")
+    out.extend(comment(
+        f"CONTRACT.md §27.13 (contract 1.52 N-3, C-12): this representation can hold "
+        "a value the wire shape cannot honestly express -- a NULL string, or a `kind` "
+        f"outside the {len(keys)} the spec defines -- and the caller must refuse it "
+        "client-side, before any request, rather than let `_build` silently drop or "
+        "mis-tag it.", "    "))
+    out.append("    if (!value || !value->value) return 0;")
+    out.append("    switch (value->kind) {")
+    for key in keys:
+        out.append(f"        case {enum_const(rendered, key)}: return 1;")
+    out.append("        default: return 0;")
+    out.append("    }")
+    out.append("}")
+    out.append("")
+
     out.append(f"cJSON *{model_prefix(rendered)}_build(const {model_type(rendered)} *value) {{")
     out.append("    if (!value || !value->value) return NULL;")
     out.append("    cJSON *obj = cJSON_CreateObject();")
@@ -1494,6 +1510,8 @@ def emit_ops_source() -> str:
     for rendered in modelled:
         out.append(f"{model_type(rendered)} *{model_prefix(rendered)}_parse(const cJSON *src);")
         out.append(f"cJSON *{model_prefix(rendered)}_build(const {model_type(rendered)} *value);")
+        if rendered in EXTERNAL_TAG:
+            out.append(f"int {model_prefix(rendered)}_valid(const {model_type(rendered)} *value);")
     out.append("")
 
     for namespace, nsdef in REGISTRY["namespaces"].items():
@@ -1517,6 +1535,27 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
     has_out = any(p["kind"] == "out" for p in params)
     if has_out:
         out.append("    if (out) *out = NULL;")
+
+    # ---- refuse a body element this SDK cannot honestly serialize, before any wire
+    # call (CONTRACT.md §27.4 rule 2, contract 1.52 N-3, C-12) ----
+    body_param = next((p for p in params if p["kind"] == "body"), None)
+    tagged_array_fields: list[dict[str, Any]] = []
+    if body_param:
+        braw = op["request_schema"].lstrip("[]")
+        bfields, _ = fields_of(braw, sensitive_map().get(braw, set()))
+        tagged_array_fields = [f for f in bfields
+                                if f["kind"] == "model_array" and f["ref"] in EXTERNAL_TAG]
+    for f in tagged_array_fields:
+        out.append(f"    if (body && body->{f['name']}) {{")
+        out.append(f"        for (size_t i = 0; i < body->{f['name']}_count; i++) {{")
+        out.append(f"            if (!{model_prefix(f['ref'])}_valid(body->{f['name']}[i])) {{")
+        out.append(f'                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "{canonical}: '
+                   f'{f["wire"]}[i] is not a valid {f["ref"]} -- exactly one wire key must '
+                   f'be set (SDK programming error, CONTRACT.md \\xc2\\xa7" "27.4 rule 2)");')
+        out.append("                return AXIAM_ERR_NETWORK;")
+        out.append("            }")
+        out.append("        }")
+        out.append("    }")
 
     # ---- path ----
     names = path_params(op)

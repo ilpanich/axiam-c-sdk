@@ -79,6 +79,96 @@ static void test_without_a_session_nothing_is_sent(void) {
     axiam_client_free(c);
 }
 
+/*
+ * ---- rule 2 / §27.13 (contract 1.52 N-3, C-12): a `SubjectAltName` this
+ * SDK's representation cannot honestly express is refused CLIENT-SIDE, with zero
+ * wire calls -- not silently dropped from the array it rode in on, and not silently
+ * mis-tagged onto "dns". ----
+ */
+
+static void test_a_null_valued_subject_alt_name_is_refused_not_dropped(void) {
+    mgmt_mount(200, "{}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    int before = mgmt_request_count();
+    axiam_error_t err;
+    axiam_mgmt_create_certificate_request_t body;
+    memset(&body, 0, sizeof(body));
+    axiam_mgmt_subject_alt_name_t neither = { AXIAM_MGMT_SUBJECT_ALT_NAME_DNS, NULL };
+    axiam_mgmt_subject_alt_name_t *names[1] = { &neither };
+    body.subject_alt_names = names;
+    body.subject_alt_names_count = 1;
+    axiam_mgmt_generated_certificate_t *out = NULL;
+
+    axiam_error_kind_t rc = axiam_certificates_generate(c, &body, &out, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_NULL(out);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(before, mgmt_request_count(),
+        "a SubjectAltName with neither wire key set must be refused before any "
+        "request, not silently dropped from the array");
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "certificates.generate"));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "rule 2"));
+    axiam_client_free(c);
+}
+
+/* Same defect, the other operation that carries `subject_alt_names` on the wire. */
+static void test_an_out_of_range_subject_alt_name_kind_is_refused_not_dropped(void) {
+    mgmt_mount(200, "{}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    int before = mgmt_request_count();
+    axiam_error_t err;
+    axiam_mgmt_sign_certificate_csr_request_t body;
+    memset(&body, 0, sizeof(body));
+    axiam_mgmt_subject_alt_name_t garbage = {
+        (axiam_mgmt_subject_alt_name_kind_t) 99, (char *) "api.example.com" };
+    axiam_mgmt_subject_alt_name_t *names[1] = { &garbage };
+    body.subject_alt_names = names;
+    body.subject_alt_names_count = 1;
+    axiam_mgmt_certificate_t *out = NULL;
+
+    axiam_error_kind_t rc = axiam_certificates_sign_csr(c, &body, &out, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_NULL(out);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(before, mgmt_request_count(),
+        "an out-of-range SubjectAltName kind must be refused before any request, "
+        "not silently mis-tagged onto \"dns\"");
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "certificates.sign_csr"));
+    axiam_client_free(c);
+}
+
+/* I4 twin: a request whose SubjectAltName elements ARE well-formed still reaches the
+ * wire -- the fix above must not refuse the shape it was already right about. */
+static void test_a_well_formed_subject_alt_name_still_reaches_the_wire(void) {
+    mgmt_mount(200,
+        "{\"cert_type\": \"Server\", \"created_at\": \"2026-08-26T00:00:00Z\", "
+        "\"fingerprint\": \"example\", \"id\": \"" UUID "\", \"issuer_ca_id\": \"" UUID "\", "
+        "\"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": "
+        "\"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", "
+        "\"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", "
+        "\"tenant_id\": \"" UUID "\", \"chain_pem\": \"example\", "
+        "\"private_key_pem\": \"example\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_create_certificate_request_t body;
+    memset(&body, 0, sizeof(body));
+    axiam_mgmt_subject_alt_name_t dns = { AXIAM_MGMT_SUBJECT_ALT_NAME_DNS,
+                                          (char *) "api.example.com" };
+    axiam_mgmt_subject_alt_name_t *names[1] = { &dns };
+    body.subject_alt_names = names;
+    body.subject_alt_names_count = 1;
+    axiam_mgmt_generated_certificate_t *out = NULL;
+
+    axiam_error_kind_t rc = axiam_certificates_generate(c, &body, &out, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_NOT_NULL(out);
+    TEST_ASSERT_EQUAL_STRING("POST", mgmt_last_method());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_body(), "\"dns\":\"api.example.com\""));
+    axiam_mgmt_generated_certificate_free(out);
+    axiam_client_free(c);
+}
+
 /* ---- rule 3: implicit ids, with a per-call override --------------------- */
 
 static void test_org_id_is_implicit_from_the_client(void) {
@@ -823,6 +913,9 @@ static void test_frees_tolerate_null(void) {
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_without_a_session_nothing_is_sent);
+    RUN_TEST(test_a_null_valued_subject_alt_name_is_refused_not_dropped);
+    RUN_TEST(test_an_out_of_range_subject_alt_name_kind_is_refused_not_dropped);
+    RUN_TEST(test_a_well_formed_subject_alt_name_still_reaches_the_wire);
     RUN_TEST(test_org_id_is_implicit_from_the_client);
     RUN_TEST(test_a_scope_overrides_the_implicit_org_id);
     RUN_TEST(test_a_scope_does_not_leak_into_the_next_call);

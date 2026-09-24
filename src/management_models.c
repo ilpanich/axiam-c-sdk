@@ -8139,6 +8139,21 @@ axiam_mgmt_subject_alt_name_t *axiam_mgmt_subject_alt_name_parse(const cJSON *sr
     return NULL;
 }
 
+int axiam_mgmt_subject_alt_name_valid(const axiam_mgmt_subject_alt_name_t *value) {
+    /*
+     * CONTRACT.md §27.13 (contract 1.52 N-3, C-12): this representation can hold a value
+     * the wire shape cannot honestly express -- a NULL string, or a `kind` outside the 2
+     * the spec defines -- and the caller must refuse it client-side, before any request,
+     * rather than let `_build` silently drop or mis-tag it.
+     */
+    if (!value || !value->value) return 0;
+    switch (value->kind) {
+        case AXIAM_MGMT_SUBJECT_ALT_NAME_DNS: return 1;
+        case AXIAM_MGMT_SUBJECT_ALT_NAME_IP: return 1;
+        default: return 0;
+    }
+}
+
 cJSON *axiam_mgmt_subject_alt_name_build(const axiam_mgmt_subject_alt_name_t *value) {
     if (!value || !value->value) return NULL;
     cJSON *obj = cJSON_CreateObject();

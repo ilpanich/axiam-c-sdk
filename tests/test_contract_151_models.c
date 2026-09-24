@@ -48,6 +48,7 @@
  * generator's own emit_model_test() output does. */
 axiam_mgmt_subject_alt_name_t *axiam_mgmt_subject_alt_name_parse(const cJSON *src);
 cJSON *axiam_mgmt_subject_alt_name_build(const axiam_mgmt_subject_alt_name_t *value);
+int axiam_mgmt_subject_alt_name_valid(const axiam_mgmt_subject_alt_name_t *value);
 axiam_mgmt_role_user_assignment_t *axiam_mgmt_role_user_assignment_parse(const cJSON *src);
 axiam_mgmt_role_group_assignment_t *axiam_mgmt_role_group_assignment_parse(const cJSON *src);
 axiam_mgmt_role_service_account_assignment_t *
@@ -149,6 +150,38 @@ static void test_subject_alt_name_unrecognised_shape_fails_closed(void) {
 static void test_subject_alt_name_null_safe(void) {
     TEST_ASSERT_NULL(axiam_mgmt_subject_alt_name_build(NULL));
     axiam_mgmt_subject_alt_name_free(NULL); /* must not crash */
+}
+
+/*
+ * CONTRACT.md §27.13 (contract 1.52 N-3, C-12): this representation -- a
+ * `kind` enum plus one `value` string -- can hold a value the wire shape cannot
+ * honestly express: a NULL string (neither branch), or a `kind` outside the two the
+ * spec defines. `_valid` is the caller's client-side gate for both. NULL/NULL is the
+ * I4 twin -- the shape `_build` already handles correctly -- so this closes the whole
+ * truth table.
+ */
+static void test_subject_alt_name_valid_accepts_dns_and_ip(void) {
+    axiam_mgmt_subject_alt_name_t dns = { AXIAM_MGMT_SUBJECT_ALT_NAME_DNS,
+                                          (char *) "api.example.com" };
+    axiam_mgmt_subject_alt_name_t ip = { AXIAM_MGMT_SUBJECT_ALT_NAME_IP,
+                                         (char *) "10.0.0.5" };
+    TEST_ASSERT_TRUE(axiam_mgmt_subject_alt_name_valid(&dns));
+    TEST_ASSERT_TRUE(axiam_mgmt_subject_alt_name_valid(&ip));
+}
+
+static void test_subject_alt_name_valid_refuses_a_null_value(void) {
+    axiam_mgmt_subject_alt_name_t neither = { AXIAM_MGMT_SUBJECT_ALT_NAME_DNS, NULL };
+    TEST_ASSERT_FALSE(axiam_mgmt_subject_alt_name_valid(&neither));
+    TEST_ASSERT_FALSE(axiam_mgmt_subject_alt_name_valid(NULL));
+}
+
+/* An out-of-range `kind` -- never produced by `_parse`, but directly constructible by
+ * a caller -- must be refused, not silently mapped onto "dns" the way `_build`'s
+ * `default:` arm used to. */
+static void test_subject_alt_name_valid_refuses_an_out_of_range_kind(void) {
+    axiam_mgmt_subject_alt_name_t garbage = {
+        (axiam_mgmt_subject_alt_name_kind_t) 99, (char *) "api.example.com" };
+    TEST_ASSERT_FALSE(axiam_mgmt_subject_alt_name_valid(&garbage));
 }
 
 /* ------------------------------------------------------------------------
@@ -312,6 +345,9 @@ int main(void) {
     RUN_TEST(test_subject_alt_name_never_serializes_empty);
     RUN_TEST(test_subject_alt_name_unrecognised_shape_fails_closed);
     RUN_TEST(test_subject_alt_name_null_safe);
+    RUN_TEST(test_subject_alt_name_valid_accepts_dns_and_ip);
+    RUN_TEST(test_subject_alt_name_valid_refuses_a_null_value);
+    RUN_TEST(test_subject_alt_name_valid_refuses_an_out_of_range_kind);
     RUN_TEST(test_role_user_assignment_absent_inherit_defaults_true);
     RUN_TEST(test_role_user_assignment_explicit_false_is_honoured);
     RUN_TEST(test_role_group_assignment_absent_inherit_defaults_true);
