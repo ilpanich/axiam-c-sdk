@@ -7,6 +7,13 @@
 #include "cJSON.h"
 #include "internal.h"
 
+/* CONTRACT.md §10.1 rule 9 (defined further down, alongside
+ * axiam_jwt_verify_certificate_binding()) — forward-declared so check_claims()
+ * can enforce it at the point every OTHER §10.1 rule already lives. */
+static axiam_error_kind_t check_cnf_binding(const cJSON *root,
+                                            const char *presented_thumbprint,
+                                            axiam_error_t *err);
+
 /* Parse a JwksDocument into the client's key cache (EdDSA/Ed25519 only). */
 static int parse_jwks(axiam_client_t *c, const char *json) {
     cJSON *root = cJSON_Parse(json);
@@ -137,7 +144,8 @@ static int audience_contains(const cJSON *aud, const char *expected) {
  * and the token must belong to this client's tenant (the JWKS trust anchor is
  * organization-wide). Every failure path here fails CLOSED. */
 static axiam_error_kind_t check_claims(axiam_client_t *client, const char *claims_json,
-                                       unsigned flags, axiam_error_t *err) {
+                                       unsigned flags, const char *presented_thumbprint,
+                                       axiam_error_t *err) {
     cJSON *root = claims_json ? cJSON_Parse(claims_json) : NULL;
     if (!root) {
         axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token claims");
@@ -227,6 +235,42 @@ static axiam_error_kind_t check_claims(axiam_client_t *client, const char *claim
     }
 
     /*
+     * §10.1 rule 9 (contract 1.15/1.16) — a token carrying `cnf` is NOT a
+     * bearer token, and MUST NOT be accepted as one without evidence.
+     *
+     * This is the defect the same six other ports (Rust, TypeScript, Go,
+     * Python, C#, Java) shipped and fixed under this port wave: the DEFAULT
+     * entry point (axiam_jwt_verify() / axiam_jwt_verify_ex(), which
+     * axiam_require_auth() — the §10/§11 guard every macro and route helper
+     * reaches — calls with AXIAM_JWT_VERIFY_STRICT) had no transport to ask
+     * and so never asked, silently accepting a certificate-bound token as an
+     * ordinary bearer credential. A device token lifted off a device would
+     * therefore have opened every guarded route.
+     *
+     * `presented_thumbprint` is NULL on that default path (verify_core's two
+     * callers below both pass NULL), so check_cnf_binding() now REFUSES any
+     * token naming a constraint there — exactly the "no evidence" row of the
+     * §10.1 rule 9 table. The only way to ACCEPT a cnf-bound token is through
+     * the new axiam_jwt_verify_with_evidence() / axiam_jwt_verify_ex_with_
+     * evidence(), which take the peer certificate's thumbprint as an explicit
+     * argument from the caller's OWN TLS layer — never parsed from a request
+     * header, which would make the mechanism decorative.
+     *
+     * Scoped to whenever a §10.1 policy is in force at all (flags != 0, which
+     * is why this lives inside check_claims): the §12.4 ID-token path enters
+     * verify_core with flags 0 and so never reaches this, correctly — an ID
+     * token's `aud` is the RP's client_id, not `axiam:user`/`axiam:m2m`, and
+     * §12 has never claimed anything about sender constraints.
+     */
+    {
+        axiam_error_kind_t ck = check_cnf_binding(root, presented_thumbprint, err);
+        if (ck != AXIAM_OK) {
+            kind = ck;
+            goto done;
+        }
+    }
+
+    /*
      * §10.4 (contract 1.44) — last, and only ever a rejection. Every rule above
      * has already decided the token is valid; a feed that is off or cannot be
      * read, and a token with no session behind it, all change nothing here.
@@ -296,7 +340,8 @@ static int lookup_key(axiam_client_t *c, const char *kid, unsigned char pub[32],
 }
 
 static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
-                                      unsigned flags, char **out_claims_json,
+                                      unsigned flags, const char *presented_thumbprint,
+                                      char **out_claims_json,
                                       char *reason, size_t reason_cap,
                                       axiam_error_t *err);
 
@@ -310,7 +355,27 @@ axiam_error_kind_t axiam_jwt_verify(axiam_client_t *client, const char *token,
 axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client, const char *token,
                                        unsigned flags, char **out_claims_json,
                                        axiam_error_t *err) {
-    return verify_core(client, token, flags, out_claims_json, NULL, 0, err);
+    /* No evidence: §10.1 rule 9 refuses any token naming a cnf constraint
+     * here (check_claims -> check_cnf_binding, NULL thumbprint). This is the
+     * DEFAULT entry point axiam_require_auth() and every §10/§11 guard reach. */
+    return verify_core(client, token, flags, NULL, out_claims_json, NULL, 0, err);
+}
+
+axiam_error_kind_t axiam_jwt_verify_with_evidence(axiam_client_t *client, const char *token,
+                                                  const char *presented_thumbprint,
+                                                  char **out_claims_json,
+                                                  axiam_error_t *err) {
+    return axiam_jwt_verify_ex_with_evidence(client, token, AXIAM_JWT_VERIFY_STRICT,
+                                             presented_thumbprint, out_claims_json, err);
+}
+
+axiam_error_kind_t axiam_jwt_verify_ex_with_evidence(axiam_client_t *client, const char *token,
+                                                     unsigned flags,
+                                                     const char *presented_thumbprint,
+                                                     char **out_claims_json,
+                                                     axiam_error_t *err) {
+    return verify_core(client, token, flags, presented_thumbprint, out_claims_json,
+                       NULL, 0, err);
 }
 
 axiam_error_kind_t axiam_jwt_verify_reasoned(axiam_client_t *client, const char *token,
@@ -323,15 +388,18 @@ axiam_error_kind_t axiam_jwt_verify_reasoned(axiam_client_t *client, const char 
      * unknown-`kid` cooldown the §10 middleware uses, and layers rules 3 to 6 on
      * top. The flags are 0 because §12.4's claim rules are not §10.1's: an ID
      * token's `aud` is the RP's client_id rather than `axiam:user`, and it
-     * carries no `tenant_id` claim to bind.
+     * carries no `tenant_id` claim to bind. flags == 0 also means check_claims
+     * (and so rule 9) is never entered here regardless of the thumbprint
+     * argument — correctly: §10.1 rule 9 is an access-token rule.
      */
     if (out_reason && reason_cap) out_reason[0] = '\0';
-    return verify_core(client, token, AXIAM_JWT_VERIFY_SIGNATURE_ONLY, out_claims_json,
+    return verify_core(client, token, AXIAM_JWT_VERIFY_SIGNATURE_ONLY, NULL, out_claims_json,
                        out_reason, reason_cap, err);
 }
 
 static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
-                                      unsigned flags, char **out_claims_json,
+                                      unsigned flags, const char *presented_thumbprint,
+                                      char **out_claims_json,
                                       char *reason, size_t reason_cap,
                                       axiam_error_t *err) {
     axiam_error_reset(err);
@@ -476,7 +544,7 @@ static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
     }
 
     if (flags) {
-        axiam_error_kind_t ck = check_claims(client, claims, flags, err);
+        axiam_error_kind_t ck = check_claims(client, claims, flags, presented_thumbprint, err);
         if (ck != AXIAM_OK) {
             free(claims);
             return ck;
@@ -514,32 +582,26 @@ static int ct_streq(const char *a, const char *b) {
     return diff == 0;
 }
 
-axiam_error_kind_t axiam_jwt_verify_certificate_binding(
-    const char *claims_json, const char *presented_thumbprint,
-    axiam_error_t *err) {
-    if (!claims_json) {
-        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "no claims to check");
-        return AXIAM_ERR_AUTH;
-    }
-
-    cJSON *root = cJSON_Parse(claims_json);
-    if (!root) {
-        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token claims");
-        return AXIAM_ERR_AUTH;
-    }
-
+/*
+ * The core of rule 9, operating on an ALREADY-PARSED claims object rather than
+ * a JSON string — shared by the public string-taking
+ * axiam_jwt_verify_certificate_binding() below and by check_claims(), which
+ * already holds `root` from decoding the token and must not parse it twice.
+ * Does NOT take ownership of `root` and does not delete it.
+ */
+static axiam_error_kind_t check_cnf_binding(const cJSON *root,
+                                            const char *presented_thumbprint,
+                                            axiam_error_t *err) {
     const cJSON *cnf = cJSON_GetObjectItemCaseSensitive(root, "cnf");
     if (!cnf || cJSON_IsNull(cnf)) {
         /* An ordinary bearer token. Accepted with or without a certificate —
          * rule 9 constrains tokens that CLAIM a constraint; it does not make
          * certificates mandatory, and treating it otherwise would break every
          * deployment that does not use mTLS. */
-        cJSON_Delete(root);
         return AXIAM_OK;
     }
 
     if (!cJSON_IsObject(cnf)) {
-        cJSON_Delete(root);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0, "token cnf claim is malformed");
         return AXIAM_ERR_AUTH;
     }
@@ -551,7 +613,6 @@ axiam_error_kind_t axiam_jwt_verify_certificate_binding(
          * the other way, a sender-constrained token silently degrades to a
          * bearer token the day a newer AXIAM issues a confirmation this SDK
          * predates. Fail closed. */
-        cJSON_Delete(root);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0,
                         "token carries a cnf confirmation naming a method this "
                         "SDK cannot verify");
@@ -567,7 +628,6 @@ axiam_error_kind_t axiam_jwt_verify_certificate_binding(
      * twice. */
     const cJSON *jkt = cJSON_GetObjectItemCaseSensitive(cnf, "jkt");
     if (cJSON_IsString(jkt) && jkt->valuestring && jkt->valuestring[0]) {
-        cJSON_Delete(root);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0,
                         "token names both a certificate and a DPoP key; both "
                         "must hold, and this SDK cannot verify DPoP proofs "
@@ -576,22 +636,38 @@ axiam_error_kind_t axiam_jwt_verify_certificate_binding(
     }
 
     if (!presented_thumbprint || !presented_thumbprint[0]) {
-        cJSON_Delete(root);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0,
                         "token is certificate-bound but no client certificate "
                         "was presented");
         return AXIAM_ERR_AUTH;
     }
 
-    int ok = ct_streq(x5t->valuestring, presented_thumbprint);
-    cJSON_Delete(root);
-    if (!ok) {
+    if (!ct_streq(x5t->valuestring, presented_thumbprint)) {
         axiam_error_set(err, AXIAM_ERR_AUTH, 0,
                         "token is bound to a different client certificate than "
                         "the one presented");
         return AXIAM_ERR_AUTH;
     }
     return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_jwt_verify_certificate_binding(
+    const char *claims_json, const char *presented_thumbprint,
+    axiam_error_t *err) {
+    if (!claims_json) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "no claims to check");
+        return AXIAM_ERR_AUTH;
+    }
+
+    cJSON *root = cJSON_Parse(claims_json);
+    if (!root) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "malformed token claims");
+        return AXIAM_ERR_AUTH;
+    }
+
+    axiam_error_kind_t kind = check_cnf_binding(root, presented_thumbprint, err);
+    cJSON_Delete(root);
+    return kind;
 }
 
 /* Base64URL WITHOUT padding (RFC 4648 §5 alphabet, RFC 7515 §2 rules).

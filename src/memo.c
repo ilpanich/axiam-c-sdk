@@ -69,16 +69,30 @@ long axiam_memo_effective_ttl_ms(const axiam_memo_t *m) {
 }
 
 char *axiam_memo_key(const char *subject_id, const char *resource_id,
-                     const char *action, const char *scope) {
+                     const char *action, const char *scope,
+                     const char *acting_tenant) {
     const char *s = (subject_id && subject_id[0]) ? subject_id : MEMO_ABSENT;
     const char *r = resource_id ? resource_id : "";
     const char *a = action ? action : "";
     const char *c = (scope && scope[0]) ? scope : MEMO_ABSENT;
+    /*
+     * Since contract 1.51 one session can ask the same question of two
+     * tenants (§5.2 rule 1): the acting tenant, not just (subject, resource,
+     * action, scope), is part of what a check ANSWERS. Without it a memoized
+     * decision for tenant A would be served for tenant B within the TTL --
+     * the same class of defect §17.1 rule 9 already closes for a credential
+     * change, but a switched acting tenant is not a credential change and so
+     * does not clear the memo by itself. Absent (no acting tenant set) is its
+     * own distinct key component, exactly like an absent subject/scope above:
+     * it must never collide with a present tenant id, in either direction.
+     */
+    const char *t = (acting_tenant && acting_tenant[0]) ? acting_tenant : MEMO_ABSENT;
 
-    size_t n = strlen(s) + strlen(r) + strlen(a) + strlen(c) + 4;
+    size_t n = strlen(s) + strlen(r) + strlen(a) + strlen(c) + strlen(t) + 5;
     char *key = malloc(n);
     if (!key) return NULL;
-    snprintf(key, n, "%s" MEMO_SEP "%s" MEMO_SEP "%s" MEMO_SEP "%s", s, r, a, c);
+    snprintf(key, n, "%s" MEMO_SEP "%s" MEMO_SEP "%s" MEMO_SEP "%s" MEMO_SEP "%s",
+            s, r, a, c, t);
     return key;
 }
 

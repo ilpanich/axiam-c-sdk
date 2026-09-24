@@ -32,6 +32,7 @@
 #include <stddef.h>
 
 #include "axiam/management.h"
+#include "axiam/sensitive.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,14 +44,43 @@ extern "C" {
  * The order of these constants IS the order an apply runs them in — the dependency order
  * §27.6 requires be derived rather than written down by the caller. A role cannot be
  * granted a permission that does not exist yet, and a group cannot be assigned a role
- * that does not exist yet.
+ * that does not exist yet. AXIAM_MGMT_MANIFEST_SERVICE_ACCOUNT (contract 1.51, §27.6.1)
+ * sorts LAST because §27.6 rule 5's full order puts "service accounts" and their
+ * bindings after "groups" and group bindings; group role bindings are applied between
+ * the GROUP and SERVICE_ACCOUNT phases (see axiam_mgmt_apply()'s doc comment), and
+ * service-account role bindings after the SERVICE_ACCOUNT phase.
  */
 typedef enum axiam_mgmt_manifest_kind {
     AXIAM_MGMT_MANIFEST_RESOURCE = 0, /**< Hierarchical resource; parents before children. */
     AXIAM_MGMT_MANIFEST_PERMISSION,   /**< A permission (an action). Depends on nothing. */
     AXIAM_MGMT_MANIFEST_ROLE,         /**< A role. Depends on permissions. */
-    AXIAM_MGMT_MANIFEST_GROUP         /**< A group. Depends on roles. */
+    AXIAM_MGMT_MANIFEST_GROUP,        /**< A group. Depends on roles. */
+    AXIAM_MGMT_MANIFEST_SERVICE_ACCOUNT /**< A service account (contract 1.51, §27.6.1). */
 } axiam_mgmt_manifest_kind_t;
+
+/**
+ * One role-binding declaration inside a `groups[]` or `service_accounts[]` entity's
+ * `roles[]` list (CONTRACT.md §27.6.1 item 2). Every `roles[]` entry is one of two
+ * shapes on the wire: a bare role key (no resource, no inheritance question), or this
+ * object naming a resource scope and, only when `false`, `inherit`.
+ */
+typedef struct axiam_mgmt_role_binding {
+    const char *role_key;     /**< Manifest-local key of the role this binds. */
+    /**
+     * Manifest-local key of the resource this binding is scoped to, or NULL for the
+     * PLAIN shape (no resource, reaches wherever the role does).
+     */
+    const char *resource_key;
+    /**
+     * 1 sends `inherit: false` on the wire (server T22.11's non-inheritable
+     * assignment). 0 OMITS the `inherit` key entirely — CONTRACT.md §27.6.1 item 2 is
+     * explicit that an SDK MUST NOT send `inherit: true` explicitly, so that an
+     * inheritable binding's body stays byte-for-byte a pre-1.51 body. There is
+     * therefore no third state: a binding either asks to stop inheritance, or it says
+     * nothing about it.
+     */
+    int inherit_false;
+} axiam_mgmt_role_binding_t;
 
 /**
  * What a plan intends to do to one declared entity.
@@ -76,6 +106,22 @@ typedef struct axiam_mgmt_manifest_entity {
     const char *action;              /**< For a permission: the action it names. */
     int is_global;                   /**< For a role: whether it applies tenant-wide. */
     /**
+     * For a resource: its `metadata`, as a JSON OBJECT string (e.g. `"{}"` or
+     * `"{\"env\":\"prod\"}"`), or NULL when not stated (CONTRACT.md §27.6.1 item 1).
+     * Sent on Create and, when stated, on Update; drift is JSON value equality of the
+     * WHOLE object, with a stated `"{}"` equal to what the server returns for none —
+     * never a key-by-key merge.
+     */
+    const char *metadata_json;
+    /**
+     * For a group or service account: its role bindings (CONTRACT.md §27.6.1 item 2).
+     * NULL/0 declares no bindings for this subject — existing bindings on it are left
+     * alone either way (§27.6 rule 4: deletion is opt-in and this manifest form has
+     * none at all for bindings), never removed.
+     */
+    const axiam_mgmt_role_binding_t *roles;
+    size_t roles_count;
+    /**
      * Key of the entity this one must be applied after, beyond what `kind` already
      * orders — a parent resource, or a permission a role grants. NULL for none.
      *
@@ -98,33 +144,117 @@ typedef struct axiam_mgmt_planned_change {
 } axiam_mgmt_planned_change_t;
 
 /**
+ * What a plan intends to do to one declared role binding (CONTRACT.md §27.6.1).
+ *
+ * There is no DELETE here either. `AXIAM_MGMT_BINDING_UPDATE` is the ONE case §27.6.1
+ * gives a binding that is not create-or-leave-alone: the natural key is
+ * `(subject, role)`, and its resource/inherit are fields, so a binding whose resource
+ * or inherit flag differs from the server's is an UPDATE — applied as unassign then
+ * assign, never a PATCH (there is no update endpoint for an assignment).
+ */
+typedef enum axiam_mgmt_binding_action {
+    AXIAM_MGMT_BINDING_NOCHANGE = 0, /**< The server's assignment already matches. */
+    AXIAM_MGMT_BINDING_CREATE,       /**< No assignment of this role to this subject exists. */
+    AXIAM_MGMT_BINDING_UPDATE        /**< Exists but its resource/inherit differs: rebind. */
+} axiam_mgmt_binding_change_action_t;
+
+/**
+ * One entry in a plan: what would happen to one declared role binding.
+ *
+ * `old_resource_id`/`old_inherit`/`old_tenant_scope` are the SERVER's current
+ * assignment, captured at plan time, for an `AXIAM_MGMT_BINDING_UPDATE`: an apply
+ * that unassigns the old binding and then fails to assign the new one restores
+ * exactly this — CONTRACT.md §27.6.1's "if the assign fails, the SDK MUST attempt to
+ * assign the previous binding again (same resource, same inherit)", with
+ * `tenant_scope` carried across per the same rule. Meaningless (and NULL/0) for
+ * `AXIAM_MGMT_BINDING_CREATE` and `AXIAM_MGMT_BINDING_NOCHANGE`, since there is
+ * nothing to restore.
+ */
+typedef struct axiam_mgmt_planned_binding {
+    const axiam_mgmt_manifest_entity_t *subject; /**< The group or service_account entity. */
+    const axiam_mgmt_role_binding_t *binding;    /**< Which of `subject->roles[]`. */
+    axiam_mgmt_binding_change_action_t action;
+    char *old_resource_id;          /**< The server's CURRENT resource_id, or NULL (plain). */
+    int old_inherit;                /**< The server's CURRENT inherit, when old_resource_id set. */
+    char **old_tenant_scope;        /**< The server's CURRENT tenant_scope, or NULL. */
+    size_t old_tenant_scope_count;
+} axiam_mgmt_planned_binding_t;
+
+/**
  * What ::axiam_mgmt_plan produced: the ordered changes an apply would make.
  *
  * Includes the UNCHANGED entries as well, so a reader sees what was considered and not
- * only what moved.
+ * only what moved. `bindings` is a SEPARATE ordered list (role bindings are relationships
+ * between two entities, not entities themselves — see axiam_mgmt_apply()'s doc comment
+ * for exactly where each bindings entry runs relative to `changes`).
  */
 typedef struct axiam_mgmt_plan {
     axiam_mgmt_planned_change_t *changes; /**< Every declared entity, in apply order. */
     size_t count;                         /**< How many. */
     size_t pending;                        /**< How many would actually send a request. */
+    axiam_mgmt_planned_binding_t *bindings; /**< Every declared role binding, in apply order. */
+    size_t binding_count;
+    size_t binding_pending;                 /**< How many bindings would actually send a request. */
 } axiam_mgmt_plan_t;
 
 /** Free a plan and everything it owns. Safe to pass NULL. */
 void axiam_mgmt_plan_free(axiam_mgmt_plan_t *plan);
 
 /**
+ * The one-time secret an `apply`'s `Create` of one `service_accounts[]` entry
+ * returned (CONTRACT.md §27.5 rule 5). `key` is the entity's manifest-local key, so a
+ * caller matches it back to the spec it declared; `client_secret` is exactly what
+ * `service_accounts.create` returned, `Sensitive<T>` as always.
+ */
+typedef struct axiam_mgmt_created_secret {
+    char *key;                        /**< Manifest-local key of the service_accounts[] entry. */
+    axiam_sensitive_t *client_secret; /**< Returned ONCE; §27.5 rule 3. */
+} axiam_mgmt_created_secret_t;
+
+/**
  * What ::axiam_mgmt_apply actually did — including, when it stopped early, what it had
  * already done.
  *
- * This is the recovery tool. `applied` is how many changes landed, in order; `failed` is
- * the index of the one that did not (or -1); `remaining` is how many were never
- * attempted.
+ * This is the recovery tool. `applied` is how many entity changes landed, in order;
+ * `failed` is the index of the one that did not (or -1); `remaining` is how many were
+ * never attempted. `bindings_applied`/`failed_binding`/`bindings_remaining` are the
+ * same three, for the binding phase — entity changes and binding changes are reported
+ * separately because they are two different arrays in the plan (see
+ * axiam_mgmt_plan_t), not because they run at unrelated times; axiam_mgmt_apply()'s doc
+ * comment gives the exact interleaving.
+ *
+ * `created_secrets` is filled incrementally as each service-account `Create` lands —
+ * CONTRACT.md §27.5 rule 5's "the outcome MUST be returned even when a later action of
+ * the same apply fails": a caller reads it however apply() returns, success or not.
+ * Free with ::axiam_mgmt_apply_report_dispose.
  */
 typedef struct axiam_mgmt_apply_report {
-    size_t applied;   /**< How many changes landed. */
-    long failed;      /**< Index of the failing change, or -1 when none failed. */
-    size_t remaining; /**< How many were never attempted because of the failure. */
+    size_t applied;   /**< How many entity changes landed. */
+    long failed;      /**< Index into `changes` of the failing one, or -1 when none failed. */
+    size_t remaining; /**< How many entity changes were never attempted because of the failure. */
+
+    size_t bindings_applied;   /**< How many binding changes landed. */
+    long failed_binding;       /**< Index into `bindings` of the failing one, or -1. */
+    size_t bindings_remaining; /**< How many binding changes were never attempted. */
+    /**
+     * For an `AXIAM_MGMT_BINDING_UPDATE` whose ASSIGN half failed (the unassign
+     * having already landed): 1 once a restore of the previous binding was attempted,
+     * and, of those, 1 again if it succeeded. Both 0 when no rebind failed this way.
+     */
+    int restore_attempted;
+    int restore_succeeded;
+
+    axiam_mgmt_created_secret_t *created_secrets; /**< One per service-account Create. */
+    size_t created_secrets_count;
 } axiam_mgmt_apply_report_t;
+
+/**
+ * Release everything an apply report owns (the created-secrets list, each one
+ * Sensitive and zeroized on release). Does NOT reset the scalar fields — call this once
+ * you are done reading them. Safe to pass NULL, and safe on a report axiam_mgmt_apply()
+ * never touched (all-zero).
+ */
+void axiam_mgmt_apply_report_dispose(axiam_mgmt_apply_report_t *report);
 
 /**
  * Compute what an apply would do. Sends only reads (§27.6).
@@ -151,8 +281,18 @@ axiam_error_kind_t axiam_mgmt_plan(axiam_client_t *c,
  * the tenant's state NOW. A plan from an earlier run describes a tenant that may have
  * moved since, and applying it would either duplicate work or fail on a conflict.
  *
- * Returns AXIAM_OK only when every planned change landed; on a partial apply it returns
- * the failing kind AND fills `report`, which is what tells you where to resume.
+ * Ordering (CONTRACT.md §27.6 rule 5's full order, restricted to what this port's
+ * manifest covers): `resources` → `permissions` → `roles` → `groups` →
+ * `group role bindings` → `service_accounts` → `service-account role bindings`. Both
+ * binding phases run between the entity phases on either side of them — a group's
+ * bindings are applied once every declared group exists (so a binding naming a
+ * just-created group has an id to bind), and before any service account is created, and
+ * likewise for service-account bindings after every declared service account exists.
+ *
+ * Returns AXIAM_OK only when every planned change (entity AND binding) landed; on a
+ * partial apply it returns the failing kind AND fills `report`, which is what tells you
+ * where to resume — dispose it with ::axiam_mgmt_apply_report_dispose once you are done
+ * reading it, whether or not this call succeeded.
  *
  * @param c        The client. Must have an active session.
  * @param manifest The desired state.

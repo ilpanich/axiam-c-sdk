@@ -21,6 +21,22 @@ framework-agnostic route guard and declarative authorization helpers.
 > contract makes retry policy and deterministic shutdown MUST-level and says
 > they are not named, because an SDK is either conformant on them or it is not.
 > This one is.
+>
+> **Contract 1.51.** Two operations and one fix landed with this revision:
+> `axiam_authenticate_device()` (§6.1 rules 6–10 — this SDK's README used to
+> document `POST /api/v1/auth/device` while shipping no symbol that called it;
+> it now does) and the acting-tenant helper
+> (`axiam_client_config_set_acting_tenant()` / `axiam_client_set_acting_tenant()`,
+> §5.2 rule 1). Also **Breaking**: `axiam_jwt_verify()` / `axiam_jwt_verify_ex()`
+> — and so `axiam_require_auth()` — now refuse a `cnf`-bound token instead of
+> silently admitting it as a bearer token (§10.1 rule 9); see
+> [Sender-constrained tokens and DPoP](#sender-constrained-tokens-and-dpop-§101-rule-9-§2173).
+> The §27.6.1 manifest additions (`resources[].metadata`, the resource-scoped
+> role binding, `service_accounts`) are documented under
+> [Declarative manifests](#declarative-manifests-§276-§277), along with two
+> pre-existing manifest defects fixed in this revision: a nested resource's
+> `parent_id` now reaches the wire, and `resource_type` is refused rather than
+> silently defaulted to `"folder"` when a manifest leaves it unstated.
 
 > **§22 note, and it matters at integration time:** "conforms to … §22" is the claim; **"ships an AMQP client" is not**. The reactor *protocol* — verification, canonical signing, the registry, the runtime and the §22.14 binding table — is in the library. The *transport* is caller-supplied (§22.11): this SDK vendors no AMQP dependency, and you fill in two function pointers over whichever client you already trust.
 >
@@ -190,14 +206,39 @@ Strict server verification is **always on** and cannot be disabled — there is 
   axiam_client_config_set_custom_ca(cfg, ca_pem);   /* returns AXIAM_ERR_NETWORK on non-PEM */
   ```
 - **Client certificate (mTLS, §6.1).** Presents an X.509 identity for
-  service-account / IoT authentication (`POST /api/v1/auth/device`). Requires a
+  service-account / IoT authentication over `axiam_authenticate_device()`
+  (`POST /api/v1/auth/device`, §6.1 rules 6–10, contract 1.51). Requires a
   PEM certificate chain **and** a PEM private key. The key is held behind an
   opaque `axiam_sensitive_t` and never logged (§7); it is wired to libcurl as an
   in-memory blob (`CURLOPT_SSLCERT_BLOB` / `CURLOPT_SSLKEY_BLOB`) — no temp files.
   ```c
   axiam_client_config_set_client_cert(cfg, cert_pem, key_pem);
+
+  axiam_device_auth_result_t out;
+  axiam_error_t err;
+  if (axiam_authenticate_device(client, &out, &err) == AXIAM_OK) {
+      /* client is now signed in as the service account bound to this
+       * certificate; check_access(), batch_check() and the §27 management
+       * surface all carry the adopted token from here on. */
+      axiam_device_auth_result_dispose(&out);
+  }
   ```
-  Presenting a client certificate never relaxes server verification.
+  Presenting a client certificate never relaxes server verification. The call
+  is reachable only on a client built with a certificate — no certificate, no
+  wire call, `AXIAM_ERR_AUTH` client-side (rule 7). There is no refresh token
+  for the resulting session; a later `401` on it is `AXIAM_ERR_AUTH` with no
+  retry, and the caller recovers by calling `axiam_authenticate_device()`
+  again. The token is certificate-bound; see
+  [Sender-constrained tokens and DPoP](#sender-constrained-tokens-and-dpop-§101-rule-9-§2173)
+  below for how a resource server must verify it.
+
+  **Decline (§6.1 rule 7 as a typestate, C-1's precedent).** The contract lets
+  an SDK express "unreachable without a certificate" either as a client-side
+  runtime check or as a type the caller cannot even construct without one.
+  This SDK takes the client-side branch: making `axiam_client_t` generic (or
+  splitting it into a certificate-carrying and a non-carrying variant) for the
+  sake of one operation would touch every other call in the library. The rule
+  itself names the client-side `AuthError` as conforming.
 
 ### RFC 8705 §5 `mtls_endpoint_aliases` (contract 1.40, CONTRACT.md §21.3 rule 2)
 
@@ -987,7 +1028,23 @@ axiam_federation_provider_list_dispose(&list);
 
 A token carrying a `cnf` claim is **not** a bearer token: it names a key, and
 accepting it without proving the caller holds that key converts it straight
-back into one. ``axiam_jwt_verify_certificate_binding()`` applies §10.1 rule 9.
+back into one.
+
+**The DEFAULT verify entry points now refuse a `cnf`-bound token (contract
+1.51, Breaking).** `axiam_jwt_verify()` / `axiam_jwt_verify_ex()` — and so
+`axiam_require_auth()` and every `AXIAM_REQUIRE_*` macro, which call them —
+have no transport evidence to check a sender constraint against, and used to
+accept such a token anyway: a device token lifted off a device opened every
+guarded route. They now refuse it (`AXIAM_ERR_AUTH`), the same defect found
+and fixed in this port wave in the Rust, TypeScript, Go, Python, C# and Java
+SDKs. A resource server that DOES have the peer certificate calls
+`axiam_jwt_verify_with_evidence()` / `axiam_jwt_verify_ex_with_evidence()`
+instead, passing the connection's certificate thumbprint
+(`axiam_certificate_thumbprint_s256()` from `SSL_get_peer_certificate()` +
+`i2d_X509()` — never from a request header, which would make the mechanism
+decorative). `axiam_jwt_verify_certificate_binding()` remains the standalone
+building block both paths share, and is what to reach for when layering rule
+9 onto claims already verified some other way.
 
 **This SDK deliberately declines §21.7.2 DPoP proof verification** (recorded in
 the contract's §21.9 per-SDK table). Its role here is resource-server-side
@@ -1216,12 +1273,78 @@ can still fail at the provider.
 `axiam_login_result_t` gained `organization_level`. It is `1` when the account that just
 signed in is an **organization-level** principal — one whose record lives in its
 organization's reserved tenant, so its global grants apply in every tenant of that
-organization and it can act on a different one by sending a different `X-Tenant-ID` on the
-next request, with no re-login.
+organization and it can act on a different one by sending `X-Axiam-Tenant` on the
+next request (§5.2 rule 1, contract 1.51 — see the acting-tenant helper below), with no
+re-login.
 
 An ordinary tenant principal is a principal of exactly one tenant; the same header change
 produces a `403` for it. The flag is therefore what an application checks *before*
 offering a tenant switch, rather than discovering the answer from a failed request.
+
+#### The acting-tenant helper (§5.2 rule 1, contract 1.51)
+
+`X-Axiam-Tenant` is a **different header from `X-Tenant-ID`** (§5 rule 2, sent
+unconditionally on every request and never the acting-tenant switch). Construction-time
+form:
+
+```c
+axiam_error_t err;
+if (axiam_client_config_set_acting_tenant(cfg, other_tenant_uuid) != AXIAM_OK) {
+    /* not a UUID -- the server would silently drop it and act on the caller's own
+     * tenant instead, so this SDK refuses before any wire call. */
+}
+```
+
+On-client rebind, once signed in:
+
+```c
+if (axiam_client_set_acting_tenant(client, other_tenant_uuid, &err) == AXIAM_OK) {
+    /* every subsequent REST call this client makes carries X-Axiam-Tenant. */
+}
+axiam_client_clear_acting_tenant(client); /* back to none -- no header at all */
+```
+
+Gated on what THIS client knows, before any wire call: refused when a held login result
+is not `organization_level`, or when `reachable_tenant_ids` is present and does not name
+the tenant (§5.2.3 rule 4). A client holding no login result — a service account from
+`axiam_authenticate_device()`, or an injected token — sends the header as asked and lets
+the server's `403` decide.
+
+**Exactly which calls "hold a login result," and which don't.** The gate's "does this
+client have one" question is not answered per-*flow*, it is answered per-*response
+shape*: a call **records** it when the response body carries a `LoginUserInfo`-shaped
+`user` object, and **resets** it to unknown when the call establishes a session some
+other way. Recording: `axiam_login()`, `axiam_verify_mfa()`, `axiam_login_opaque()`, the
+MFA setup completion (`axiam_mfa_setup_confirm()`), and the WebAuthn *registration*
+(setup) completion (`axiam_webauthn_setup_register_finish()`) — all five parse a
+response of that same login shape. Resetting: the WebAuthn *authentication* ceremonies
+(`axiam_webauthn_authenticate_finish()` and the discoverable/passkey variant
+`axiam_webauthn_discoverable_finish()`, both via `axiam_client_adopt_session()`),
+`axiam_authenticate_device()` (§6.1), and all three SSO/federation completions
+(`axiam_sso_complete()`, `axiam_sso_complete_oauth2()`, `axiam_sso_complete_handoff()`)
+— none of these responses carries a `user` object at
+all (§12.1 note 6, §24.3), so each resets the gate to "unknown" rather than let a
+PREVIOUS session's `organization_level`/`reachable_tenant_ids` leak into a new one
+that never asserted anything about itself.
+
+This differs from the reference (Rust) SDK, which resets for OPAQUE and both setup
+completions too. The two choices read the same contract text two ways: Rust treats
+"was this call a ceremony completion" as the question: this SDK instead asks "did the
+response carry a `LoginUserInfo`" — and for OPAQUE and the setup completions, contract
+1.51's response shape answers yes. Both are conforming; this SDK's choice matches the
+TypeScript, Go, Python, C#, Java, Kotlin and PHP ports.
+
+**Design note.** Where the reference (Rust) SDK's on-client form returns a new handle
+sharing the underlying session, this SDK mutates the existing `axiam_client_t` in place,
+under the same lock that already guards its other mutable session state (the CSRF token,
+the resolved tenant/org ids). A caller running two tenants concurrently from one login
+constructs two `axiam_client_t` (`axiam_client_config_clone()` is cheap) rather than
+sharing one — the granularity every other piece of mutable per-request state in this SDK
+already uses.
+
+The §17 decision memo key (when the memo is enabled) includes the acting tenant: since
+one session can now ask the same authorization question of two tenants, a memoized
+decision for tenant A must not answer for tenant B within the TTL.
 
 It is **derived, never asserted** (§5.2 rule 2): resolved server-side from the caller's own
 tenant record, and never sent by this SDK. It is `0` when the login response omits it —
@@ -1568,8 +1691,22 @@ axiam_mgmt_plan_free(plan);
 - **Omission is never deletion.** There is no delete action in the enum at all, so an
   incomplete manifest cannot become a destructive one.
 
-An incoherent manifest — a dangling reference, a cycle, a duplicate key — is refused
-*before* the first request.
+An incoherent manifest — a dangling reference, a cycle, a duplicate key, one role bound
+twice to one subject, or `inherit: false` with no resource or on a role the manifest
+itself declares `is_global: true` — is refused *before* the first request.
+
+#### What this manifest covers, and what it declines (§27.10, flat-entity tier)
+
+| Kind | Covered | Notes |
+|---|---|---|
+| `resources` | yes, nested (`depends_on` names the parent, sent as `parent_id`) | `metadata` (contract 1.51, §27.6.1 item 1): JSON value equality of the whole object, never a key-by-key merge |
+| `permissions` | yes | |
+| `roles` | yes | |
+| `groups` | yes | `roles[]` bindings (contract 1.51, §27.6.1 item 2): both shapes — a bare role key, or `{role_key, resource_key, inherit_false}` |
+| `service_accounts` | yes (contract 1.51, §27.6.1 item 3) | reconciled by `name`; an ambiguous name fails `plan` before any write; `Create`'s one-time `client_secret` is on the apply report, never rotated |
+| role → permission grants | **no** | a tier gap this port did not close (§27.10's table; not one of the three defects C-10 was assigned) — a role's permissions are managed imperatively (`axiam_roles_grant_permission` / `_revoke_permission`) |
+| `users`, `scopes` | **no** | the flat-entity tier (§7.2 of the dogfooding remediation plan): deferred until a consumer needs them, same as PHP and Swift |
+| `webhooks` | **no** | §27.6 leaves it "listed and unspecified" for every SDK — a webhook's `secret` is caller-supplied, not minted, so nothing forbids adding it, but no consumer has asked |
 
 See `examples/management_basics.c`, `examples/management_manifest.c` and
 `examples/device_mtls_provisioning.c` — the last a full operator/device split that mints

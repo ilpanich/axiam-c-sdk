@@ -29,6 +29,7 @@ void axiam_client_config_free(axiam_client_config_t *cfg) {
     free(cfg->tenant_id);
     free(cfg->org_slug);
     free(cfg->org_id);
+    free(cfg->acting_tenant);
     free(cfg->custom_ca_pem);
     free(cfg->client_cert_pem);
     free(cfg->expected_issuer);
@@ -59,6 +60,29 @@ void axiam_client_config_set_org_slug(axiam_client_config_t *cfg, const char *v)
 }
 void axiam_client_config_set_org_id(axiam_client_config_t *cfg, const char *v) {
     if (cfg) set_str(&cfg->org_id, v);
+}
+
+/*
+ * CONTRACT.md §5.2 rule 1 (contract 1.51) — the acting-tenant helper,
+ * construction-time form. Refused client-side, before any wire call, when
+ * `tenant_id` is not a UUID: the server silently DROPS a value that does not
+ * parse and acts on the caller's own tenant instead, so a helper that forwarded
+ * a slug would report success about the wrong tenant.
+ *
+ * Meaningful only for an organization-level principal (documented, not
+ * enforced here — enforcing it at construction time is impossible: no login
+ * has happened yet). Passing NULL or "" clears it.
+ */
+axiam_error_kind_t axiam_client_config_set_acting_tenant(axiam_client_config_t *cfg,
+                                                         const char *tenant_id) {
+    if (!cfg) return AXIAM_ERR_NETWORK;
+    if (!tenant_id || !tenant_id[0]) {
+        set_str(&cfg->acting_tenant, NULL);
+        return AXIAM_OK;
+    }
+    if (!oidc_is_uuid(tenant_id)) return AXIAM_ERR_NETWORK;
+    set_str(&cfg->acting_tenant, tenant_id);
+    return AXIAM_OK;
 }
 
 /* §10.1 rules 5/6: optional local-verification expectations. Unset (NULL or an
@@ -255,6 +279,7 @@ axiam_client_config_t *axiam_client_config_clone(const axiam_client_config_t *sr
     c->tenant_id = axiam_strdup0(src->tenant_id);
     c->org_slug = axiam_strdup0(src->org_slug);
     c->org_id = axiam_strdup0(src->org_id);
+    c->acting_tenant = axiam_strdup0(src->acting_tenant);
     c->custom_ca_pem = axiam_strdup0(src->custom_ca_pem);
     c->client_cert_pem = axiam_strdup0(src->client_cert_pem);
     c->expected_issuer = axiam_strdup0(src->expected_issuer);

@@ -42,6 +42,10 @@ axiam_add_test(test_client_failing_transport test_client_failing_transport.c)
 axiam_add_test(test_authz test_authz.c)
 axiam_add_test(test_singleflight test_singleflight.c)
 axiam_add_test(test_refresh_org test_refresh_org.c)
+# CONTRACT.md §5.2 rule 1 (contract 1.51): the acting-tenant helper.
+axiam_add_test(test_acting_tenant test_acting_tenant.c)
+# CONTRACT.md §6.1 rules 6-10 (contract 1.51): the mTLS device login.
+axiam_add_test(test_device_auth test_device_auth.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
 axiam_add_test(test_webhook test_webhook.c)
 axiam_add_test(test_mcp test_mcp.c)
@@ -169,6 +173,14 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_guard_branches COMMAND test_guard_branches)
 
+add_executable(test_jwks_default_evidence test_jwks_default_evidence.c)
+target_include_directories(test_jwks_default_evidence PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_jwks_default_evidence PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_jwks_default_evidence PRIVATE --coverage)
+endif()
+add_test(NAME test_jwks_default_evidence COMMAND test_jwks_default_evidence)
+
 add_executable(test_jwks_branches test_jwks_branches.c)
 target_include_directories(test_jwks_branches PRIVATE ${AXIAM_TEST_INCLUDES})
 target_link_libraries(test_jwks_branches PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
@@ -217,6 +229,19 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_tls_server COMMAND test_tls_server ${AXIAM_PKI_DIR})
 set_tests_properties(test_tls_server PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
+
+# ---- CONTRACT.md §6.1 rule 6: the device login withholds a stale cookie, against
+# a real loopback TLS server and the real libcurl cookie engine (see the file's
+# header comment for why a fake transport cannot test this honestly). Same
+# raw-executable shape as test_tls_server for the same reason (argv[1] PKI dir).
+add_executable(test_device_auth_tls test_device_auth_tls.c)
+target_include_directories(test_device_auth_tls PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_device_auth_tls PRIVATE ${AXIAM_TEST_LINK})
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_device_auth_tls PRIVATE --coverage)
+endif()
+add_test(NAME test_device_auth_tls COMMAND test_device_auth_tls ${AXIAM_PKI_DIR})
+set_tests_properties(test_device_auth_tls PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
 
 # ---- §12 OIDC relying party, §12.7 logout, §14 device grant, §15 token
 # exchange (the contract-1.11 port; see CONTRACT.md §12.6).
@@ -334,7 +359,18 @@ axiam_add_test(test_management_semantics test_management_semantics.c management_
 # and splitting it across two binaries would hide that they are one rule.
 axiam_add_test(test_contract_135 test_contract_135.c management_test_util.c)
 axiam_add_test(test_management_manifest test_management_manifest.c management_test_util.c)
+# CONTRACT.md §27.6.1 (contract 1.51): the manifest additions -- metadata, the
+# resource-scoped role binding, and service_accounts.
+axiam_add_test(test_manifest_additions test_manifest_additions.c management_test_util.c)
+# §13 row 17 defect #2: resource_type silently defaulted to "folder".
+axiam_add_test(test_manifest_resource_type_defect test_manifest_resource_type_defect.c management_test_util.c)
+# §13 row 17 defect #1: a nested resource's parent_id was never sent.
+axiam_add_test(test_manifest_parent_id_defect test_manifest_parent_id_defect.c management_test_util.c)
 axiam_add_test(test_management_models_generated test_management_models_generated.c)
+# CONTRACT.md §27.13 (contract 1.51): the two generator defects the re-vendor exposed
+# (SubjectAltName's externally-tagged oneOf, and `inherit` defaulting true when absent
+# on both listing shapes), plus the open-decoding pin for CertificateType::Server.
+axiam_add_test(test_contract_151_models test_contract_151_models.c)
 # The §27 allocation-failure sweep. Same --wrap technique as test_alloc_failures above:
 # every generated operation's OOM guard is one-sided by construction, so this drives each
 # of the 147 call graphs with each of the first N allocations failed in turn.

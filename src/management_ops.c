@@ -224,6 +224,8 @@ axiam_mgmt_signed_audit_batch_t *axiam_mgmt_signed_audit_batch_parse(const cJSON
 cJSON *axiam_mgmt_signed_audit_batch_build(const axiam_mgmt_signed_audit_batch_t *value);
 axiam_mgmt_smtp_config_t *axiam_mgmt_smtp_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_smtp_config_build(const axiam_mgmt_smtp_config_t *value);
+axiam_mgmt_subject_alt_name_t *axiam_mgmt_subject_alt_name_parse(const cJSON *src);
+cJSON *axiam_mgmt_subject_alt_name_build(const axiam_mgmt_subject_alt_name_t *value);
 axiam_mgmt_tenant_t *axiam_mgmt_tenant_parse(const cJSON *src);
 cJSON *axiam_mgmt_tenant_build(const axiam_mgmt_tenant_t *value);
 axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse(const cJSON *src);

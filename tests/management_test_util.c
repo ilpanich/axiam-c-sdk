@@ -11,7 +11,11 @@ typedef struct {
     char *body;
 } canned_t;
 
-static canned_t g_queue[4];
+/* 128: large enough for a manifest test exercising several namespaces' list calls
+ * plus several create/assign/unassign calls in one plan()/apply() -- the §27.6.1
+ * additions (metadata, resource-scoped bindings, service accounts) need many more
+ * queued responses than the four-ish this rig originally sized for. */
+static canned_t g_queue[128];
 static size_t g_queued;
 static size_t g_served;
 

@@ -559,12 +559,12 @@ static void test_a_failure_is_never_memoized(void) {
 
 static void test_every_key_component_is_distinguished(void) {
     char *keys[6];
-    keys[0] = axiam_memo_key(NULL, "r1", "read", NULL);
-    keys[1] = axiam_memo_key("s1", "r1", "read", NULL);
-    keys[2] = axiam_memo_key(NULL, "r2", "read", NULL);
-    keys[3] = axiam_memo_key(NULL, "r1", "write", NULL);
-    keys[4] = axiam_memo_key(NULL, "r1", "read", "sc");
-    keys[5] = axiam_memo_key(NULL, "r1", "read", NULL);
+    keys[0] = axiam_memo_key(NULL, "r1", "read", NULL, NULL);
+    keys[1] = axiam_memo_key("s1", "r1", "read", NULL, NULL);
+    keys[2] = axiam_memo_key(NULL, "r2", "read", NULL, NULL);
+    keys[3] = axiam_memo_key(NULL, "r1", "write", NULL, NULL);
+    keys[4] = axiam_memo_key(NULL, "r1", "read", "sc", NULL);
+    keys[5] = axiam_memo_key(NULL, "r1", "read", NULL, NULL);
 
     for (int i = 0; i < 5; i++)
         for (int j = i + 1; j < 5; j++)
@@ -574,8 +574,8 @@ static void test_every_key_component_is_distinguished(void) {
     /* An absent scope must never collide with a present empty one: a memo that
      * let them collide would answer a narrower question with a broader
      * answer. */
-    char *absent = axiam_memo_key(NULL, "r1", "read", NULL);
-    char *empty = axiam_memo_key(NULL, "r1", "read", "");
+    char *absent = axiam_memo_key(NULL, "r1", "read", NULL, NULL);
+    char *empty = axiam_memo_key(NULL, "r1", "read", "", NULL);
     TEST_ASSERT_EQUAL_STRING(absent, empty); /* "" is absent, by construction */
     free(absent);
     free(empty);

@@ -7,6 +7,133 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- **Re-vendored contract 1.51** (`CONTRACT.md`, `openapi.json`,
+  `management-registry.json`; this SDK vendors no `proto/`). The §27 surface
+  regenerated: `CertificateType::Server`, `subject_alt_names` on the leaf
+  certificate requests, `server_cert_allowed_names` on the settings DTOs, and
+  `inherit` on the three role assign requests and every assignment listing.
+
+- **`axiam_authenticate_device()` — the mTLS device login (CONTRACT.md §6.1
+  rules 6–10).** Plan §1.8 / dogfooding finding DF-029: this README used to
+  document `POST /api/v1/auth/device` while shipping no symbol that called
+  it; it now does. One call, no body, reachable only on a client built with
+  `axiam_client_config_set_client_cert()` (client-side `AXIAM_ERR_AUTH`, zero
+  wire calls, otherwise). On success the token is adopted as this client's
+  credential exactly as `axiam_login()` adopts a cookie session, carried as
+  `Authorization: Bearer` on every subsequent call — with an explicit empty
+  `Cookie` header, so a stale cookie from an earlier bearer/cookie session on
+  the same client object never rides along underneath it. There is no
+  refresh token: a later `401` on this credential is `AXIAM_ERR_AUTH` with no
+  `§9` refresh attempt.
+
+- **The acting-tenant helper (CONTRACT.md §5.2 rule 1, SHOULD as of 1.51).**
+  `axiam_client_config_set_acting_tenant()` (construction-time) and
+  `axiam_client_set_acting_tenant()` / `axiam_client_clear_acting_tenant()`
+  (on-client). `X-Axiam-Tenant` — distinct from `X-Tenant-ID`, sent
+  unconditionally on every request regardless — is sent on every `/api/v1`
+  REST call exactly when set, absent byte-for-byte otherwise. The value is
+  checked as a UUID client-side before any wire call, and the on-client
+  setter is gated on what the client itself knows: refused, zero wire calls,
+  when a held login result is not `organization_level`, or names a tenant
+  outside `reachable_tenant_ids`. The §17 decision memo key gains the acting
+  tenant as a fifth component. Design note: unlike the reference (Rust) SDK's
+  per-call handle sharing one session, this SDK mutates the existing
+  `axiam_client_t` in place — the granularity every other piece of mutable
+  per-request state here already uses; see the README for the full
+  reasoning.
+
+- **`axiam_jwt_verify_with_evidence()` / `axiam_jwt_verify_ex_with_evidence()`
+  (CONTRACT.md §10.1 rule 9).** The accept-with-evidence counterparts of
+  `axiam_jwt_verify()` / `axiam_jwt_verify_ex()`, taking the peer
+  certificate's `x5t#S256` thumbprint as an explicit argument from the
+  caller's own TLS layer.
+
+- **Manifest additions (CONTRACT.md §27.6.1, contract 1.51).**
+  `resources[].metadata` (JSON value equality of the whole object on drift,
+  never a key-by-key merge); the two-shape role binding on `groups[]` and the
+  new `service_accounts[]` section (`{role_key}` or
+  `{role_key, resource_key, inherit_false}`), applied as unassign-then-assign
+  on a rebind, carrying the server's `tenant_scope` across and restoring the
+  previous binding if the reassign fails; `service_accounts`, reconciled by
+  `name` (an ambiguous name fails `plan` before any write), whose `Create`
+  outcome carries the one-time `client_secret` on the apply report even when
+  a later action of the same apply fails, and which `apply` never rotates to
+  reconcile. This port's manifest previously had no role bindings of any
+  kind (§27.10's table); group→role bindings are new, built as the substrate
+  for the scoped binding, additively reconciled for roles a manifest does
+  not name (never removed).
+
+### Fixed
+
+- **§13 row 17, defect #1: a nested resource's `parent_id` now reaches the
+  wire.** The manifest used to create a nested resource tree flat — the
+  parent was resolved from `depends_on` for ORDERING only, never sent on the
+  child's `Create`. `perform()` now resolves the parent's server id (existing,
+  or just created in the same apply) and sends it as `parent_id`.
+
+- **§13 row 17, defect #2: `resource_type` is stated, never silently
+  `"folder"`.** A resource entity with no `resource_type` is now refused by
+  `axiam_mgmt_manifest_validate()`, client-side, before any request, rather
+  than having the SDK invent a value CONTRACT.md never asked for.
+
+- **SSO/federation completions now adopt the session (C-12 question 5's
+  stale-principal case).** `axiam_sso_complete()`, `axiam_sso_complete_oauth2()`
+  and `axiam_sso_complete_handoff()` establish a new session through the
+  cookie jar exactly as a WebAuthn AUTHENTICATE ceremony does — neither
+  response carries a `user` object (§12.1 note 6) — but previously did none
+  of what that ceremony's completion does: `authenticated` was never set, so
+  a client whose ONLY session came from one of these three calls could not
+  make an authenticated call at all; and `principal_gate_known`,
+  `organization_level` and `reachable_tenant_ids` were left untouched, so a
+  login as a restricted organization-level principal followed by one of
+  these completions still refused `axiam_client_set_acting_tenant()`
+  client-side on the PREVIOUS principal's report. All three now call
+  `axiam_client_adopt_session()` on success, exactly as the WebAuthn
+  authentication path does: marks the client authenticated, drops any
+  device credential (mutual exclusivity), resolves tenant/org ids from the
+  Set-Cookie access token when present, and resets the acting-tenant gate to
+  "unknown." The §17 memo is now also dropped on intent, before the wire —
+  the same convention `axiam_login()` and the WebAuthn ceremonies already
+  use. A completion that itself fails (a `400`, or federation's terminal
+  `401`) leaves the gate exactly as it was.
+
+### Fixed (Breaking)
+
+- **`axiam_jwt_verify()` / `axiam_jwt_verify_ex()` now enforce CONTRACT.md
+  §10.1 rule 9.** These are the DEFAULT local-verification entry points —
+  `axiam_require_auth()` and every `AXIAM_REQUIRE_*` guard macro call them —
+  and they had no transport evidence to check a sender constraint (`cnf`)
+  against, so they silently accepted a certificate- or DPoP-bound token as an
+  ordinary bearer credential: a device token lifted off a device would have
+  opened every guarded route. They now REFUSE any `cnf`-bound token
+  (`AXIAM_ERR_AUTH`) — the same defect found and fixed in this port wave in
+  the Rust, TypeScript, Go, Python, C# and Java SDKs.
+
+  **Migration:** a resource server that locally verifies a certificate-bound
+  or DPoP-bound token through the default entry point and previously got
+  `AXIAM_OK` now gets `AXIAM_ERR_AUTH`. Record the peer certificate's
+  thumbprint from your TLS layer (`axiam_certificate_thumbprint_s256()`) and
+  call `axiam_jwt_verify_with_evidence()` / `axiam_jwt_verify_ex_with_evidence()`
+  instead. `axiam_jwt_verify_certificate_binding()`'s standalone behaviour is
+  unchanged.
+
+### Declined
+
+- **§6.1 rule 7 as a typestate.** The contract lets an SDK express
+  "`axiam_authenticate_device()` is unreachable without a certificate"
+  either as a runtime check or as a type the caller cannot construct without
+  one. This SDK takes the client-side branch (the rule itself names the
+  client-side `AuthError` as conforming) rather than making `axiam_client_t`
+  generic, or splitting it into certificate-carrying and non-carrying
+  variants, for the sake of one operation.
+- **`webhooks` in the manifest** (§27.6: "stays listed and unspecified" for
+  every SDK — unchanged by this revision).
+- **`users`, `scopes` in the manifest, and role → permission grants** — the
+  flat-entity tier (dogfooding remediation plan §7.2); deferred until a
+  consumer asks.
+
 ## [1.0.0-beta16] - 2026-09-19
 
 ### Added

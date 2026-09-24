@@ -776,6 +776,13 @@ axiam_error_kind_t axiam_sso_start(axiam_client_t *client,
  * caller who substituted a transport without cookie support loses the session
  * silently.
  *
+ * On success this adopts the session exactly as a WebAuthn AUTHENTICATE
+ * ceremony's completion does: marks the client authenticated, drops any
+ * device credential, and resets the §5.2 rule 1 acting-tenant gate to
+ * "unknown" — this response carries no `user` object at all, so a PREVIOUS
+ * session's `organization_level`/`reachable_tenant_ids` must not leak into
+ * this one. A failed completion leaves the gate untouched.
+ *
  * @param out Filled on success; dispose with axiam_sso_complete_result_dispose().
  */
 axiam_error_kind_t axiam_sso_complete(axiam_client_t *client,
@@ -847,6 +854,10 @@ axiam_error_kind_t axiam_sso_start_oauth2(axiam_client_t *client,
  * recovers the whole context from the single-use `state`, so no tenant or org
  * argument is needed.
  *
+ * On success this adopts the session exactly as axiam_sso_complete() does —
+ * see its doc comment for the acting-tenant gate reset this response's
+ * missing `user` object requires.
+ *
  * @param out Filled on success; dispose with axiam_sso_complete_result_dispose().
  */
 axiam_error_kind_t axiam_sso_complete_oauth2(axiam_client_t *client,
@@ -870,6 +881,10 @@ axiam_error_kind_t axiam_sso_complete_oauth2(axiam_client_t *client,
  * — so a `401` here is TERMINAL: the code is gone either way, and this SDK
  * issues the redemption exactly once and never retries it. Redeem from the same
  * origin the code was delivered to.
+ *
+ * On success this adopts the session exactly as axiam_sso_complete() does —
+ * see its doc comment for the acting-tenant gate reset this response's
+ * missing `user` object requires. A terminal `401` leaves the gate untouched.
  *
  * @param out Filled on success; dispose with axiam_sso_complete_result_dispose().
  */

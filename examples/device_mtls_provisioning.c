@@ -190,15 +190,32 @@ int main(void) {
     axiam_client_config_free(dcfg);
     if (!device) { fprintf(stderr, "device client: %s\n", err.message); return 1; }
 
-    /* No login: the TLS handshake IS the authentication. What the device may do from
-     * here is whatever its service account was granted. */
+    /*
+     * §6.1 rules 6-10 (contract 1.51): the TLS handshake proves the certificate: it does
+     * NOT by itself hand the device a usable session. axiam_authenticate_device() is the
+     * one call that turns "I presented this certificate" into a token -- POST
+     * /api/v1/auth/device, no body. It is reachable only because dcfg was built with a
+     * certificate (rule 7); on a client with none this call would fail client-side with
+     * ZERO wire calls rather than reach the server only to be told 401.
+     */
+    axiam_device_auth_result_t device_login;
+    if (axiam_authenticate_device(device, &device_login, &err) != AXIAM_OK) {
+        fprintf(stderr, "device login failed: %s\n", err.message);
+        axiam_client_free(device);
+        return 1;
+    }
+    /* The token is now adopted as this client's credential -- every subsequent call
+     * carries it. There is no refresh token: a later 401 means calling
+     * axiam_authenticate_device() again, not retrying. */
+    axiam_device_auth_result_dispose(&device_login);
+
     axiam_check_result_t decision;
     if (axiam_check_access(device, "telemetry:publish",
                            env_or("AXIAM_RESOURCE_ID", serial), NULL, NULL,
                            &decision, &err) == AXIAM_OK) {
         printf("device may publish telemetry: %s\n", decision.allowed ? "yes" : "no");
     } else {
-        fprintf(stderr, "device authentication failed: %s\n", err.message);
+        fprintf(stderr, "device check_access failed: %s\n", err.message);
     }
 
     axiam_client_free(device);
