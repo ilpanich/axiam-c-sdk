@@ -294,6 +294,27 @@ struct axiam_client {
     char **reachable_tenant_ids;        /* valid only when principal_gate_known; NULL = unrestricted */
     size_t reachable_tenant_ids_count;
 
+    /*
+     * CONTRACT.md §6.1 rules 6-10 (contract 1.51) — the mTLS device login's
+     * access token, adopted as this client's credential exactly as
+     * axiam_login() adopts a cookie session. Unlike that session there is no
+     * cookie at all: every subsequent request carries it as an explicit
+     * `Authorization: Bearer` header (built in build_headers()), with an
+     * explicit empty `Cookie` header so a stale cookie from an earlier
+     * bearer/cookie session on this same client object never rides along
+     * underneath it (rule 6). NULL when this client holds no device
+     * credential. Guarded by state_mtx.
+     */
+    axiam_sensitive_t *device_access_token;
+    /*
+     * 1 when the CURRENT credential came from axiam_authenticate_device().
+     * There is no refresh token for it (rule 6), so the §9 single-flight
+     * guard must never be entered for a 401 on this credential — a later 401
+     * is AuthError, full stop, and the caller recovers by calling
+     * axiam_authenticate_device() again. Guarded by state_mtx.
+     */
+    int device_session;
+
     /* single-flight refresh (§9) */
     pthread_mutex_t refresh_mtx;
     pthread_cond_t refresh_cond;

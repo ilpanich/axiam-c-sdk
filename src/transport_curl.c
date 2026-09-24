@@ -176,8 +176,31 @@ int axiam_curl_transport(void *vctx, const axiam_http_request_t *req,
         }
     }
 
+    /*
+     * §6.1 rule 6's withheld cookie. Tried and REJECTED: adding an empty
+     * "Cookie:" line via CURLOPT_HTTPHEADER. libcurl's documented
+     * "a header with no content suppresses the one libcurl would generate"
+     * convention does NOT reach the cookie engine's Cookie header in
+     * practice (confirmed against this build's libcurl with CURLOPT_VERBOSE:
+     * the engine's Cookie header and a custom empty one are both candidates
+     * for the SAME check, `Curl_checkheaders`, and empirically neither
+     * suppresses the other here) -- so build_headers() signals the intent
+     * with an empty "Cookie" entry in req->headers, and THIS function is
+     * what actually withholds it: snapshot every stored cookie
+     * (CURLINFO_COOKIELIST), clear the in-memory jar for the DURATION of
+     * this one request (CURLOPT_COOKIELIST "ALL"), perform it, then restore
+     * every entry so no later request on this handle is affected. The
+     * signal header itself is never forwarded to curl_slist -- a literal
+     * "Cookie:" line on the wire asks for nothing this mechanism does not
+     * already provide.
+     */
+    int withhold_cookies = 0;
     struct curl_slist *hdrs = NULL;
     for (const axiam_kv_t *kv = req->headers; kv; kv = kv->next) {
+        if (strcasecmp(kv->key, "Cookie") == 0 && kv->value[0] == '\0') {
+            withhold_cookies = 1;
+            continue;
+        }
         size_t n = strlen(kv->key) + 2 + strlen(kv->value) + 1;
         char *line = malloc(n);
         if (!line) continue;
@@ -188,7 +211,19 @@ int axiam_curl_transport(void *vctx, const axiam_http_request_t *req,
     }
     if (hdrs) curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
 
+    struct curl_slist *saved_cookies = NULL;
+    if (withhold_cookies) {
+        curl_easy_getinfo(c, CURLINFO_COOKIELIST, &saved_cookies);
+        curl_easy_setopt(c, CURLOPT_COOKIELIST, "ALL");
+    }
+
     CURLcode rc = curl_easy_perform(c);
+
+    if (withhold_cookies) {
+        for (struct curl_slist *p = saved_cookies; p; p = p->next)
+            curl_easy_setopt(c, CURLOPT_COOKIELIST, p->data);
+        curl_slist_free_all(saved_cookies);
+    }
 
     int ret = 0;
     if (rc != CURLE_OK) {

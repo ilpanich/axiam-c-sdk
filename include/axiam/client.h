@@ -95,6 +95,60 @@ axiam_error_kind_t axiam_client_set_acting_tenant(axiam_client_t *client,
 void axiam_client_clear_acting_tenant(axiam_client_t *client);
 
 /* ------------------------------------------------------------------ */
+/* §6.1 rules 6-10 — the mTLS device login                            */
+/* ------------------------------------------------------------------ */
+
+/** Result of axiam_authenticate_device(). Free with
+ *  axiam_device_auth_result_dispose(). */
+typedef struct axiam_device_auth_result {
+    /** The Sensitive access token (§7). NULL unless AXIAM_OK was returned. */
+    axiam_sensitive_t *access_token;
+    /** Always `"Bearer"` on success — §6.1 rule 9: stays `"Bearer"` whether
+     *  or not the token is certificate-bound; never infer boundness from it. */
+    char *token_type;
+    /** Access-token lifetime in seconds (default 900 server-side). */
+    long expires_in;
+} axiam_device_auth_result_t;
+
+/** Release the members of an axiam_device_auth_result_t. Safe on NULL. */
+void axiam_device_auth_result_dispose(axiam_device_auth_result_t *r);
+
+/**
+ * `POST /api/v1/auth/device` — authenticate via the client certificate
+ * presented for mutual TLS (CONTRACT.md §6.1 rules 6-10). No request body.
+ *
+ * Reachable ONLY on a client built with
+ * axiam_client_config_set_client_cert(): without one this call fails
+ * client-side with AXIAM_ERR_AUTH and issues NO wire request at all (rule 7)
+ * — the server would answer 401 in any case, so going to the wire would only
+ * turn a configuration mistake into an authentication failure.
+ *
+ * On success (AXIAM_OK) the token is adopted as this client's credential,
+ * exactly as axiam_login() adopts a cookie session: every subsequent
+ * authenticated call this client makes (axiam_check_access(),
+ * axiam_batch_check(), the §27 management surface) carries it as an
+ * `Authorization: Bearer` header, with NO cookie riding along even if an
+ * earlier bearer/cookie session on this same client object left one behind.
+ *
+ * There is NO refresh token (rule 6): a later `401` on this credential is
+ * surfaced as AXIAM_ERR_AUTH directly, with no §9 refresh attempt — the
+ * caller recovers by calling axiam_authenticate_device() again, which costs
+ * one TLS handshake. Every refusal from the login call itself is likewise a
+ * `401` mapped to AXIAM_ERR_AUTH (rule 8); the route's own per-client-IP rate
+ * limit (`429`) is NOT an authentication failure and is not retried.
+ *
+ * The token is a service-account token (`aud: "axiam:m2m"`, rule 10) and, per
+ * CONTRACT.md §10.1 rule 9, is certificate-bound when AXIAM itself terminated
+ * the TLS handshake: a resource server that locally verifies it MUST NOT
+ * accept it as a bearer token without checking `cnf` against the peer
+ * certificate (axiam/jwks.h's axiam_jwt_verify_certificate_binding() /
+ * axiam_jwt_verify_with_evidence()).
+ */
+axiam_error_kind_t axiam_authenticate_device(axiam_client_t *client,
+                                             axiam_device_auth_result_t *out,
+                                             axiam_error_t *err);
+
+/* ------------------------------------------------------------------ */
 /* Auth                                                               */
 /* ------------------------------------------------------------------ */
 

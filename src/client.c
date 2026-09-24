@@ -134,6 +134,11 @@ void axiam_client_close(axiam_client_t *client) {
         free(client->csrf_token);
         client->csrf_token = NULL;
     }
+    /* §7 / §18.1 rule 3: the device credential is secret material and goes
+     * with the other handles -- axiam_sensitive_free() zeroizes it. */
+    axiam_sensitive_free(client->device_access_token);
+    client->device_access_token = NULL;
+    client->device_session = 0;
     pthread_mutex_unlock(&client->state_mtx);
 
     /* NO REQUEST IS ISSUED HERE (§18.1 rule 5). The server-side session
@@ -260,6 +265,29 @@ static axiam_kv_t *build_headers(axiam_client_t *c, int state_changing, int has_
     char *acting = current_acting_tenant(c);
     if (acting) h = axiam_kv_append(h, "X-Axiam-Tenant", acting);
     free(acting);
+    /* §6.1 rule 6: a device credential rides as an explicit bearer header, never
+     * the cookie jar -- and travels with an EXPLICIT EMPTY Cookie header, which
+     * axiam_curl_transport() reads as a signal to withhold the whole jar for
+     * this one request (snapshot, clear, perform, restore -- see that
+     * function's comment for why a plain empty-header line does not, on its
+     * own, suppress libcurl's cookie-engine header). A caller-supplied
+     * transport that has no cookie jar at all can ignore an empty Cookie
+     * entry with no ill effect: this header exists to name the intent
+     * (§6.1 rule 6), not to demand a literal wire byte. */
+    pthread_mutex_lock(&c->state_mtx);
+    char *bearer = c->device_access_token
+                       ? axiam_strdup0(axiam_sensitive_reveal(c->device_access_token))
+                       : NULL;
+    pthread_mutex_unlock(&c->state_mtx);
+    if (bearer) {
+        char value[2048];
+        snprintf(value, sizeof(value), "Bearer %s", bearer);
+        h = axiam_kv_append(h, "Authorization", value);
+        h = axiam_kv_append(h, "Cookie", "");
+        axiam_secure_zero(bearer, strlen(bearer));
+        axiam_secure_zero(value, sizeof(value));
+        free(bearer);
+    }
     if (has_body) h = axiam_kv_append(h, "Content-Type", "application/json");
     h = axiam_kv_append(h, "Accept", "application/json");
     /* §3: echo captured CSRF token on state-changing methods. */
@@ -728,6 +756,13 @@ static axiam_error_kind_t parse_login_like(axiam_client_t *c, axiam_http_respons
         }
         pthread_mutex_lock(&c->state_mtx);
         c->authenticated = 1;
+        /* §6.1: a cookie-based session (this one) replaces any device
+         * credential this client object held -- the two credentials must
+         * never both be attached to a request at once, and build_headers()'s
+         * bearer block is keyed on device_access_token being non-NULL alone. */
+        axiam_sensitive_free(c->device_access_token);
+        c->device_access_token = NULL;
+        c->device_session = 0;
         pthread_mutex_unlock(&c->state_mtx);
         /* D-14: the login body carries tenant_id/org_slug but not org_id —
          * recover both UUIDs from the access-token cookie for refresh(). */
@@ -761,6 +796,9 @@ void axiam_client_adopt_session(axiam_client_t *c, axiam_http_response_t *resp) 
     if (!c) return;
     pthread_mutex_lock(&c->state_mtx);
     c->authenticated = 1;
+    axiam_sensitive_free(c->device_access_token);
+    c->device_access_token = NULL;
+    c->device_session = 0;
     pthread_mutex_unlock(&c->state_mtx);
     if (resp) resolve_ids_from_login(c, resp);
     /* §5.2 rule 1's gate: this call completes a new session (a §24.3 ceremony
@@ -1303,6 +1341,173 @@ void axiam_client_clear_acting_tenant(axiam_client_t *client) {
 }
 
 /* ------------------------------------------------------------------ */
+/* §6.1 rules 6-10 — the mTLS device login                            */
+/* ------------------------------------------------------------------ */
+
+void axiam_device_auth_result_dispose(axiam_device_auth_result_t *r) {
+    if (!r) return;
+    axiam_sensitive_free(r->access_token); /* §7: zeroized on release */
+    r->access_token = NULL;
+    free(r->token_type);
+    r->token_type = NULL;
+    r->expires_in = 0;
+}
+
+/*
+ * §6.1 rule 6: this call happens BEFORE any credential is adopted, so it must
+ * not carry a PRIOR bearer/cookie session along -- the whole point of the
+ * device login is that identity comes from the TLS handshake, nothing else.
+ * An explicit empty Cookie header withholds the cookie jar (see
+ * axiam_curl_transport()'s snapshot/clear/restore); no Authorization header is
+ * sent even when a PREVIOUS device login left one, since build_headers()'s
+ * bearer block reads the client's CURRENT device_access_token, which this
+ * call has not yet replaced.
+ */
+static int device_login_transport(axiam_client_t *c, axiam_http_response_t *resp) {
+    memset(resp, 0, sizeof(*resp));
+    char *url = build_url(c, "/api/v1/auth/device");
+    if (!url) return -1;
+
+    axiam_kv_t *headers = NULL;
+    headers = axiam_kv_append(headers, "X-Tenant-ID", tenant_header_value(c));
+    char *acting = current_acting_tenant(c);
+    if (acting) headers = axiam_kv_append(headers, "X-Axiam-Tenant", acting);
+    free(acting);
+    headers = axiam_kv_append(headers, "Accept", "application/json");
+    headers = axiam_kv_append(headers, "Cookie", ""); /* withhold any stale cookie */
+
+    axiam_http_request_t req = {0};
+    req.method = "POST";
+    req.url = url;
+    req.headers = headers;
+    req.body = NULL;
+    req.body_len = 0;
+
+    int rc = c->transport(c->transport_ctx, &req, resp);
+    axiam_kv_free(headers);
+    free(url);
+    return rc;
+}
+
+axiam_error_kind_t axiam_authenticate_device(axiam_client_t *client,
+                                             axiam_device_auth_result_t *out,
+                                             axiam_error_t *err) {
+    axiam_error_reset(err);
+    if (out) memset(out, 0, sizeof(*out));
+    if (!client) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (client_is_closed(client)) return closed_error(err);
+
+    /*
+     * §6.1 rule 7: reachable only on a client configured with a certificate.
+     * Without one the server would answer 401 in any case, so going to the
+     * wire gains nothing and turns a configuration mistake into an
+     * authentication failure -- refused client-side, ZERO wire calls.
+     * client_cert_pem is set only at construction (axiam_client_config_set_
+     * client_cert()) and never mutated after, so no lock is needed to read it.
+     */
+    if (!client->cfg->client_cert_pem || !client->cfg->client_cert_pem[0]) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "axiam_authenticate_device: this client was not "
+                        "configured with a client certificate (CONTRACT.md "
+                        "\xc2\xa7""6.1 rule 7) -- call "
+                        "axiam_client_config_set_client_cert() first");
+        return AXIAM_ERR_AUTH;
+    }
+
+    axiam_http_response_t resp;
+    int rc = device_login_transport(client, &resp);
+    if (rc != 0 || resp.status == 0) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
+                        resp.transport_msg ? resp.transport_msg : "network failure");
+        axiam_http_response_dispose(&resp);
+        return AXIAM_ERR_NETWORK;
+    }
+
+    if (resp.status != 200) {
+        /*
+         * §6.1 rule 8: every refusal is a 401 -- unknown, untrusted, expired,
+         * revoked or unbound certificate, and a Server-type certificate, all
+         * alike -- mapped to AuthError. This IS the login: no §9 refresh
+         * guard is entered for it, whatever the status. A 429 (the route's
+         * per-client-IP rate limit) is answered by the ordinary §2 status
+         * mapping, which puts it under AXIAM_ERR_NETWORK rather than
+         * AXIAM_ERR_AUTH -- it is not an authentication failure, and this
+         * one-shot call retries nothing (§16.2: this route is not GET-shaped
+         * retry-eligible, and rule 8 does not ask for one).
+         */
+        axiam_error_kind_t kind = axiam_error_kind_from_http_status(resp.status);
+        if (resp.status == 401 && kind == AXIAM_OK) kind = AXIAM_ERR_AUTH;
+        axiam_error_set(err, kind, resp.status,
+                        "device authentication failed (CONTRACT.md \xc2\xa7""6.1 rule 8)");
+        axiam_http_response_dispose(&resp);
+        return kind;
+    }
+
+    cJSON *root = resp.body ? cJSON_Parse(resp.body) : NULL;
+    if (!root) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, resp.status,
+                        "axiam_authenticate_device: response body is not a JSON object");
+        axiam_http_response_dispose(&resp);
+        return AXIAM_ERR_NETWORK;
+    }
+
+    axiam_sensitive_t *access_token = json_dup_sensitive(root, "access_token");
+    char *token_type = json_dup_str(root, "token_type");
+    long expires_in = json_get_long(root, "expires_in");
+    cJSON_Delete(root);
+    axiam_http_response_dispose(&resp);
+
+    if (!access_token) {
+        free(token_type);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 200,
+                        "axiam_authenticate_device: response carried no access_token");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    /*
+     * §6.1 rule 6: adopt the token as this client's credential exactly as
+     * axiam_login() adopts one -- every subsequent authenticated call this
+     * client makes (check_access, the §27 management surface) now carries
+     * it, through build_headers()'s bearer block.
+     */
+    pthread_mutex_lock(&client->state_mtx);
+    axiam_sensitive_free(client->device_access_token);
+    client->device_access_token = access_token;
+    client->device_session = 1;
+    client->authenticated = 1;
+    pthread_mutex_unlock(&client->state_mtx);
+
+    /* §17.1 rule 9: a credential change clears the memo -- entries are keyed
+     * by subject, and this is a different one. */
+    axiam_memo_clear(&client->memo);
+    /*
+     * §5.2 rule 1's gate: this response carries no `user` object at all (it
+     * is `{ access_token, token_type, expires_in }` only), so the gate goes
+     * to "unknown" -- never a guessed organization_level=false, and never a
+     * PREVIOUS session's true leaking into this one. A device token IS a
+     * service-account token (§6.1 rule 10); an organization-level service
+     * account is a supported design, and this client simply does not know
+     * whether this one is -- the acting-tenant setter sends the header as
+     * asked and lets the server's 403 decide, per that rule's own clause.
+     */
+    update_principal_gate(client, NULL);
+
+    if (out) {
+        out->access_token = client->device_access_token
+                                 ? axiam_sensitive_new(axiam_sensitive_reveal(client->device_access_token))
+                                 : NULL;
+        out->token_type = token_type;
+        out->expires_in = expires_in;
+    } else {
+        free(token_type);
+    }
+    return AXIAM_OK;
+}
+
+/* ------------------------------------------------------------------ */
 /* Authorization operations                                           */
 /* ------------------------------------------------------------------ */
 
@@ -1408,11 +1613,16 @@ static axiam_error_kind_t authz_post(axiam_client_t *client, const char *path,
      * one §16 budget, per logical call — so the post-refresh attempt below is
      * exactly one attempt, numbered after the ones already spent. */
     if (resp.status == 401) {
-        int authed;
+        int authed, device_session;
         pthread_mutex_lock(&client->state_mtx);
         authed = client->authenticated;
+        device_session = client->device_session;
         pthread_mutex_unlock(&client->state_mtx);
-        if (authed) {
+        /* §6.1 rule 6: a device credential has no refresh token. A 401 on it
+         * is AuthError, full stop -- entering the §9 guard would call
+         * POST /auth/refresh for a session that was never established that
+         * way, spending a wire call to be told the same thing again. */
+        if (authed && !device_session) {
             axiam_http_response_dispose(&resp);
             axiam_error_kind_t rk = single_flight_refresh(client, err);
             if (rk != AXIAM_OK) return rk; /* no retry loop */

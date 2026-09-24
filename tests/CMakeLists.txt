@@ -44,6 +44,8 @@ axiam_add_test(test_singleflight test_singleflight.c)
 axiam_add_test(test_refresh_org test_refresh_org.c)
 # CONTRACT.md §5.2 rule 1 (contract 1.51): the acting-tenant helper.
 axiam_add_test(test_acting_tenant test_acting_tenant.c)
+# CONTRACT.md §6.1 rules 6-10 (contract 1.51): the mTLS device login.
+axiam_add_test(test_device_auth test_device_auth.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
 axiam_add_test(test_webhook test_webhook.c)
 axiam_add_test(test_mcp test_mcp.c)
@@ -219,6 +221,19 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_tls_server COMMAND test_tls_server ${AXIAM_PKI_DIR})
 set_tests_properties(test_tls_server PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
+
+# ---- CONTRACT.md §6.1 rule 6: the device login withholds a stale cookie, against
+# a real loopback TLS server and the real libcurl cookie engine (see the file's
+# header comment for why a fake transport cannot test this honestly). Same
+# raw-executable shape as test_tls_server for the same reason (argv[1] PKI dir).
+add_executable(test_device_auth_tls test_device_auth_tls.c)
+target_include_directories(test_device_auth_tls PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_device_auth_tls PRIVATE ${AXIAM_TEST_LINK})
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_device_auth_tls PRIVATE --coverage)
+endif()
+add_test(NAME test_device_auth_tls COMMAND test_device_auth_tls ${AXIAM_PKI_DIR})
+set_tests_properties(test_device_auth_tls PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
 
 # ---- §12 OIDC relying party, §12.7 logout, §14 device grant, §15 token
 # exchange (the contract-1.11 port; see CONTRACT.md §12.6).
