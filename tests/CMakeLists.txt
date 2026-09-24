@@ -335,6 +335,10 @@ axiam_add_test(test_management_semantics test_management_semantics.c management_
 axiam_add_test(test_contract_135 test_contract_135.c management_test_util.c)
 axiam_add_test(test_management_manifest test_management_manifest.c management_test_util.c)
 axiam_add_test(test_management_models_generated test_management_models_generated.c)
+# CONTRACT.md §27.13 (contract 1.51): the two generator defects the re-vendor exposed
+# (SubjectAltName's externally-tagged oneOf, and `inherit` defaulting true when absent
+# on both listing shapes), plus the open-decoding pin for CertificateType::Server.
+axiam_add_test(test_contract_151_models test_contract_151_models.c)
 # The §27 allocation-failure sweep. Same --wrap technique as test_alloc_failures above:
 # every generated operation's OOM guard is one-sided by construction, so this drives each
 # of the 147 call graphs with each of the first N allocations failed in turn.

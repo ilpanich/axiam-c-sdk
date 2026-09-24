@@ -165,6 +165,7 @@ int axiam_mgmt_certificate_type_from_wire(const char *value, axiam_mgmt_certific
     if (strcmp(value, "User") == 0) { *out = AXIAM_MGMT_CERTIFICATE_TYPE_USER; return 0; }
     if (strcmp(value, "Service") == 0) { *out = AXIAM_MGMT_CERTIFICATE_TYPE_SERVICE; return 0; }
     if (strcmp(value, "Device") == 0) { *out = AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE; return 0; }
+    if (strcmp(value, "Server") == 0) { *out = AXIAM_MGMT_CERTIFICATE_TYPE_SERVER; return 0; }
     /*
      * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
      * would make the caller drop the whole record over one field it did not ask about. It
@@ -180,6 +181,7 @@ const char *axiam_mgmt_certificate_type_to_wire(axiam_mgmt_certificate_type_t va
         case AXIAM_MGMT_CERTIFICATE_TYPE_USER: return "User";
         case AXIAM_MGMT_CERTIFICATE_TYPE_SERVICE: return "Service";
         case AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE: return "Device";
+        case AXIAM_MGMT_CERTIFICATE_TYPE_SERVER: return "Server";
         /*
          * The empty string, which no server value is: an unrecognised value carried back
          * into an update is refused by the server rather than written as a spelling it
@@ -991,6 +993,8 @@ axiam_mgmt_signed_audit_batch_t *axiam_mgmt_signed_audit_batch_parse(const cJSON
 cJSON *axiam_mgmt_signed_audit_batch_build(const axiam_mgmt_signed_audit_batch_t *value);
 axiam_mgmt_smtp_config_t *axiam_mgmt_smtp_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_smtp_config_build(const axiam_mgmt_smtp_config_t *value);
+axiam_mgmt_subject_alt_name_t *axiam_mgmt_subject_alt_name_parse(const cJSON *src);
+cJSON *axiam_mgmt_subject_alt_name_build(const axiam_mgmt_subject_alt_name_t *value);
 axiam_mgmt_tenant_t *axiam_mgmt_tenant_parse(const cJSON *src);
 cJSON *axiam_mgmt_tenant_build(const axiam_mgmt_tenant_t *value);
 axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse(const cJSON *src);
@@ -1138,6 +1142,9 @@ axiam_mgmt_assign_role_to_group_request_t *axiam_mgmt_assign_role_to_group_reque
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "group_id");
     if (cJSON_IsString(item)) out->group_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "inherit");
+    out->inherit = cJSON_IsBool(item) ? (cJSON_IsTrue(item) ? 1 : 0) : 1;
+    out->has_inherit = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
@@ -1162,6 +1169,9 @@ cJSON *axiam_mgmt_assign_role_to_group_request_build(const axiam_mgmt_assign_rol
     if (!obj) return NULL;
     if (value->group_id) {
         cJSON_AddStringToObject(obj, "group_id", value->group_id);
+    }
+    if (value->has_inherit) {
+        cJSON_AddBoolToObject(obj, "inherit", value->inherit);
     }
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
@@ -1191,6 +1201,9 @@ axiam_mgmt_assign_role_to_service_account_request_t *axiam_mgmt_assign_role_to_s
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "inherit");
+    out->inherit = cJSON_IsBool(item) ? (cJSON_IsTrue(item) ? 1 : 0) : 1;
+    out->has_inherit = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "service_account_id");
@@ -1215,6 +1228,9 @@ cJSON *axiam_mgmt_assign_role_to_service_account_request_build(const axiam_mgmt_
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_inherit) {
+        cJSON_AddBoolToObject(obj, "inherit", value->inherit);
+    }
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
     }
@@ -1246,6 +1262,9 @@ axiam_mgmt_assign_role_to_user_request_t *axiam_mgmt_assign_role_to_user_request
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "inherit");
+    out->inherit = cJSON_IsBool(item) ? (cJSON_IsTrue(item) ? 1 : 0) : 1;
+    out->has_inherit = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
@@ -1270,6 +1289,9 @@ cJSON *axiam_mgmt_assign_role_to_user_request_build(const axiam_mgmt_assign_role
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_inherit) {
+        cJSON_AddBoolToObject(obj, "inherit", value->inherit);
+    }
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
     }
@@ -1625,6 +1647,10 @@ cJSON *axiam_mgmt_certificate_build(const axiam_mgmt_certificate_t *value) {
 
 void axiam_mgmt_certificate_policy_free(axiam_mgmt_certificate_policy_t *value) {
     if (!value) return;
+    if (value->server_cert_allowed_names) {
+        for (size_t i = 0; i < value->server_cert_allowed_names_count; i++) free(value->server_cert_allowed_names[i]);
+        free(value->server_cert_allowed_names);
+    }
     free(value);
 }
 
@@ -1640,6 +1666,19 @@ axiam_mgmt_certificate_policy_t *axiam_mgmt_certificate_policy_parse(const cJSON
     item = cJSON_GetObjectItemCaseSensitive(src, "max_cert_validity_days");
     if (cJSON_IsNumber(item)) { out->max_cert_validity_days = (long) item->valuedouble;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "server_cert_allowed_names");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->server_cert_allowed_names = (char **) calloc(n, sizeof(char *));
+            if (!out->server_cert_allowed_names) { axiam_mgmt_certificate_policy_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->server_cert_allowed_names[i] = axiam_strdup0(e->valuestring);
+            }
+            out->server_cert_allowed_names_count = n;
+        }
+    }
     return out;
 }
 
@@ -1652,6 +1691,11 @@ cJSON *axiam_mgmt_certificate_policy_build(const axiam_mgmt_certificate_policy_t
     }
     if (1) {
         cJSON_AddNumberToObject(obj, "max_cert_validity_days", (double) value->max_cert_validity_days);
+    }
+    if (value->server_cert_allowed_names) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "server_cert_allowed_names");
+        for (size_t i = 0; arr && i < value->server_cert_allowed_names_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->server_cert_allowed_names[i]));
     }
     return obj;
 }
@@ -1934,6 +1978,10 @@ void axiam_mgmt_create_certificate_request_free(axiam_mgmt_create_certificate_re
     free(value->issuer_ca_id);
     free(value->metadata);
     free(value->subject);
+    if (value->subject_alt_names) {
+        for (size_t i = 0; i < value->subject_alt_names_count; i++) axiam_mgmt_subject_alt_name_free(value->subject_alt_names[i]);
+        free(value->subject_alt_names);
+    }
     free(value);
 }
 
@@ -1957,6 +2005,19 @@ axiam_mgmt_create_certificate_request_t *axiam_mgmt_create_certificate_request_p
     if (item) out->metadata = cJSON_PrintUnformatted(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "subject");
     if (cJSON_IsString(item)) out->subject = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "subject_alt_names");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->subject_alt_names = (axiam_mgmt_subject_alt_name_t **) calloc(n, sizeof(axiam_mgmt_subject_alt_name_t *));
+            if (!out->subject_alt_names) { axiam_mgmt_create_certificate_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsObject(e)) out->subject_alt_names[i] = axiam_mgmt_subject_alt_name_parse(e);
+            }
+            out->subject_alt_names_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "validity_days");
     if (cJSON_IsNumber(item)) { out->validity_days = (long) item->valuedouble;
     }
@@ -1982,6 +2043,13 @@ cJSON *axiam_mgmt_create_certificate_request_build(const axiam_mgmt_create_certi
     }
     if (value->subject) {
         cJSON_AddStringToObject(obj, "subject", value->subject);
+    }
+    if (value->subject_alt_names) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "subject_alt_names");
+        for (size_t i = 0; arr && i < value->subject_alt_names_count; i++) {
+            cJSON *sub = axiam_mgmt_subject_alt_name_build(value->subject_alt_names[i]);
+            if (sub) cJSON_AddItemToArray(arr, sub);
+        }
     }
     if (1) {
         cJSON_AddNumberToObject(obj, "validity_days", (double) value->validity_days);
@@ -6607,6 +6675,9 @@ axiam_mgmt_role_assignment_t *axiam_mgmt_role_assignment_parse(const cJSON *src)
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "inherit");
+    out->inherit = cJSON_IsBool(item) ? (cJSON_IsTrue(item) ? 1 : 0) : 1;
+    out->has_inherit = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "role");
@@ -6631,6 +6702,9 @@ cJSON *axiam_mgmt_role_assignment_build(const axiam_mgmt_role_assignment_t *valu
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_inherit) {
+        cJSON_AddBoolToObject(obj, "inherit", value->inherit);
+    }
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
     }
@@ -6665,6 +6739,8 @@ axiam_mgmt_role_group_assignment_t *axiam_mgmt_role_group_assignment_parse(const
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "group");
     if (cJSON_IsObject(item)) out->group = axiam_mgmt_group_parse(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "inherit");
+    out->inherit = cJSON_IsBool(item) ? (cJSON_IsTrue(item) ? 1 : 0) : 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
@@ -6690,6 +6766,9 @@ cJSON *axiam_mgmt_role_group_assignment_build(const axiam_mgmt_role_group_assign
     if (value->group) {
         cJSON *sub = axiam_mgmt_group_build(value->group);
         if (sub) cJSON_AddItemToObject(obj, "group", sub);
+    }
+    if (1) {
+        cJSON_AddBoolToObject(obj, "inherit", value->inherit);
     }
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
@@ -6719,6 +6798,8 @@ axiam_mgmt_role_service_account_assignment_t *axiam_mgmt_role_service_account_as
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "inherit");
+    out->inherit = cJSON_IsBool(item) ? (cJSON_IsTrue(item) ? 1 : 0) : 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "service_account");
@@ -6743,6 +6824,9 @@ cJSON *axiam_mgmt_role_service_account_assignment_build(const axiam_mgmt_role_se
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (1) {
+        cJSON_AddBoolToObject(obj, "inherit", value->inherit);
+    }
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
     }
@@ -6775,6 +6859,8 @@ axiam_mgmt_role_user_assignment_t *axiam_mgmt_role_user_assignment_parse(const c
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "inherit");
+    out->inherit = cJSON_IsBool(item) ? (cJSON_IsTrue(item) ? 1 : 0) : 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "resource_id");
     if (cJSON_IsString(item)) out->resource_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "tenant_scope");
@@ -6799,6 +6885,9 @@ cJSON *axiam_mgmt_role_user_assignment_build(const axiam_mgmt_role_user_assignme
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (1) {
+        cJSON_AddBoolToObject(obj, "inherit", value->inherit);
+    }
     if (value->resource_id) {
         cJSON_AddStringToObject(obj, "resource_id", value->resource_id);
     }
@@ -7463,6 +7552,10 @@ void axiam_mgmt_set_org_settings_free(axiam_mgmt_set_org_settings_t *value) {
     free(value->opaque_ksf);
     free(value->opaque_mode);
     free(value->opaque_suite);
+    if (value->server_cert_allowed_names) {
+        for (size_t i = 0; i < value->server_cert_allowed_names_count; i++) free(value->server_cert_allowed_names[i]);
+        free(value->server_cert_allowed_names);
+    }
     free(value->webauthn_user_verification);
     free(value);
 }
@@ -7596,6 +7689,19 @@ axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *sr
     item = cJSON_GetObjectItemCaseSensitive(src, "sensitive_scopes_enabled");
     if (cJSON_IsBool(item)) { out->sensitive_scopes_enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_sensitive_scopes_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "server_cert_allowed_names");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->server_cert_allowed_names = (char **) calloc(n, sizeof(char *));
+            if (!out->server_cert_allowed_names) { axiam_mgmt_set_org_settings_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->server_cert_allowed_names[i] = axiam_strdup0(e->valuestring);
+            }
+            out->server_cert_allowed_names_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "webauthn_user_verification");
     if (cJSON_IsString(item)) out->webauthn_user_verification = axiam_strdup0(item->valuestring);
     return out;
@@ -7711,6 +7817,11 @@ cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *va
     if (value->has_sensitive_scopes_enabled) {
         cJSON_AddBoolToObject(obj, "sensitive_scopes_enabled", value->sensitive_scopes_enabled);
     }
+    if (value->server_cert_allowed_names) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "server_cert_allowed_names");
+        for (size_t i = 0; arr && i < value->server_cert_allowed_names_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->server_cert_allowed_names[i]));
+    }
     if (value->webauthn_user_verification) {
         cJSON_AddStringToObject(obj, "webauthn_user_verification", value->webauthn_user_verification);
     }
@@ -7765,6 +7876,10 @@ void axiam_mgmt_sign_certificate_csr_request_free(axiam_mgmt_sign_certificate_cs
     free(value->csr_pem);
     free(value->issuer_ca_id);
     free(value->metadata);
+    if (value->subject_alt_names) {
+        for (size_t i = 0; i < value->subject_alt_names_count; i++) axiam_mgmt_subject_alt_name_free(value->subject_alt_names[i]);
+        free(value->subject_alt_names);
+    }
     free(value);
 }
 
@@ -7784,6 +7899,19 @@ axiam_mgmt_sign_certificate_csr_request_t *axiam_mgmt_sign_certificate_csr_reque
     if (cJSON_IsString(item)) out->issuer_ca_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata");
     if (item) out->metadata = cJSON_PrintUnformatted(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "subject_alt_names");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->subject_alt_names = (axiam_mgmt_subject_alt_name_t **) calloc(n, sizeof(axiam_mgmt_subject_alt_name_t *));
+            if (!out->subject_alt_names) { axiam_mgmt_sign_certificate_csr_request_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsObject(e)) out->subject_alt_names[i] = axiam_mgmt_subject_alt_name_parse(e);
+            }
+            out->subject_alt_names_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "validity_days");
     if (cJSON_IsNumber(item)) { out->validity_days = (long) item->valuedouble;
     }
@@ -7806,6 +7934,13 @@ cJSON *axiam_mgmt_sign_certificate_csr_request_build(const axiam_mgmt_sign_certi
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
         if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+    }
+    if (value->subject_alt_names) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "subject_alt_names");
+        for (size_t i = 0; arr && i < value->subject_alt_names_count; i++) {
+            cJSON *sub = axiam_mgmt_subject_alt_name_build(value->subject_alt_names[i]);
+            if (sub) cJSON_AddItemToArray(arr, sub);
+        }
     }
     if (1) {
         cJSON_AddNumberToObject(obj, "validity_days", (double) value->validity_days);
@@ -7970,6 +8105,54 @@ cJSON *axiam_mgmt_smtp_config_build(const axiam_mgmt_smtp_config_t *value) {
     return obj;
 }
 
+void axiam_mgmt_subject_alt_name_free(axiam_mgmt_subject_alt_name_t *value) {
+    if (!value) return;
+    free(value->value);
+    free(value);
+}
+
+axiam_mgmt_subject_alt_name_t *axiam_mgmt_subject_alt_name_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    const cJSON *item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "dns");
+    if (cJSON_IsString(item)) {
+        axiam_mgmt_subject_alt_name_t *out = (axiam_mgmt_subject_alt_name_t *) calloc(1, sizeof(*out));
+        if (!out) return NULL;
+        out->kind = AXIAM_MGMT_SUBJECT_ALT_NAME_DNS;
+        out->value = axiam_strdup0(item->valuestring);
+        if (!out->value) { free(out); return NULL; }
+        return out;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "ip");
+    if (cJSON_IsString(item)) {
+        axiam_mgmt_subject_alt_name_t *out = (axiam_mgmt_subject_alt_name_t *) calloc(1, sizeof(*out));
+        if (!out) return NULL;
+        out->kind = AXIAM_MGMT_SUBJECT_ALT_NAME_IP;
+        out->value = axiam_strdup0(item->valuestring);
+        if (!out->value) { free(out); return NULL; }
+        return out;
+    }
+    /*
+     * None of the 2 wire keys this externally-tagged type recognises was present as a
+     * string. Fail closed rather than guess a variant.
+     */
+    return NULL;
+}
+
+cJSON *axiam_mgmt_subject_alt_name_build(const axiam_mgmt_subject_alt_name_t *value) {
+    if (!value || !value->value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    const char *key;
+    switch (value->kind) {
+        case AXIAM_MGMT_SUBJECT_ALT_NAME_DNS: key = "dns"; break;
+        case AXIAM_MGMT_SUBJECT_ALT_NAME_IP: key = "ip"; break;
+        default: key = "dns"; break;
+    }
+    cJSON_AddStringToObject(obj, key, value->value);
+    return obj;
+}
+
 void axiam_mgmt_tenant_free(axiam_mgmt_tenant_t *value) {
     if (!value) return;
     free(value->created_at);
@@ -8068,6 +8251,10 @@ void axiam_mgmt_tenant_settings_override_free(axiam_mgmt_tenant_settings_overrid
     free(value->opaque_ksf);
     free(value->opaque_mode);
     free(value->opaque_suite);
+    if (value->server_cert_allowed_names) {
+        for (size_t i = 0; i < value->server_cert_allowed_names_count; i++) free(value->server_cert_allowed_names[i]);
+        free(value->server_cert_allowed_names);
+    }
     free(value->webauthn_user_verification);
     free(value);
 }
@@ -8201,6 +8388,19 @@ axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse
     item = cJSON_GetObjectItemCaseSensitive(src, "sensitive_scopes_enabled");
     if (cJSON_IsBool(item)) { out->sensitive_scopes_enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_sensitive_scopes_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "server_cert_allowed_names");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        if (n > 0) {
+            out->server_cert_allowed_names = (char **) calloc(n, sizeof(char *));
+            if (!out->server_cert_allowed_names) { axiam_mgmt_tenant_settings_override_free(out); return NULL; }
+            for (size_t i = 0; i < n; i++) {
+                const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+                if (cJSON_IsString(e)) out->server_cert_allowed_names[i] = axiam_strdup0(e->valuestring);
+            }
+            out->server_cert_allowed_names_count = n;
+        }
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "webauthn_user_verification");
     if (cJSON_IsString(item)) out->webauthn_user_verification = axiam_strdup0(item->valuestring);
     return out;
@@ -8315,6 +8515,11 @@ cJSON *axiam_mgmt_tenant_settings_override_build(const axiam_mgmt_tenant_setting
     }
     if (value->has_sensitive_scopes_enabled) {
         cJSON_AddBoolToObject(obj, "sensitive_scopes_enabled", value->sensitive_scopes_enabled);
+    }
+    if (value->server_cert_allowed_names) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "server_cert_allowed_names");
+        for (size_t i = 0; arr && i < value->server_cert_allowed_names_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->server_cert_allowed_names[i]));
     }
     if (value->webauthn_user_verification) {
         cJSON_AddStringToObject(obj, "webauthn_user_verification", value->webauthn_user_verification);

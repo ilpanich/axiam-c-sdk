@@ -217,6 +217,7 @@ typedef enum axiam_mgmt_certificate_type {
     AXIAM_MGMT_CERTIFICATE_TYPE_USER = 0, /**< Wire value `User`. */
     AXIAM_MGMT_CERTIFICATE_TYPE_SERVICE, /**< Wire value `Service`. */
     AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE, /**< Wire value `Device`. */
+    AXIAM_MGMT_CERTIFICATE_TYPE_SERVER, /**< Wire value `Server`. */
     AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_certificate_type_t;
 
@@ -1080,6 +1081,7 @@ typedef struct axiam_mgmt_sign_certificate_csr_request axiam_mgmt_sign_certifica
 typedef struct axiam_mgmt_sign_intermediate_csr_request axiam_mgmt_sign_intermediate_csr_request_t;
 typedef struct axiam_mgmt_signed_audit_batch axiam_mgmt_signed_audit_batch_t;
 typedef struct axiam_mgmt_smtp_config axiam_mgmt_smtp_config_t;
+typedef struct axiam_mgmt_subject_alt_name axiam_mgmt_subject_alt_name_t;
 typedef struct axiam_mgmt_tenant axiam_mgmt_tenant_t;
 typedef struct axiam_mgmt_tenant_settings_override axiam_mgmt_tenant_settings_override_t;
 typedef struct axiam_mgmt_token_exchange_trust_request axiam_mgmt_token_exchange_trust_request_t;
@@ -1173,6 +1175,17 @@ struct axiam_mgmt_assign_role_to_group_request {
      */
     char *group_id;
     /**
+     * Whether the assignment also reaches the descendants of `resource_id`. Omitted — the
+     * default — or `true` is today's behaviour: a resource-scoped assignment applies at its
+     * resource and everywhere below it. `false` applies it at `resource_id` only, "here and
+     * no further", for allow and deny grants alike. Refused with 400 when `false` is sent
+     * with no `resource_id` (a tenant-wide assignment has no node to stop at) or for a role
+     * with `is_global: true` (a global role applies everywhere by definition). The flag is
+     * part of the assignment: to change it, unassign and assign again. Optional.
+     */
+    int inherit;
+    int has_inherit; /**< 1 when `inherit` is set. */
+    /**
      * The server's `resource_id` field. Optional.
      */
     char *resource_id;
@@ -1201,6 +1214,17 @@ void axiam_mgmt_assign_role_to_group_request_free(axiam_mgmt_assign_role_to_grou
  * The `AssignRoleToServiceAccountRequest` schema from the server's OpenAPI document.
  */
 struct axiam_mgmt_assign_role_to_service_account_request {
+    /**
+     * Whether the assignment also reaches the descendants of `resource_id`. Omitted — the
+     * default — or `true` is today's behaviour: a resource-scoped assignment applies at its
+     * resource and everywhere below it. `false` applies it at `resource_id` only, "here and
+     * no further", for allow and deny grants alike. Refused with 400 when `false` is sent
+     * with no `resource_id` (a tenant-wide assignment has no node to stop at) or for a role
+     * with `is_global: true` (a global role applies everywhere by definition). The flag is
+     * part of the assignment: to change it, unassign and assign again. Optional.
+     */
+    int inherit;
+    int has_inherit; /**< 1 when `inherit` is set. */
     /**
      * The server's `resource_id` field. Optional.
      */
@@ -1234,6 +1258,17 @@ void axiam_mgmt_assign_role_to_service_account_request_free(axiam_mgmt_assign_ro
  * The `AssignRoleToUserRequest` schema from the server's OpenAPI document.
  */
 struct axiam_mgmt_assign_role_to_user_request {
+    /**
+     * Whether the assignment also reaches the descendants of `resource_id`. Omitted — the
+     * default — or `true` is today's behaviour: a resource-scoped assignment applies at its
+     * resource and everywhere below it. `false` applies it at `resource_id` only, "here and
+     * no further", for allow and deny grants alike. Refused with 400 when `false` is sent
+     * with no `resource_id` (a tenant-wide assignment has no node to stop at) or for a role
+     * with `is_global: true` (a global role applies everywhere by definition). The flag is
+     * part of the assignment: to change it, unassign and assign again. Optional.
+     */
+    int inherit;
+    int has_inherit; /**< 1 when `inherit` is set. */
     /**
      * The server's `resource_id` field. Optional.
      */
@@ -1427,7 +1462,9 @@ struct axiam_mgmt_ca_certificate {
      */
     axiam_mgmt_certificate_status_t status;
     /**
-     * The certificate subject (e.g., `CN=ACME Corp Root CA`).
+     * The CA's common name, e.g. `ACME Corp Root CA`. The normalised value: a `CN=` prefix
+     * in the request is understood and stripped, so this always says what the certificate's
+     * subject DN says (DF-023).
      */
     char *subject;
     /**
@@ -1499,7 +1536,9 @@ struct axiam_mgmt_certificate {
      */
     axiam_mgmt_certificate_status_t status;
     /**
-     * The certificate subject (e.g., `CN=device-001`).
+     * The certificate's common name, e.g. `device-001`. The normalised value: a `CN=`
+     * prefix in the request is understood and stripped, so this always says what the
+     * certificate's subject DN says (DF-023).
      */
     char *subject;
     /**
@@ -1535,6 +1574,18 @@ struct axiam_mgmt_certificate_policy {
      * The server's `max_cert_validity_days` field.
      */
     long max_cert_validity_days;
+    /**
+     * The names a `Server` certificate may be issued for (S-7, DF-001): DNS suffixes
+     * (`.lakeside.internal`, strictly below), exact hosts (`lakeside.internal`) and IP
+     * prefixes (`10.0.0.0/8`, `fd00::/8`). See [`crate::models::server_names`] for the
+     * matching rules. **Empty by default, and empty refuses every `Server` request** (I1).
+     * A certificate for a name, signed under the organization root, is trusted by every
+     * relying party that trusts that root, so the list is written where the root is owned.
+     * A tenant override may only remove an entry or narrow one; when the baseline later
+     * shrinks, the tenant's effective list is the intersection of the two. Optional.
+     */
+    char **server_cert_allowed_names;
+    size_t server_cert_allowed_names_count; /**< Entries in `server_cert_allowed_names`. */
 };
 
 /**
@@ -1775,7 +1826,9 @@ struct axiam_mgmt_create_ca_certificate_request {
      */
     axiam_mgmt_key_algorithm_t key_algorithm;
     /**
-     * The server's `subject` field.
+     * The CA's common name, e.g. `ACME Corp Root CA`. A **common name**, not a
+     * distinguished name. A single `CN=` prefix is accepted and stripped; anything else
+     * containing `=` — `O=Acme, CN=ACME Corp Root CA` — is refused with `400`.
      */
     char *subject;
     /**
@@ -1816,6 +1869,15 @@ struct axiam_mgmt_create_certificate_request {
      * The server's `subject` field.
      */
     char *subject;
+    /**
+     * The names a `Server` certificate is issued for, as `[{"dns":
+     * "api.lakeside.internal"}, {"ip": "10.0.0.5"}]`. Required for `cert_type: Server` and
+     * refused for every other type. Each name, and the common name, must be admitted by the
+     * tenant's effective `server_cert_allowed_names`, which is empty — refusing every
+     * `Server` request — until an organization administrator lists names. Optional.
+     */
+    axiam_mgmt_subject_alt_name_t **subject_alt_names;
+    size_t subject_alt_names_count; /**< Entries in `subject_alt_names`. */
     /**
      * Validity duration in days.
      */
@@ -1987,7 +2049,9 @@ struct axiam_mgmt_create_intermediate_ca_request {
      */
     char *parent_ca_id;
     /**
-     * Subject for the signing CA, e.g. `CN=ACME R&D Signing CA`.
+     * The signing CA's common name, e.g. `ACME R&D Signing CA`. A **common name**, not a
+     * distinguished name. A single `CN=` prefix is accepted and stripped; anything else
+     * containing `=` is refused with `400`.
      */
     char *subject;
     /**
@@ -3082,7 +3146,9 @@ struct axiam_mgmt_generated_ca_certificate {
      */
     axiam_mgmt_certificate_status_t status;
     /**
-     * The certificate subject (e.g., `CN=ACME Corp Root CA`).
+     * The CA's common name, e.g. `ACME Corp Root CA`. The normalised value: a `CN=` prefix
+     * in the request is understood and stripped, so this always says what the certificate's
+     * subject DN says (DF-023).
      */
     char *subject;
     /**
@@ -3161,7 +3227,9 @@ struct axiam_mgmt_generated_certificate {
      */
     axiam_mgmt_certificate_status_t status;
     /**
-     * The certificate subject (e.g., `CN=device-001`).
+     * The certificate's common name, e.g. `device-001`. The normalised value: a `CN=`
+     * prefix in the request is understood and stripped, so this always says what the
+     * certificate's subject DN says (DF-023).
      */
     char *subject;
     /**
@@ -4856,6 +4924,13 @@ void axiam_mgmt_role_free(axiam_mgmt_role_t *value);
  */
 struct axiam_mgmt_role_assignment {
     /**
+     * Whether the assignment reaches the descendants of `resource_id` as well as the
+     * resource itself (`true`, the default, and the value of every assignment written
+     * before the field existed) or applies at that resource only (`false`). Optional.
+     */
+    int inherit;
+    int has_inherit; /**< 1 when `inherit` is set. */
+    /**
      * `None` means the role was assigned globally (no resource scope). Optional.
      */
     char *resource_id;
@@ -4887,6 +4962,11 @@ struct axiam_mgmt_role_group_assignment {
      */
     axiam_mgmt_group_t *group;
     /**
+     * Whether the assignment also reaches the descendants of `resource_id` (`true`, the
+     * default) or applies at that resource only (`false`).
+     */
+    int inherit;
+    /**
      * `None` means the role was assigned globally (no resource scope). Optional.
      */
     char *resource_id;
@@ -4911,6 +4991,11 @@ void axiam_mgmt_role_group_assignment_free(axiam_mgmt_role_group_assignment_t *v
  * A service account together with the resource scope of its assignment.
  */
 struct axiam_mgmt_role_service_account_assignment {
+    /**
+     * Whether the assignment also reaches the descendants of `resource_id` (`true`, the
+     * default) or applies at that resource only (`false`).
+     */
+    int inherit;
     /**
      * `None` means the role was assigned globally (no resource scope). Optional.
      */
@@ -4941,6 +5026,11 @@ void axiam_mgmt_role_service_account_assignment_free(axiam_mgmt_role_service_acc
  * A user together with the resource scope of their assignment of this role.
  */
 struct axiam_mgmt_role_user_assignment {
+    /**
+     * Whether the assignment also reaches the descendants of `resource_id` (`true`, the
+     * default) or applies at that resource only (`false`).
+     */
+    int inherit;
     /**
      * `None` means the role was assigned globally (no resource scope). Optional.
      */
@@ -5518,6 +5608,12 @@ struct axiam_mgmt_set_org_settings {
     int sensitive_scopes_enabled;
     int has_sensitive_scopes_enabled; /**< 1 when `sensitive_scopes_enabled` is set. */
     /**
+     * S-7 — defaulted to empty, so an API client written before the field lands on "no
+     * `Server` certificate is issued" (I1). Optional.
+     */
+    char **server_cert_allowed_names;
+    size_t server_cert_allowed_names_count; /**< Entries in `server_cert_allowed_names`. */
+    /**
      * The server's `webauthn_user_verification` field. Optional.
      */
     char *webauthn_user_verification;
@@ -5574,6 +5670,14 @@ struct axiam_mgmt_sign_certificate_csr_request {
      * The server's `metadata` field. Optional.
      */
     char *metadata;
+    /**
+     * See [`CreateCertificateRequest::subject_alt_names`]. Stated here and never in the
+     * CSR, which is still refused if it requests a `subjectAltName`. Under a CA whose key
+     * is held by `vault_pki` a `Server` request on this path is refused; use `POST
+     * /api/v1/certificates`. Optional.
+     */
+    axiam_mgmt_subject_alt_name_t **subject_alt_names;
+    size_t subject_alt_names_count; /**< Entries in `subject_alt_names`. */
     /**
      * Validity duration in days.
      */
@@ -5689,6 +5793,35 @@ struct axiam_mgmt_smtp_config {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_smtp_config_free(axiam_mgmt_smtp_config_t *value);
+
+/**
+ * A name to put in a `Server` certificate's `subjectAltName`. Stated explicitly in the
+ * request, never read from a CSR: a CSR asking for a `subjectAltName` extension is still
+ * refused. URI and e-mail names are not offered — nothing in AXIAM consumes them yet.
+ *
+ * Externally tagged: exactly one of the 2 wire keys below is present, and `kind` names
+ * which.
+ */
+typedef enum axiam_mgmt_subject_alt_name_kind {
+    AXIAM_MGMT_SUBJECT_ALT_NAME_DNS = 0, /**< The wire key `dns` is present. */
+    AXIAM_MGMT_SUBJECT_ALT_NAME_IP, /**< The wire key `ip` is present. */
+} axiam_mgmt_subject_alt_name_kind_t;
+
+/**
+ * A SubjectAltName: `value` is the string named under the wire key `kind` identifies.
+ */
+struct axiam_mgmt_subject_alt_name {
+    axiam_mgmt_subject_alt_name_kind_t kind; /**< Which wire key this value carries. */
+    char *value; /**< The string named under that key. */
+};
+
+/**
+ * Free a SubjectAltName and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_subject_alt_name_free(axiam_mgmt_subject_alt_name_t *value);
 
 /**
  * A tenant is an isolated context within an organization. Each tenant has its own set of
@@ -5914,6 +6047,13 @@ struct axiam_mgmt_tenant_settings_override {
      */
     int sensitive_scopes_enabled;
     int has_sensitive_scopes_enabled; /**< 1 when `sensitive_scopes_enabled` is set. */
+    /**
+     * S-7 — tighten-only: every entry must be covered by an organization entry. An empty
+     * list means this tenant issues no `Server` certificate at all, which is different from
+     * an absent field (inherit the organization's list). Optional.
+     */
+    char **server_cert_allowed_names;
+    size_t server_cert_allowed_names_count; /**< Entries in `server_cert_allowed_names`. */
     /**
      * The server's `webauthn_user_verification` field. Optional.
      */

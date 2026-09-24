@@ -220,6 +220,43 @@ def flatten(name: str) -> tuple[dict[str, Any], set[str], str | None]:
     return props, required, schema.get("description")
 
 
+def external_tag_keys(schema: Any) -> list[str] | None:
+    """Detect an EXTERNALLY-tagged ``oneOf``: ``{"dns": "..."}`` XOR ``{"ip": "..."}``.
+
+    Unlike :func:`discriminated`'s shape, there is no discriminator FIELD to switch on --
+    the wire object's own (single) key names the variant. Each arm must be a plain object
+    with exactly one required string property, and no two arms may share a key. Returns
+    the keys in the spec's own order, or ``None`` when the schema is not this shape.
+
+    This is CONTRACT.md's ``SubjectAltName`` (contract 1.51, §27.13 S-7 rule 1): the
+    generator used to fall through to the plain-model path here, which has no ``allOf``
+    to read properties from, so it silently produced a model with NO fields -- excluded
+    by every ``if fields:`` guard below, so no struct, and no ``_parse``/``_build``/
+    ``_free`` were ever emitted for a type ``c_field()`` still wired other structs to
+    reference. That does not compile.
+    """
+    variants = schema.get("oneOf") if isinstance(schema, dict) else None
+    if not isinstance(variants, list) or len(variants) < 2:
+        return None
+    keys: list[str] = []
+    for variant in variants:
+        if not isinstance(variant, dict) or "$ref" in variant or "allOf" in variant:
+            return None
+        if variant.get("type") not in (None, "object"):
+            return None
+        required = variant.get("required") or []
+        props = variant.get("properties") or {}
+        if len(required) != 1 or set(props.keys()) != set(required):
+            return None
+        key = required[0]
+        if not isinstance(props.get(key), dict) or props[key].get("type") != "string":
+            return None
+        if key in keys:
+            return None
+        keys.append(key)
+    return keys
+
+
 def discriminated(schema: Any) -> tuple[str, list[tuple[str, Any]]] | None:
     """Detect an internally-tagged union and return ``(tag, [(value, payload)])``."""
     variants = schema.get("oneOf")
@@ -322,6 +359,37 @@ def _classify() -> tuple[set[str], set[str]]:
 
 
 ENUMS, UNIONS = _classify()
+
+
+def _classify_external_tag() -> dict[str, list[str]]:
+    """By RENDERED name, every schema :func:`external_tag_keys` recognises.
+
+    Checked against ``ENUMS``/``UNIONS`` first so a schema classified one way is never
+    also emitted the other -- the two paths build genuinely different C shapes and a
+    schema wired through both would either double-declare a type or silently pick
+    whichever loop runs last.
+    """
+    out: dict[str, list[str]] = {}
+    for name, schema in SCHEMAS.items():
+        if not isinstance(schema, dict):
+            continue
+        rendered = pascal(name)
+        if rendered in ENUMS or rendered in UNIONS:
+            continue
+        keys = external_tag_keys(schema)
+        if keys:
+            out[rendered] = keys
+    return out
+
+
+EXTERNAL_TAG = _classify_external_tag()
+
+# A marker placed in the `modelled` list in place of a field list, wherever an
+# externally-tagged model (see EXTERNAL_TAG) sits among the fields_of()-driven ones so
+# the two source-emission loops (models and ops) can each spot it and branch to
+# emit_external_tag_model() instead of the generic per-field emitters, which have
+# nothing to iterate for a model with no `properties` at the schema's top level.
+EXTERNAL_TAG_SENTINEL = object()
 
 
 # ---------------------------------------------------------------------------
@@ -688,7 +756,8 @@ def emit_models_header() -> str:
 
     # ---- forward declarations, so models may reference each other in any order ----
     structs = [pascal(n) for n in schema_closure()
-               if pascal(n) not in ENUMS and (flatten(n)[0] or discriminated(SCHEMAS.get(n) or {}))]
+               if pascal(n) not in ENUMS and
+               (flatten(n)[0] or discriminated(SCHEMAS.get(n) or {}) or pascal(n) in EXTERNAL_TAG)]
     out.extend(comment(
         "Forward declarations. The spec's types reference each other freely and in both "
         "directions, so every struct is named before any is defined."))
@@ -701,6 +770,45 @@ def emit_models_header() -> str:
         rendered = pascal(name)
         if rendered in ENUMS:
             continue
+
+        if rendered in EXTERNAL_TAG:
+            # Externally tagged (CONTRACT.md §27.13 S-7 rule 1: SubjectAltName is the
+            # one instance today). No discriminator FIELD exists to carry as a member --
+            # the wire object's own key names the variant -- so this is a kind enum plus
+            # the one string every variant of this shape carries, not the generic
+            # fields_of() struct below.
+            keys = EXTERNAL_TAG[rendered]
+            schema = SCHEMAS.get(name) or {}
+            s = snake(rendered)
+            summary = (escape(schema.get("description")) + "\n\n") if schema.get("description") else ""
+            summary += (f"Externally tagged: exactly one of the {len(keys)} wire keys "
+                       "below is present, and `kind` names which.")
+            out.extend(doc(summary))
+            out.append(f"typedef enum axiam_mgmt_{s}_kind {{")
+            for i, key in enumerate(keys):
+                suffix = " = 0" if i == 0 else ""
+                out.append(f"    {enum_const(rendered, key)}{suffix}, "
+                           f"/**< The wire key `{key}` is present. */")
+            out.append(f"}} axiam_mgmt_{s}_kind_t;")
+            out.append("")
+            out.extend(doc(
+                f"A {rendered}: `value` is the string named under the wire key `kind` "
+                "identifies."))
+            out.append(f"struct axiam_mgmt_{s} {{")
+            out.append(f"    axiam_mgmt_{s}_kind_t kind; "
+                       "/**< Which wire key this value carries. */")
+            out.append("    char *value; /**< The string named under that key. */")
+            out.append("};")
+            out.append("")
+            out.extend(doc(
+                f"Free a {rendered} and everything it owns. Safe to pass NULL.\n\n"
+                "Frees the struct itself as well as its members, so it pairs with "
+                "whatever allocated it and there is never a question of which half you "
+                "own."))
+            out.append(f"void {model_prefix(rendered)}_free({model_type(rendered)} *value);")
+            out.append("")
+            continue
+
         fields, description = fields_of(name, secrets.get(name, set()))
         if not fields:
             continue
@@ -806,11 +914,16 @@ def emit_parse_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
         else:
             o.append(f"{indent}}}")
     elif kind == "bool":
-        o.append(f"{indent}if (cJSON_IsBool(item)) {{ out->{n} = cJSON_IsTrue(item) ? 1 : 0;")
-        if not f["required"]:
-            o.append(f"{indent}    out->has_{n} = 1; }}")
+        if w in DEFAULT_TRUE_WHEN_ABSENT:
+            o.append(f"{indent}out->{n} = cJSON_IsBool(item) ? (cJSON_IsTrue(item) ? 1 : 0) : 1;")
+            if not f["required"]:
+                o.append(f"{indent}out->has_{n} = 1;")
         else:
-            o.append(f"{indent}}}")
+            o.append(f"{indent}if (cJSON_IsBool(item)) {{ out->{n} = cJSON_IsTrue(item) ? 1 : 0;")
+            if not f["required"]:
+                o.append(f"{indent}    out->has_{n} = 1; }}")
+            else:
+                o.append(f"{indent}}}")
     elif kind == "enum":
         fn = f"axiam_mgmt_{snake(f['ref'])}_from_wire"
         o.append(f"{indent}if (cJSON_IsString(item) && {fn}(item->valuestring, &out->{n}) == 0) {{")
@@ -895,6 +1008,17 @@ def emit_free_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
 #: would make "remove every entry" inexpressible.
 OMIT_WHEN_EMPTY = {"tenant_scope"}
 
+#: CONTRACT.md §27.13 S-10 rule 3 (contract 1.51): a wire boolean field name in this set
+#: decodes ABSENT as true, never as the calloc'd zero a plain bool field would silently
+#: read as false. `inherit` is required on the three role-side listings
+#: (RoleUserAssignment/RoleGroupAssignment/RoleServiceAccountAssignment) and optional on
+#: the three subject-side ones (RoleAssignment) -- but "required" describes what a
+#: contract-1.51 SERVER always sends, not what every server does: a server older than
+#: 1.51 omits the field on EITHER shape, and the rule is the same value either way,
+#: because it is also what every assignment written before the field existed means.
+#: A `false` the server actually sent is still read as false; only ABSENCE defaults.
+DEFAULT_TRUE_WHEN_ABSENT = {"inherit"}
+
 
 def emit_build_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
     """Serialize one member into the request body, honouring 27.4 rule 5."""
@@ -949,6 +1073,72 @@ def emit_build_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
         o.append(f"{body}}}")
     o.append(f"{indent}}}")
     return o
+
+
+def emit_external_tag_model(rendered: str) -> list[str]:
+    """free/parse/build for one EXTERNAL_TAG model (see external_tag_keys()).
+
+    Parse tries each wire key in the spec's own order and returns the first match --
+    which is unambiguous because the classifier already refused a schema whose arms
+    share a key. An object naming none of them is a shape this SDK's copy of the spec
+    does not recognise; §27.11 rule 1's "decode openly" is for an unrecognised VALUE of
+    a known field, not an unrecognised wire SHAPE, so this fails closed rather than
+    guessing a variant.
+
+    Build is the mirror: the wire key comes from `kind`, never from the caller passing
+    a string the caller could misspell. A value with no `value` string is not a request
+    this operation can honestly serialize, so `_build` returns NULL for it exactly as
+    it does for a NULL `value` pointer -- one check for both, at the call site's
+    `if (sub)` guard, same as every other `kind == "model"` field the generic path
+    emits.
+    """
+    keys = EXTERNAL_TAG[rendered]
+    s = snake(rendered)
+    out: list[str] = []
+
+    out.append(f"void {model_prefix(rendered)}_free({model_type(rendered)} *value) {{")
+    out.append("    if (!value) return;")
+    out.append("    free(value->value);")
+    out.append("    free(value);")
+    out.append("}")
+    out.append("")
+
+    out.append(f"{model_type(rendered)} *{model_prefix(rendered)}_parse(const cJSON *src) {{")
+    out.append("    if (!cJSON_IsObject(src)) return NULL;")
+    out.append("    const cJSON *item;")
+    for key in keys:
+        out.append(f'    item = cJSON_GetObjectItemCaseSensitive(src, "{key}");')
+        out.append("    if (cJSON_IsString(item)) {")
+        out.append(f"        {model_type(rendered)} *out = "
+                   f"({model_type(rendered)} *) calloc(1, sizeof(*out));")
+        out.append("        if (!out) return NULL;")
+        out.append(f"        out->kind = {enum_const(rendered, key)};")
+        out.append("        out->value = axiam_strdup0(item->valuestring);")
+        out.append("        if (!out->value) { free(out); return NULL; }")
+        out.append("        return out;")
+        out.append("    }")
+    out.extend(comment(
+        f"None of the {len(keys)} wire keys this externally-tagged type recognises was "
+        "present as a string. Fail closed rather than guess a variant.", "    "))
+    out.append("    return NULL;")
+    out.append("}")
+    out.append("")
+
+    out.append(f"cJSON *{model_prefix(rendered)}_build(const {model_type(rendered)} *value) {{")
+    out.append("    if (!value || !value->value) return NULL;")
+    out.append("    cJSON *obj = cJSON_CreateObject();")
+    out.append("    if (!obj) return NULL;")
+    out.append("    const char *key;")
+    out.append("    switch (value->kind) {")
+    for key in keys:
+        out.append(f'        case {enum_const(rendered, key)}: key = "{key}"; break;')
+    out.append(f'        default: key = "{keys[0]}"; break;')
+    out.append("    }")
+    out.append("    cJSON_AddStringToObject(obj, key, value->value);")
+    out.append("    return obj;")
+    out.append("}")
+    out.append("")
+    return out
 
 
 def emit_models_source() -> str:
@@ -1008,6 +1198,9 @@ def emit_models_source() -> str:
         rendered = pascal(name)
         if rendered in ENUMS:
             continue
+        if rendered in EXTERNAL_TAG:
+            modelled.append((name, rendered, EXTERNAL_TAG_SENTINEL))
+            continue
         fields, _ = fields_of(name, secrets.get(name, set()))
         if fields:
             modelled.append((name, rendered, fields))
@@ -1019,6 +1212,9 @@ def emit_models_source() -> str:
     out.append("")
 
     for name, rendered, fields in modelled:
+        if fields is EXTERNAL_TAG_SENTINEL:
+            out.extend(emit_external_tag_model(rendered))
+            continue
         for f in fields:
             f["owner"] = rendered
 
@@ -1293,7 +1489,7 @@ def emit_ops_source() -> str:
         rendered = pascal(name)
         if rendered in ENUMS:
             continue
-        if fields_of(name, secrets.get(name, set()))[0]:
+        if rendered in EXTERNAL_TAG or fields_of(name, secrets.get(name, set()))[0]:
             modelled.append(rendered)
     for rendered in modelled:
         out.append(f"{model_type(rendered)} *{model_prefix(rendered)}_parse(const cJSON *src);")
