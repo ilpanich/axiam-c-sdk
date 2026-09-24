@@ -110,9 +110,15 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client,
 /**
  * CONTRACT.md §10.1 rule 9's ACCEPT-WITH-EVIDENCE entry point (contract 1.51).
  *
- * axiam_jwt_verify() / axiam_jwt_verify_ex() have no transport to ask, so
- * they REFUSE any token carrying a `cnf` confirmation — the "no evidence" row
- * of rule 9's table. This is the only way to accept one: `presented_thumbprint`
+ * axiam_jwt_verify() / axiam_jwt_verify_ex() under any policy that checks claims
+ * at all (AXIAM_JWT_VERIFY_STRICT, or any single flag above) have no transport to
+ * ask, so they REFUSE any token carrying a `cnf` confirmation — the "no evidence"
+ * row of rule 9's table. AXIAM_JWT_VERIFY_SIGNATURE_ONLY is the one exception
+ * (contract 1.52 N-1, C-12): it checks no claim at all, `cnf` included, which is
+ * exactly why its own doc comment above already says it "must not be used to admit
+ * a request" — a caller using it is not asking either entry point to decide
+ * admission, so there is no rule 9 decision here to get wrong. This is the only way
+ * to ACCEPT a cnf-bound token under a claim-checking policy: `presented_thumbprint`
  * is the RFC 8705 §3.1 `x5t#S256` of the certificate presented on THIS
  * connection (axiam_certificate_thumbprint_s256(), computed from the peer
  * certificate your OWN TLS layer verified for this request), or NULL when

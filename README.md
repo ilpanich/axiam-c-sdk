@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27 and §28 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's six wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.51 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27 and §28 (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -40,10 +40,13 @@ framework-agnostic route guard and declarative authorization helpers.
 
 > **§22 note, and it matters at integration time:** "conforms to … §22" is the claim; **"ships an AMQP client" is not**. The reactor *protocol* — verification, canonical signing, the registry, the runtime and the §22.14 binding table — is in the library. The *transport* is caller-supplied (§22.11): this SDK vendors no AMQP dependency, and you fill in two function pointers over whichever client you already trust.
 >
-> gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1)
-> and §8 AMQP are intentionally **out of scope for v1.0** and tracked as
-> follow-ups (see [Scope](#scope--follow-ups)). Per §1.1 the REST
-> `/oauth2/userinfo` endpoint is not substituted for the gRPC operation.
+> gRPC (including the gRPC-only `axiam_get_user_info` operation, CONTRACT §1.1;
+> `validate_token` / `introspect_token`, §1.1.1; and §10.3's `cnf`-bearing
+> `ValidateToken` / `IntrospectToken` responses — this SDK's §9–§13 range names
+> no gRPC transport for either) and §8 AMQP are intentionally **out of scope
+> for v1.0** and tracked as follow-ups (see [Scope](#scope--follow-ups)). Per
+> §1.1 the REST `/oauth2/userinfo` endpoint is not substituted for the gRPC
+> operation.
 >
 > **§28 note:** SHOULD-level and opt-in — every part of it is off unless you
 > call `axiam_client_config_set_resource_metadata_url()`. **C has no router**
@@ -228,7 +231,12 @@ Strict server verification is **always on** and cannot be disabled — there is 
   wire call, `AXIAM_ERR_AUTH` client-side (rule 7). There is no refresh token
   for the resulting session; a later `401` on it is `AXIAM_ERR_AUTH` with no
   retry, and the caller recovers by calling `axiam_authenticate_device()`
-  again. The token is certificate-bound; see
+  again. Every refusal of the device POST itself is a `401` per rule 8 — an
+  unknown, untrusted, expired, revoked or unbound certificate all alike — and
+  maps to `AXIAM_ERR_AUTH`, except a `429` (the route's per-client-IP rate
+  limit): that is not an authentication failure, so the ordinary §2 status
+  mapping puts it under `AXIAM_ERR_NETWORK` instead, and this one-shot call
+  retries nothing either way. The token is certificate-bound; see
   [Sender-constrained tokens and DPoP](#sender-constrained-tokens-and-dpop-§101-rule-9-§2173)
   below for how a resource server must verify it.
 
@@ -1046,6 +1054,20 @@ decorative). `axiam_jwt_verify_certificate_binding()` remains the standalone
 building block both paths share, and is what to reach for when layering rule
 9 onto claims already verified some other way.
 
+**The framework-agnostic guards never accept a bound token, and there is no
+evidence form of them.** `axiam_require_auth()`, `axiam_require_access()`,
+`axiam_require_role()`, every `AXIAM_REQUIRE_*` macro, and the MCP entry
+points `axiam_require_auth_mcp()` / `axiam_require_access_mcp()` all call
+`axiam_jwt_verify_ex()` under `AXIAM_JWT_VERIFY_STRICT` — they have no
+framework connection object to pull a peer-certificate thumbprint from, so
+they cannot obtain transport evidence and, per CONTRACT.md §10.1 rule 9
+(contract 1.52 N-1, C-12), refuse **every** `cnf`-bound token: a device
+credential and a DPoP-bound access token behind any of these guards both get
+`AXIAM_ERR_AUTH`, unconditionally. A resource server that must accept one
+does its own local verification with `axiam_jwt_verify_with_evidence()` /
+`axiam_jwt_verify_ex_with_evidence()`, outside the guard helpers, and applies
+its authorization decision itself.
+
 **This SDK deliberately declines §21.7.2 DPoP proof verification** (recorded in
 the contract's §21.9 per-SDK table). Its role here is resource-server-side
 validation, and it ships no JOSE implementation covering PS256/ES256/EdDSA that
@@ -1325,7 +1347,9 @@ response of that same login shape. Resetting: the WebAuthn *authentication* cere
 — none of these responses carries a `user` object at
 all (§12.1 note 6, §24.3), so each resets the gate to "unknown" rather than let a
 PREVIOUS session's `organization_level`/`reachable_tenant_ids` leak into a new one
-that never asserted anything about itself.
+that never asserted anything about itself. `axiam_logout()` goes further: a logged-out
+client holds no session to gate an acting tenant on, so **`axiam_logout()` also clears
+the acting tenant itself** (back to "none — no header at all"), not only the gate.
 
 This differs from the reference (Rust) SDK, which resets for OPAQUE and both setup
 completions too. The two choices read the same contract text two ways: Rust treats
@@ -1337,10 +1361,13 @@ TypeScript, Go, Python, C#, Java, Kotlin and PHP ports.
 **Design note.** Where the reference (Rust) SDK's on-client form returns a new handle
 sharing the underlying session, this SDK mutates the existing `axiam_client_t` in place,
 under the same lock that already guards its other mutable session state (the CSRF token,
-the resolved tenant/org ids). A caller running two tenants concurrently from one login
-constructs two `axiam_client_t` (`axiam_client_config_clone()` is cheap) rather than
-sharing one — the granularity every other piece of mutable per-request state in this SDK
-already uses.
+the resolved tenant/org ids). A caller running two tenants concurrently constructs two
+`axiam_client_t` (`axiam_client_config_clone()` is cheap) rather than sharing one — the
+granularity every other piece of mutable per-request state in this SDK already uses.
+`axiam_client_config_clone()` copies only construction-time configuration (base URL,
+tenant/org, TLS material); it carries no session, so **each cloned client still needs
+its own `axiam_login()`** (or other session-establishing call) — there is no single
+login the two share.
 
 The §17 decision memo key (when the memo is enabled) includes the acting tenant: since
 one session can now ask the same authorization question of two tenants, a memoized
@@ -1703,10 +1730,21 @@ itself declares `is_global: true` — is refused *before* the first request.
 | `permissions` | yes | |
 | `roles` | yes | |
 | `groups` | yes | `roles[]` bindings (contract 1.51, §27.6.1 item 2): both shapes — a bare role key, or `{role_key, resource_key, inherit_false}` |
-| `service_accounts` | yes (contract 1.51, §27.6.1 item 3) | reconciled by `name`; an ambiguous name fails `plan` before any write; `Create`'s one-time `client_secret` is on the apply report, never rotated |
+| `service_accounts` | yes (contract 1.51, §27.6.1 item 3) | reconciled by `name`; takes the same `roles[]` bindings as `groups` (contract 1.51, §27.6.1 item 2); an ambiguous name fails `plan` before any write; `Create`'s one-time `client_secret` is on the apply report, never rotated |
 | role → permission grants | **no** | a tier gap this port did not close (§27.10's table; not one of the three defects C-10 was assigned) — a role's permissions are managed imperatively (`axiam_roles_grant_permission` / `_revoke_permission`) |
 | `users`, `scopes` | **no** | the flat-entity tier (§7.2 of the dogfooding remediation plan): deferred until a consumer needs them, same as PHP and Swift |
 | `webhooks` | **no** | §27.6 leaves it "listed and unspecified" for every SDK — a webhook's `secret` is caller-supplied, not minted, so nothing forbids adding it, but no consumer has asked |
+
+**A failed rebind (`AXIAM_MGMT_BINDING_UPDATE`) leaves the subject in one of two
+states, reported as data, not only a message.** The wire form of a changed
+binding is unassign-then-assign; when the assign half fails after the unassign
+already landed, `apply()` attempts to restore the previous binding and reports
+the outcome on `axiam_mgmt_apply_report_t`: `restore_attempted` is `1` once that
+restore was tried, and, of those, `restore_succeeded` is `1` again if it worked.
+Both are `0` when no rebind failed this way. Either the restore succeeded (the
+subject holds the previous binding) or both calls failed (the subject holds
+neither) — the report tells you which, rather than leaving you to re-`plan()`
+to find out.
 
 See `examples/management_basics.c`, `examples/management_manifest.c` and
 `examples/device_mtls_provisioning.c` — the last a full operator/device split that mints
