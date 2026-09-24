@@ -129,6 +129,7 @@ static void test_ordering_is_derived_not_declared(void) {
     e[2].kind = AXIAM_MGMT_MANIFEST_PERMISSION; e[2].key = "p";   e[2].name = "docs:read";
     e[2].action = "docs:read";
     e[3].kind = AXIAM_MGMT_MANIFEST_RESOURCE;   e[3].key = "res"; e[3].name = "root";
+    e[3].resource_type = "folder";
 
     mgmt_mount(200, EMPTY_PAGE);
     mgmt_mount_next(200, EMPTY_PAGE);
@@ -152,8 +153,9 @@ static void test_a_parent_resource_is_ordered_before_its_child(void) {
     axiam_mgmt_manifest_entity_t e[2];
     memset(e, 0, sizeof e);
     e[0].kind = AXIAM_MGMT_MANIFEST_RESOURCE; e[0].key = "child";  e[0].name = "child";
-    e[0].depends_on = "parent";
+    e[0].depends_on = "parent"; e[0].resource_type = "folder";
     e[1].kind = AXIAM_MGMT_MANIFEST_RESOURCE; e[1].key = "parent"; e[1].name = "parent";
+    e[1].resource_type = "folder";
 
     mgmt_mount(200, EMPTY_PAGE);
     axiam_client_t *c = mgmt_signed_in_client();
@@ -227,7 +229,9 @@ static void test_a_cycle_is_refused_before_any_request(void) {
     axiam_mgmt_manifest_entity_t e[2];
     memset(e, 0, sizeof e);
     e[0].kind = AXIAM_MGMT_MANIFEST_RESOURCE; e[0].key = "a"; e[0].name = "a"; e[0].depends_on = "b";
+    e[0].resource_type = "folder";
     e[1].kind = AXIAM_MGMT_MANIFEST_RESOURCE; e[1].key = "b"; e[1].name = "b"; e[1].depends_on = "a";
+    e[1].resource_type = "folder";
 
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;

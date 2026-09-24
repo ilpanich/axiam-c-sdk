@@ -56,6 +56,19 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
                 return AXIAM_ERR_NETWORK;
             }
         }
+        /* §13 row 17 defect #2: `resource_type` is REQUIRED on CreateResourceRequest,
+         * and this SDK used to invent "folder" when a manifest left it out -- a
+         * default CONTRACT.md never stated. The honest fix is not a different guess;
+         * it is refusing to guess. A resource entity with no resource_type is
+         * refused HERE, client-side, before any request -- never silently defaulted,
+         * and never left to surface as an opaque 400 partway through an apply. */
+        if (a->kind == AXIAM_MGMT_MANIFEST_RESOURCE && (!a->resource_type || !a->resource_type[0])) {
+            snprintf(msg, sizeof msg,
+                     "\"%s\": a resource entity needs a resource_type -- this SDK does "
+                     "not default one", a->key);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+            return AXIAM_ERR_NETWORK;
+        }
     }
 
     /* A dangling reference is invisible until apply reaches the entity that needs it, by
@@ -659,7 +672,10 @@ static axiam_error_kind_t perform(axiam_client_t *c, axiam_mgmt_planned_change_t
             axiam_mgmt_create_resource_request_t body;
             memset(&body, 0, sizeof body);
             body.name = (char *) e->name;
-            body.resource_type = (char *) (e->resource_type ? e->resource_type : "folder");
+            /* §13 row 17 defect #2: resource_type is REQUIRED on the wire and
+             * axiam_mgmt_manifest_validate() now refuses a manifest that omits it
+             * before any request -- there is no fallback here to silently invent. */
+            body.resource_type = (char *) e->resource_type;
             body.metadata = (char *) e->metadata_json;
             axiam_mgmt_resource_t *out = NULL;
             axiam_error_kind_t rc = axiam_resources_create(c, &body, &out, err);
