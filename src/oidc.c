@@ -1193,9 +1193,18 @@ axiam_error_kind_t axiam_revoke(axiam_client_t *client, const axiam_sensitive_t 
  * the only §12 traffic that is JSON rather than form-encoded, and the only §12
  * traffic that accepts SLUG forms — it carries context in the body per §5.1
  * rather than in a `?tenant_id=` query parameter. */
-static axiam_error_kind_t oidc_json_post(axiam_client_t *c, const char *path,
-                                         const char *json, const char *context,
-                                         char **out_body, axiam_error_t *err) {
+/*
+ * `out_resp`, when non-NULL, receives the raw response ON SUCCESS ONLY and
+ * ownership transfers to the CALLER (who must axiam_http_response_dispose()
+ * it) -- the two session-establishing completions need the headers (the
+ * Set-Cookie access token) to adopt the session exactly as
+ * axiam_client_adopt_session() does for a WebAuthn AUTHENTICATE ceremony; every
+ * other caller passes NULL and gets the previous behaviour unchanged.
+ */
+static axiam_error_kind_t oidc_json_post_ex(axiam_client_t *c, const char *path,
+                                            const char *json, const char *context,
+                                            char **out_body, axiam_http_response_t *out_resp,
+                                            axiam_error_t *err) {
     *out_body = NULL;
     size_t blen = strlen(c->cfg->base_url);
     while (blen > 0 && c->cfg->base_url[blen - 1] == '/') blen--;
@@ -1223,8 +1232,18 @@ static axiam_error_kind_t oidc_json_post(axiam_client_t *c, const char *path,
         kind = axiam_error_kind_from_http_status(resp.status);
         axiam_error_set(err, kind, resp.status, context);
     }
-    axiam_http_response_dispose(&resp);
+    if (out_resp && kind == AXIAM_OK) {
+        *out_resp = resp; /* ownership moves to the caller */
+    } else {
+        axiam_http_response_dispose(&resp);
+    }
     return kind;
+}
+
+static axiam_error_kind_t oidc_json_post(axiam_client_t *c, const char *path,
+                                         const char *json, const char *context,
+                                         char **out_body, axiam_error_t *err) {
+    return oidc_json_post_ex(c, path, json, context, out_body, NULL, err);
 }
 
 axiam_error_kind_t axiam_sso_start(axiam_client_t *client, const char *federation_config_id,
@@ -1301,6 +1320,11 @@ axiam_error_kind_t axiam_sso_complete(axiam_client_t *client, const char *code,
     }
     memset(out, 0, sizeof(*out));
     if (oidc_client_unusable(client, err)) return AXIAM_ERR_NETWORK;
+    /* §17.1 rule 9: cleared on the caller's INTENT to change subject, not on the
+     * server's answer -- exactly as axiam_login() and the WebAuthn ceremonies do
+     * it, and before the wire for the same reason: a completion that fails still
+     * means this caller is done with whatever principal's decisions were cached. */
+    axiam_client_drop_memo(client);
 
     cJSON *root = cJSON_CreateObject();
     if (!root) {
@@ -1317,14 +1341,16 @@ axiam_error_kind_t axiam_sso_complete(axiam_client_t *client, const char *code,
     }
 
     char *body = NULL;
-    axiam_error_kind_t kind =
-        oidc_json_post(client, PATH_SSO_COMPLETE, json, "sso complete failed", &body, err);
+    axiam_http_response_t raw_resp;
+    axiam_error_kind_t kind = oidc_json_post_ex(client, PATH_SSO_COMPLETE, json,
+                                                "sso complete failed", &body, &raw_resp, err);
     free(json);
     if (kind != AXIAM_OK) return kind;
 
     cJSON *resp = body ? cJSON_Parse(body) : NULL;
     free(body);
     if (!resp) {
+        axiam_http_response_dispose(&raw_resp);
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "sso complete: malformed response body");
         return AXIAM_ERR_NETWORK;
     }
@@ -1339,10 +1365,21 @@ axiam_error_kind_t axiam_sso_complete(axiam_client_t *client, const char *code,
      * silently, which is why §4 is a requirement rather than a suggestion. */
     if (!out->user_id || !out->session_id) {
         axiam_sso_complete_result_dispose(out);
+        axiam_http_response_dispose(&raw_resp);
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
                         "sso complete: malformed SsoLoginSuccessResponse");
         return AXIAM_ERR_NETWORK;
     }
+    /* CONTRACT.md §5.2 rule 1's gate (C-12 question 5): this completion
+     * establishes a NEW session whose response carries no LoginUserInfo at all
+     * (§12.1 note 6) -- adopted exactly as axiam_client_adopt_session() adopts a
+     * WebAuthn AUTHENTICATE ceremony: marks the client authenticated, drops any
+     * device credential (mutual exclusivity), resolves tenant/org ids from the
+     * Set-Cookie access token when present, and resets the acting-tenant gate to
+     * "unknown" -- never a PREVIOUS session's organization_level/
+     * reachable_tenant_ids leaking into this one. */
+    axiam_client_adopt_session(client, &raw_resp);
+    axiam_http_response_dispose(&raw_resp);
     return AXIAM_OK;
 }
 
@@ -1361,6 +1398,11 @@ static axiam_error_kind_t federation_complete(axiam_client_t *client, const char
                                               cJSON *root, const char *context,
                                               axiam_sso_complete_result_t *out,
                                               axiam_error_t *err) {
+    /* §17.1 rule 9: cleared on intent, before the wire, exactly as
+     * axiam_sso_complete() does it -- both callers of this shared helper
+     * (axiam_sso_complete_oauth2, axiam_sso_complete_handoff) change subject. */
+    axiam_client_drop_memo(client);
+
     char *json = root ? cJSON_PrintUnformatted(root) : NULL;
     cJSON_Delete(root);
     if (!json) {
@@ -1369,16 +1411,18 @@ static axiam_error_kind_t federation_complete(axiam_client_t *client, const char
     }
 
     char *body = NULL;
-    axiam_error_kind_t kind = oidc_json_post(client, path, json, context, &body, err);
+    axiam_http_response_t raw_resp;
+    axiam_error_kind_t kind = oidc_json_post_ex(client, path, json, context, &body, &raw_resp, err);
     free(json);
     /* §12.1 note 12: a 401 here is TERMINAL — the handoff code is spent either
      * way — and rule 12a's 400 is a configuration error. Neither is retried, and
-     * oidc_json_post is called with retry disabled so neither can be. */
+     * oidc_json_post_ex is called with retry disabled so neither can be. */
     if (kind != AXIAM_OK) return kind;
 
     cJSON *resp = body ? cJSON_Parse(body) : NULL;
     free(body);
     if (!resp) {
+        axiam_http_response_dispose(&raw_resp);
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "malformed response body");
         return AXIAM_ERR_NETWORK;
     }
@@ -1390,9 +1434,15 @@ static axiam_error_kind_t federation_complete(axiam_client_t *client, const char
     cJSON_Delete(resp);
     if (!out->user_id || !out->session_id) {
         axiam_sso_complete_result_dispose(out);
+        axiam_http_response_dispose(&raw_resp);
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "malformed SsoLoginSuccessResponse");
         return AXIAM_ERR_NETWORK;
     }
+    /* CONTRACT.md §5.2 rule 1's gate (C-12 question 5), same adoption as
+     * axiam_sso_complete() above -- see that function's comment for the full
+     * rationale. */
+    axiam_client_adopt_session(client, &raw_resp);
+    axiam_http_response_dispose(&raw_resp);
     return AXIAM_OK;
 }
 

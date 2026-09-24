@@ -78,6 +78,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   `axiam_mgmt_manifest_validate()`, client-side, before any request, rather
   than having the SDK invent a value CONTRACT.md never asked for.
 
+- **SSO/federation completions now adopt the session (C-12 question 5's
+  stale-principal case).** `axiam_sso_complete()`, `axiam_sso_complete_oauth2()`
+  and `axiam_sso_complete_handoff()` establish a new session through the
+  cookie jar exactly as a WebAuthn AUTHENTICATE ceremony does — neither
+  response carries a `user` object (§12.1 note 6) — but previously did none
+  of what that ceremony's completion does: `authenticated` was never set, so
+  a client whose ONLY session came from one of these three calls could not
+  make an authenticated call at all; and `principal_gate_known`,
+  `organization_level` and `reachable_tenant_ids` were left untouched, so a
+  login as a restricted organization-level principal followed by one of
+  these completions still refused `axiam_client_set_acting_tenant()`
+  client-side on the PREVIOUS principal's report. All three now call
+  `axiam_client_adopt_session()` on success, exactly as the WebAuthn
+  authentication path does: marks the client authenticated, drops any
+  device credential (mutual exclusivity), resolves tenant/org ids from the
+  Set-Cookie access token when present, and resets the acting-tenant gate to
+  "unknown." The §17 memo is now also dropped on intent, before the wire —
+  the same convention `axiam_login()` and the WebAuthn ceremonies already
+  use. A completion that itself fails (a `400`, or federation's terminal
+  `401`) leaves the gate exactly as it was.
+
 ### Fixed (Breaking)
 
 - **`axiam_jwt_verify()` / `axiam_jwt_verify_ex()` now enforce CONTRACT.md

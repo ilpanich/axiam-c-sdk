@@ -1310,6 +1310,30 @@ the tenant (§5.2.3 rule 4). A client holding no login result — a service acco
 `axiam_authenticate_device()`, or an injected token — sends the header as asked and lets
 the server's `403` decide.
 
+**Exactly which calls "hold a login result," and which don't.** The gate's "does this
+client have one" question is not answered per-*flow*, it is answered per-*response
+shape*: a call **records** it when the response body carries a `LoginUserInfo`-shaped
+`user` object, and **resets** it to unknown when the call establishes a session some
+other way. Recording: `axiam_login()`, `axiam_verify_mfa()`, `axiam_login_opaque()`, the
+MFA setup completion (`axiam_mfa_setup_confirm()`), and the WebAuthn *registration*
+(setup) completion (`axiam_webauthn_setup_register_finish()`) — all five parse a
+response of that same login shape. Resetting: the WebAuthn *authentication* ceremonies
+(`axiam_webauthn_authenticate_finish()` and the discoverable/passkey variant
+`axiam_webauthn_discoverable_finish()`, both via `axiam_client_adopt_session()`),
+`axiam_authenticate_device()` (§6.1), and all three SSO/federation completions
+(`axiam_sso_complete()`, `axiam_sso_complete_oauth2()`, `axiam_sso_complete_handoff()`)
+— none of these responses carries a `user` object at
+all (§12.1 note 6, §24.3), so each resets the gate to "unknown" rather than let a
+PREVIOUS session's `organization_level`/`reachable_tenant_ids` leak into a new one
+that never asserted anything about itself.
+
+This differs from the reference (Rust) SDK, which resets for OPAQUE and both setup
+completions too. The two choices read the same contract text two ways: Rust treats
+"was this call a ceremony completion" as the question: this SDK instead asks "did the
+response carry a `LoginUserInfo`" — and for OPAQUE and the setup completions, contract
+1.51's response shape answers yes. Both are conforming; this SDK's choice matches the
+TypeScript, Go, Python, C#, Java, Kotlin and PHP ports.
+
 **Design note.** Where the reference (Rust) SDK's on-client form returns a new handle
 sharing the underlying session, this SDK mutates the existing `axiam_client_t` in place,
 under the same lock that already guards its other mutable session state (the CSRF token,
