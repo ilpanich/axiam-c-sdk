@@ -8,10 +8,16 @@
  *
  * Verification is STRICT by default (SEC-071, CONTRACT §10.1): on top of the
  * signature, axiam_jwt_verify() enforces the `exp`/`nbf` lifetime, binds the
- * token's `tenant_id` claim to the client's configured tenant, and checks
- * `iss`/`aud` whenever the client was configured with an expected value. The
- * JWKS endpoint is organization-wide, so a valid signature alone does NOT
- * imply the token was minted for this client's tenant.
+ * token's `tenant_id` claim to the client's configured tenant, checks
+ * `iss`/`aud` whenever the client was configured with an expected value, and
+ * (contract 1.51, rule 9) REFUSES a token carrying a `cnf` sender constraint
+ * — this default entry point has no transport evidence to check it against,
+ * so a certificate- or DPoP-bound token is rejected rather than silently
+ * admitted as a bearer token. axiam_jwt_verify_with_evidence() is the
+ * accept-with-evidence counterpart, for a resource server that DOES have a
+ * peer certificate to check against. The JWKS endpoint is organization-wide,
+ * so a valid signature alone does NOT imply the token was minted for this
+ * client's tenant.
  *
  * axiam_jwt_verify_ex() exposes the policy flags for callers deliberately
  * implementing their own policy; AXIAM_JWT_VERIFY_SIGNATURE_ONLY names the
@@ -102,6 +108,44 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client,
                                        axiam_error_t *err);
 
 /**
+ * CONTRACT.md §10.1 rule 9's ACCEPT-WITH-EVIDENCE entry point (contract 1.51).
+ *
+ * axiam_jwt_verify() / axiam_jwt_verify_ex() have no transport to ask, so
+ * they REFUSE any token carrying a `cnf` confirmation — the "no evidence" row
+ * of rule 9's table. This is the only way to accept one: `presented_thumbprint`
+ * is the RFC 8705 §3.1 `x5t#S256` of the certificate presented on THIS
+ * connection (axiam_certificate_thumbprint_s256(), computed from the peer
+ * certificate your OWN TLS layer verified for this request), or NULL when
+ * none was presented. It MUST come from the transport, never from a
+ * caller-settable request header — a forgeable input makes the whole
+ * mechanism decorative, exactly as axiam_jwt_verify_certificate_binding()'s
+ * doc comment already says.
+ *
+ * Otherwise identical to axiam_jwt_verify(): STRICT policy (signature,
+ * lifetime, tenant binding, configured issuer/audience), plus — now with
+ * evidence — a certificate-bound token whose `x5t#S256` matches is accepted.
+ * An unbound token is accepted exactly as before, with or without evidence
+ * (rule 9 constrains tokens that CLAIM a constraint; it does not make a
+ * certificate mandatory).
+ */
+axiam_error_kind_t axiam_jwt_verify_with_evidence(axiam_client_t *client,
+                                                  const char *token,
+                                                  const char *presented_thumbprint,
+                                                  char **out_claims_json,
+                                                  axiam_error_t *err);
+
+/**
+ * As axiam_jwt_verify_with_evidence(), with an explicit policy — the
+ * accept-with-evidence counterpart of axiam_jwt_verify_ex().
+ */
+axiam_error_kind_t axiam_jwt_verify_ex_with_evidence(axiam_client_t *client,
+                                                     const char *token,
+                                                     unsigned flags,
+                                                     const char *presented_thumbprint,
+                                                     char **out_claims_json,
+                                                     axiam_error_t *err);
+
+/**
  * CONTRACT.md §10.1 rule 9 — enforce a token's sender constraint against the
  * certificate the caller presented on THIS connection (RFC 8705 §3 / RFC 7800,
  * contract 1.15).
@@ -143,8 +187,18 @@ axiam_error_kind_t axiam_jwt_verify_ex(axiam_client_t *client,
  * the application controls. Never from a caller-settable request header: a
  * forgeable input makes the whole mechanism decorative.
  *
- * axiam_jwt_verify() deliberately does NOT apply this rule: it has no
- * transport to ask. A resource server accepting bound tokens must call both.
+ * axiam_jwt_verify() / axiam_jwt_verify_ex() call this SAME logic internally
+ * (contract 1.51) with a NULL thumbprint — so the default entry point now
+ * REFUSES a cnf-bound token rather than silently accepting it as a bearer
+ * token, closing what was a real defect here (found across this port wave:
+ * Rust, TypeScript, Go, Python, C# and Java all shipped it too). A resource
+ * server that DOES have transport evidence calls
+ * axiam_jwt_verify_with_evidence() / axiam_jwt_verify_ex_with_evidence()
+ * instead of this function directly — those thread the thumbprint through
+ * the same STRICT policy in one call. This standalone function remains for a
+ * caller layering rule 9 onto its own verification (a second AXIAM SDK
+ * integration point, a cache of already-verified claims, and similar), and is
+ * what the default entry points call under the hood.
  */
 axiam_error_kind_t axiam_jwt_verify_certificate_binding(
     const char *claims_json,
