@@ -359,6 +359,9 @@ axiam_add_test(test_management_semantics test_management_semantics.c management_
 # and splitting it across two binaries would hide that they are one rule.
 axiam_add_test(test_contract_135 test_contract_135.c management_test_util.c)
 axiam_add_test(test_management_manifest test_management_manifest.c management_test_util.c)
+# CONTRACT.md §27.6.1 (contract 1.51): the manifest additions -- metadata, the
+# resource-scoped role binding, and service_accounts.
+axiam_add_test(test_manifest_additions test_manifest_additions.c management_test_util.c)
 axiam_add_test(test_management_models_generated test_management_models_generated.c)
 # CONTRACT.md §27.13 (contract 1.51): the two generator defects the re-vendor exposed
 # (SubjectAltName's externally-tagged oneOf, and `inherit` defaulting true when absent
