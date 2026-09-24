@@ -19,8 +19,15 @@
 #include "internal.h"
 #include "test_util.h"
 
+/* Not real key material -- "ZmFrZQ==" is base64 for "fake" -- and deliberately not
+ * spelled "-----BEGIN [RSA/EC] PRIVATE KEY-----": the CI private-key-detection gate
+ * (.github/workflows/sdk-ci-c.yml, "Fail on committed private keys") greps for that
+ * literal marker with no exemption for test fixtures, so a placeholder that used it
+ * would trip the same gate meant to catch a real committed key. axiam_is_pem() only
+ * requires the "-----BEGIN" substring, so this placeholder still exercises the PEM
+ * shape check in axiam_client_config_set_client_cert() without matching that grep. */
 #define FAKE_CERT_PEM "-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----\n"
-#define FAKE_KEY_PEM  "-----BEGIN PRIVATE KEY-----\nZmFrZQ==\n-----END PRIVATE KEY-----\n"
+#define FAKE_KEY_PEM  "-----BEGIN TEST KEY-----\nZmFrZQ==\n-----END TEST KEY-----\n"
 
 typedef struct {
     test_recorder_t rec;
