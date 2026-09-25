@@ -7,15 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
-### Changed
-
-- **CONTRACT.md re-vendored at contract 1.52.** Copied byte for byte from axiam `80bc7aa`
-  (sha256 `c7954eec…`), the merge of the C-12 cross-SDK conformance review
-  (ilpanich/axiam#500). 1.52 changes no wire behaviour: it writes rules N1–N6, which
-  this SDK's C-12 fixes (#66) already implement. The README's conformance line
-  moves to 1.52.
+## [1.0.0-beta17] - 2026-09-25
 
 ### Added
+
+- Metadata, resource-scoped role bindings, service accounts (CONTRACT §27.6.1, contract 1.51)
+
+- Authenticate_device(), the mTLS device login (CONTRACT §6.1 rules 6-10)
+
+- Acting tenant, X-Axiam-Tenant (CONTRACT §5.2 rule 1, contract 1.51)
+
+- Re-vendor contract 1.51 and regenerate the §27 surface
 
 - **Re-vendored contract 1.51** (`CONTRACT.md`, `openapi.json`,
   `management-registry.json`; this SDK vendors no `proto/`). The §27 surface
@@ -73,7 +75,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   for the scoped binding, additively reconciled for roles a manifest does
   not name (never removed).
 
+### Changed
+
+- Re-vendor CONTRACT.md at contract 1.52
+
+- README and jwks.h conformance corrections (C-12)
+
+- Mark a TLS round complete before its response leaves
+
+- Close the coverage.yml gate on this port's new branches
+
+- README conformance at contract 1.51, CHANGELOG, examples
+
+- **CONTRACT.md re-vendored at contract 1.52.** Copied byte for byte from axiam `80bc7aa`
+  (sha256 `c7954eec…`), the merge of the C-12 cross-SDK conformance review
+  (ilpanich/axiam#500). 1.52 changes no wire behaviour: it writes rules N1–N6, which
+  this SDK's C-12 fixes (#66) already implement. The README's conformance line
+  moves to 1.52.
+
 ### Fixed
+
+- Refuse an unrepresentable SubjectAltName before any request (CONTRACT 1.52 N-3, C-12)
+
+- Tenant ids compare as UUIDs, not strings (CONTRACT 1.52 N-5.6, C-12)
+
+- Acting-tenant gate refusal is AXIAM_ERR_AUTHZ (CONTRACT 1.52 N-5.4, C-12)
+
+- SSO/federation completions adopt the session (C-12 question 5)
+
+- Device-auth fake key placeholder trips the private-key CI gate
+
+- A nested resource's parent_id reaches the wire (§13 row 17)
+
+- Resource_type is stated, never silently "folder" (§13 row 17)
+
+- Default verify entry points enforce §10.1 rule 9 (contract 1.51)
 
 - **`axiam_client_set_acting_tenant()` compares `reachable_tenant_ids` as
   UUIDs, not as strings** (CONTRACT.md §5.2 rule 1, contract 1.52 N-5.6,
@@ -117,6 +153,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   the same convention `axiam_login()` and the WebAuthn ceremonies already
   use. A completion that itself fails (a `400`, or federation's terminal
   `401`) leaves the gate exactly as it was.
+
+### Declined
+
+- **§6.1 rule 7 as a typestate.** The contract lets an SDK express
+  "`axiam_authenticate_device()` is unreachable without a certificate"
+  either as a runtime check or as a type the caller cannot construct without
+  one. This SDK takes the client-side branch (the rule itself names the
+  client-side `AuthError` as conforming) rather than making `axiam_client_t`
+  generic, or splitting it into certificate-carrying and non-carrying
+  variants, for the sake of one operation.
+
+- **`webhooks` in the manifest** (§27.6: "stays listed and unspecified" for
+  every SDK — unchanged by this revision).
+
+- **`users`, `scopes` in the manifest, and role → permission grants** — the
+  flat-entity tier (dogfooding remediation plan §7.2); deferred until a
+  consumer asks.
 
 ### Fixed (Breaking)
 
@@ -178,21 +231,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   with no value set, or a hand-constructed one with an invalid `kind`, and
   got `AXIAM_OK` back with the wrong thing on the wire, now gets
   `AXIAM_ERR_NETWORK` and no request at all.
-
-### Declined
-
-- **§6.1 rule 7 as a typestate.** The contract lets an SDK express
-  "`axiam_authenticate_device()` is unreachable without a certificate"
-  either as a runtime check or as a type the caller cannot construct without
-  one. This SDK takes the client-side branch (the rule itself names the
-  client-side `AuthError` as conforming) rather than making `axiam_client_t`
-  generic, or splitting it into certificate-carrying and non-carrying
-  variants, for the sake of one operation.
-- **`webhooks` in the manifest** (§27.6: "stays listed and unspecified" for
-  every SDK — unchanged by this revision).
-- **`users`, `scopes` in the manifest, and role → permission grants** — the
-  flat-entity tier (dogfooding remediation plan §7.2); deferred until a
-  consumer asks.
 
 ## [1.0.0-beta16] - 2026-09-19
 
