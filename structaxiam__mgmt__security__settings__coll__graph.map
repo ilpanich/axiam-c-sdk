@@ -1,0 +1,27 @@
+<map id="axiam_mgmt_security_settings" name="axiam_mgmt_security_settings">
+<area shape="rect" id="Node000001" title="Fully resolved security settings (all fields present)." alt="" coords="644,305,812,345"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__certificate__policy.html" title="Certificate issuance constraints." alt="" coords="311,5,493,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="507,42,568,65,596,82,622,103,662,154,691,210,712,263,724,304,719,306,707,265,687,213,657,157,618,107,593,87,565,70,505,47"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__email__verification__policy.html" title="Email verification requirements." alt="" coords="285,69,519,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="514,111,570,134,622,167,654,201,682,238,720,304,715,306,678,241,650,204,618,171,568,139,512,116"/>
+<area shape="rect" id="Node000004" href="$structaxiam__mgmt__lockout__policy.html" title="Account lockout rules." alt="" coords="321,133,483,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="498,170,560,191,621,222,673,263,712,303,708,307,669,267,619,226,558,196,496,176"/>
+<area shape="rect" id="Node000005" href="$structaxiam__mgmt__mfa__policy.html" title="Multi&#45;factor authentication policy." alt="" coords="308,198,496,223"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="483,224,519,233,571,250,621,271,689,303,686,308,619,276,569,255,518,239,482,229"/>
+<area shape="rect" id="Node000006" href="$structaxiam__mgmt__notification__policy.html" title="Admin notification preferences." alt="" coords="307,248,497,288"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="510,283,620,303,644,307,644,312,620,308,509,289"/>
+<area shape="rect" id="Node000007" href="$structaxiam__mgmt__oidc__policy.html" title="OpenID Connect surface controls (X7 G8, plan §4.6/§4.8; T21.4)." alt="" coords="307,313,497,338"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="511,323,644,323,644,328,511,328"/>
+<area shape="rect" id="Node000008" href="$structaxiam__mgmt__cimd__policy.html" title="Whether, and on what terms, a client_id that is a URL is resolved by fetching the document it names (..." alt="" coords="5,313,200,338"/>
+<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="214,323,307,323,307,328,214,328"/>
+<area shape="rect" id="Node000009" href="$structaxiam__mgmt__opaque__policy.html" title="Secure Remote Password policy." alt="" coords="297,362,507,387"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="518,358,620,343,643,339,644,344,620,348,519,363"/>
+<area shape="rect" id="Node000010" href="$structaxiam__mgmt__password__policy.html" title="Password complexity and history requirements." alt="" coords="313,412,491,452"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="504,408,619,375,689,343,691,348,621,380,506,414"/>
+<area shape="rect" id="Node000011" href="$structaxiam__mgmt__privacy__policy.html" title="Data&#45;retention rules that apply after a subject asks to be erased." alt="" coords="320,476,484,516"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="496,472,559,450,619,419,668,381,706,344,710,347,671,385,621,424,561,455,498,477"/>
+<area shape="rect" id="Node000012" href="$structaxiam__mgmt__token__policy.html" title="Token lifetime configuration." alt="" coords="303,541,501,566"/>
+<area shape="poly" id="edge11_Node000001_Node000012" title=" " alt="" coords="494,535,559,512,590,496,618,475,650,443,677,407,714,344,719,347,681,410,654,447,622,479,593,500,561,517,496,540"/>
+<area shape="rect" id="Node000013" href="$structaxiam__mgmt__webauthn__policy.html" title="WebAuthn ceremony policy." alt="" coords="312,591,492,631"/>
+<area shape="poly" id="edge12_Node000001_Node000013" title=" " alt="" coords="505,594,565,573,593,558,618,539,639,517,658,492,688,438,708,386,719,345,725,346,713,387,692,440,663,495,644,521,622,543,596,563,567,578,507,599"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_update_webhook_request" name="axiam_mgmt_update_webhook_request">
+<area shape="rect" id="Node000001" title="The UpdateWebhookRequest schema from the server&#39;s OpenAPI document." alt="" coords="5,93,232,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__retry__policy.html" title="Retry policy for failed webhook deliveries." alt="" coords="22,5,215,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="121,44,121,93,116,93,116,44"/>
+</map>
