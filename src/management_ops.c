@@ -226,6 +226,7 @@ axiam_mgmt_smtp_config_t *axiam_mgmt_smtp_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_smtp_config_build(const axiam_mgmt_smtp_config_t *value);
 axiam_mgmt_subject_alt_name_t *axiam_mgmt_subject_alt_name_parse(const cJSON *src);
 cJSON *axiam_mgmt_subject_alt_name_build(const axiam_mgmt_subject_alt_name_t *value);
+int axiam_mgmt_subject_alt_name_valid(const axiam_mgmt_subject_alt_name_t *value);
 axiam_mgmt_tenant_t *axiam_mgmt_tenant_parse(const cJSON *src);
 cJSON *axiam_mgmt_tenant_build(const axiam_mgmt_tenant_t *value);
 axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse(const cJSON *src);
@@ -2695,6 +2696,14 @@ axiam_error_kind_t axiam_certificates_list(axiam_client_t *c, const axiam_mgmt_p
 
 axiam_error_kind_t axiam_certificates_generate(axiam_client_t *c, const axiam_mgmt_create_certificate_request_t *body, axiam_mgmt_generated_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (body && body->subject_alt_names) {
+        for (size_t i = 0; i < body->subject_alt_names_count; i++) {
+            if (!axiam_mgmt_subject_alt_name_valid(body->subject_alt_names[i])) {
+                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.generate: subject_alt_names[i] is not a valid SubjectAltName -- exactly one wire key must be set (SDK programming error, CONTRACT.md \xc2\xa7" "27.4 rule 2)");
+                return AXIAM_ERR_NETWORK;
+            }
+        }
+    }
     char *path = axiam_mgmt_path("/api/v1/certificates", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.generate: could not build the request path");
@@ -2721,6 +2730,14 @@ axiam_error_kind_t axiam_certificates_generate(axiam_client_t *c, const axiam_mg
 
 axiam_error_kind_t axiam_certificates_sign_csr(axiam_client_t *c, const axiam_mgmt_sign_certificate_csr_request_t *body, axiam_mgmt_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (body && body->subject_alt_names) {
+        for (size_t i = 0; i < body->subject_alt_names_count; i++) {
+            if (!axiam_mgmt_subject_alt_name_valid(body->subject_alt_names[i])) {
+                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.sign_csr: subject_alt_names[i] is not a valid SubjectAltName -- exactly one wire key must be set (SDK programming error, CONTRACT.md \xc2\xa7" "27.4 rule 2)");
+                return AXIAM_ERR_NETWORK;
+            }
+        }
+    }
     char *path = axiam_mgmt_path("/api/v1/certificates/sign-csr", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.sign_csr: could not build the request path");

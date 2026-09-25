@@ -252,7 +252,9 @@ static void test_set_acting_tenant_refused_for_non_organization_level(void) {
     axiam_login_result_dispose(&res);
 
     int before = g_fake.request_count;
-    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK,
+    /* CONTRACT.md §5.2 rule 1 (contract 1.52 N-5.4, C-12): a gate refusal is
+     * the §2 AuthzError the server's 403 maps to, not AuthError/NetworkError. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ,
                           axiam_client_set_acting_tenant(c, OTHER_TENANT, &err));
     TEST_ASSERT_EQUAL_INT_MESSAGE(before, g_fake.request_count,
                                   "zero wire calls on refusal");
@@ -284,8 +286,9 @@ static void test_set_acting_tenant_refused_outside_reachable_tenant_ids(void) {
     axiam_login_result_dispose(&res);
 
     int before = g_fake.request_count;
+    /* CONTRACT.md §5.2 rule 1 (contract 1.52 N-5.4, C-12): AuthzError. */
     TEST_ASSERT_EQUAL_INT(
-        AXIAM_ERR_NETWORK,
+        AXIAM_ERR_AUTHZ,
         axiam_client_set_acting_tenant(c, UNREACHABLE_TENANT, &err));
     TEST_ASSERT_EQUAL_INT(before, g_fake.request_count);
     axiam_client_free(c);
@@ -303,6 +306,69 @@ static void test_set_acting_tenant_allowed_within_reachable_tenant_ids(void) {
 
     TEST_ASSERT_EQUAL_INT(AXIAM_OK,
                           axiam_client_set_acting_tenant(c, OTHER_TENANT, &err));
+    axiam_client_free(c);
+}
+
+/*
+ * CONTRACT.md §5.2 rule 1 (contract 1.52 N-5.6, C-12): tenant ids compare as
+ * UUIDs, never as strings -- case and formatting MUST NOT decide reach. Every fixture
+ * above spells its tenant ids in all-digit UUIDs, which hides a case-sensitive
+ * `strcmp` entirely (there is no letter to differ in case). These use a UUID with hex
+ * LETTERS so the two spellings actually differ byte-for-byte while naming the same
+ * tenant.
+ */
+#define HEX_TENANT_LOWER "aabbccdd-1234-4abc-8abc-abcdefabcdef"
+#define HEX_TENANT_UPPER "AABBCCDD-1234-4ABC-8ABC-ABCDEFABCDEF"
+
+/* The server sends reachable_tenant_ids in its own (lower-case) spelling; the caller
+ * passes an UPPER-CASE spelling of the SAME tenant. Case must not decide reach. */
+static void test_set_acting_tenant_matches_reachable_id_case_insensitively(void) {
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    g_fake.next_status = 200;
+    g_fake.next_body = org_level_login_body("[\"" HEX_TENANT_LOWER "\"]");
+    axiam_login_result_t res;
+    axiam_login(c, "root", "pw", &res, &err);
+    axiam_login_result_dispose(&res);
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(
+        AXIAM_OK, axiam_client_set_acting_tenant(c, HEX_TENANT_UPPER, &err),
+        "an upper-case spelling of a reachable tenant id must be accepted -- it is "
+        "the SAME UUID as the server's lower-case one");
+    axiam_client_free(c);
+}
+
+/* Same-case twin: the exact spelling the server sent still matches, so the fix is a
+ * case-insensitive compare and not an accidental "anything goes". */
+static void test_set_acting_tenant_matches_reachable_id_same_case(void) {
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    g_fake.next_status = 200;
+    g_fake.next_body = org_level_login_body("[\"" HEX_TENANT_LOWER "\"]");
+    axiam_login_result_t res;
+    axiam_login(c, "root", "pw", &res, &err);
+    axiam_login_result_dispose(&res);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK,
+                          axiam_client_set_acting_tenant(c, HEX_TENANT_LOWER, &err));
+    axiam_client_free(c);
+}
+
+/* Negative twin: a case-insensitive compare must still refuse a tenant that is
+ * genuinely not in reachable_tenant_ids -- the fix must not become "anything goes". */
+static void test_set_acting_tenant_still_refuses_a_genuinely_unreachable_hex_id(void) {
+    axiam_client_t *c = make_client();
+    axiam_error_t err;
+    g_fake.next_status = 200;
+    g_fake.next_body = org_level_login_body("[\"" HEX_TENANT_LOWER "\"]");
+    axiam_login_result_t res;
+    axiam_login(c, "root", "pw", &res, &err);
+    axiam_login_result_dispose(&res);
+
+    int before = g_fake.request_count;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ,
+                          axiam_client_set_acting_tenant(c, UNREACHABLE_TENANT, &err));
+    TEST_ASSERT_EQUAL_INT(before, g_fake.request_count);
     axiam_client_free(c);
 }
 
@@ -540,7 +606,7 @@ static axiam_client_t *make_client_restricted_to_other_tenant(void) {
 static void assert_refused_for_unreachable_tenant(axiam_client_t *c, const char *why) {
     axiam_error_t err;
     int before = g_fake.request_count;
-    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_ERR_NETWORK,
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_ERR_AUTHZ,
                                   axiam_client_set_acting_tenant(c, UNREACHABLE_TENANT, &err), why);
     TEST_ASSERT_EQUAL_INT_MESSAGE(before, g_fake.request_count, "refused: zero wire calls");
 }
@@ -667,6 +733,9 @@ int main(void) {
     RUN_TEST(test_set_acting_tenant_allowed_for_organization_level);
     RUN_TEST(test_set_acting_tenant_refused_outside_reachable_tenant_ids);
     RUN_TEST(test_set_acting_tenant_allowed_within_reachable_tenant_ids);
+    RUN_TEST(test_set_acting_tenant_matches_reachable_id_case_insensitively);
+    RUN_TEST(test_set_acting_tenant_matches_reachable_id_same_case);
+    RUN_TEST(test_set_acting_tenant_still_refuses_a_genuinely_unreachable_hex_id);
     RUN_TEST(test_set_acting_tenant_with_no_login_result_sends_header);
     RUN_TEST(test_gate_resets_on_session_with_no_login_user_info);
     RUN_TEST(test_logout_clears_acting_tenant_and_gate);

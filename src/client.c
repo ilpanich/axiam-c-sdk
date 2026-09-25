@@ -1296,7 +1296,11 @@ axiam_error_kind_t axiam_client_set_acting_tenant(axiam_client_t *client,
     if (gate_known && reach) {
         reach_ok = 0;
         for (size_t i = 0; i < reach_count; i++) {
-            if (reach[i] && strcmp(reach[i], tenant_id) == 0) { reach_ok = 1; break; }
+            /* CONTRACT.md §5.2 rule 1 (contract 1.52 N-5.6, C-12): tenant ids
+             * compare as UUIDs, never as strings -- case and formatting MUST NOT
+             * decide reach. `tenant_id` already passed the UUID-shape check above, so
+             * a case-insensitive compare is exactly "same UUID", not a looser match. */
+            if (reach[i] && axiam_str_ieq(reach[i], tenant_id)) { reach_ok = 1; break; }
         }
     }
     pthread_mutex_unlock(&client->state_mtx);
@@ -1306,18 +1310,24 @@ axiam_error_kind_t axiam_client_set_acting_tenant(axiam_client_t *client,
      * covers a service account from client credentials or the device login,
      * and an injected token -- has nothing to gate on: it sends the header as
      * asked, and the server's 403 is the answer. */
+    /*
+     * CONTRACT.md §5.2 rule 1 (contract 1.52 N-5.4, C-12): a gate refusal is
+     * the AuthzError the 403 the server would answer maps to -- not AuthError and
+     * not NetworkError, which read as a connectivity or programming mistake rather
+     * than what this actually is: the server would refuse this too.
+     */
     if (gate_known && !org_level) {
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+        axiam_error_set(err, AXIAM_ERR_AUTHZ, 0,
                         "acting tenant is meaningful only for an "
                         "organization-level principal (CONTRACT.md \xc2\xa7"
                         "5.2 rule 1); this client's signed-in principal is not one");
-        return AXIAM_ERR_NETWORK;
+        return AXIAM_ERR_AUTHZ;
     }
     if (gate_known && !reach_ok) {
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+        axiam_error_set(err, AXIAM_ERR_AUTHZ, 0,
                         "acting tenant is outside this principal's "
                         "reachable_tenant_ids (CONTRACT.md \xc2\xa7""5.2.3 rule 4)");
-        return AXIAM_ERR_NETWORK;
+        return AXIAM_ERR_AUTHZ;
     }
 
     char *copy = axiam_strdup0(tenant_id);
