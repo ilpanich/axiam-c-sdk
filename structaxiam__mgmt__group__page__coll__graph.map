@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_group_page" name="axiam_mgmt_group_page">
+<area shape="rect" id="Node000001" title="One page of Group objects (27.4 rule 4)." alt="" coords="81,93,273,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__group.html" title="A group of users that can access resources based on their roles and permissions." alt="" coords="5,5,159,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="107,38,165,91,162,95,103,42"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="183,5,359,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="250,42,192,95,188,91,246,38"/>
+</map>

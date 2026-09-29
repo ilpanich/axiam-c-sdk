@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_group_list" name="axiam_mgmt_group_list">
+<area shape="rect" id="Node000001" title="A plain list of Group objects." alt="" coords="5,93,185,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__group.html" title="A group of users that can access resources based on their roles and permissions." alt="" coords="19,5,172,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="98,45,98,93,93,93,93,45"/>
+</map>

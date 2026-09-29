@@ -1,0 +1,19 @@
+<map id="include/axiam/client.h" name="include/axiam/client.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="61,5,228,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="202,225,276,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="124,33,82,59,38,95,21,115,11,135,9,156,18,176,29,185,45,193,88,208,188,228,187,233,87,213,42,198,26,189,14,179,4,156,6,134,16,112,34,91,78,54,121,28"/>
+<area shape="rect" id="Node000003" href="$config_8h.html" title=" " alt="" coords="160,79,278,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="158,29,199,67,195,71,154,33"/>
+<area shape="rect" id="Node000004" href="$error_8h.html" title=" " alt="" coords="28,152,138,177"/>
+<area shape="poly" id="edge8_Node000001_Node000004" title=" " alt="" coords="142,32,96,140,91,138,137,30"/>
+<area shape="rect" id="Node000007" href="$sensitive_8h.html" title=" " alt="" coords="375,79,514,104"/>
+<area shape="poly" id="edge9_Node000001_Node000007" title=" " alt="" coords="193,28,383,73,382,78,192,33"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="198,106,118,148,116,143,196,102"/>
+<area shape="rect" id="Node000005" href="$telemetry_8h.html" title=" " alt="" coords="162,152,303,177"/>
+<area shape="poly" id="edge5_Node000003_Node000005" title=" " alt="" coords="224,104,230,138,225,139,219,105"/>
+<area shape="rect" id="Node000006" href="$transport_8h.html" title=" " alt="" coords="327,152,466,177"/>
+<area shape="poly" id="edge6_Node000003_Node000006" title=" " alt="" coords="248,102,356,144,354,149,246,106"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="109,175,202,217,200,222,107,180"/>
+<area shape="poly" id="edge7_Node000006_Node000002" title=" " alt="" coords="372,180,278,222,276,217,370,175"/>
+<area shape="poly" id="edge10_Node000007_Node000002" title=" " alt="" coords="458,102,470,118,481,138,486,159,480,179,467,190,449,199,400,215,291,234,290,229,398,210,447,194,464,185,475,176,481,159,477,140,466,121,453,106"/>
+</map>
