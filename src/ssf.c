@@ -602,6 +602,8 @@ void axiam_ssf_poll_result_dispose(axiam_ssf_poll_result_t *result) {
     free(result->events);
     for (size_t i = 0; i < result->refused_count; i++) free(result->refused[i].jti);
     free(result->refused);
+    for (size_t i = 0; i < result->unjudged_count; i++) free(result->unjudged[i]);
+    free(result->unjudged);
     memset(result, 0, sizeof(*result));
 }
 
@@ -654,6 +656,26 @@ static axiam_kv_t *poll_headers(const axiam_sensitive_t *token) {
     return h;
 }
 
+/* List `from` and every SET after it as unjudged (P1). Best effort: listing them is a
+ * MAY, so an allocation failure here leaves the list empty rather than failing a poll
+ * whose judged SETs have already been recorded. */
+static void list_unjudged(const cJSON *from, axiam_ssf_poll_result_t *out) {
+    size_t n = 0;
+    for (const cJSON *s = from; s; s = s->next) n++;
+    out->unjudged = calloc(n, sizeof(*out->unjudged));
+    for (const cJSON *s = from; s && out->unjudged; s = s->next) {
+        char *jti = axiam_strdup0(s->string);
+        if (!jti) {
+            for (size_t i = 0; i < out->unjudged_count; i++) free(out->unjudged[i]);
+            free(out->unjudged);
+            out->unjudged = NULL;
+            out->unjudged_count = 0;
+            break;
+        }
+        out->unjudged[out->unjudged_count++] = jti;
+    }
+}
+
 /* Verify each SET of a 2xx reply into `out`. */
 static axiam_error_kind_t collect(axiam_ssf_receiver_t *r, const char *reply,
                                   axiam_ssf_poll_result_t *out, axiam_error_t *err) {
@@ -675,29 +697,38 @@ static axiam_error_kind_t collect(axiam_ssf_receiver_t *r, const char *reply,
     }
     for (const cJSON *s = n ? sets->child : NULL; s && kind == AXIAM_OK; s = s->next) {
         axiam_ssf_reason_t reason = AXIAM_SSF_REASON_MALFORMED;
+        axiam_error_t one;
+        axiam_error_reset(&one);
+        axiam_error_kind_t k = AXIAM_OK;
         if (cJSON_IsString(s)) {
-            axiam_error_t one;
-            axiam_error_reset(&one);
             axiam_security_event_t *slot = &out->events[out->events_count];
             reason = AXIAM_SSF_REASON_NONE;
-            axiam_error_kind_t k = verify_inner(r, s->valuestring, s->string, slot, &reason, &one);
+            k = verify_inner(r, s->valuestring, s->string, slot, &reason, &one);
             if (k == AXIAM_OK) {
                 out->events_count++;
                 continue;
             }
-            if (reason == AXIAM_SSF_REASON_NONE) { /* a JWKS fetch or store failure */
-                if (err) *err = one;
-                kind = k;
-                break;
+        }
+        if (reason != AXIAM_SSF_REASON_NONE) {
+            out->refused[out->refused_count].jti = axiam_strdup0(s->string);
+            out->refused[out->refused_count].reason = reason;
+            if (out->refused[out->refused_count].jti) {
+                out->refused_count++;
+                continue;
             }
+            k = oom(&one);
         }
-        out->refused[out->refused_count].jti = axiam_strdup0(s->string);
-        out->refused[out->refused_count].reason = reason;
-        if (!out->refused[out->refused_count].jti) {
-            kind = oom(err);
-            break;
+        /* P1: a failure that is not a verdict -- a JWKS or configuration fetch, the
+         * replay store, an allocation -- leaves this SET and the rest unjudged and
+         * unrecorded. With nothing judged yet the failure is raised; otherwise what was
+         * judged is returned, so no jti this poll recorded goes unreturned. */
+        if (out->events_count == 0 && out->refused_count == 0) {
+            if (err) *err = one;
+            kind = k;
+        } else {
+            list_unjudged(s, out);
         }
-        out->refused_count++;
+        break;
     }
     cJSON_Delete(doc);
     return kind;

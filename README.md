@@ -2193,7 +2193,8 @@ o.ack = processed_jtis;  o.ack_count = n_processed;
 o.set_errs = set_errs;   o.set_errs_count = n_errs;  /* axiam_ssf_set_err_from_reason(jti, why) */
 axiam_ssf_poll_result_t r;
 if (axiam_ssf_poll(rx, stream_id, &o, &r, &err) == AXIAM_OK) {
-    /* r.events verified; r.refused[i].{jti, reason} to pass back in set_errs next time */
+    /* r.events verified; r.refused[i].{jti, reason} to pass back in set_errs next time,
+     * except `replayed`, which you acknowledge; r.unjudged: neither -- offered again */
     axiam_ssf_poll_result_dispose(&r);
 }
 axiam_ssf_receiver_free(rx);
@@ -2213,7 +2214,16 @@ seven days minimum — a shorter window is refused at construction). Verifying i
 `replayed`, so acknowledge every polled SET you processed: one re-offered unacknowledged
 reads as a replay. `axiam_ssf_poll()` acknowledges nothing on its own, sends exactly the
 members you set (`{}` when none), uses the provider's bearer and never the client's
-session, and is retried on a transport failure or `5xx` — never on a `4xx`.
+session, and is retried on a transport failure, a `5xx`, `408` or `429` — never on another
+`4xx`. A SET refused `replayed` on a later poll was accepted earlier: acknowledge it rather
+than reporting it in `set_errs` (contract 1.59, P2).
+
+**A poll never keeps a `jti` it does not return** (contract 1.59, P1). A JWKS fetch or a
+replay store that fails mid-batch is not a verdict: that SET and the ones after it are
+left unrecorded and listed in `r.unjudged` (neither acknowledge nor refuse them — the
+transmitter offers them again), and the SETs judged before it are returned with
+`AXIAM_OK`. Only when the first SET of the batch cannot be judged does the poll raise the
+failure, having recorded nothing.
 
 ## CIBA (§33)
 

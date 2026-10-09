@@ -121,6 +121,7 @@ typedef struct {
 typedef struct {
     char *jwks;            /* served at the jwks_uri */
     long jwks_status;      /* 0 = 200 */
+    int jwks_fail_from;    /* when > 0, fetch number N and later answer 503 */
     int jwks_fetches;
     int discovery_fetches;
     const char *discovery; /* served at the discovery URL */
@@ -146,6 +147,7 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req, axiam_http
     if (strstr(url, "/oauth2/jwks")) {
         g.jwks_fetches++;
         resp->status = g.jwks_status ? g.jwks_status : 200;
+        if (g.jwks_fail_from > 0 && g.jwks_fetches >= g.jwks_fail_from) resp->status = 503;
         if (g.jwks) resp->body = strdup(g.jwks);
         return 0;
     }
@@ -640,6 +642,118 @@ static void test_poll_passes_ack_and_set_errs_through_and_returns_verified_and_r
     axiam_client_free(c);
 }
 
+/* §32.8 helper test 8 (contract 1.59, P1): a batch of two SETs whose second names an
+ * unknown kid while the refetch fails. `poll` MUST NOT keep a jti it does not return: the
+ * first SET is returned, the second is neither returned nor refused nor recorded, and is
+ * listed as unjudged. */
+static void test_poll_returns_the_judged_set_when_a_later_set_of_the_batch_cannot_be_judged(void) {
+    axiam_client_t *c = make_client();
+    axiam_ssf_receiver_t *r = make_receiver(c, 1);
+    char first_jti[33], second_jti[33], body[1024];
+    random_jti(first_jti);
+    random_jti(second_jti);
+    payload(body, sizeof body, first_jti, "\"" AUDIENCE "\"", NULL);
+    char *first = sign_set(g_key, HEADER("k1"), body);
+    EVP_PKEY *rotated = new_key();
+    payload(body, sizeof body, second_jti, "\"" AUDIENCE "\"", NULL);
+    char *second = sign_set(rotated, HEADER("k9"), body); /* a kid the cached JWKS lacks */
+    char reply[8192];
+    snprintf(reply, sizeof reply, "{\"sets\":{\"%s\":\"%s\",\"%s\":\"%s\"}}", first_jti, first,
+             second_jti, second);
+    g.poll[0] = (answer_t){200, reply, 0};
+    g.poll_len = 1;
+    g.jwks_fail_from = 2; /* the cold fetch succeeds; the refetch for k9 fails */
+
+    axiam_ssf_poll_result_t res;
+    axiam_error_t err;
+    axiam_error_kind_t kind = axiam_ssf_poll(r, "s1", NULL, &res, &err);
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_fetches);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_OK, kind,
+                                  "the judged SET is returned, not discarded with the batch");
+    TEST_ASSERT_EQUAL_INT(1, (int) res.events_count);
+    TEST_ASSERT_EQUAL_STRING(first_jti, res.events[0].jti);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int) res.refused_count, "an unjudged SET is not refused");
+    TEST_ASSERT_EQUAL_INT(1, (int) res.unjudged_count);
+    TEST_ASSERT_EQUAL_STRING(second_jti, res.unjudged[0]);
+    axiam_ssf_poll_result_dispose(&res);
+    TEST_ASSERT_NULL(res.unjudged);
+
+    /* The first SET was recorded AND returned; the second was not recorded: once the
+     * JWKS carries its key, it verifies rather than reading `replayed`. */
+    axiam_ssf_reason_t reason;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, verify(r, first, &reason));
+    TEST_ASSERT_EQUAL_INT(AXIAM_SSF_REASON_REPLAYED, reason);
+    EVP_PKEY *both[] = {g_key, rotated};
+    const char *kids[] = {"k1", "k9"};
+    free(g.jwks);
+    g.jwks = jwks_of(both, kids, 2);
+    g.jwks_fail_from = 0;
+    g.now += AXIAM_SSF_JWKS_REFETCH_INTERVAL_S;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(r, second, &reason));
+
+    free(first);
+    free(second);
+    EVP_PKEY_free(rotated);
+    axiam_ssf_receiver_free(r);
+    axiam_client_free(c);
+}
+
+/* P1 with a store that cannot answer on the second SET: the same outcome. */
+static int g_failing_second_calls;
+static int store_failing_on_second(void *ctx, const char *jti, long window_s) {
+    (void) ctx;
+    (void) jti;
+    (void) window_s;
+    return ++g_failing_second_calls == 1 ? 1 : -1;
+}
+
+static void test_poll_returns_the_judged_set_when_the_store_fails_on_a_later_set(void) {
+    axiam_client_t *c = make_client();
+    axiam_ssf_receiver_config_t cfg;
+    memset(&cfg, 0, sizeof cfg);
+    cfg.issuer = ISSUER;
+    cfg.audience = AUDIENCE;
+    cfg.jwks_uri = JWKS_URI;
+    cfg.access_token_provider = token_provider;
+    cfg.replay_store = store_failing_on_second;
+    axiam_error_t err;
+    axiam_ssf_receiver_t *r = axiam_ssf_receiver_new(c, &cfg, &err);
+    TEST_ASSERT_NOT_NULL(r);
+    char jti[3][33], body[1024], reply[12288];
+    char *sets[3];
+    for (int i = 0; i < 3; i++) {
+        random_jti(jti[i]);
+        payload(body, sizeof body, jti[i], "\"" AUDIENCE "\"", NULL);
+        sets[i] = sign_set(g_key, HEADER("k1"), body);
+    }
+    snprintf(reply, sizeof reply, "{\"sets\":{\"%s\":\"%s\",\"%s\":\"%s\",\"%s\":\"%s\"}}",
+             jti[0], sets[0], jti[1], sets[1], jti[2], sets[2]);
+    g.poll[0] = (answer_t){200, reply, 0};
+    g.poll_len = 1;
+    g_failing_second_calls = 0;
+    axiam_ssf_poll_result_t res;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
+    TEST_ASSERT_EQUAL_INT(1, (int) res.events_count);
+    TEST_ASSERT_EQUAL_STRING(jti[0], res.events[0].jti);
+    TEST_ASSERT_EQUAL_INT(0, (int) res.refused_count);
+    /* The batch stops at the failure: the SET after it is not judged either. */
+    TEST_ASSERT_EQUAL_INT(2, (int) res.unjudged_count);
+    TEST_ASSERT_EQUAL_STRING(jti[1], res.unjudged[0]);
+    TEST_ASSERT_EQUAL_STRING(jti[2], res.unjudged[1]);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, g_failing_second_calls, "nothing judged past the failure");
+    axiam_ssf_poll_result_dispose(&res);
+
+    /* A failure on the FIRST SET judges nothing: the failure is raised, nothing recorded. */
+    g_failing_second_calls = 1;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
+    TEST_ASSERT_EQUAL_STRING("the SSF replay store failed", err.message);
+    TEST_ASSERT_EQUAL_INT(0, (int) res.events_count);
+    TEST_ASSERT_EQUAL_INT(0, (int) res.unjudged_count);
+    for (int i = 0; i < 3; i++) free(sets[i]);
+    axiam_ssf_receiver_free(r);
+    axiam_client_free(c);
+}
+
 static void test_poll_is_not_retried_on_a_4xx_and_is_on_a_5xx(void) {
     axiam_client_t *c = make_client(); /* retry ENABLED */
     axiam_ssf_receiver_t *r = make_receiver(c, 1);
@@ -915,6 +1029,8 @@ int main(void) {
     RUN_TEST(test_the_same_set_twice_is_replayed_and_the_window_has_a_floor);
     RUN_TEST(test_an_unknown_kid_forces_one_refetch_at_most_once_a_minute);
     RUN_TEST(test_poll_passes_ack_and_set_errs_through_and_returns_verified_and_refused_apart);
+    RUN_TEST(test_poll_returns_the_judged_set_when_a_later_set_of_the_batch_cannot_be_judged);
+    RUN_TEST(test_poll_returns_the_judged_set_when_the_store_fails_on_a_later_set);
     RUN_TEST(test_poll_is_not_retried_on_a_4xx_and_is_on_a_5xx);
     RUN_TEST(test_a_jwks_fetch_failure_is_a_network_error_not_a_verdict);
     RUN_TEST(test_keys_from_a_discovery_document_whose_issuer_matches);
