@@ -385,3 +385,10 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_management_alloc_generated COMMAND test_management_alloc_generated)
 
+
+# ---- Contract 1.53 - 1.58 ----
+#
+# §28.12 RFC 7592 client configuration: its own recording transport, because what it
+# asserts is what is NOT on the request (no session cookie, no CSRF token, no tenant
+# header, no device bearer).
+axiam_add_test(test_client_registration test_client_registration.c)

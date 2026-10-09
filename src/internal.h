@@ -453,6 +453,23 @@ axiam_error_kind_t axiam_client_raw_get(axiam_client_t *c, const char *path,
 int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *path,
                           const char *body, axiam_http_response_t *resp);
 
+/**
+ * One request against an ABSOLUTE `url` that is NOT the SDK's session — CONTRACT.md
+ * §28.12.2 rule 3, and the same posture for §32.7's JWKS fetch and poll: exactly the
+ * caller's `headers` go out, plus the empty `Cookie` signal that makes the default
+ * transport withhold its whole cookie jar for this one request. No CSRF token, no device
+ * bearer, no tenant header, and (the default transport never follows one) no redirect.
+ *
+ * Takes ownership of `headers` and frees it. Returns 0 when a response arrived (check
+ * resp->status), nonzero on transport failure; the caller disposes `resp` either way.
+ */
+int axiam_client_send_bare(axiam_client_t *c, const char *method, const char *url,
+                           axiam_kv_t *headers, const char *body,
+                           axiam_http_response_t *resp);
+
+/** `path` joined onto the client's base URL (trailing slashes trimmed). malloc'd. */
+char *axiam_client_url(const axiam_client_t *c, const char *path);
+
 /** 1 when close() has been called (§18.1 rule 4). */
 int axiam_client_is_shut(axiam_client_t *c);
 /** The §18.1 rule 4 error, so every operation names the same cause. */
@@ -518,6 +535,26 @@ int oidc_is_uuid(const char *s);
  */
 void axiam_local_refusal(axiam_error_t *err, const char *operation, const char *field,
                          const char *detail);
+
+/*
+ * The origin of an absolute URL (RFC 6454): scheme and host lower-cased, the port made
+ * explicit from the scheme's default when the URL names none. A bracketed IPv6 literal
+ * keeps its brackets. `has_userinfo` is 1 when the authority carries `user@`.
+ */
+typedef struct axiam_url_origin {
+    char scheme[16];
+    char host[256];
+    long port;
+    int has_userinfo;
+} axiam_url_origin_t;
+
+/* Parse `url`'s origin into `out`. Returns 0, or -1 for anything that is not an absolute
+ * `scheme://host[:port]...` URL this parser can read (no host, a scheme or host that does
+ * not fit, a port that is not 1-65535, an unknown scheme with no explicit port). */
+int axiam_url_origin(const char *url, axiam_url_origin_t *out);
+
+/* 1 when `host` (as axiam_url_origin() renders it) is localhost / 127.0.0.1 / [::1]. */
+int axiam_host_is_loopback(const char *host);
 
 /* RFC 3986 percent-encode every byte outside the unreserved set. Returns a
  * malloc'd string, or NULL on OOM/NULL input. Used wherever a caller-supplied

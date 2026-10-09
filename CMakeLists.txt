@@ -82,6 +82,8 @@ set(AXIAM_SOURCES
     src/oidc_exchange.c
     src/oidc_logout.c
     src/oidc_par.c
+    # CONTRACT.md §28.12 (contract 1.53): RFC 7592 client configuration.
+    src/registration.c
     src/reactor.c
     src/webauthn.c
     src/account.c

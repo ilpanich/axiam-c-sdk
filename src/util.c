@@ -81,6 +81,83 @@ int axiam_url_is_secure(const char *url) {
     return is_loopback_host(host, host_len);
 }
 
+int axiam_host_is_loopback(const char *host) {
+    return host && is_loopback_host(host, strlen(host));
+}
+
+int axiam_url_origin(const char *url, axiam_url_origin_t *out) {
+    if (!url || !out) return -1;
+    memset(out, 0, sizeof(*out));
+    const char *sep = strstr(url, "://");
+    if (!sep || sep == url) return -1;
+    size_t scheme_len = (size_t)(sep - url);
+    if (scheme_len >= sizeof(out->scheme)) return -1;
+    for (size_t i = 0; i < scheme_len; i++) {
+        char ch = url[i];
+        if (ch >= 'A' && ch <= 'Z') ch = (char)(ch - 'A' + 'a');
+        out->scheme[i] = ch;
+    }
+
+    const char *authority = sep + 3;
+    size_t auth_len = strcspn(authority, "/?#");
+    const char *host = authority;
+    size_t host_len = auth_len;
+    for (size_t i = 0; i < auth_len; i++) {
+        if (authority[i] == '@') {
+            out->has_userinfo = 1;
+            host = authority + i + 1;
+            host_len = auth_len - i - 1;
+        }
+    }
+
+    const char *port = NULL;
+    size_t port_len = 0;
+    if (host_len > 0 && host[0] == '[') {
+        const char *close = memchr(host, ']', host_len);
+        if (!close) return -1;
+        size_t bracketed = (size_t)(close - host) + 1;
+        if (bracketed < host_len) {
+            if (host[bracketed] != ':') return -1;
+            port = host + bracketed + 1;
+            port_len = host_len - bracketed - 1;
+        }
+        host_len = bracketed;
+    } else {
+        const char *colon = memchr(host, ':', host_len);
+        if (colon) {
+            port = colon + 1;
+            port_len = host_len - (size_t)(colon - host) - 1;
+            host_len = (size_t)(colon - host);
+        }
+    }
+    if (host_len == 0 || host_len >= sizeof(out->host)) return -1;
+    for (size_t i = 0; i < host_len; i++) {
+        char ch = host[i];
+        if (ch >= 'A' && ch <= 'Z') ch = (char)(ch - 'A' + 'a');
+        out->host[i] = ch;
+    }
+
+    if (port) {
+        /* "host:" with an empty port is the scheme default, as RFC 3986 §3.2.3 says. */
+        long value = 0;
+        for (size_t i = 0; i < port_len; i++) {
+            if (port[i] < '0' || port[i] > '9') return -1;
+            value = value * 10 + (port[i] - '0');
+            if (value > 65535) return -1;
+        }
+        if (port_len > 0) {
+            if (value == 0) return -1;
+            out->port = value;
+        }
+    }
+    if (out->port == 0) {
+        if (strcmp(out->scheme, "https") == 0) out->port = 443;
+        else if (strcmp(out->scheme, "http") == 0) out->port = 80;
+        else return -1;
+    }
+    return 0;
+}
+
 /* ---- header key/value list ---- */
 
 axiam_kv_t *axiam_kv_append(axiam_kv_t *head, const char *key, const char *value) {

@@ -24,6 +24,7 @@
 #include "axiam/guard.h"
 #include "axiam/mcp.h"
 #include "axiam/oidc.h"
+#include "axiam/registration.h"
 #include "axiam/opaque.h"
 #include "axiam/reactor.h"
 #include "axiam/uma.h"
