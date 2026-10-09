@@ -28,7 +28,6 @@ axiam_mgmt_error_class_t axiam_mgmt_error_class(const axiam_error_t *err) {
 
 void axiam_mgmt_classify(axiam_error_t *err, long status, const char *operation,
                          const char *body) {
-    (void) body;
     axiam_error_kind_t kind;
     const char *what;
 
@@ -45,9 +44,26 @@ void axiam_mgmt_classify(axiam_error_t *err, long status, const char *operation,
             break;
     }
 
+    /* §29.4, §30.4, §31.4: a ValidationError CARRIES the server's `message`, which names
+     * the field and the rule -- for a human; this SDK never parses it. The server's
+     * message never echoes a secret (§30.3 rule 1, §31.3 rule 1, §32.3 rule 1), and the
+     * buffer is bounded either way. */
+    const char *detail = NULL;
+    cJSON *parsed = NULL;
+    if ((status == 400 || status == 422) && body) {
+        parsed = cJSON_Parse(body);
+        const cJSON *m = parsed ? cJSON_GetObjectItemCaseSensitive(parsed, "message") : NULL;
+        if (cJSON_IsString(m) && m->valuestring[0]) detail = m->valuestring;
+    }
     char msg[256];
-    snprintf(msg, sizeof msg, "%s: %s (HTTP %ld)",
-             operation ? operation : "management", what, status);
+    if (detail) {
+        snprintf(msg, sizeof msg, "%s: %s (HTTP %ld): %s",
+                 operation ? operation : "management", what, status, detail);
+    } else {
+        snprintf(msg, sizeof msg, "%s: %s (HTTP %ld)",
+                 operation ? operation : "management", what, status);
+    }
+    cJSON_Delete(parsed);
     axiam_error_set(err, kind, status, msg);
 }
 

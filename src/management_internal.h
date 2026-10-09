@@ -74,6 +74,17 @@ long axiam_mgmt_page_total(const cJSON *envelope, long item_count);
 /* The `items`/`data` array of a page envelope, or NULL when neither is present. */
 const cJSON *axiam_mgmt_page_items(const cJSON *envelope);
 
+/*
+ * The PRECHECKS the generated operations call before any I/O (scripts/gen_management.py),
+ * defined in management_helpers.c.
+ *
+ * saml.parse_sp_metadata: exactly one of `metadata_xml` and `metadata_url` (§29.2) --
+ * both or neither is this SDK's local ValidationError, never a request.
+ */
+struct axiam_mgmt_parse_saml_sp_metadata;
+axiam_error_kind_t axiam_mgmt_check_parse_sp_metadata(
+    const struct axiam_mgmt_parse_saml_sp_metadata *body, axiam_error_t *err);
+
 /* Serialize a cJSON body to a malloc'd string and delete the cJSON. NULL-safe. */
 char *axiam_mgmt_render(cJSON *body);
 

@@ -4532,6 +4532,30 @@ axiam_error_kind_t axiam_directory_get(axiam_client_t *c, const axiam_mgmt_call_
 
 axiam_error_kind_t axiam_directory_set(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_directory_config_t *body, axiam_mgmt_directory_config_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "directory.set", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->base_dn) {
+        axiam_local_refusal(err, "directory.set", "base_dn",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->bind_dn) {
+        axiam_local_refusal(err, "directory.set", "bind_dn",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->url) {
+        axiam_local_refusal(err, "directory.set", "url",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->user_filter) {
+        axiam_local_refusal(err, "directory.set", "user_filter",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";
@@ -4790,6 +4814,25 @@ axiam_error_kind_t axiam_saml_list_service_providers(axiam_client_t *c, const ax
 
 axiam_error_kind_t axiam_saml_create_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "saml.create_service_provider", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->acs_urls) {
+        axiam_local_refusal(err, "saml.create_service_provider", "acs_urls",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->display_name) {
+        axiam_local_refusal(err, "saml.create_service_provider", "display_name",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->entity_id) {
+        axiam_local_refusal(err, "saml.create_service_provider", "entity_id",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";
@@ -4862,6 +4905,25 @@ axiam_error_kind_t axiam_saml_get_service_provider(axiam_client_t *c, const axia
 
 axiam_error_kind_t axiam_saml_update_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *sp_id, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "saml.update_service_provider", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->acs_urls) {
+        axiam_local_refusal(err, "saml.update_service_provider", "acs_urls",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->display_name) {
+        axiam_local_refusal(err, "saml.update_service_provider", "display_name",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->entity_id) {
+        axiam_local_refusal(err, "saml.update_service_provider", "entity_id",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "tenant_id";
@@ -4928,6 +4990,11 @@ axiam_error_kind_t axiam_saml_delete_service_provider(axiam_client_t *c, const a
 
 axiam_error_kind_t axiam_saml_parse_sp_metadata(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_parse_saml_sp_metadata_t *body, axiam_mgmt_saml_sp_metadata_draft_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    /*
+     * A local check the contract requires before any I/O (see PRECHECKS in
+     * scripts/gen_management.py).
+     */
+    if (axiam_mgmt_check_parse_sp_metadata(body, err) != AXIAM_OK) return AXIAM_ERR_NETWORK;
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";
@@ -5168,6 +5235,25 @@ axiam_error_kind_t axiam_ssf_list_streams(axiam_client_t *c, const axiam_mgmt_ca
 
 axiam_error_kind_t axiam_ssf_create_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "ssf.create_stream", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->audience) {
+        axiam_local_refusal(err, "ssf.create_stream", "audience",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->events_allowed) {
+        axiam_local_refusal(err, "ssf.create_stream", "events_allowed",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->receiver_client_id) {
+        axiam_local_refusal(err, "ssf.create_stream", "receiver_client_id",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";
@@ -5240,6 +5326,25 @@ axiam_error_kind_t axiam_ssf_get_stream(axiam_client_t *c, const axiam_mgmt_call
 
 axiam_error_kind_t axiam_ssf_update_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *stream_id, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "ssf.update_stream", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->audience) {
+        axiam_local_refusal(err, "ssf.update_stream", "audience",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->events_allowed) {
+        axiam_local_refusal(err, "ssf.update_stream", "events_allowed",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->receiver_client_id) {
+        axiam_local_refusal(err, "ssf.update_stream", "receiver_client_id",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "tenant_id";
@@ -5353,6 +5458,30 @@ axiam_error_kind_t axiam_scim_targets_list(axiam_client_t *c, const axiam_mgmt_p
 
 axiam_error_kind_t axiam_scim_targets_create(axiam_client_t *c, const axiam_mgmt_scim_target_input_t *body, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "scim_targets.create", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->auth) {
+        axiam_local_refusal(err, "scim_targets.create", "auth",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->base_url) {
+        axiam_local_refusal(err, "scim_targets.create", "base_url",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->name) {
+        axiam_local_refusal(err, "scim_targets.create", "name",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->scope) {
+        axiam_local_refusal(err, "scim_targets.create", "scope",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
     if (body && body->auth && !axiam_mgmt_scim_target_auth_is_known(body->auth)) {
         axiam_local_refusal(err, "scim_targets.create", "auth",
             "a ScimTargetAuth whose type this SDK does not know is never sent (CONTRACT.md \xc2\xa7" "31.2)");
@@ -5419,6 +5548,30 @@ axiam_error_kind_t axiam_scim_targets_get(axiam_client_t *c, const char *id, axi
 
 axiam_error_kind_t axiam_scim_targets_update(axiam_client_t *c, const char *id, const axiam_mgmt_scim_target_input_t *body, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "scim_targets.update", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->auth) {
+        axiam_local_refusal(err, "scim_targets.update", "auth",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->base_url) {
+        axiam_local_refusal(err, "scim_targets.update", "base_url",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->name) {
+        axiam_local_refusal(err, "scim_targets.update", "name",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->scope) {
+        axiam_local_refusal(err, "scim_targets.update", "scope",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
     if (body && body->auth && !axiam_mgmt_scim_target_auth_is_known(body->auth)) {
         axiam_local_refusal(err, "scim_targets.update", "auth",
             "a ScimTargetAuth whose type this SDK does not know is never sent (CONTRACT.md \xc2\xa7" "31.2)");

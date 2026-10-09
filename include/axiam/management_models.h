@@ -6167,6 +6167,13 @@ struct axiam_mgmt_saml_idp_info {
      */
     char *active_credential_id;
     /**
+     * Presence of `active_credential_id`, so an explicit `null` stays distinct from an
+     * absent member (CONTRACT.md §27.4 rule 5). `active_credential_id` NULL with this 0 is
+     * ABSENT; NULL with this 1 is JSON `null`; a non-NULL value is itself, whatever this
+     * says.
+     */
+    int has_active_credential_id;
+    /**
      * The IdP's entity id (the metadata URL itself).
      */
     char *entity_id;
@@ -6183,6 +6190,12 @@ struct axiam_mgmt_saml_idp_info {
      * The `next` credential, or null. Optional.
      */
     char *next_credential_id;
+    /**
+     * Presence of `next_credential_id`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `next_credential_id` NULL with this 0 is ABSENT;
+     * NULL with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_next_credential_id;
     /**
      * Whether this server build serves SAML at all (it was built with the `saml` feature).
      */
@@ -8134,9 +8147,21 @@ struct axiam_mgmt_update_directory_config {
      */
     char *group_base_dn;
     /**
+     * Presence of `group_base_dn`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `group_base_dn` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_group_base_dn;
+    /**
      * Explicit `null` clears it. Optional.
      */
     char *group_filter;
+    /**
+     * Presence of `group_filter`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `group_filter` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_group_filter;
     /**
      * Replaces the whole table when present. Optional.
      */

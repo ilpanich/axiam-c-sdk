@@ -96,7 +96,10 @@ set(AXIAM_SOURCES
     src/management.c
     src/management_models.c
     src/management_ops.c
-    src/management_manifest.c)
+    src/management_manifest.c
+    # Hand-written conveniences around the generated models (CONTRACT.md §29 - §32):
+    # read-modify-write conversions, the §31.2 union constructors, the PRECHECKS.
+    src/management_helpers.c)
 
 # Compile the SDK sources once into an object library shared by both variants.
 add_library(axiam_obj OBJECT ${AXIAM_SOURCES})

@@ -8158,7 +8158,8 @@ axiam_mgmt_saml_idp_info_t *axiam_mgmt_saml_idp_info_parse(const cJSON *src) {
     const cJSON *item;
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "active_credential_id");
-    if (cJSON_IsString(item)) out->active_credential_id = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->active_credential_id = axiam_strdup0(item->valuestring); out->has_active_credential_id = 1; }
+    else if (cJSON_IsNull(item)) out->has_active_credential_id = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "entity_id");
     if (cJSON_IsString(item)) out->entity_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_served");
@@ -8167,7 +8168,8 @@ axiam_mgmt_saml_idp_info_t *axiam_mgmt_saml_idp_info_parse(const cJSON *src) {
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
     if (cJSON_IsString(item)) out->metadata_url = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "next_credential_id");
-    if (cJSON_IsString(item)) out->next_credential_id = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->next_credential_id = axiam_strdup0(item->valuestring); out->has_next_credential_id = 1; }
+    else if (cJSON_IsNull(item)) out->has_next_credential_id = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "saml_available");
     if (cJSON_IsBool(item)) { out->saml_available = cJSON_IsTrue(item) ? 1 : 0;
     }
@@ -8189,6 +8191,8 @@ cJSON *axiam_mgmt_saml_idp_info_build(const axiam_mgmt_saml_idp_info_t *value) {
     if (!obj) return NULL;
     if (value->active_credential_id) {
         cJSON_AddStringToObject(obj, "active_credential_id", value->active_credential_id);
+    } else if (value->has_active_credential_id) {
+        cJSON_AddNullToObject(obj, "active_credential_id");
     }
     if (value->entity_id) {
         cJSON_AddStringToObject(obj, "entity_id", value->entity_id);
@@ -8201,6 +8205,8 @@ cJSON *axiam_mgmt_saml_idp_info_build(const axiam_mgmt_saml_idp_info_t *value) {
     }
     if (value->next_credential_id) {
         cJSON_AddStringToObject(obj, "next_credential_id", value->next_credential_id);
+    } else if (value->has_next_credential_id) {
+        cJSON_AddNullToObject(obj, "next_credential_id");
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "saml_available", value->saml_available);
@@ -11275,9 +11281,11 @@ axiam_mgmt_update_directory_config_t *axiam_mgmt_update_directory_config_parse(c
     if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_enabled = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "group_base_dn");
-    if (cJSON_IsString(item)) out->group_base_dn = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->group_base_dn = axiam_strdup0(item->valuestring); out->has_group_base_dn = 1; }
+    else if (cJSON_IsNull(item)) out->has_group_base_dn = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "group_filter");
-    if (cJSON_IsString(item)) out->group_filter = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->group_filter = axiam_strdup0(item->valuestring); out->has_group_filter = 1; }
+    else if (cJSON_IsNull(item)) out->has_group_filter = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "group_mappings");
     if (cJSON_IsArray(item)) {
         size_t n = (size_t) cJSON_GetArraySize(item);
@@ -11349,9 +11357,13 @@ cJSON *axiam_mgmt_update_directory_config_build(const axiam_mgmt_update_director
     }
     if (value->group_base_dn) {
         cJSON_AddStringToObject(obj, "group_base_dn", value->group_base_dn);
+    } else if (value->has_group_base_dn) {
+        cJSON_AddNullToObject(obj, "group_base_dn");
     }
     if (value->group_filter) {
         cJSON_AddStringToObject(obj, "group_filter", value->group_filter);
+    } else if (value->has_group_filter) {
+        cJSON_AddNullToObject(obj, "group_filter");
     }
     if (value->group_mappings) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "group_mappings");

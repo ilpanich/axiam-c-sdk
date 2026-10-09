@@ -2845,6 +2845,10 @@ static void test_directory_set_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_set_directory_config_t body;
         memset(&body, 0, sizeof(body));
+        body.url = (char *) "ldaps://dc.example";
+        body.bind_dn = (char *) "cn=svc";
+        body.base_dn = (char *) "dc=example";
+        body.user_filter = (char *) "(uid={username})";
         axiam_mgmt_directory_config_t *result = NULL;
         arm(n);
         (void) axiam_directory_set(c, NULL, &body, &result, &err);
@@ -2996,6 +3000,10 @@ static void test_saml_create_service_provider_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_saml_service_provider_input_t body;
         memset(&body, 0, sizeof(body));
+        body.display_name = (char *) "example";
+        body.entity_id = (char *) "https://sp.example/metadata";
+        axiam_mgmt_acs_endpoint_t *pc_acs[1] = {NULL};
+        body.acs_urls = pc_acs;
         axiam_mgmt_saml_service_provider_t *result = NULL;
         arm(n);
         (void) axiam_saml_create_service_provider(c, NULL, &body, &result, &err);
@@ -3040,6 +3048,10 @@ static void test_saml_update_service_provider_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_saml_service_provider_input_t body;
         memset(&body, 0, sizeof(body));
+        body.display_name = (char *) "example";
+        body.entity_id = (char *) "https://sp.example/metadata";
+        axiam_mgmt_acs_endpoint_t *pc_acs[1] = {NULL};
+        body.acs_urls = pc_acs;
         axiam_mgmt_saml_service_provider_t *result = NULL;
         arm(n);
         (void) axiam_saml_update_service_provider(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
@@ -3082,6 +3094,7 @@ static void test_saml_parse_sp_metadata_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_parse_saml_sp_metadata_t body;
         memset(&body, 0, sizeof(body));
+        body.metadata_url = (char *) "https://sp.example/metadata";
         axiam_mgmt_saml_sp_metadata_draft_t *result = NULL;
         arm(n);
         (void) axiam_saml_parse_sp_metadata(c, NULL, &body, &result, &err);
@@ -3212,6 +3225,9 @@ static void test_ssf_create_stream_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_ssf_stream_input_t body;
         memset(&body, 0, sizeof(body));
+        body.receiver_client_id = (char *) "example";
+        body.audience = (char *) "https://rp.example";
+        body.events_allowed = (char *) "[]";
         axiam_mgmt_ssf_stream_t *result = NULL;
         arm(n);
         (void) axiam_ssf_create_stream(c, NULL, &body, &result, &err);
@@ -3256,6 +3272,9 @@ static void test_ssf_update_stream_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_ssf_stream_input_t body;
         memset(&body, 0, sizeof(body));
+        body.receiver_client_id = (char *) "example";
+        body.audience = (char *) "https://rp.example";
+        body.events_allowed = (char *) "[]";
         axiam_mgmt_ssf_stream_t *result = NULL;
         arm(n);
         (void) axiam_ssf_update_stream(c, NULL, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
@@ -3319,6 +3338,12 @@ static void test_scim_targets_create_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_scim_target_input_t body;
         memset(&body, 0, sizeof(body));
+        body.name = (char *) "example";
+        body.base_url = (char *) "https://scim.example/v2";
+        axiam_mgmt_scim_target_auth_t pc_auth = {(char *) "bearer", NULL};
+        axiam_mgmt_scim_target_scope_t pc_scope = {(char *) "all_users", NULL};
+        body.auth = &pc_auth;
+        body.scope = &pc_scope;
         axiam_mgmt_scim_target_response_t *result = NULL;
         arm(n);
         (void) axiam_scim_targets_create(c, &body, &result, &err);
@@ -3363,6 +3388,12 @@ static void test_scim_targets_update_survives_oom(void) {
         axiam_error_t err;
         axiam_mgmt_scim_target_input_t body;
         memset(&body, 0, sizeof(body));
+        body.name = (char *) "example";
+        body.base_url = (char *) "https://scim.example/v2";
+        axiam_mgmt_scim_target_auth_t pc_auth = {(char *) "bearer", NULL};
+        axiam_mgmt_scim_target_scope_t pc_scope = {(char *) "all_users", NULL};
+        body.auth = &pc_auth;
+        body.scope = &pc_scope;
         axiam_mgmt_scim_target_response_t *result = NULL;
         arm(n);
         (void) axiam_scim_targets_update(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);

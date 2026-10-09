@@ -68,6 +68,197 @@ OPEN_UNIONS = {"ScimTargetAuth", "ScimTargetScope"}
 # only happen against another MODEL -- which the spec itself prevents.
 RENAMED_SCHEMAS: dict[str, str] = {}
 
+# Sparse-body members where an explicit `null` is a different request from an absent
+# member (§27.4 rule 5, "null is not absent"). §30.2 names exactly two: on
+# `UpdateDirectoryConfig`, `null` clears the value and absence keeps it. §29.8 test 8
+# asks the same of a RESPONSE: `SamlIdpInfo`'s two credential ids are null when the slot
+# is empty, and that null must stay distinct from an absent member.
+#
+# C's tri-state is a pointer plus a presence flag: each of these four members gains an
+# `int has_<name>`. NULL with `has_` 0 is ABSENT (omitted on the wire / not sent by the
+# server), NULL with `has_` 1 is an explicit JSON `null`, and a non-NULL pointer is a
+# value. A name list rather than a schema rule, because the export spells every optional
+# member `["string", "null"]` and cannot say which ones `null` clears.
+EXPLICIT_NULL_FIELDS = {
+    ("UpdateDirectoryConfig", "group_base_dn"),
+    ("UpdateDirectoryConfig", "group_filter"),
+    ("SamlIdpInfo", "active_credential_id"),
+    ("SamlIdpInfo", "next_credential_id"),
+}
+
+# Call-site documentation the contract makes an SDK repeat (§29.3, §30.3, §31.3, §32.2).
+# Generated rather than hand-written because the operations are generated; keyed by the
+# registry's namespace-qualified operation name, worded for this SDK's C shapes.
+CALL_SITE_NOTES: dict[str, str] = {
+    "directory.set": (
+        "**Moving the connection requires the secret again** (§30.3 rule 2): a `set` "
+        "that changes `url`, `start_tls`, `bind_dn` or `trust_anchors_pem` without "
+        "`bind_secret` is refused `400` and changes nothing. The SDK holds no copy of the "
+        "secret and cannot re-send one for you. `bind_secret` is required while the tenant "
+        "has no configuration; otherwise absent keeps the stored secret. Every other "
+        "optional member left out is **reset to its default**. An enabled directory and an "
+        "effective `opaque_mode = required` never coexist (`409`); without the "
+        "deployment's directory key a write carrying a secret is `503`."
+    ),
+    "directory.update": (
+        "**Moving the connection requires the secret again** (§30.3 rule 2): an "
+        "`update` that changes `url`, `start_tls`, `bind_dn` or `trust_anchors_pem` "
+        "without `bind_secret` is refused `400` and changes nothing; the SDK holds no copy "
+        "of the secret to re-send. A member left NULL (or with its `has_` flag 0) is not "
+        "sent and stays as stored; `group_base_dn` / `group_filter` left NULL with "
+        "`has_group_base_dn` / `has_group_filter` set to 1 are sent as `null` and clear "
+        "the value. An enabled directory and an effective `opaque_mode = required` never "
+        "coexist (`409`)."
+    ),
+    "directory.delete": (
+        "**Deleting stops the directory, and only that** (§30.3 rule 5): directory "
+        "accounts can no longer sign in with a password -- there is no fallback to a "
+        "local hash -- and the sync stops. Sessions, refresh tokens and passkeys those "
+        "accounts already hold keep working until they expire or the accounts are "
+        "deactivated. There is no unlink: a linked account stays a directory account."
+    ),
+    "directory.link_account": (
+        "**Signs the account's owner out everywhere** (§30.3 rule 6): linking "
+        "deletes the account's WebAuthn credentials and federation links, revokes its "
+        "`User` certificates, all its sessions and its OAuth2 refresh tokens (TOTP is "
+        "kept). The entry is found by the account's own username; a repeat on an "
+        "already-linked account answers `was_already_linked` and repeats the revocations."
+    ),
+    "saml.create_service_provider": (
+        "`sp_signing_cert_pem` must be RSA (2048 bits or more) or ECDSA on P-256, P-384 or "
+        "P-521; an **ECDSA certificate verifies HTTP-POST requests only** -- the "
+        "HTTP-Redirect binding is RSA-only (§29.3 rule 2). `encrypt_assertions: true` "
+        "is refused while encryption is unimplemented. `entity_id` is unique per tenant "
+        "(`409`) and immutable once created."
+    ),
+    "saml.update_service_provider": (
+        "An omitted member takes its **default**, not its stored value: `enabled` and "
+        "`sign_responses` default to `true`, `name_id_format` to `persistent`, the other "
+        "flags to `false`, certificates and `slo_url` / `slo_binding` to null, the lists to "
+        "empty (§29.2). Start from axiam_saml_get_service_provider() and "
+        "axiam_mgmt_saml_service_provider_to_input(). `entity_id` is immutable: changing it "
+        "is `400` -- register a new service provider instead (§29.3 rule 3). An ECDSA "
+        "`sp_signing_cert_pem` verifies HTTP-POST requests only; HTTP-Redirect is RSA-only."
+    ),
+    "saml.delete_service_provider": (
+        "Ends no session: users already signed in to the SP stay signed in there until "
+        "their SP session ends (§29.3 rule 5)."
+    ),
+    "saml.parse_sp_metadata": (
+        "**Parses and stores nothing** (§29.3 rule 6): the result is a draft to "
+        "review and pass to axiam_saml_create_service_provider(). Exactly one of "
+        "`metadata_xml` and `metadata_url` must be set; both or neither is refused "
+        "locally, before any request (axiam_mgmt_parse_saml_sp_metadata_from_url() and "
+        "axiam_mgmt_parse_saml_sp_metadata_from_xml() build a valid body). The metadata's "
+        "own signature is not evaluated. `503` in a server built without SAML."
+    ),
+    "saml.issue_idp_credential": (
+        "Generates an RSA-4096 key on the server, which takes seconds; the key is never "
+        "returned. An occupied slot is `409` (§29.3 rule 7)."
+    ),
+    "saml.promote_idp_credential": (
+        "`credential_id` must be the tenant's current `next` credential; in one "
+        "transaction the old `active` is retired -- its key destroyed -- and `next` "
+        "becomes `active` (§29.3 rule 7)."
+    ),
+    "saml.retire_idp_credential": (
+        "**Retiring the `active` credential with no successor stops SAML sign-on for the "
+        "whole tenant at once** (§29.3 rule 7) -- it is the incident response to a "
+        "leaked key. The key is destroyed. The safe rotation is: issue into `next`, wait "
+        "until every SP has refreshed the metadata, then promote."
+    ),
+    "ssf.update_stream": (
+        "An omitted optional member takes its default (§32.2) -- **except "
+        "`authorization_header`, which absent keeps the stored one** -- unless the update "
+        "moves `endpoint_url` to another scheme, host or port while a header is stored: "
+        "then it must carry `authorization_header` again or `clear_authorization_header: "
+        "true`, else `400` (§32.3 rule 5). An update overtaken by the receiver's own "
+        "write is `409`: read the stream again."
+    ),
+    "scim_targets.create": (
+        "`credential` is required here (§31.3 rule 2). It is write-only: no response "
+        "ever carries it, and the SDK keeps no copy."
+    ),
+    "scim_targets.update": (
+        "**The credential is bound to its URL** (§31.3 rule 2): absent `credential` "
+        "keeps the stored one -- except that changing `base_url` of a bearer target, "
+        "`auth.token_url` or `base_url` of a client-credentials target, or `auth.type`, "
+        "without `credential` in the same write is refused `400` and changes nothing. The "
+        "SDK holds no credential to re-send. Every other member left out takes its "
+        "default. An update overtaken by another administrator's write is `409` "
+        "(§31.3 rule 4): reload, then retry yourself."
+    ),
+    "scim_targets.delete": (
+        "**Deprovisions nothing downstream** (§31.3 rule 8): the users and groups "
+        "AXIAM created in the service provider stay there, and AXIAM no longer knows "
+        "them. To remove them, set `deprovision` to `delete`, let AXIAM push, and only "
+        "then delete the target."
+    ),
+    "scim_targets.reconcile": (
+        "Starts a reconciliation in the background and answers `202`; its outcome is on "
+        "the target's `state` (§31.3 rule 7). `409` while a run holds the claim, "
+        "within five minutes of the last one, or for a disabled target."
+    ),
+}
+
+# Local checks a generated operation runs before any I/O, by name of a hand-written
+# function in src/management_helpers.c taking the request body and the error.
+PRECHECKS: dict[str, str] = {
+    "saml.parse_sp_metadata": "axiam_mgmt_check_parse_sp_metadata",
+}
+
+# Replacement bodies whose REQUIRED members are checked before any request (§29.8 test 1,
+# §30.8 test 4, §31.8 test 3, §32.8 test 1: "the input cannot be built without them (or its
+# builder refuses, in a language without the compile-time check)"). C has no such check,
+# so the operation refuses: a required pointer member left NULL -- or a NULL body -- is a
+# local ValidationError naming the member. A required SCALAR (`enabled`, `kind`, ...) has
+# no "unset" state in C to refuse; its zero is a value.
+#
+# Deliberately these four types and not every body: these are the sections whose tests
+# ask for it, and refusing a body every earlier namespace accepts would be a behaviour
+# change nobody asked for.
+REQUIRED_MEMBER_CHECKS = {
+    "SetDirectoryConfig", "SamlServiceProviderInput", "ScimTargetInput", "SsfStreamInput",
+}
+
+# Lines the generated tests run after zeroing the body of an operation with a PRECHECK or
+# a REQUIRED_MEMBER_CHECKS body -- the all-NULL body every other case sends would be
+# refused locally.
+_SAML_SP_BODY = [
+    'body.display_name = (char *) "example";',
+    'body.entity_id = (char *) "https://sp.example/metadata";',
+    "axiam_mgmt_acs_endpoint_t *pc_acs[1] = {NULL};",
+    "body.acs_urls = pc_acs;",
+]
+_SSF_STREAM_BODY = [
+    'body.receiver_client_id = (char *) "example";',
+    'body.audience = (char *) "https://rp.example";',
+    'body.events_allowed = (char *) "[]";',
+]
+_SCIM_TARGET_BODY = [
+    'body.name = (char *) "example";',
+    'body.base_url = (char *) "https://scim.example/v2";',
+    'axiam_mgmt_scim_target_auth_t pc_auth = {(char *) "bearer", NULL};',
+    'axiam_mgmt_scim_target_scope_t pc_scope = {(char *) "all_users", NULL};',
+    "body.auth = &pc_auth;",
+    "body.scope = &pc_scope;",
+]
+PRECHECK_TEST_BODIES: dict[str, list[str]] = {
+    "saml.parse_sp_metadata": ['body.metadata_url = (char *) "https://sp.example/metadata";'],
+    "directory.set": [
+        'body.url = (char *) "ldaps://dc.example";',
+        'body.bind_dn = (char *) "cn=svc";',
+        'body.base_dn = (char *) "dc=example";',
+        'body.user_filter = (char *) "(uid={username})";',
+    ],
+    "saml.create_service_provider": _SAML_SP_BODY,
+    "saml.update_service_provider": _SAML_SP_BODY,
+    "ssf.create_stream": _SSF_STREAM_BODY,
+    "ssf.update_stream": _SSF_STREAM_BODY,
+    "scim_targets.create": _SCIM_TARGET_BODY,
+    "scim_targets.update": _SCIM_TARGET_BODY,
+}
+
 #: The registry's own counts, so no prose the generator emits can go stale on a re-vendor.
 OP_COUNT = sum(len(ns["operations"]) for ns in REGISTRY["namespaces"].values())
 NAMESPACE_COUNT = len(REGISTRY["namespaces"])
@@ -671,6 +862,7 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
             "schema": schema,
             "secret": wire in secrets,
             "description": schema.get("description") if isinstance(schema, dict) else None,
+            "explicit_null": (schema_name, wire) in EXPLICIT_NULL_FIELDS,
         })
     return out, description
 
@@ -860,6 +1052,13 @@ def emit_models_header() -> str:
                 out.append(f"    {f['decl']}{f['name']};")
             if scalar(f["kind"]) and not f["required"]:
                 out.append(f"    int has_{f['name']}; /**< 1 when `{f['name']}` is set. */")
+            if f.get("explicit_null"):
+                out.extend(doc(
+                    f"Presence of `{f['name']}`, so an explicit `null` stays distinct from an "
+                    f"absent member (CONTRACT.md \u00a727.4 rule 5). `{f['name']}` NULL with this "
+                    "0 is ABSENT; NULL with this 1 is JSON `null`; a non-NULL value is "
+                    "itself, whatever this says.", "    "))
+                out.append(f"    int has_{f['name']};")
         out.append("};")
         out.append("")
         out.extend(doc(
@@ -942,7 +1141,10 @@ def emit_parse_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
 
     o.append(f'{indent}item = cJSON_GetObjectItemCaseSensitive(src, "{w}");')
 
-    if kind == "string":
+    if kind == "string" and f.get("explicit_null"):
+        o.append(f"{indent}if (cJSON_IsString(item)) {{ out->{n} = axiam_strdup0(item->valuestring); out->has_{n} = 1; }}")
+        o.append(f"{indent}else if (cJSON_IsNull(item)) out->has_{n} = 1;")
+    elif kind == "string":
         o.append(f"{indent}if (cJSON_IsString(item)) out->{n} = axiam_strdup0(item->valuestring);")
     elif kind == "sensitive":
         # 27.5: a one-time secret goes behind Sensitive the moment it is parsed, so it
@@ -1080,6 +1282,16 @@ def emit_build_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
 
     if kind == "union_raw":
         return []
+
+    if kind == "string" and f.get("explicit_null"):
+        # \u00a727.4 rule 5: a value, else an explicit null when flagged, else nothing.
+        return [
+            f"{indent}if (value->{n}) {{",
+            f'{indent}    cJSON_AddStringToObject(obj, "{w}", value->{n});',
+            f"{indent}}} else if (value->has_{n}) {{",
+            f'{indent}    cJSON_AddNullToObject(obj, "{w}");',
+            f"{indent}}}",
+        ]
 
     o.append(f"{indent}{guard} {{")
     body = indent + "    "
@@ -1502,6 +1714,9 @@ def op_doc(namespace: str, opname: str, op: dict[str, Any]) -> str:
     if op["method"] == "DELETE":
         lead += ("\n\nNOT idempotent (27.4 rule 6): deleting something already deleted "
                  "fails with AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.")
+    canonical = f"{namespace}.{opname}"
+    if canonical in CALL_SITE_NOTES:
+        lead += "\n\n" + CALL_SITE_NOTES[canonical]
     if op["sensitive_response_fields"]:
         fields = ", ".join(f"`{f}`" for f in op["sensitive_response_fields"])
         lead += (f"\n\nThe response carries a ONE-TIME secret ({fields}): the server will "
@@ -1597,6 +1812,11 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
     has_out = any(p["kind"] == "out" for p in params)
     if has_out:
         out.append("    if (out) *out = NULL;")
+    if canonical in PRECHECKS:
+        out.extend(comment(
+            "A local check the contract requires before any I/O (see PRECHECKS in "
+            "scripts/gen_management.py).", "    "))
+        out.append(f"    if ({PRECHECKS[canonical]}(body, err) != AXIAM_OK) return AXIAM_ERR_NETWORK;")
 
     # ---- refuse a body element this SDK cannot honestly serialize, before any wire
     # call (CONTRACT.md §27.4 rule 2, contract 1.52 N-3, C-12) ----
@@ -1618,6 +1838,23 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
         out.append("            }")
         out.append("        }")
         out.append("    }")
+
+    # ---- refuse a replacement body missing a required member (REQUIRED_MEMBER_CHECKS) ----
+    if body_param and op["request_schema"].lstrip("[]") in REQUIRED_MEMBER_CHECKS:
+        braw = op["request_schema"].lstrip("[]")
+        bfields, _ = fields_of(braw, sensitive_map().get(braw, set()))
+        pointer_kinds = {"string", "model", "sensitive", "json_text", "string_array", "model_array"}
+        required = [f for f in bfields if f["required"] and f["kind"] in pointer_kinds]
+        out.append("    if (!body) {")
+        out.append(f'        axiam_local_refusal(err, "{canonical}", "body", "a request body is required");')
+        out.append("        return AXIAM_ERR_NETWORK;")
+        out.append("    }")
+        for f in required:
+            out.append(f"    if (!body->{f['name']}) {{")
+            out.append(f'        axiam_local_refusal(err, "{canonical}", "{f["wire"]}",')
+            out.append(f'            "a required member is missing; the replacement cannot be sent without it");')
+            out.append("        return AXIAM_ERR_NETWORK;")
+            out.append("    }")
 
     # ---- refuse an OPEN union member whose tag this SDK does not know (CONTRACT.md
     # §31.2: an unknown `type` decodes, and is never sent) ----
@@ -1912,6 +2149,8 @@ def emit_test() -> str:
                     bmodel = pascal(op["request_schema"].lstrip("[]"))
                     block.append(f"    {model_type(bmodel)} body;")
                     block.append("    memset(&body, 0, sizeof(body));")
+                    for _line in PRECHECK_TEST_BODIES.get(f"{namespace}.{opname}", []):
+                        block.append("    " + _line)
                     args.append("&body")
                 elif p["kind"] == "page":
                     args.append("NULL")
@@ -1966,6 +2205,8 @@ def emit_test() -> str:
                         bmodel = pascal(op["request_schema"].lstrip("[]"))
                         discard.append(f"    {model_type(bmodel)} body;")
                         discard.append("    memset(&body, 0, sizeof(body));")
+                        for _line in PRECHECK_TEST_BODIES.get(f"{namespace}.{opname}", []):
+                            discard.append("    " + _line)
                         discard_args.append("&body")
                     elif p["kind"] == "page":
                         discard_args.append("NULL")
@@ -2004,6 +2245,8 @@ def emit_test() -> str:
                         bmodel = pascal(op["request_schema"].lstrip("[]"))
                         shape.append(f"    {model_type(bmodel)} body;")
                         shape.append("    memset(&body, 0, sizeof(body));")
+                        for _line in PRECHECK_TEST_BODIES.get(f"{namespace}.{opname}", []):
+                            shape.append("    " + _line)
                         shape_args.append("&body")
                     elif p["kind"] == "page":
                         shape_args.append("NULL")
@@ -2042,6 +2285,8 @@ def emit_test() -> str:
                         bmodel = pascal(op["request_schema"].lstrip("[]"))
                         unscoped.append(f"    {model_type(bmodel)} body;")
                         unscoped.append("    memset(&body, 0, sizeof(body));")
+                        for _line in PRECHECK_TEST_BODIES.get(f"{namespace}.{opname}", []):
+                            unscoped.append("    " + _line)
                         unscoped_args.append("&body")
                     elif p["kind"] == "page":
                         unscoped_args.append("NULL")
@@ -2347,6 +2592,8 @@ def emit_alloc_test() -> str:
                     bmodel = pascal(op["request_schema"].lstrip("[]"))
                     block.append(f"        {model_type(bmodel)} body;")
                     block.append("        memset(&body, 0, sizeof(body));")
+                    for _line in PRECHECK_TEST_BODIES.get(f"{namespace}.{opname}", []):
+                        block.append("        " + _line)
                     args.append("&body")
                 elif p["kind"] == "page":
                     args.append("NULL")
