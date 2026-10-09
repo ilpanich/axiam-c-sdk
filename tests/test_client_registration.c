@@ -195,6 +195,7 @@ static void test_a_uri_at_another_origin_is_refused_before_any_request(void) {
         "http://iam.example.com" REG_PATH,         /* http against an https base */
         "https://user@iam.example.com" REG_PATH,   /* userinfo */
         "ftp://iam.example.com" REG_PATH,          /* not http(s) */
+        "ftp://iam.example.com:21" REG_PATH,       /* not http(s), with an explicit port */
         "/oauth2/register/relative",               /* not absolute */
         NULL,                                      /* no URI at all */
     };
@@ -252,6 +253,18 @@ static void test_http_is_accepted_only_against_an_http_loopback_base(void) {
     if (c) {
         TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_read_client_registration(
             c, "http://iam.internal.example/oauth2/register/c1", token, &out, &err));
+        TEST_ASSERT_EQUAL_INT(0, g.calls);
+        axiam_client_free(c);
+    }
+
+    /* A base URL whose origin cannot be parsed (the constructor only checks the
+     * scheme): nothing can be at its origin, so every URI is refused. */
+    memset(&g, 0, sizeof g);
+    c = make_client_at("https://iam.example.com:notaport/");
+    if (c) {
+        TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_read_client_registration(
+            c, "https://iam.example.com/oauth2/register/c1", token, &out, &err));
+        TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
         TEST_ASSERT_EQUAL_INT(0, g.calls);
         axiam_client_free(c);
     }

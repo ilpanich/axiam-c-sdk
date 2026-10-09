@@ -1094,6 +1094,18 @@ static void test_t15_no_key_or_a_key_for_another_alg_is_refused_before_any_reque
     TEST_ASSERT_NULL(axiam_ciba_request_signer_new(AXIAM_CIBA_SIGNING_PS256, rsa_pem, NULL, &err));
     TEST_ASSERT_NULL(axiam_ciba_request_signer_new(AXIAM_CIBA_SIGNING_EDDSA, rsa_pem, NULL, &err));
     TEST_ASSERT_NULL(axiam_ciba_request_signer_new(AXIAM_CIBA_SIGNING_EDDSA, garbage, NULL, &err));
+    /* A passphrase-protected PEM is not a usable key: the SDK never prompts for one. */
+    {
+        BIO *bio = BIO_new(BIO_s_mem());
+        TEST_ASSERT_EQUAL_INT(1, PEM_write_bio_PrivateKey(bio, ed, EVP_aes_256_cbc(),
+                                                          (unsigned char *) "pw", 2, NULL, NULL));
+        char *data = NULL;
+        long len = BIO_get_mem_data(bio, &data);
+        axiam_sensitive_t *locked = axiam_sensitive_new_bytes(data, (size_t) len);
+        BIO_free(bio);
+        TEST_ASSERT_NULL(axiam_ciba_request_signer_new(AXIAM_CIBA_SIGNING_EDDSA, locked, NULL, &err));
+        axiam_sensitive_free(locked);
+    }
     TEST_ASSERT_EQUAL_INT(0, g.n + g.discovery_calls);
     /* C has no channel for extra form parameters: with a signer, every member of the
      * params goes inside `request`, so "a form parameter beside it" cannot be written. */
@@ -1247,10 +1259,18 @@ static void test_malformed_initiate_responses_and_a_closed_client(void) {
     /* A 400 without an error member is §2's NetworkError. */
     g.bc[0] = (answer_t){400, NULL, 0};
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ciba_initiate(c, &p, &r, &err));
-    axiam_client_close(c);
-    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ciba_initiate(c, &p, &r, &err));
     axiam_sensitive_t *id = axiam_sensitive_new("x");
     axiam_oidc_token_set_t set;
+    /* No out parameter, and an initiation with no auth_req_id: refused, nothing sent. */
+    int sent = g.n;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ciba_poll(c, id, NULL, NULL, NULL, &err));
+    axiam_ciba_initiate_response_t blank = initiated("", 60, 5);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ciba_await(c, &blank, NULL, NULL, &TEST_CLOCK, &set, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(sent, g.n);
+    axiam_ciba_initiate_response_dispose(&blank);
+    axiam_client_close(c);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ciba_initiate(c, &p, &r, &err));
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ciba_poll(c, id, NULL, NULL, &set, &err));
     axiam_ciba_initiate_response_t in = initiated("x", 60, 5);
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ciba_await(c, &in, NULL, NULL, &TEST_CLOCK, &set, &err));

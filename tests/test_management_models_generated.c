@@ -10338,8 +10338,1426 @@ static void test_webhook_response_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/*
+ * `ActorType`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_actor_type_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "User",
+        "ServiceAccount",
+        "System",
+    };
+    static const axiam_mgmt_actor_type_t constant[] = {
+        AXIAM_MGMT_ACTOR_TYPE_USER,
+        AXIAM_MGMT_ACTOR_TYPE_SERVICE_ACCOUNT,
+        AXIAM_MGMT_ACTOR_TYPE_SYSTEM,
+    };
+    axiam_mgmt_actor_type_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_actor_type_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_actor_type_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_actor_type_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ACTOR_TYPE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_actor_type_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_actor_type_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_actor_type_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_actor_type_to_wire((axiam_mgmt_actor_type_t) 0x7fff));
+}
+
+/*
+ * `AttestationMode`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_attestation_mode_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "none",
+        "indirect",
+        "direct_required",
+    };
+    static const axiam_mgmt_attestation_mode_t constant[] = {
+        AXIAM_MGMT_ATTESTATION_MODE_NONE,
+        AXIAM_MGMT_ATTESTATION_MODE_INDIRECT,
+        AXIAM_MGMT_ATTESTATION_MODE_DIRECT_REQUIRED,
+    };
+    axiam_mgmt_attestation_mode_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_attestation_mode_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_attestation_mode_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_attestation_mode_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ATTESTATION_MODE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_attestation_mode_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_attestation_mode_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_attestation_mode_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_attestation_mode_to_wire((axiam_mgmt_attestation_mode_t) 0x7fff));
+}
+
+/*
+ * `AttributeSource`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_attribute_source_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "username",
+        "email",
+        "display_name",
+        "given_name",
+        "family_name",
+        "groups",
+        "roles",
+    };
+    static const axiam_mgmt_attribute_source_t constant[] = {
+        AXIAM_MGMT_ATTRIBUTE_SOURCE_USERNAME,
+        AXIAM_MGMT_ATTRIBUTE_SOURCE_EMAIL,
+        AXIAM_MGMT_ATTRIBUTE_SOURCE_DISPLAY_NAME,
+        AXIAM_MGMT_ATTRIBUTE_SOURCE_GIVEN_NAME,
+        AXIAM_MGMT_ATTRIBUTE_SOURCE_FAMILY_NAME,
+        AXIAM_MGMT_ATTRIBUTE_SOURCE_GROUPS,
+        AXIAM_MGMT_ATTRIBUTE_SOURCE_ROLES,
+    };
+    axiam_mgmt_attribute_source_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_attribute_source_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_attribute_source_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_attribute_source_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ATTRIBUTE_SOURCE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_attribute_source_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_attribute_source_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_attribute_source_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_attribute_source_to_wire((axiam_mgmt_attribute_source_t) 0x7fff));
+}
+
+/*
+ * `AuditOutcome`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_audit_outcome_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Success",
+        "Failure",
+        "Denied",
+    };
+    static const axiam_mgmt_audit_outcome_t constant[] = {
+        AXIAM_MGMT_AUDIT_OUTCOME_SUCCESS,
+        AXIAM_MGMT_AUDIT_OUTCOME_FAILURE,
+        AXIAM_MGMT_AUDIT_OUTCOME_DENIED,
+    };
+    axiam_mgmt_audit_outcome_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_audit_outcome_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_audit_outcome_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_audit_outcome_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_AUDIT_OUTCOME_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_audit_outcome_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_audit_outcome_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_audit_outcome_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_audit_outcome_to_wire((axiam_mgmt_audit_outcome_t) 0x7fff));
+}
+
+/*
+ * `AuthnRequestParamsMode`: every wire value round-trips through its constant, an
+ * unrecognised value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and
+ * a NULL argument is refused.
+ */
+static void test_authn_request_params_mode_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "ignore",
+        "honour",
+    };
+    static const axiam_mgmt_authn_request_params_mode_t constant[] = {
+        AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_IGNORE,
+        AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_HONOUR,
+    };
+    axiam_mgmt_authn_request_params_mode_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_authn_request_params_mode_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_authn_request_params_mode_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_authn_request_params_mode_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_authn_request_params_mode_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_authn_request_params_mode_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_authn_request_params_mode_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_authn_request_params_mode_to_wire((axiam_mgmt_authn_request_params_mode_t) 0x7fff));
+}
+
+/*
+ * `CertificateStatus`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_certificate_status_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Active",
+        "Revoked",
+        "Expired",
+    };
+    static const axiam_mgmt_certificate_status_t constant[] = {
+        AXIAM_MGMT_CERTIFICATE_STATUS_ACTIVE,
+        AXIAM_MGMT_CERTIFICATE_STATUS_REVOKED,
+        AXIAM_MGMT_CERTIFICATE_STATUS_EXPIRED,
+    };
+    axiam_mgmt_certificate_status_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_certificate_status_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_certificate_status_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_certificate_status_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CERTIFICATE_STATUS_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_certificate_status_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_certificate_status_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_certificate_status_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_certificate_status_to_wire((axiam_mgmt_certificate_status_t) 0x7fff));
+}
+
+/*
+ * `CertificateType`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_certificate_type_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "User",
+        "Service",
+        "Device",
+        "Server",
+    };
+    static const axiam_mgmt_certificate_type_t constant[] = {
+        AXIAM_MGMT_CERTIFICATE_TYPE_USER,
+        AXIAM_MGMT_CERTIFICATE_TYPE_SERVICE,
+        AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE,
+        AXIAM_MGMT_CERTIFICATE_TYPE_SERVER,
+    };
+    axiam_mgmt_certificate_type_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_certificate_type_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_certificate_type_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_certificate_type_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_certificate_type_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_certificate_type_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_certificate_type_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_certificate_type_to_wire((axiam_mgmt_certificate_type_t) 0x7fff));
+}
+
+/*
+ * `CertificationLevel`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_certification_level_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "L1",
+        "L1Plus",
+        "L2",
+        "L2Plus",
+        "L3",
+        "L3Plus",
+    };
+    static const axiam_mgmt_certification_level_t constant[] = {
+        AXIAM_MGMT_CERTIFICATION_LEVEL_L1,
+        AXIAM_MGMT_CERTIFICATION_LEVEL_L1_PLUS,
+        AXIAM_MGMT_CERTIFICATION_LEVEL_L2,
+        AXIAM_MGMT_CERTIFICATION_LEVEL_L2_PLUS,
+        AXIAM_MGMT_CERTIFICATION_LEVEL_L3,
+        AXIAM_MGMT_CERTIFICATION_LEVEL_L3_PLUS,
+    };
+    axiam_mgmt_certification_level_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_certification_level_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_certification_level_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_certification_level_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_certification_level_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_certification_level_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_certification_level_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_certification_level_to_wire((axiam_mgmt_certification_level_t) 0x7fff));
+}
+
+/*
+ * `CibaDeliveryMode`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_ciba_delivery_mode_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "poll",
+        "ping",
+    };
+    static const axiam_mgmt_ciba_delivery_mode_t constant[] = {
+        AXIAM_MGMT_CIBA_DELIVERY_MODE_POLL,
+        AXIAM_MGMT_CIBA_DELIVERY_MODE_PING,
+    };
+    axiam_mgmt_ciba_delivery_mode_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ciba_delivery_mode_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_ciba_delivery_mode_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ciba_delivery_mode_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CIBA_DELIVERY_MODE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_ciba_delivery_mode_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ciba_delivery_mode_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ciba_delivery_mode_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_ciba_delivery_mode_to_wire((axiam_mgmt_ciba_delivery_mode_t) 0x7fff));
+}
+
+/*
+ * `CibaRequestSigningAlg`: every wire value round-trips through its constant, an
+ * unrecognised value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and
+ * a NULL argument is refused.
+ */
+static void test_ciba_request_signing_alg_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "PS256",
+        "ES256",
+        "EdDSA",
+    };
+    static const axiam_mgmt_ciba_request_signing_alg_t constant[] = {
+        AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_PS256,
+        AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_ES256,
+        AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_ED_DSA,
+    };
+    axiam_mgmt_ciba_request_signing_alg_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ciba_request_signing_alg_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_ciba_request_signing_alg_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ciba_request_signing_alg_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_ciba_request_signing_alg_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ciba_request_signing_alg_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ciba_request_signing_alg_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_ciba_request_signing_alg_to_wire((axiam_mgmt_ciba_request_signing_alg_t) 0x7fff));
+}
+
+/*
+ * `ClientAuthMethod`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_client_auth_method_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "client_secret_post",
+        "client_secret_basic",
+        "tls_client_auth",
+        "self_signed_tls_client_auth",
+        "private_key_jwt",
+        "none",
+    };
+    static const axiam_mgmt_client_auth_method_t constant[] = {
+        AXIAM_MGMT_CLIENT_AUTH_METHOD_CLIENT_SECRET_POST,
+        AXIAM_MGMT_CLIENT_AUTH_METHOD_CLIENT_SECRET_BASIC,
+        AXIAM_MGMT_CLIENT_AUTH_METHOD_TLS_CLIENT_AUTH,
+        AXIAM_MGMT_CLIENT_AUTH_METHOD_SELF_SIGNED_TLS_CLIENT_AUTH,
+        AXIAM_MGMT_CLIENT_AUTH_METHOD_PRIVATE_KEY_JWT,
+        AXIAM_MGMT_CLIENT_AUTH_METHOD_NONE,
+    };
+    axiam_mgmt_client_auth_method_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_client_auth_method_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_client_auth_method_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_client_auth_method_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_client_auth_method_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_client_auth_method_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_client_auth_method_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_client_auth_method_to_wire((axiam_mgmt_client_auth_method_t) 0x7fff));
+}
+
+/*
+ * `ClientProfile`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_client_profile_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "standard",
+        "fapi2",
+    };
+    static const axiam_mgmt_client_profile_t constant[] = {
+        AXIAM_MGMT_CLIENT_PROFILE_STANDARD,
+        AXIAM_MGMT_CLIENT_PROFILE_FAPI2,
+    };
+    axiam_mgmt_client_profile_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_client_profile_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_client_profile_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_client_profile_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_client_profile_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_client_profile_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_client_profile_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_client_profile_to_wire((axiam_mgmt_client_profile_t) 0x7fff));
+}
+
+/*
+ * `DeprovisionPolicy`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_deprovision_policy_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "deactivate",
+        "delete",
+    };
+    static const axiam_mgmt_deprovision_policy_t constant[] = {
+        AXIAM_MGMT_DEPROVISION_POLICY_DEACTIVATE,
+        AXIAM_MGMT_DEPROVISION_POLICY_DELETE,
+    };
+    axiam_mgmt_deprovision_policy_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_deprovision_policy_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_deprovision_policy_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_deprovision_policy_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_deprovision_policy_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_deprovision_policy_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_deprovision_policy_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_deprovision_policy_to_wire((axiam_mgmt_deprovision_policy_t) 0x7fff));
+}
+
+/*
+ * `DirectoryKind`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_directory_kind_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "open_ldap",
+        "active_directory",
+    };
+    static const axiam_mgmt_directory_kind_t constant[] = {
+        AXIAM_MGMT_DIRECTORY_KIND_OPEN_LDAP,
+        AXIAM_MGMT_DIRECTORY_KIND_ACTIVE_DIRECTORY,
+    };
+    axiam_mgmt_directory_kind_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_directory_kind_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_directory_kind_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_directory_kind_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_directory_kind_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_directory_kind_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_directory_kind_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_directory_kind_to_wire((axiam_mgmt_directory_kind_t) 0x7fff));
+}
+
+/*
+ * `FailurePolicy`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_failure_policy_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "fail_closed",
+        "fail_open",
+    };
+    static const axiam_mgmt_failure_policy_t constant[] = {
+        AXIAM_MGMT_FAILURE_POLICY_FAIL_CLOSED,
+        AXIAM_MGMT_FAILURE_POLICY_FAIL_OPEN,
+    };
+    axiam_mgmt_failure_policy_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_failure_policy_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_failure_policy_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_failure_policy_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_FAILURE_POLICY_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_failure_policy_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_failure_policy_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_failure_policy_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_failure_policy_to_wire((axiam_mgmt_failure_policy_t) 0x7fff));
+}
+
+/*
+ * `KeyAlgorithm`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_key_algorithm_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Rsa4096",
+        "Ed25519",
+    };
+    static const axiam_mgmt_key_algorithm_t constant[] = {
+        AXIAM_MGMT_KEY_ALGORITHM_RSA4096,
+        AXIAM_MGMT_KEY_ALGORITHM_ED25519,
+    };
+    axiam_mgmt_key_algorithm_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_key_algorithm_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_key_algorithm_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_key_algorithm_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_key_algorithm_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_key_algorithm_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_key_algorithm_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_key_algorithm_to_wire((axiam_mgmt_key_algorithm_t) 0x7fff));
+}
+
+/*
+ * `ManagedBy`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_managed_by_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "admin",
+        "dcr",
+        "cimd",
+    };
+    static const axiam_mgmt_managed_by_t constant[] = {
+        AXIAM_MGMT_MANAGED_BY_ADMIN,
+        AXIAM_MGMT_MANAGED_BY_DCR,
+        AXIAM_MGMT_MANAGED_BY_CIMD,
+    };
+    axiam_mgmt_managed_by_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_managed_by_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_managed_by_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_managed_by_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_MANAGED_BY_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_managed_by_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_managed_by_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_managed_by_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_managed_by_to_wire((axiam_mgmt_managed_by_t) 0x7fff));
+}
+
+/*
+ * `MfaMethodType`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_mfa_method_type_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Totp",
+        "Passkey",
+        "SecurityKey",
+    };
+    static const axiam_mgmt_mfa_method_type_t constant[] = {
+        AXIAM_MGMT_MFA_METHOD_TYPE_TOTP,
+        AXIAM_MGMT_MFA_METHOD_TYPE_PASSKEY,
+        AXIAM_MGMT_MFA_METHOD_TYPE_SECURITY_KEY,
+    };
+    axiam_mgmt_mfa_method_type_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_mfa_method_type_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_mfa_method_type_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_mfa_method_type_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_MFA_METHOD_TYPE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_mfa_method_type_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_mfa_method_type_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_mfa_method_type_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_mfa_method_type_to_wire((axiam_mgmt_mfa_method_type_t) 0x7fff));
+}
+
+/*
+ * `NameIdFormat`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_name_id_format_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "persistent",
+        "email_address",
+    };
+    static const axiam_mgmt_name_id_format_t constant[] = {
+        AXIAM_MGMT_NAME_ID_FORMAT_PERSISTENT,
+        AXIAM_MGMT_NAME_ID_FORMAT_EMAIL_ADDRESS,
+    };
+    axiam_mgmt_name_id_format_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_name_id_format_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_name_id_format_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_name_id_format_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_NAME_ID_FORMAT_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_name_id_format_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_name_id_format_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_name_id_format_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_name_id_format_to_wire((axiam_mgmt_name_id_format_t) 0x7fff));
+}
+
+/*
+ * `NotificationEventType`: every wire value round-trips through its constant, an
+ * unrecognised value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and
+ * a NULL argument is refused.
+ */
+static void test_notification_event_type_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "login_failure",
+        "account_locked",
+        "mfa_enrollment_changed",
+        "password_changed",
+        "password_reset_requested",
+        "role_assigned",
+        "role_unassigned",
+        "permission_granted",
+        "permission_revoked",
+        "certificate_issued",
+        "certificate_revoked",
+        "ca_certificate_revoked",
+        "user_created",
+        "user_deleted",
+        "user_updated",
+        "service_account_created",
+        "service_account_deleted",
+        "scim_delivery_failed",
+    };
+    static const axiam_mgmt_notification_event_type_t constant[] = {
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_LOGIN_FAILURE,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_ACCOUNT_LOCKED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_MFA_ENROLLMENT_CHANGED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_PASSWORD_CHANGED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_PASSWORD_RESET_REQUESTED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_ROLE_ASSIGNED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_ROLE_UNASSIGNED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_PERMISSION_GRANTED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_PERMISSION_REVOKED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_CERTIFICATE_ISSUED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_CERTIFICATE_REVOKED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_CA_CERTIFICATE_REVOKED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_USER_CREATED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_USER_DELETED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_USER_UPDATED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_CREATED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_DELETED,
+        AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SCIM_DELIVERY_FAILED,
+    };
+    axiam_mgmt_notification_event_type_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_notification_event_type_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_notification_event_type_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_notification_event_type_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_notification_event_type_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_notification_event_type_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_notification_event_type_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_notification_event_type_to_wire((axiam_mgmt_notification_event_type_t) 0x7fff));
+}
+
+/*
+ * `PermissionEffect`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_permission_effect_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "allow",
+        "deny",
+    };
+    static const axiam_mgmt_permission_effect_t constant[] = {
+        AXIAM_MGMT_PERMISSION_EFFECT_ALLOW,
+        AXIAM_MGMT_PERMISSION_EFFECT_DENY,
+    };
+    axiam_mgmt_permission_effect_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_permission_effect_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_permission_effect_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_permission_effect_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_permission_effect_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_permission_effect_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_permission_effect_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_permission_effect_to_wire((axiam_mgmt_permission_effect_t) 0x7fff));
+}
+
+/*
+ * `PgpKeyAlgorithm`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_pgp_key_algorithm_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Rsa4096",
+        "Ed25519",
+    };
+    static const axiam_mgmt_pgp_key_algorithm_t constant[] = {
+        AXIAM_MGMT_PGP_KEY_ALGORITHM_RSA4096,
+        AXIAM_MGMT_PGP_KEY_ALGORITHM_ED25519,
+    };
+    axiam_mgmt_pgp_key_algorithm_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_pgp_key_algorithm_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_pgp_key_algorithm_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_pgp_key_algorithm_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_pgp_key_algorithm_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_pgp_key_algorithm_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_pgp_key_algorithm_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_pgp_key_algorithm_to_wire((axiam_mgmt_pgp_key_algorithm_t) 0x7fff));
+}
+
+/*
+ * `PgpKeyPurpose`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_pgp_key_purpose_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "AuditSigning",
+        "Export",
+    };
+    static const axiam_mgmt_pgp_key_purpose_t constant[] = {
+        AXIAM_MGMT_PGP_KEY_PURPOSE_AUDIT_SIGNING,
+        AXIAM_MGMT_PGP_KEY_PURPOSE_EXPORT,
+    };
+    axiam_mgmt_pgp_key_purpose_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_pgp_key_purpose_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_pgp_key_purpose_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_pgp_key_purpose_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_PGP_KEY_PURPOSE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_pgp_key_purpose_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_pgp_key_purpose_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_pgp_key_purpose_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_pgp_key_purpose_to_wire((axiam_mgmt_pgp_key_purpose_t) 0x7fff));
+}
+
+/*
+ * `PgpKeyStatus`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_pgp_key_status_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Active",
+        "Revoked",
+    };
+    static const axiam_mgmt_pgp_key_status_t constant[] = {
+        AXIAM_MGMT_PGP_KEY_STATUS_ACTIVE,
+        AXIAM_MGMT_PGP_KEY_STATUS_REVOKED,
+    };
+    axiam_mgmt_pgp_key_status_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_pgp_key_status_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_pgp_key_status_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_pgp_key_status_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_PGP_KEY_STATUS_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_pgp_key_status_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_pgp_key_status_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_pgp_key_status_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_pgp_key_status_to_wire((axiam_mgmt_pgp_key_status_t) 0x7fff));
+}
+
+/*
+ * `ReactorMode`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_reactor_mode_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "intercept",
+        "listen",
+    };
+    static const axiam_mgmt_reactor_mode_t constant[] = {
+        AXIAM_MGMT_REACTOR_MODE_INTERCEPT,
+        AXIAM_MGMT_REACTOR_MODE_LISTEN,
+    };
+    axiam_mgmt_reactor_mode_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_reactor_mode_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_reactor_mode_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_reactor_mode_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_REACTOR_MODE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_reactor_mode_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_reactor_mode_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_reactor_mode_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_reactor_mode_to_wire((axiam_mgmt_reactor_mode_t) 0x7fff));
+}
+
+/*
+ * `SamlBinding`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_saml_binding_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "http_post",
+        "http_redirect",
+    };
+    static const axiam_mgmt_saml_binding_t constant[] = {
+        AXIAM_MGMT_SAML_BINDING_HTTP_POST,
+        AXIAM_MGMT_SAML_BINDING_HTTP_REDIRECT,
+    };
+    axiam_mgmt_saml_binding_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_saml_binding_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_saml_binding_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_saml_binding_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SAML_BINDING_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_saml_binding_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_saml_binding_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_saml_binding_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_saml_binding_to_wire((axiam_mgmt_saml_binding_t) 0x7fff));
+}
+
+/*
+ * `SamlIdpCredentialStatus`: every wire value round-trips through its constant, an
+ * unrecognised value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and
+ * a NULL argument is refused.
+ */
+static void test_saml_idp_credential_status_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "active",
+        "next",
+        "retired",
+    };
+    static const axiam_mgmt_saml_idp_credential_status_t constant[] = {
+        AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_ACTIVE,
+        AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_NEXT,
+        AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_RETIRED,
+    };
+    axiam_mgmt_saml_idp_credential_status_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_saml_idp_credential_status_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_saml_idp_credential_status_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_saml_idp_credential_status_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_saml_idp_credential_status_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_saml_idp_credential_status_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_saml_idp_credential_status_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_saml_idp_credential_status_to_wire((axiam_mgmt_saml_idp_credential_status_t) 0x7fff));
+}
+
+/*
+ * `SamlIdpSlot`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_saml_idp_slot_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "active",
+        "next",
+    };
+    static const axiam_mgmt_saml_idp_slot_t constant[] = {
+        AXIAM_MGMT_SAML_IDP_SLOT_ACTIVE,
+        AXIAM_MGMT_SAML_IDP_SLOT_NEXT,
+    };
+    axiam_mgmt_saml_idp_slot_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_saml_idp_slot_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_saml_idp_slot_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_saml_idp_slot_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SAML_IDP_SLOT_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_saml_idp_slot_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_saml_idp_slot_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_saml_idp_slot_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_saml_idp_slot_to_wire((axiam_mgmt_saml_idp_slot_t) 0x7fff));
+}
+
+/*
+ * `ScimTokenStatus`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_scim_token_status_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "active",
+        "expired",
+        "revoked",
+    };
+    static const axiam_mgmt_scim_token_status_t constant[] = {
+        AXIAM_MGMT_SCIM_TOKEN_STATUS_ACTIVE,
+        AXIAM_MGMT_SCIM_TOKEN_STATUS_EXPIRED,
+        AXIAM_MGMT_SCIM_TOKEN_STATUS_REVOKED,
+    };
+    axiam_mgmt_scim_token_status_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_scim_token_status_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_scim_token_status_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_scim_token_status_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SCIM_TOKEN_STATUS_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_scim_token_status_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_scim_token_status_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_scim_token_status_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_scim_token_status_to_wire((axiam_mgmt_scim_token_status_t) 0x7fff));
+}
+
+/*
+ * `SettingsScope`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_settings_scope_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Org",
+        "Tenant",
+    };
+    static const axiam_mgmt_settings_scope_t constant[] = {
+        AXIAM_MGMT_SETTINGS_SCOPE_ORG,
+        AXIAM_MGMT_SETTINGS_SCOPE_TENANT,
+    };
+    axiam_mgmt_settings_scope_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_settings_scope_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_settings_scope_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_settings_scope_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SETTINGS_SCOPE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_settings_scope_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_settings_scope_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_settings_scope_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_settings_scope_to_wire((axiam_mgmt_settings_scope_t) 0x7fff));
+}
+
+/*
+ * `SsfDeliveryMethod`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_ssf_delivery_method_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "push",
+        "poll",
+    };
+    static const axiam_mgmt_ssf_delivery_method_t constant[] = {
+        AXIAM_MGMT_SSF_DELIVERY_METHOD_PUSH,
+        AXIAM_MGMT_SSF_DELIVERY_METHOD_POLL,
+    };
+    axiam_mgmt_ssf_delivery_method_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_delivery_method_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_ssf_delivery_method_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_delivery_method_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_ssf_delivery_method_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_delivery_method_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_delivery_method_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_ssf_delivery_method_to_wire((axiam_mgmt_ssf_delivery_method_t) 0x7fff));
+}
+
+/*
+ * `SsfEventType`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_ssf_event_type_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "https://schemas.openid.net/secevent/caep/event-type/session-revoked",
+        "https://schemas.openid.net/secevent/caep/event-type/credential-change",
+        "https://schemas.openid.net/secevent/caep/event-type/assurance-level-change",
+        "https://schemas.openid.net/secevent/risc/event-type/account-disabled",
+        "https://schemas.openid.net/secevent/risc/event-type/account-enabled",
+        "https://schemas.openid.net/secevent/risc/event-type/account-purged",
+    };
+    static const axiam_mgmt_ssf_event_type_t constant[] = {
+        AXIAM_MGMT_SSF_EVENT_TYPE_SESSION_REVOKED,
+        AXIAM_MGMT_SSF_EVENT_TYPE_CREDENTIAL_CHANGE,
+        AXIAM_MGMT_SSF_EVENT_TYPE_ASSURANCE_LEVEL_CHANGE,
+        AXIAM_MGMT_SSF_EVENT_TYPE_ACCOUNT_DISABLED,
+        AXIAM_MGMT_SSF_EVENT_TYPE_ACCOUNT_ENABLED,
+        AXIAM_MGMT_SSF_EVENT_TYPE_ACCOUNT_PURGED,
+    };
+    axiam_mgmt_ssf_event_type_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_event_type_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_ssf_event_type_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_event_type_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SSF_EVENT_TYPE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_ssf_event_type_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_event_type_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_event_type_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_ssf_event_type_to_wire((axiam_mgmt_ssf_event_type_t) 0x7fff));
+}
+
+/*
+ * `SsfStatusActor`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_ssf_status_actor_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "admin",
+        "receiver",
+    };
+    static const axiam_mgmt_ssf_status_actor_t constant[] = {
+        AXIAM_MGMT_SSF_STATUS_ACTOR_ADMIN,
+        AXIAM_MGMT_SSF_STATUS_ACTOR_RECEIVER,
+    };
+    axiam_mgmt_ssf_status_actor_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_status_actor_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_ssf_status_actor_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_status_actor_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SSF_STATUS_ACTOR_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_ssf_status_actor_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_status_actor_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_status_actor_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_ssf_status_actor_to_wire((axiam_mgmt_ssf_status_actor_t) 0x7fff));
+}
+
+/*
+ * `SsfStreamStatus`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_ssf_stream_status_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "enabled",
+        "paused",
+        "disabled",
+    };
+    static const axiam_mgmt_ssf_stream_status_t constant[] = {
+        AXIAM_MGMT_SSF_STREAM_STATUS_ENABLED,
+        AXIAM_MGMT_SSF_STREAM_STATUS_PAUSED,
+        AXIAM_MGMT_SSF_STREAM_STATUS_DISABLED,
+    };
+    axiam_mgmt_ssf_stream_status_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_stream_status_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_ssf_stream_status_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_stream_status_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SSF_STREAM_STATUS_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_ssf_stream_status_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_stream_status_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_stream_status_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_ssf_stream_status_to_wire((axiam_mgmt_ssf_stream_status_t) 0x7fff));
+}
+
+/*
+ * `SsfSubjectFormat`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_ssf_subject_format_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "iss_sub",
+        "email",
+    };
+    static const axiam_mgmt_ssf_subject_format_t constant[] = {
+        AXIAM_MGMT_SSF_SUBJECT_FORMAT_ISS_SUB,
+        AXIAM_MGMT_SSF_SUBJECT_FORMAT_EMAIL,
+    };
+    axiam_mgmt_ssf_subject_format_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_subject_format_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_ssf_subject_format_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_ssf_subject_format_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_SSF_SUBJECT_FORMAT_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_ssf_subject_format_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_subject_format_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_ssf_subject_format_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_ssf_subject_format_to_wire((axiam_mgmt_ssf_subject_format_t) 0x7fff));
+}
+
+/*
+ * `TenantKind`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_tenant_kind_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "standard",
+        "organization",
+    };
+    static const axiam_mgmt_tenant_kind_t constant[] = {
+        AXIAM_MGMT_TENANT_KIND_STANDARD,
+        AXIAM_MGMT_TENANT_KIND_ORGANIZATION,
+    };
+    axiam_mgmt_tenant_kind_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_tenant_kind_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_tenant_kind_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_tenant_kind_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_TENANT_KIND_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_tenant_kind_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_tenant_kind_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_tenant_kind_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_tenant_kind_to_wire((axiam_mgmt_tenant_kind_t) 0x7fff));
+}
+
+/*
+ * `TenantStatus`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_tenant_status_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Active",
+        "Suspended",
+    };
+    static const axiam_mgmt_tenant_status_t constant[] = {
+        AXIAM_MGMT_TENANT_STATUS_ACTIVE,
+        AXIAM_MGMT_TENANT_STATUS_SUSPENDED,
+    };
+    axiam_mgmt_tenant_status_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_tenant_status_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_tenant_status_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_tenant_status_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_TENANT_STATUS_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_tenant_status_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_tenant_status_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_tenant_status_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_tenant_status_to_wire((axiam_mgmt_tenant_status_t) 0x7fff));
+}
+
+/*
+ * `UnknownAaguidAction`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_unknown_aaguid_action_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "allow",
+        "deny",
+    };
+    static const axiam_mgmt_unknown_aaguid_action_t constant[] = {
+        AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_ALLOW,
+        AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_DENY,
+    };
+    axiam_mgmt_unknown_aaguid_action_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_unknown_aaguid_action_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_unknown_aaguid_action_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_unknown_aaguid_action_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_unknown_aaguid_action_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_unknown_aaguid_action_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_unknown_aaguid_action_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_unknown_aaguid_action_to_wire((axiam_mgmt_unknown_aaguid_action_t) 0x7fff));
+}
+
+/*
+ * `UserNameSource`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_user_name_source_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "username",
+        "email",
+    };
+    static const axiam_mgmt_user_name_source_t constant[] = {
+        AXIAM_MGMT_USER_NAME_SOURCE_USERNAME,
+        AXIAM_MGMT_USER_NAME_SOURCE_EMAIL,
+    };
+    axiam_mgmt_user_name_source_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_user_name_source_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_user_name_source_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_user_name_source_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_USER_NAME_SOURCE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_user_name_source_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_user_name_source_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_user_name_source_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_user_name_source_to_wire((axiam_mgmt_user_name_source_t) 0x7fff));
+}
+
+/*
+ * `UserStatus`: every wire value round-trips through its constant, an unrecognised value
+ * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
+ * refused.
+ */
+static void test_user_status_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "Active",
+        "Inactive",
+        "Locked",
+        "PendingVerification",
+        "Anonymized",
+        "Deleted",
+    };
+    static const axiam_mgmt_user_status_t constant[] = {
+        AXIAM_MGMT_USER_STATUS_ACTIVE,
+        AXIAM_MGMT_USER_STATUS_INACTIVE,
+        AXIAM_MGMT_USER_STATUS_LOCKED,
+        AXIAM_MGMT_USER_STATUS_PENDING_VERIFICATION,
+        AXIAM_MGMT_USER_STATUS_ANONYMIZED,
+        AXIAM_MGMT_USER_STATUS_DELETED,
+    };
+    axiam_mgmt_user_status_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_user_status_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_user_status_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_user_status_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_USER_STATUS_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_user_status_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_user_status_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_user_status_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_user_status_to_wire((axiam_mgmt_user_status_t) 0x7fff));
+}
+
 int main(void) {
     UNITY_BEGIN();
+    RUN_TEST(test_actor_type_enum_round_trips);
+    RUN_TEST(test_attestation_mode_enum_round_trips);
+    RUN_TEST(test_attribute_source_enum_round_trips);
+    RUN_TEST(test_audit_outcome_enum_round_trips);
+    RUN_TEST(test_authn_request_params_mode_enum_round_trips);
+    RUN_TEST(test_certificate_status_enum_round_trips);
+    RUN_TEST(test_certificate_type_enum_round_trips);
+    RUN_TEST(test_certification_level_enum_round_trips);
+    RUN_TEST(test_ciba_delivery_mode_enum_round_trips);
+    RUN_TEST(test_ciba_request_signing_alg_enum_round_trips);
+    RUN_TEST(test_client_auth_method_enum_round_trips);
+    RUN_TEST(test_client_profile_enum_round_trips);
+    RUN_TEST(test_deprovision_policy_enum_round_trips);
+    RUN_TEST(test_directory_kind_enum_round_trips);
+    RUN_TEST(test_failure_policy_enum_round_trips);
+    RUN_TEST(test_key_algorithm_enum_round_trips);
+    RUN_TEST(test_managed_by_enum_round_trips);
+    RUN_TEST(test_mfa_method_type_enum_round_trips);
+    RUN_TEST(test_name_id_format_enum_round_trips);
+    RUN_TEST(test_notification_event_type_enum_round_trips);
+    RUN_TEST(test_permission_effect_enum_round_trips);
+    RUN_TEST(test_pgp_key_algorithm_enum_round_trips);
+    RUN_TEST(test_pgp_key_purpose_enum_round_trips);
+    RUN_TEST(test_pgp_key_status_enum_round_trips);
+    RUN_TEST(test_reactor_mode_enum_round_trips);
+    RUN_TEST(test_saml_binding_enum_round_trips);
+    RUN_TEST(test_saml_idp_credential_status_enum_round_trips);
+    RUN_TEST(test_saml_idp_slot_enum_round_trips);
+    RUN_TEST(test_scim_token_status_enum_round_trips);
+    RUN_TEST(test_settings_scope_enum_round_trips);
+    RUN_TEST(test_ssf_delivery_method_enum_round_trips);
+    RUN_TEST(test_ssf_event_type_enum_round_trips);
+    RUN_TEST(test_ssf_status_actor_enum_round_trips);
+    RUN_TEST(test_ssf_stream_status_enum_round_trips);
+    RUN_TEST(test_ssf_subject_format_enum_round_trips);
+    RUN_TEST(test_tenant_kind_enum_round_trips);
+    RUN_TEST(test_tenant_status_enum_round_trips);
+    RUN_TEST(test_unknown_aaguid_action_enum_round_trips);
+    RUN_TEST(test_user_name_source_enum_round_trips);
+    RUN_TEST(test_user_status_enum_round_trips);
     RUN_TEST(test_acs_endpoint_round_trips);
     RUN_TEST(test_acs_endpoint_parses_without_optionals);
     RUN_TEST(test_acs_endpoint_parses_an_empty_object);

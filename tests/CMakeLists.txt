@@ -419,3 +419,14 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_ciba PRIVATE --coverage)
 endif()
 add_test(NAME test_ciba COMMAND test_ciba)
+# The allocation-failure sweep over the contract 1.53 - 1.58 additions: the same --wrap
+# technique as test_alloc_failures, scoped to this one binary.
+add_executable(test_contract_158_alloc test_contract_158_alloc.c)
+target_include_directories(test_contract_158_alloc PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_contract_158_alloc PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+target_link_options(test_contract_158_alloc PRIVATE
+    -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_contract_158_alloc PRIVATE --coverage)
+endif()
+add_test(NAME test_contract_158_alloc COMMAND test_contract_158_alloc)

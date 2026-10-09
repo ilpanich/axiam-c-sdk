@@ -2303,6 +2303,39 @@ def emit_test() -> str:
                 cases.append("\n".join(unscoped))
                 extra_cases.append(f"{fn}_refuses_without_a_scope")
 
+    # A fifth case for the operations whose body has required members (REQUIRED_MEMBER_
+    # CHECKS): a NULL body is refused locally, before any request.
+    for namespace, nsdef in REGISTRY["namespaces"].items():
+        for opname, op in nsdef["operations"].items():
+            params = op_params(namespace, op)
+            if not any(p["kind"] == "body" for p in params):
+                continue
+            if op["request_schema"].lstrip("[]") not in REQUIRED_MEMBER_CHECKS:
+                continue
+            fn = f"test_{cname(namespace)}_{cname(opname)}_refuses_a_null_body"
+            nb = [f"static void {fn}(void) {{"]
+            nb.append("    axiam_client_t *c = mgmt_signed_in_client();")
+            nb.append("    axiam_error_t err;")
+            nb.append("    int before = mgmt_request_count();")
+            nb_args = []
+            for p in params:
+                if p["kind"] in ("scope", "query", "page", "out", "body"):
+                    nb_args.append("NULL")
+                elif p["kind"] == "path":
+                    nb_args.append(f'"{EXAMPLE_UUID}"')
+                elif p["kind"] == "err":
+                    nb_args.append("&err")
+            nb.append(f"    axiam_error_kind_t rc = {op_symbol(namespace, opname)}(c, "
+                      + ", ".join(nb_args) + ");")
+            nb.append("")
+            nb.append("    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);")
+            nb.append("    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));")
+            nb.append("    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());")
+            nb.append("    axiam_client_free(c);")
+            nb.append("}")
+            cases.append("\n".join(nb))
+            extra_cases.append(fn)
+
     out.append("\n\n".join(cases))
     out.append("")
     out.append("void setUp(void) { mgmt_reset(); }")
@@ -2467,8 +2500,53 @@ def emit_model_test() -> str:
         out.append("}")
         out.append("")
 
+    # One case per enum: every wire value decodes to its constant and encodes back to the
+    # same spelling, and the open arm behaves as the emitter documents.
+    enums = []
+    for name in schema_closure():
+        rendered = pascal(name)
+        if rendered not in ENUMS:
+            continue
+        values = [str(v) for v in ((SCHEMAS.get(name) or {}).get("enum") or [])]
+        if values:
+            enums.append((rendered, values))
+    for rendered, values in enums:
+        s = snake(rendered)
+        out.extend(comment(
+            f"`{rendered}`: every wire value round-trips through its constant, an "
+            "unrecognised value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty "
+            "string, and a NULL argument is refused."))
+        out.append(f"static void test_{s}_enum_round_trips(void) {{")
+        out.append(f"    static const char *const wire[] = {{")
+        for v in values:
+            out.append(f"        {c_string(v)},")
+        out.append("    };")
+        out.append(f"    static const axiam_mgmt_{s}_t constant[] = {{")
+        for v in values:
+            out.append(f"        {enum_const(rendered, v)},")
+        out.append("    };")
+        out.append(f"    axiam_mgmt_{s}_t got;")
+        out.append("    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {")
+        out.append(f"        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_{s}_from_wire(wire[i], &got));")
+        out.append("        TEST_ASSERT_EQUAL_INT(constant[i], got);")
+        out.append(f"        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_{s}_to_wire(constant[i]));")
+        out.append("    }")
+        out.append(f'    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_{s}_from_wire("not-a-server-value", &got));')
+        out.append(f"    TEST_ASSERT_EQUAL_INT({enum_const(rendered, 'unknown')}, got);")
+        out.append(f'    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_{s}_to_wire(got));')
+        out.append(f"    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_{s}_from_wire(NULL, &got));")
+        out.append(f'    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_{s}_from_wire(wire[0], NULL));')
+        out.extend(comment(
+            "A value outside the enumeration (a corrupted struct) encodes as the first "
+            "wire value rather than reading past a table.", "    "))
+        out.append(f"    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_{s}_to_wire((axiam_mgmt_{s}_t) 0x7fff));")
+        out.append("}")
+        out.append("")
+
     out.append("int main(void) {")
     out.append("    UNITY_BEGIN();")
+    for rendered, _ in enums:
+        out.append(f"    RUN_TEST(test_{snake(rendered)}_enum_round_trips);")
     for name, rendered in modelled:
         example = example_for(name)
         if not isinstance(example, dict) or not example:

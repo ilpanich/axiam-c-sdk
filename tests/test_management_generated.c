@@ -6509,6 +6509,90 @@ static void test_platform_mds_refresh_reaches_its_route_rejects_a_wrong_shaped_b
     axiam_client_free(c);
 }
 
+static void test_directory_set_refuses_a_null_body(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_error_kind_t rc = axiam_directory_set(c, NULL, NULL, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_saml_create_service_provider_refuses_a_null_body(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_error_kind_t rc = axiam_saml_create_service_provider(c, NULL, NULL, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_saml_update_service_provider_refuses_a_null_body(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_error_kind_t rc = axiam_saml_update_service_provider(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_ssf_create_stream_refuses_a_null_body(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_error_kind_t rc = axiam_ssf_create_stream(c, NULL, NULL, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_ssf_update_stream_refuses_a_null_body(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_error_kind_t rc = axiam_ssf_update_stream(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_scim_targets_create_refuses_a_null_body(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_error_kind_t rc = axiam_scim_targets_create(c, NULL, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_scim_targets_update_refuses_a_null_body(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_error_kind_t rc = axiam_scim_targets_update(c, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
 void setUp(void) { mgmt_reset(); }
 void tearDown(void) {}
 
@@ -7011,6 +7095,13 @@ int main(void) {
     RUN_TEST(test_platform_mds_status_reaches_its_route_rejects_a_wrong_shaped_body);
     RUN_TEST(test_platform_mds_refresh_reaches_its_route_discards_the_result);
     RUN_TEST(test_platform_mds_refresh_reaches_its_route_rejects_a_wrong_shaped_body);
+    RUN_TEST(test_directory_set_refuses_a_null_body);
+    RUN_TEST(test_saml_create_service_provider_refuses_a_null_body);
+    RUN_TEST(test_saml_update_service_provider_refuses_a_null_body);
+    RUN_TEST(test_ssf_create_stream_refuses_a_null_body);
+    RUN_TEST(test_ssf_update_stream_refuses_a_null_body);
+    RUN_TEST(test_scim_targets_create_refuses_a_null_body);
+    RUN_TEST(test_scim_targets_update_refuses_a_null_body);
     RUN_TEST(test_every_registry_operation_has_a_case);
     return UNITY_END();
 }
