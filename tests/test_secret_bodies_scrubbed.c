@@ -24,6 +24,20 @@
 
 #include <openssl/rand.h>
 
+/* Under valgrind a released block's unwritten tail is "uninitialised", and searching it
+ * would be reported as a use of uninitialised memory. The search is the point of this
+ * file, so the block is marked defined first. memcheck.h ships with valgrind; without it
+ * (and outside valgrind) the mark is a no-op. */
+#if defined(__has_include)
+#if __has_include(<valgrind/memcheck.h>)
+#include <valgrind/memcheck.h>
+#define MARK_DEFINED(p, n) VALGRIND_MAKE_MEM_DEFINED((p), (n))
+#endif
+#endif
+#ifndef MARK_DEFINED
+#define MARK_DEFINED(p, n) ((void) 0)
+#endif
+
 #include "unity.h"
 #include "axiam/axiam.h"
 #include "axiam/management_helpers.h"
@@ -49,6 +63,7 @@ static void inspect(void *ptr) {
     if (!g_watch_len || !ptr) return;
     g_released++;
     size_t n = malloc_usable_size(ptr);
+    MARK_DEFINED(ptr, n);
     if (n >= g_watch_len && memmem(ptr, n, g_watch, g_watch_len)) g_unscrubbed++;
 }
 
