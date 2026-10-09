@@ -394,3 +394,4 @@ add_test(NAME test_management_alloc_generated COMMAND test_management_alloc_gene
 axiam_add_test(test_client_registration test_client_registration.c)
 # §29 / §30 / §31 / §32.1-§32.5: the four new management namespaces, on the §27 rig.
 axiam_add_test(test_directory test_directory.c management_test_util.c)
+axiam_add_test(test_saml test_saml.c management_test_util.c)

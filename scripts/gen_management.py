@@ -1180,32 +1180,28 @@ def emit_parse_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
         o.append(f"{indent}if (cJSON_IsObject(item)) out->{n} = {model_prefix(f['ref'])}_parse(item);")
     elif kind == "json_text":
         o.append(f"{indent}if (item) out->{n} = cJSON_PrintUnformatted(item);")
-    elif kind == "string_array":
+    elif kind in {"string_array", "model_array"}:
+        # An EMPTY array the server sent is kept PRESENT -- a non-NULL pointer with a count
+        # of 0 -- rather than collapsed into "absent". _build() emits a member exactly when
+        # its pointer is set, so the collapse turned `"allowed_groups": []` read back into
+        # an omitted member on the replacement it was passed to (§29.8 test 1: the body
+        # carries every member). One slot is allocated for the empty case because
+        # calloc(0) may answer NULL.
+        if kind == "string_array":
+            t, elem = "char *", "char"
+            take = f"if (cJSON_IsString(e)) out->{n}[i] = axiam_strdup0(e->valuestring);"
+        else:
+            t, elem = f"{model_type(f['ref'])} *", model_type(f["ref"])
+            take = f"if (cJSON_IsObject(e)) out->{n}[i] = {model_prefix(f['ref'])}_parse(e);"
         o.append(f"{indent}if (cJSON_IsArray(item)) {{")
         o.append(f"{indent}    size_t n = (size_t) cJSON_GetArraySize(item);")
-        o.append(f"{indent}    if (n > 0) {{")
-        o.append(f"{indent}        out->{n} = (char **) calloc(n, sizeof(char *));")
-        o.append(f"{indent}        if (!out->{n}) {{ {model_prefix(f['owner'])}_free(out); return NULL; }}")
-        o.append(f"{indent}        for (size_t i = 0; i < n; i++) {{")
-        o.append(f"{indent}            const cJSON *e = cJSON_GetArrayItem(item, (int) i);")
-        o.append(f"{indent}            if (cJSON_IsString(e)) out->{n}[i] = axiam_strdup0(e->valuestring);")
-        o.append(f"{indent}        }}")
-        o.append(f"{indent}        out->{n}_count = n;")
+        o.append(f"{indent}    out->{n} = ({elem} **) calloc(n ? n : 1, sizeof({t}));")
+        o.append(f"{indent}    if (!out->{n}) {{ {model_prefix(f['owner'])}_free(out); return NULL; }}")
+        o.append(f"{indent}    for (size_t i = 0; i < n; i++) {{")
+        o.append(f"{indent}        const cJSON *e = cJSON_GetArrayItem(item, (int) i);")
+        o.append(f"{indent}        {take}")
         o.append(f"{indent}    }}")
-        o.append(f"{indent}}}")
-    elif kind == "model_array":
-        t = model_type(f["ref"])
-        o.append(f"{indent}if (cJSON_IsArray(item)) {{")
-        o.append(f"{indent}    size_t n = (size_t) cJSON_GetArraySize(item);")
-        o.append(f"{indent}    if (n > 0) {{")
-        o.append(f"{indent}        out->{n} = ({t} **) calloc(n, sizeof({t} *));")
-        o.append(f"{indent}        if (!out->{n}) {{ {model_prefix(f['owner'])}_free(out); return NULL; }}")
-        o.append(f"{indent}        for (size_t i = 0; i < n; i++) {{")
-        o.append(f"{indent}            const cJSON *e = cJSON_GetArrayItem(item, (int) i);")
-        o.append(f"{indent}            if (cJSON_IsObject(e)) out->{n}[i] = {model_prefix(f['ref'])}_parse(e);")
-        o.append(f"{indent}        }}")
-        o.append(f"{indent}        out->{n}_count = n;")
-        o.append(f"{indent}    }}")
+        o.append(f"{indent}    out->{n}_count = n;")
         o.append(f"{indent}}}")
     return o
 
