@@ -396,3 +396,13 @@ axiam_add_test(test_client_registration test_client_registration.c)
 axiam_add_test(test_directory test_directory.c management_test_util.c)
 axiam_add_test(test_saml test_saml.c management_test_util.c)
 axiam_add_test(test_scim_targets test_scim_targets.c management_test_util.c)
+axiam_add_test(test_ssf_management test_ssf_management.c management_test_util.c)
+# §32.7 the SSF receiver helper: signs its SETs with an Ed25519 key it generates, so it
+# links the JWT fixture for the base64url encoder.
+add_executable(test_ssf_receiver test_ssf_receiver.c)
+target_include_directories(test_ssf_receiver PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_ssf_receiver PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_ssf_receiver PRIVATE --coverage)
+endif()
+add_test(NAME test_ssf_receiver COMMAND test_ssf_receiver)
