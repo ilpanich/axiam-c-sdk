@@ -572,6 +572,9 @@ void  axiam_secure_zero(void *p, size_t n);
  * development exception. 0 for every other (plaintext / scheme-less) URL. */
 int   axiam_url_is_secure(const char *url);
 
+/* base64url encode without padding (RFC 4648 §5); malloc'd, or NULL. */
+char *axiam_b64url_encode(const unsigned char *data, size_t len);
+
 /* base64url decode; returns malloc'd buffer + sets *out_len, or NULL. */
 unsigned char *axiam_b64url_decode(const char *in, size_t in_len, size_t *out_len);
 

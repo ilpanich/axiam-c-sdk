@@ -52,6 +52,12 @@ void axiam_oidc_config_dispose(axiam_oidc_config_t *cfg) {
     free(cfg->mtls_endpoint_aliases.introspection_endpoint);
     free(cfg->mtls_endpoint_aliases.device_authorization_endpoint);
     free(cfg->mtls_endpoint_aliases.pushed_authorization_request_endpoint);
+    free(cfg->mtls_endpoint_aliases.backchannel_authentication_endpoint);
+    free(cfg->backchannel_authentication_endpoint);
+    string_array_free(cfg->backchannel_token_delivery_modes_supported,
+                      cfg->backchannel_token_delivery_modes_supported_count);
+    string_array_free(cfg->backchannel_authentication_request_signing_alg_values_supported,
+                      cfg->backchannel_authentication_request_signing_alg_values_supported_count);
     string_array_free(cfg->scopes_supported, cfg->scopes_supported_count);
     string_array_free(cfg->response_types_supported, cfg->response_types_supported_count);
     string_array_free(cfg->id_token_signing_alg_values_supported,
@@ -564,6 +570,27 @@ axiam_error_kind_t oidc_config_copy(const axiam_oidc_config_t *src, axiam_oidc_c
         axiam_strdup0(src->mtls_endpoint_aliases.device_authorization_endpoint);
     dst->mtls_endpoint_aliases.pushed_authorization_request_endpoint =
         axiam_strdup0(src->mtls_endpoint_aliases.pushed_authorization_request_endpoint);
+    dst->mtls_endpoint_aliases.backchannel_authentication_endpoint =
+        axiam_strdup0(src->mtls_endpoint_aliases.backchannel_authentication_endpoint);
+    dst->backchannel_authentication_endpoint =
+        axiam_strdup0(src->backchannel_authentication_endpoint);
+    dst->backchannel_token_delivery_modes_supported =
+        string_array_copy(src->backchannel_token_delivery_modes_supported,
+                          src->backchannel_token_delivery_modes_supported_count);
+    dst->backchannel_token_delivery_modes_supported_count =
+        dst->backchannel_token_delivery_modes_supported
+            ? src->backchannel_token_delivery_modes_supported_count
+            : 0;
+    dst->backchannel_authentication_request_signing_alg_values_supported =
+        string_array_copy(src->backchannel_authentication_request_signing_alg_values_supported,
+                          src->backchannel_authentication_request_signing_alg_values_supported_count);
+    dst->backchannel_authentication_request_signing_alg_values_supported_count =
+        dst->backchannel_authentication_request_signing_alg_values_supported
+            ? src->backchannel_authentication_request_signing_alg_values_supported_count
+            : 0;
+    dst->backchannel_user_code_parameter_supported = src->backchannel_user_code_parameter_supported;
+    dst->has_backchannel_user_code_parameter_supported =
+        src->has_backchannel_user_code_parameter_supported;
     dst->scopes_supported = string_array_copy(src->scopes_supported, src->scopes_supported_count);
     dst->scopes_supported_count = dst->scopes_supported ? src->scopes_supported_count : 0;
     dst->response_types_supported =

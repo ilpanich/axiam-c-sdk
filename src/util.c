@@ -289,3 +289,23 @@ void axiam_local_refusal(axiam_error_t *err, const char *operation, const char *
              detail ? detail : "refused");
     axiam_error_set(err, AXIAM_ERR_NETWORK, 400, msg);
 }
+
+char *axiam_b64url_encode(const unsigned char *data, size_t len) {
+    static const char alphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    char *out = malloc(((len + 2) / 3) * 4 + 1);
+    if (!out) return NULL;
+    size_t o = 0;
+    for (size_t i = 0; i < len; i += 3) {
+        unsigned v = (unsigned)data[i] << 16;
+        size_t have = 1;
+        if (i + 1 < len) { v |= (unsigned)data[i + 1] << 8; have = 2; }
+        if (i + 2 < len) { v |= (unsigned)data[i + 2]; have = 3; }
+        out[o++] = alphabet[(v >> 18) & 0x3F];
+        out[o++] = alphabet[(v >> 12) & 0x3F];
+        if (have > 1) out[o++] = alphabet[(v >> 6) & 0x3F];
+        if (have > 2) out[o++] = alphabet[v & 0x3F];
+    }
+    out[o] = '\0';
+    return out;
+}

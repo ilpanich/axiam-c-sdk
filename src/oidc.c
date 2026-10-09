@@ -224,7 +224,7 @@ int oidc_presents_client_certificate(const axiam_client_t *client) {
  *     `client_auth = optional` on one listener serves both populations at the
  *     conventional endpoints and correctly publishes nothing.
  *   - `alias` is always a member of axiam_mtls_endpoint_aliases_t, which
- *     carries only the six aliasable endpoints, so `authorization_endpoint`,
+ *     carries only the seven aliasable endpoints, so `authorization_endpoint`,
  *     `end_session_endpoint` and `jwks_uri` have nothing to pass here: they are
  *     front-channel or public, and an mTLS host would raise a
  *     certificate-chooser dialog in the user's browser.
@@ -579,6 +579,26 @@ static axiam_error_kind_t parse_discovery(const char *json, axiam_oidc_config_t 
                 json_opt(aliases, "device_authorization_endpoint");
             out->mtls_endpoint_aliases.pushed_authorization_request_endpoint =
                 json_opt(aliases, "pushed_authorization_request_endpoint");
+            /* §21.3.1 as amended in contract 1.58: the seventh alias, for CIBA. */
+            out->mtls_endpoint_aliases.backchannel_authentication_endpoint =
+                json_opt(aliases, "backchannel_authentication_endpoint");
+        }
+    }
+    /* §33.1 / CIBA Core §4: the four CIBA members, each optional. */
+    out->backchannel_authentication_endpoint =
+        json_opt(root, "backchannel_authentication_endpoint");
+    out->backchannel_token_delivery_modes_supported =
+        json_strings(root, "backchannel_token_delivery_modes_supported",
+                     &out->backchannel_token_delivery_modes_supported_count);
+    out->backchannel_authentication_request_signing_alg_values_supported =
+        json_strings(root, "backchannel_authentication_request_signing_alg_values_supported",
+                     &out->backchannel_authentication_request_signing_alg_values_supported_count);
+    {
+        const cJSON *user_code =
+            cJSON_GetObjectItemCaseSensitive(root, "backchannel_user_code_parameter_supported");
+        if (cJSON_IsBool(user_code)) {
+            out->has_backchannel_user_code_parameter_supported = 1;
+            out->backchannel_user_code_parameter_supported = cJSON_IsTrue(user_code) ? 1 : 0;
         }
     }
     out->scopes_supported = json_strings(root, "scopes_supported", &out->scopes_supported_count);

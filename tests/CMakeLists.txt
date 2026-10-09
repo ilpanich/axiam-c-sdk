@@ -251,6 +251,9 @@ set_tests_properties(test_device_auth_tls PROPERTIES FIXTURES_REQUIRED AXIAM_PKI
 # calls is worse than an absent one.
 axiam_add_test(test_oidc test_oidc.c)
 axiam_add_test(test_mtls_endpoint_aliases test_mtls_endpoint_aliases.c)
+# CONTRACT.md §21.3.1 vector A is read verbatim from the vendored CONTRACT.md.
+target_compile_definitions(test_mtls_endpoint_aliases
+    PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
 axiam_add_test(test_oidc_login_providers test_oidc_login_providers.c)
 
 # The ID-token suites need real EdDSA signatures, so they link the JWT fixture.
@@ -406,3 +409,13 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_ssf_receiver PRIVATE --coverage)
 endif()
 add_test(NAME test_ssf_receiver COMMAND test_ssf_receiver)
+# §33 CIBA: real ID tokens (the JWT fixture), and the source path, because the ping
+# helper's constant-time comparison is asserted structurally (§33.8 test 11).
+add_executable(test_ciba test_ciba.c)
+target_include_directories(test_ciba PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_ciba PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+target_compile_definitions(test_ciba PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_ciba PRIVATE --coverage)
+endif()
+add_test(NAME test_ciba COMMAND test_ciba)

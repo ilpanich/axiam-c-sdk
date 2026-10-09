@@ -82,6 +82,7 @@ typedef struct {
     int sso_oauth2_callback_calls;
     int sso_handoff_calls;
     int par_calls;
+    int bc_authorize_calls;
 
     const char *jwks_body;
     /* One scripted answer per /oauth2/token call, consumed in order; the last
@@ -99,6 +100,7 @@ typedef struct {
     oidc_answer_t sso_oauth2_callback_answer;
     oidc_answer_t sso_handoff_answer;
     oidc_answer_t par_answer;
+    oidc_answer_t bc_authorize_answer;
 
     /* Every request that reached the transport, in order. */
     char methods[OIDC_MAX_CALLS][8];
@@ -165,6 +167,10 @@ static int oidc_fake_transport(void *ctx, const axiam_http_request_t *req,
         /* RFC 9126 §2.2 answers Created, and that is the point of the default:
          * a success predicate written `== 200` must fail here. */
         return oidc_answer(&g_oidc.par_answer, 201, "{}", resp);
+    }
+    if (strstr(url, "/oauth2/bc-authorize")) {
+        g_oidc.bc_authorize_calls++;
+        return oidc_answer(&g_oidc.bc_authorize_answer, 200, "{}", resp);
     }
     if (strstr(url, "/oauth2/jwks")) {
         g_oidc.jwks_calls++;
