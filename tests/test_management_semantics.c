@@ -17,6 +17,7 @@
 #include "cJSON.h"
 #include "test_util.h"
 #include "management_test_util.h"
+#include "internal.h"
 
 #define UUID "11111111-1111-4111-8111-111111111111"
 #define OTHER_ORG "22222222-2222-4222-8222-222222222222"
@@ -787,6 +788,90 @@ static void test_a_rejected_get_is_not_retried(void) {
     axiam_client_free(c);
 }
 
+/* Contract 1.59 R-30 (C-2): rule 8 says a management GET "MAY be retried per §16" --
+ * so it is retried the §16 way, not three immediate attempts on a 5xx alone. */
+static void test_a_get_retry_waits_the_section_16_backoff(void) {
+    mgmt_mount(503, NULL);
+    mgmt_mount_next(502, NULL);
+    mgmt_mount_next(200, ROLE_JSON);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_t *out = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(4, mgmt_request_count()); /* login + three GET attempts */
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, mgmt_sleep_count(), "a wait before each retry");
+    TEST_ASSERT_EQUAL_INT(200, (int) mgmt_sleep_ms(0)); /* base x 2^0, jitter at its top */
+    TEST_ASSERT_EQUAL_INT(400, (int) mgmt_sleep_ms(1)); /* base x 2^1 */
+    axiam_mgmt_role_free(out);
+    axiam_client_free(c);
+}
+
+static void test_a_get_is_retried_on_408_and_429_with_retry_after_as_a_floor(void) {
+    mgmt_mount(429, "{\"error\":\"rate_limited\"}");
+    mgmt_mount_retry_after("3");
+    mgmt_mount_next(408, NULL);
+    mgmt_mount_next(200, ROLE_JSON);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_t *out = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(4, mgmt_request_count());
+    TEST_ASSERT_EQUAL_INT(2, mgmt_sleep_count());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(3000, (int) mgmt_sleep_ms(0), "Retry-After floors the wait");
+    TEST_ASSERT_EQUAL_INT(400, (int) mgmt_sleep_ms(1));
+    axiam_mgmt_role_free(out);
+    axiam_client_free(c);
+
+    /* The budget is three attempts in all: a third 503 is the answer. */
+    mgmt_reset();
+    mgmt_mount(503, NULL);
+    mgmt_mount_next(503, NULL);
+    mgmt_mount_next(503, NULL);
+    mgmt_mount_next(200, ROLE_JSON);
+    c = mgmt_signed_in_client();
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(4, mgmt_request_count());
+    TEST_ASSERT_EQUAL_INT(2, mgmt_sleep_count());
+    axiam_client_free(c);
+}
+
+/* §16.1: the switch that disables retrying is honoured on this surface too. */
+static void test_a_get_is_not_retried_when_retry_is_disabled(void) {
+    mgmt_mount(503, NULL);
+    mgmt_mount_next(200, ROLE_JSON);
+    axiam_client_t *c = mgmt_signed_in_client();
+    c->retry_enabled = 0; /* what axiam_client_config_set_retry_enabled(cfg, 0) sets */
+    axiam_error_t err;
+    axiam_mgmt_role_t *out = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(2, mgmt_request_count()); /* login + exactly one attempt */
+    TEST_ASSERT_EQUAL_INT(0, mgmt_sleep_count());
+    axiam_client_free(c);
+}
+
+/* A 409 on a GET is the server telling the truth (rule 8), and a write is never retried,
+ * whatever the status. */
+static void test_a_conflict_and_a_rate_limited_write_are_not_retried(void) {
+    mgmt_mount(409, "{\"error\":\"conflict\",\"message\":\"x\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_t *out = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(2, mgmt_request_count());
+    axiam_client_free(c);
+
+    mgmt_reset();
+    mgmt_mount(429, NULL);
+    mgmt_mount_retry_after("1");
+    c = mgmt_signed_in_client();
+    axiam_mgmt_update_role_t body;
+    memset(&body, 0, sizeof body);
+    axiam_roles_update(c, UUID, &body, &out, &err);
+    TEST_ASSERT_EQUAL_INT(2, mgmt_request_count());
+    TEST_ASSERT_EQUAL_INT(0, mgmt_sleep_count());
+    axiam_client_free(c);
+}
+
 /* ---- rule 10: nothing is cached ----------------------------------------- */
 
 static void test_the_same_read_twice_is_two_wire_calls(void) {
@@ -947,6 +1032,10 @@ int main(void) {
     RUN_TEST(test_a_failed_get_is_retried);
     RUN_TEST(test_a_failed_write_is_not_retried);
     RUN_TEST(test_a_rejected_get_is_not_retried);
+    RUN_TEST(test_a_get_retry_waits_the_section_16_backoff);
+    RUN_TEST(test_a_get_is_retried_on_408_and_429_with_retry_after_as_a_floor);
+    RUN_TEST(test_a_get_is_not_retried_when_retry_is_disabled);
+    RUN_TEST(test_a_conflict_and_a_rate_limited_write_are_not_retried);
     RUN_TEST(test_the_same_read_twice_is_two_wire_calls);
     RUN_TEST(test_a_secret_reaches_the_wire_unredacted);
     RUN_TEST(test_the_same_secret_is_redacted_in_an_ordinary_rendering);

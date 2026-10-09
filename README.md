@@ -1710,6 +1710,13 @@ row of "the SDK's local `ValidationError`" (§28.7): C reports through its `axia
 `axiam_error_kind_from_http_status()` is deliberately **unchanged** — mapping a bare
 `404` to `AXIAM_ERR_NETWORK` is right for every non-management call in this SDK.
 
+**Retry (§27.4 rule 8, §16).** A `GET` is retried under the same §16 policy as every
+other read in this SDK: three attempts in all, on a transport failure, `408`, `429` or a
+`5xx` — never on a `409` or another `4xx` — with a full-jitter backoff (200 ms base, 5 s
+cap) and `Retry-After` as a floor, and not at all when
+`axiam_client_config_set_retry_enabled(cfg, 0)` turned retrying off. A `POST`, `PUT` or
+`DELETE` is sent exactly once, whatever the answer.
+
 **Memory.** Every model has a `_free()` that walks it *and* frees the struct itself, so
 it pairs with whatever allocated it and there is never a question of which half you own.
 Free-form JSON members (`metadata`) are raw JSON **text**, not a parsed tree: every other

@@ -4,11 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "internal.h"
 #include "management_test_util.h"
 
 typedef struct {
     long status;
     char *body;
+    char *retry_after; /* a `Retry-After` header value, or NULL */
 } canned_t;
 
 /* 128: large enough for a manifest test exercising several namespaces' list calls
@@ -25,6 +27,10 @@ static char g_url[512];
 static char g_path[512];
 static char g_body[4096];
 
+/* §16 waits the client asked for: recorded, never slept. */
+static long g_sleeps[16];
+static int g_sleep_count;
+
 static void queue_push(long status, const char *body) {
     if (g_queued >= sizeof g_queue / sizeof g_queue[0]) return;
     g_queue[g_queued].status = status;
@@ -33,7 +39,10 @@ static void queue_push(long status, const char *body) {
 }
 
 void mgmt_reset(void) {
-    for (size_t i = 0; i < g_queued; i++) free(g_queue[i].body);
+    for (size_t i = 0; i < g_queued; i++) {
+        free(g_queue[i].body);
+        free(g_queue[i].retry_after);
+    }
     memset(g_queue, 0, sizeof g_queue);
     g_queued = 0;
     g_served = 0;
@@ -42,6 +51,7 @@ void mgmt_reset(void) {
     g_url[0] = '\0';
     g_path[0] = '\0';
     g_body[0] = '\0';
+    g_sleep_count = 0;
 }
 
 void mgmt_mount(long status, const char *body) {
@@ -51,6 +61,28 @@ void mgmt_mount(long status, const char *body) {
 }
 
 void mgmt_mount_next(long status, const char *body) { queue_push(status, body); }
+
+void mgmt_mount_retry_after(const char *value) {
+    if (g_queued == 0) return;
+    free(g_queue[g_queued - 1].retry_after);
+    g_queue[g_queued - 1].retry_after = value ? strdup(value) : NULL;
+}
+
+int mgmt_sleep_count(void) { return g_sleep_count; }
+
+long mgmt_sleep_ms(int i) { return (i >= 0 && i < g_sleep_count) ? g_sleeps[i] : -1; }
+
+static void fake_sleep(void *ctx, long ms) {
+    (void) ctx;
+    if (g_sleep_count < (int) (sizeof g_sleeps / sizeof g_sleeps[0])) g_sleeps[g_sleep_count] = ms;
+    g_sleep_count++;
+}
+
+/* Full jitter drawn at its top: the wait is the whole backoff, so a test can name it. */
+static double fake_jitter(void *ctx) {
+    (void) ctx;
+    return 1.0;
+}
 
 /* Split "https://host/a/b?x=1" into the path part, which is what a route assertion
  * cares about -- the host is the fixture's and the query has its own accessor. */
@@ -79,6 +111,8 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
     if (g_served < g_queued) {
         resp->status = g_queue[g_served].status;
         if (g_queue[g_served].body) resp->body = strdup(g_queue[g_served].body);
+        if (g_queue[g_served].retry_after)
+            resp->headers = axiam_kv_append(NULL, "Retry-After", g_queue[g_served].retry_after);
         g_served++;
     } else {
         resp->status = 204;
@@ -105,12 +139,17 @@ static axiam_client_t *make_client_scoped(int sign_in, int scoped) {
     axiam_error_t err;
     axiam_client_t *c = axiam_client_new(cfg, &err);
     axiam_client_config_free(cfg);
+    if (c) {
+        c->sleep_fn = fake_sleep; /* §16 stays ENABLED; only the wait is faked */
+        c->jitter_fn = fake_jitter;
+    }
 
     if (c && sign_in) {
         /* The login consumes one queued response; shift the mounted ones behind it. */
         for (size_t i = g_queued; i > 0; i--) g_queue[i] = g_queue[i - 1];
         g_queue[0].status = 200;
         g_queue[0].body = strdup("{\"authenticated\":true,\"mfa_required\":false}");
+        g_queue[0].retry_after = NULL;
         g_queued++;
 
         axiam_login_result_t res;

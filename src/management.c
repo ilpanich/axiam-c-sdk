@@ -318,6 +318,20 @@ void axiam_mgmt_body_free(char *body_json) {
 /* The one wire path (§27.8)                                        */
 /* ---------------------------------------------------------------- */
 
+/* §16.1's wait before attempt `attempt + 1`: full-jitter backoff, the response's
+ * `Retry-After` as a floor. Reported through §19 (§16.5), then `resp` is disposed. */
+static void mgmt_retry_wait(axiam_client_t *c, const char *operation, int attempt,
+                            axiam_http_response_t *resp, int transport_failed, long status) {
+    long retry_after = axiam_retry_after_ms(axiam_kv_get(resp->headers, "Retry-After"));
+    long delay = axiam_retry_delay_ms(attempt, retry_after, c->jitter_fn(c->jitter_ctx));
+    char reason[32];
+    if (transport_failed) snprintf(reason, sizeof reason, "transport failure");
+    else snprintf(reason, sizeof reason, "HTTP %ld", status);
+    axiam_telemetry_retry(&c->telemetry, operation, attempt, delay, reason);
+    axiam_http_response_dispose(resp);
+    c->sleep_fn(c->sleep_ctx, delay);
+}
+
 axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
                                    const char *operation,
                                    const char *method,
@@ -349,9 +363,13 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
 
     /* Rule 8: a GET is the only method the §16 policy may replay. Everything else may
      * already have been applied server-side, and no client can tell from a transport
-     * failure. A rejected body is never retried either, whatever the method. */
+     * failure. A rejected body is never retried either, whatever the method.
+     *
+     * A GET is retried the §16 way (contract 1.59 R-30): the client's switch decides
+     * whether at all, §16.3 which failures (transport, 408, 429, 5xx -- never a 409 or
+     * another 4xx), and §16.1 the wait (full-jitter backoff, `Retry-After` as a floor). */
     int retryable = strcmp(method, "GET") == 0;
-    int attempts = retryable ? 3 : 1;
+    int attempts = (retryable && c->retry_enabled) ? AXIAM_RETRY_MAX_ATTEMPTS : 1;
 
     axiam_error_kind_t kind = AXIAM_ERR_NETWORK;
 
@@ -378,8 +396,11 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
             axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
                             resp.transport_msg ? resp.transport_msg : "network failure");
             kind = AXIAM_ERR_NETWORK;
+            if (attempt < attempts) {
+                mgmt_retry_wait(c, operation, attempt, &resp, 1, 0);
+                continue;
+            }
             axiam_http_response_dispose(&resp);
-            if (attempt < attempts) continue;
             return kind;
         }
 
@@ -400,12 +421,15 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
 
         axiam_mgmt_classify(err, status, operation, resp.body);
         kind = err ? err->kind : AXIAM_ERR_NETWORK;
-        axiam_http_response_dispose(&resp);
 
         /* A 4xx is a decisive answer, not a transport failure: re-sending it just spends
-         * the caller's rate limit to be told the same thing again. Only a 5xx or a
-         * transport failure is worth another attempt, and only on a GET. */
-        if (attempt < attempts && status >= 500) continue;
+         * the caller's rate limit to be told the same thing again. Only a 5xx, 408, 429
+         * or a transport failure is worth another attempt (§16.3), and only on a GET. */
+        if (attempt < attempts && axiam_retry_should_retry(0, status)) {
+            mgmt_retry_wait(c, operation, attempt, &resp, 0, status);
+            continue;
+        }
+        axiam_http_response_dispose(&resp);
         return kind;
     }
 
