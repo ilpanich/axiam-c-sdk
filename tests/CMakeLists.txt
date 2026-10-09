@@ -441,3 +441,7 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_secret_bodies_scrubbed PRIVATE --coverage)
 endif()
 add_test(NAME test_secret_bodies_scrubbed COMMAND test_secret_bodies_scrubbed)
+# Contract 1.59 documentation rows (R-29, R-41), pinned against the generated public
+# headers and the README a consumer reads.
+axiam_add_test(test_contract_159_docs test_contract_159_docs.c)
+target_compile_definitions(test_contract_159_docs PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")

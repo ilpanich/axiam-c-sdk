@@ -176,8 +176,13 @@ CALL_SITE_NOTES: dict[str, str] = {
         "write is `409`: read the stream again."
     ),
     "scim_targets.create": (
-        "`credential` is required here (§31.3 rule 2). It is write-only: no response "
-        "ever carries it, and the SDK keeps no copy."
+        "**The credential is bound to its URL** (§31.3 rule 2): `credential` is required "
+        "here -- a create without it is refused `400`. A later update that changes "
+        "`base_url` of a bearer target, `auth.token_url` or `base_url` of a "
+        "client-credentials target, or `auth.type`, must carry `credential` again or is "
+        "refused `400`: a kept credential sent to a new host would be handed to that host. "
+        "It is write-only: no response ever carries it, and the SDK keeps no copy to "
+        "re-send."
     ),
     "scim_targets.update": (
         "**The credential is bound to its URL** (§31.3 rule 2): absent `credential` "
@@ -203,6 +208,21 @@ CALL_SITE_NOTES: dict[str, str] = {
 
 # Local checks a generated operation runs before any I/O, by name of a hand-written
 # function in src/management_helpers.c taking the request body and the error.
+# Notes a section requires "where it documents the field" -- appended to the member's
+# own doc, keyed (schema, wire name). Contract 1.59 R-29: §29.3 rule 2's ECDSA limit was
+# said on the operations only.
+FIELD_NOTES: dict[tuple[str, str], str] = {
+    ("SamlServiceProviderInput", "sp_signing_cert_pem"): (
+        "RSA (2048 bits or more) or ECDSA on P-256, P-384 or P-521; an **ECDSA certificate "
+        "verifies HTTP-POST requests only** -- the HTTP-Redirect binding is RSA-only "
+        "(§29.3 rule 2)."
+    ),
+    ("SamlServiceProvider", "sp_signing_cert_pem"): (
+        "An **ECDSA certificate verifies HTTP-POST requests only** -- the HTTP-Redirect "
+        "binding is RSA-only (§29.3 rule 2)."
+    ),
+}
+
 PRECHECKS: dict[str, str] = {
     "saml.parse_sp_metadata": "axiam_mgmt_check_parse_sp_metadata",
 }
@@ -876,6 +896,7 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
             "schema": schema,
             "secret": wire in secrets,
             "description": schema.get("description") if isinstance(schema, dict) else None,
+            "note": FIELD_NOTES.get((schema_name, wire)),
             "explicit_null": (schema_name, wire) in EXPLICIT_NULL_FIELDS,
         })
     return out, description
@@ -884,7 +905,8 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
 def field_doc(f: dict[str, Any]) -> str:
     """The one-line description for a member."""
     if f["description"]:
-        return escape(f["description"])
+        text = escape(f["description"])
+        return text + "\n\n" + f["note"] if f.get("note") else text
     if f["secret"]:
         return f"The server's `{f['wire']}` field -- a ONE-TIME secret (27.5)."
     return f"The server's `{f['wire']}` field."

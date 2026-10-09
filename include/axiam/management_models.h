@@ -6300,7 +6300,10 @@ struct axiam_mgmt_saml_service_provider {
      */
     char *sp_encryption_cert_pem;
     /**
-     * See [`SamlServiceProviderInput::sp_signing_cert_pem`]. Optional.
+     * See [`SamlServiceProviderInput::sp_signing_cert_pem`].
+     *
+     * An **ECDSA certificate verifies HTTP-POST requests only** -- the HTTP-Redirect
+     * binding is RSA-only (§29.3 rule 2). Optional.
      */
     char *sp_signing_cert_pem;
     /**
@@ -6401,7 +6404,11 @@ struct axiam_mgmt_saml_service_provider_input {
      */
     char *sp_encryption_cert_pem;
     /**
-     * PEM certificate the SP signs its `AuthnRequest`s with. Optional.
+     * PEM certificate the SP signs its `AuthnRequest`s with.
+     *
+     * RSA (2048 bits or more) or ECDSA on P-256, P-384 or P-521; an **ECDSA certificate
+     * verifies HTTP-POST requests only** -- the HTTP-Redirect binding is RSA-only (§29.3
+     * rule 2). Optional.
      */
     char *sp_signing_cert_pem;
     /**
