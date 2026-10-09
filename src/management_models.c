@@ -5511,16 +5511,24 @@ axiam_mgmt_mds_refresh_outcome_t *axiam_mgmt_mds_refresh_outcome_parse(const cJS
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "outcome");
     if (cJSON_IsString(item)) out->outcome = axiam_strdup0(item->valuestring);
-    out->raw = cJSON_PrintUnformatted(src);
+    {
+        static const char *const arm_0[] = {"entry_count", "no", NULL};
+        static const char *const arm_1[] = {"entry_count", "no", NULL};
+        static const char *const arm_2[] = {"no", NULL};
+        static const char *const arm_3[] = {"attempted_no", "stored_no", NULL};
+        static const char *const arm_tags[] = {"initial", "replaced", "no_op_refresh", "rollback_rejected", NULL};
+        static const char *const *const arm_members[] = {arm_0, arm_1, arm_2, arm_3};
+        out->raw = axiam_mgmt_union_declared(src, "outcome", arm_tags, arm_members);
+    }
     return out;
 }
 
 cJSON *axiam_mgmt_mds_refresh_outcome_build(const axiam_mgmt_mds_refresh_outcome_t *value) {
     if (!value) return NULL;
     /*
-     * A union is forwarded EXACTLY as received. Re-encoding from the two members this SDK
-     * models would drop every field belonging to the variant it does not model -- and the
-     * server round-trips those.
+     * A union is forwarded as `raw` holds it: the declared members of its arm. Re-encoding
+     * from the two members this SDK models would drop every field belonging to the variant
+     * -- and the server round-trips those.
      */
     if (value->raw) return cJSON_Parse(value->raw);
     cJSON *obj = cJSON_CreateObject();
@@ -7076,16 +7084,25 @@ axiam_mgmt_provider_config_t *axiam_mgmt_provider_config_parse(const cJSON *src)
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "kind");
     if (cJSON_IsString(item)) out->kind = axiam_strdup0(item->valuestring);
-    out->raw = cJSON_PrintUnformatted(src);
+    {
+        static const char *const arm_0[] = {"host", "port", "starttls", "username", NULL};
+        static const char *const arm_1[] = {"api_url", NULL};
+        static const char *const arm_2[] = {"api_url", NULL};
+        static const char *const arm_3[] = {"api_url", NULL};
+        static const char *const arm_4[] = {"api_url", NULL};
+        static const char *const arm_tags[] = {"smtp", "send_grid", "postmark", "resend", "brevo", NULL};
+        static const char *const *const arm_members[] = {arm_0, arm_1, arm_2, arm_3, arm_4};
+        out->raw = axiam_mgmt_union_declared(src, "kind", arm_tags, arm_members);
+    }
     return out;
 }
 
 cJSON *axiam_mgmt_provider_config_build(const axiam_mgmt_provider_config_t *value) {
     if (!value) return NULL;
     /*
-     * A union is forwarded EXACTLY as received. Re-encoding from the two members this SDK
-     * models would drop every field belonging to the variant it does not model -- and the
-     * server round-trips those.
+     * A union is forwarded as `raw` holds it: the declared members of its arm. Re-encoding
+     * from the two members this SDK models would drop every field belonging to the variant
+     * -- and the server round-trips those.
      */
     if (value->raw) return cJSON_Parse(value->raw);
     cJSON *obj = cJSON_CreateObject();
@@ -8576,16 +8593,22 @@ axiam_mgmt_scim_target_auth_t *axiam_mgmt_scim_target_auth_parse(const cJSON *sr
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "type");
     if (cJSON_IsString(item)) out->type = axiam_strdup0(item->valuestring);
-    out->raw = cJSON_PrintUnformatted(src);
+    {
+        static const char *const arm_0[] = {NULL};
+        static const char *const arm_1[] = {"client_id", "scope", "token_url", NULL};
+        static const char *const arm_tags[] = {"bearer", "oauth2_client_credentials", NULL};
+        static const char *const *const arm_members[] = {arm_0, arm_1};
+        out->raw = axiam_mgmt_union_declared(src, "type", arm_tags, arm_members);
+    }
     return out;
 }
 
 cJSON *axiam_mgmt_scim_target_auth_build(const axiam_mgmt_scim_target_auth_t *value) {
     if (!value) return NULL;
     /*
-     * A union is forwarded EXACTLY as received. Re-encoding from the two members this SDK
-     * models would drop every field belonging to the variant it does not model -- and the
-     * server round-trips those.
+     * A union is forwarded as `raw` holds it: the declared members of its arm. Re-encoding
+     * from the two members this SDK models would drop every field belonging to the variant
+     * -- and the server round-trips those.
      */
     if (value->raw) return cJSON_Parse(value->raw);
     cJSON *obj = cJSON_CreateObject();
@@ -8869,16 +8892,22 @@ axiam_mgmt_scim_target_scope_t *axiam_mgmt_scim_target_scope_parse(const cJSON *
     (void) item;
     item = cJSON_GetObjectItemCaseSensitive(src, "type");
     if (cJSON_IsString(item)) out->type = axiam_strdup0(item->valuestring);
-    out->raw = cJSON_PrintUnformatted(src);
+    {
+        static const char *const arm_0[] = {NULL};
+        static const char *const arm_1[] = {"group_ids", NULL};
+        static const char *const arm_tags[] = {"all_users", "groups", NULL};
+        static const char *const *const arm_members[] = {arm_0, arm_1};
+        out->raw = axiam_mgmt_union_declared(src, "type", arm_tags, arm_members);
+    }
     return out;
 }
 
 cJSON *axiam_mgmt_scim_target_scope_build(const axiam_mgmt_scim_target_scope_t *value) {
     if (!value) return NULL;
     /*
-     * A union is forwarded EXACTLY as received. Re-encoding from the two members this SDK
-     * models would drop every field belonging to the variant it does not model -- and the
-     * server round-trips those.
+     * A union is forwarded as `raw` holds it: the declared members of its arm. Re-encoding
+     * from the two members this SDK models would drop every field belonging to the variant
+     * -- and the server round-trips those.
      */
     if (value->raw) return cJSON_Parse(value->raw);
     cJSON *obj = cJSON_CreateObject();

@@ -278,6 +278,36 @@ char *axiam_mgmt_render(cJSON *body) {
     return json;
 }
 
+char *axiam_mgmt_union_declared(const cJSON *src, const char *tag, const char *const *tags,
+                                const char *const *const *members) {
+    if (!cJSON_IsObject(src) || !tag) return NULL;
+    const cJSON *t = cJSON_GetObjectItemCaseSensitive(src, tag);
+    const char *const *keep = NULL;
+    for (size_t i = 0; cJSON_IsString(t) && tags && tags[i]; i++) {
+        if (strcmp(tags[i], t->valuestring) == 0) {
+            keep = members[i];
+            break;
+        }
+    }
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    for (const cJSON *m = src->child; m; m = m->next) {
+        int wanted = m->string && strcmp(m->string, tag) == 0;
+        for (size_t i = 0; !wanted && m->string && keep && keep[i]; i++)
+            wanted = strcmp(m->string, keep[i]) == 0;
+        if (!wanted) continue;
+        cJSON *copy = cJSON_Duplicate(m, 1);
+        if (!copy || !cJSON_AddItemToObject(obj, m->string, copy)) {
+            cJSON_Delete(copy);
+            cJSON_Delete(obj);
+            return NULL;
+        }
+    }
+    char *text = cJSON_PrintUnformatted(obj);
+    cJSON_Delete(obj);
+    return text;
+}
+
 void axiam_mgmt_body_free(char *body_json) {
     if (!body_json) return;
     axiam_secure_zero(body_json, strlen(body_json));

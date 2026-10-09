@@ -90,6 +90,13 @@ axiam_error_kind_t axiam_mgmt_check_parse_sp_metadata(
  * released (contract 1.59 R-19): a body may carry a write-only secret. */
 char *axiam_mgmt_render(cJSON *body);
 
+/* A discriminated union's `raw` (contract 1.59 P12.1): `src` reduced to its `tag` member
+ * plus the members `members[i]` lists for the arm whose value is `tags[i]` -- the tag
+ * alone for a value `tags` does not list. `tags` is NULL-terminated, each members list
+ * too. Malloc'd JSON text, or NULL on OOM or a non-object. */
+char *axiam_mgmt_union_declared(const cJSON *src, const char *tag, const char *const *tags,
+                                const char *const *const *members);
+
 /* Scrub, then free, a body axiam_mgmt_render() returned. NULL-safe. */
 void axiam_mgmt_body_free(char *body_json);
 

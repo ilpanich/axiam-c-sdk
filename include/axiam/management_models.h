@@ -4446,8 +4446,10 @@ struct axiam_mgmt_mds_refresh_outcome {
      */
     char *outcome;
     /**
-     * The whole object as the server sent it, to read the variant's own fields from once
-     * `outcome` says which variant it is. Optional.
+     * The object as the server sent it, reduced to the members the spec declares for the
+     * variant `outcome` names, to read the variant's own fields from. A variant this SDK
+     * does not know keeps `outcome` and nothing else (CONTRACT.md §34.2 P12.1): a member
+     * the spec does not declare is never kept, so never echoed back. Optional.
      */
     char *raw;
 };
@@ -5550,8 +5552,10 @@ struct axiam_mgmt_provider_config {
      */
     char *kind;
     /**
-     * The whole object as the server sent it, to read the variant's own fields from once
-     * `kind` says which variant it is. Optional.
+     * The object as the server sent it, reduced to the members the spec declares for the
+     * variant `kind` names, to read the variant's own fields from. A variant this SDK does
+     * not know keeps `kind` and nothing else (CONTRACT.md §34.2 P12.1): a member the spec
+     * does not declare is never kept, so never echoed back. Optional.
      */
     char *raw;
 };
@@ -6485,8 +6489,10 @@ struct axiam_mgmt_scim_target_auth {
      */
     char *type;
     /**
-     * The whole object as the server sent it, to read the variant's own fields from once
-     * `type` says which variant it is. Optional.
+     * The object as the server sent it, reduced to the members the spec declares for the
+     * variant `type` names, to read the variant's own fields from. A variant this SDK does
+     * not know keeps `type` and nothing else (CONTRACT.md §34.2 P12.1): a member the spec
+     * does not declare is never kept, so never echoed back. Optional.
      */
     char *raw;
 };
@@ -6504,11 +6510,11 @@ void axiam_mgmt_scim_target_auth_free(axiam_mgmt_scim_target_auth_t *value);
  * lists (`bearer`, `oauth2_client_credentials`); 0 otherwise, and for NULL.
  *
  * The `type` set is OPEN (CONTRACT.md §31.2): a value the server sends that is not listed
- * decodes without failing, and keeps its tag and raw object so it can be inspected. It is
- * never SENT: every operation whose body carries one refuses it locally, before any
- * request, with AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION. The tag read is
- * `raw`'s own `type` when `raw` is set -- `raw` is what goes on the wire -- and `type`
- * otherwise.
+ * decodes without failing, and keeps its tag (and only its tag, CONTRACT.md §34.2 P12.1) so
+ * it can be inspected. It is never SENT: every operation whose body carries one refuses it
+ * locally, before any request, with AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION.
+ * The tag read is `raw`'s own `type` when `raw` is set -- `raw` is what goes on the wire --
+ * and `type` otherwise.
  */
 int axiam_mgmt_scim_target_auth_is_known(const axiam_mgmt_scim_target_auth_t *value);
 
@@ -6690,8 +6696,10 @@ struct axiam_mgmt_scim_target_scope {
      */
     char *type;
     /**
-     * The whole object as the server sent it, to read the variant's own fields from once
-     * `type` says which variant it is. Optional.
+     * The object as the server sent it, reduced to the members the spec declares for the
+     * variant `type` names, to read the variant's own fields from. A variant this SDK does
+     * not know keeps `type` and nothing else (CONTRACT.md §34.2 P12.1): a member the spec
+     * does not declare is never kept, so never echoed back. Optional.
      */
     char *raw;
 };
@@ -6709,11 +6717,11 @@ void axiam_mgmt_scim_target_scope_free(axiam_mgmt_scim_target_scope_t *value);
  * lists (`all_users`, `groups`); 0 otherwise, and for NULL.
  *
  * The `type` set is OPEN (CONTRACT.md §31.2): a value the server sends that is not listed
- * decodes without failing, and keeps its tag and raw object so it can be inspected. It is
- * never SENT: every operation whose body carries one refuses it locally, before any
- * request, with AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION. The tag read is
- * `raw`'s own `type` when `raw` is set -- `raw` is what goes on the wire -- and `type`
- * otherwise.
+ * decodes without failing, and keeps its tag (and only its tag, CONTRACT.md §34.2 P12.1) so
+ * it can be inspected. It is never SENT: every operation whose body carries one refuses it
+ * locally, before any request, with AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION.
+ * The tag read is `raw`'s own `type` when `raw` is set -- `raw` is what goes on the wire --
+ * and `type` otherwise.
  */
 int axiam_mgmt_scim_target_scope_is_known(const axiam_mgmt_scim_target_scope_t *value);
 

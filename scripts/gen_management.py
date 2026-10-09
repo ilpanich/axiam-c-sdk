@@ -810,18 +810,28 @@ def projection_map() -> dict[str, list[dict[str, Any]]]:
 PROJECTED: dict[str, list[dict[str, Any]]] = projection_map()
 
 
+def arm_members(payload: Any) -> list[str]:
+    """The members a union arm declares besides its discriminator, in the spec's order."""
+    if isinstance(payload, dict) and "$ref" in payload:
+        props, _required, _description = flatten(payload["$ref"].rsplit("/", 1)[-1])
+        return list(props)
+    return list(((payload or {}).get("properties") or {}).keys())
+
+
 def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]], str | None]:
     """Every member of ``schema_name``, in the spec's own order.
 
     A discriminated union gets two synthetic members instead: the discriminator as a
-    string, and the whole object as raw JSON. C has no sum type, and a hand-rolled tagged
-    union of five arms would hand the caller a `free()` maze for a shape this SDK only
-    ever forwards -- so the tag is what you branch on and the payload stays inspectable.
+    string, and the arm's declared members as raw JSON. C has no sum type, and a
+    hand-rolled tagged union of five arms would hand the caller a `free()` maze for a
+    shape this SDK only ever forwards -- so the tag is what you branch on and the payload
+    stays inspectable. Only DECLARED members are kept (contract 1.59 P12.1): an unknown
+    arm keeps its discriminator and nothing else.
     """
     schema = SCHEMAS.get(schema_name) or {}
     union = discriminated(schema)
     if union:
-        tag, _arms = union
+        tag, arms = union
         return ([
             {
                 "wire": tag, "name": cname(tag), "decl": "char *", "kind": "string",
@@ -831,9 +841,13 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
             {
                 "wire": "", "name": "raw", "decl": "char *", "kind": "union_raw",
                 "ref": "", "required": False, "schema": {}, "secret": False,
-                "description": "The whole object as the server sent it, to read the "
-                               "variant's own fields from once `"
-                               + tag + "` says which variant it is.",
+                "tag": tag, "arms": [(v, arm_members(payload)) for v, payload in arms],
+                "description": "The object as the server sent it, reduced to the members "
+                               "the spec declares for the variant `" + tag + "` names, to "
+                               "read the variant's own fields from. A variant this SDK "
+                               "does not know keeps `" + tag + "` and nothing else "
+                               "(CONTRACT.md \u00a734.2 P12.1): a member the spec does not "
+                               "declare is never kept, so never echoed back.",
             },
         ], schema.get("description"))
 
@@ -1074,8 +1088,9 @@ def emit_models_header() -> str:
                 f"1 when the `{tag}` this value WOULD put on the wire is one this SDK's copy "
                 f"of the spec lists ({known}); 0 otherwise, and for NULL.\n\n"
                 f"The `{tag}` set is OPEN (CONTRACT.md \u00a731.2): a value the server sends "
-                "that is not listed decodes without failing, and keeps its tag and raw "
-                "object so it can be inspected. It is never SENT: every operation whose "
+                "that is not listed decodes without failing, and keeps its tag (and only "
+                "its tag, CONTRACT.md \u00a734.2 P12.1) so it can be inspected. It is never "
+                "SENT: every operation whose "
                 "body carries one refuses it locally, before any request, with "
                 "AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION. The tag read is "
                 f"`raw`'s own `{tag}` when `raw` is set -- `raw` is what goes on the wire -- "
@@ -1136,7 +1151,18 @@ def emit_parse_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
     w, n, kind = f["wire"], f["name"], f["kind"]
     o = []
     if kind == "union_raw":
-        o.append(f"{indent}out->{n} = cJSON_PrintUnformatted(src);")
+        # Contract 1.59 P12.1: only the members the arm's tag declares, never the server's
+        # whole object; an unknown tag keeps the tag alone.
+        o.append(f"{indent}{{")
+        for i, (_value, members) in enumerate(f["arms"]):
+            listed = "".join(f'"{m}", ' for m in members)
+            o.append(f"{indent}    static const char *const arm_{i}[] = {{{listed}NULL}};")
+        tags = "".join(f'"{v}", ' for v, _ in f["arms"])
+        o.append(f"{indent}    static const char *const arm_tags[] = {{{tags}NULL}};")
+        arms = ", ".join(f"arm_{i}" for i in range(len(f["arms"])))
+        o.append(f"{indent}    static const char *const *const arm_members[] = {{{arms}}};")
+        o.append(f'{indent}    out->{n} = axiam_mgmt_union_declared(src, "{f["tag"]}", arm_tags, arm_members);')
+        o.append(f"{indent}}}")
         return o
 
     o.append(f'{indent}item = cJSON_GetObjectItemCaseSensitive(src, "{w}");')
@@ -1512,9 +1538,9 @@ def emit_models_source() -> str:
         out.append("    if (!value) return NULL;")
         if any(f["kind"] == "union_raw" for f in fields):
             out.extend(comment(
-                "A union is forwarded EXACTLY as received. Re-encoding from the two "
-                "members this SDK models would drop every field belonging to the variant "
-                "it does not model -- and the server round-trips those.", "    "))
+                "A union is forwarded as `raw` holds it: the declared members of its arm. "
+                "Re-encoding from the two members this SDK models would drop every field "
+                "belonging to the variant -- and the server round-trips those.", "    "))
             out.append("    if (value->raw) return cJSON_Parse(value->raw);")
         out.append("    cJSON *obj = cJSON_CreateObject();")
         out.append("    if (!obj) return NULL;")

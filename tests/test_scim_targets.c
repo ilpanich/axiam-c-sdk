@@ -314,6 +314,69 @@ static void test_an_unknown_arm_is_never_sent(void) {
     axiam_client_free(c);
 }
 
+/* Contract 1.59 P12.1 (R-20): only DECLARED members are kept from a response -- in a
+ * known union arm and in an unknown one, where the discriminator alone is kept. `raw`
+ * used to hold the server's whole object, so an undeclared member (a secret a newer
+ * server mistakenly echoes, say) was surfaced and, through _to_input, sent back. */
+static void test_only_declared_union_members_are_kept(void) {
+    char leaked[64], target[4096], auth[512], scope[256];
+    random_secret(leaked, sizeof leaked);
+    static const char *const auths[] = {
+        "{\"type\":\"bearer\",\"token\":\"%s\"}",
+        "{\"type\":\"oauth2_client_credentials\",\"token_url\":\"https://as.example/token\","
+        "\"client_id\":\"axiam\",\"scope\":null,\"client_secret\":\"%s\"}",
+        "{\"type\":\"mutual_tls\",\"cert_ref\":\"x\",\"private_key\":\"%s\"}",
+    };
+    static const char *const kept[] = {
+        "{\"type\":\"bearer\"}",
+        "{\"type\":\"oauth2_client_credentials\",\"token_url\":\"https://as.example/token\","
+        "\"client_id\":\"axiam\",\"scope\":null}",
+        "{\"type\":\"mutual_tls\"}",
+    };
+    static const char *const scopes[] = {
+        "{\"type\":\"groups\",\"group_ids\":[\"g1\"],\"note\":\"%s\"}",
+        "{\"type\":\"all_users\",\"note\":\"%s\"}",
+        "{\"type\":\"everyone_new\",\"note\":\"%s\"}",
+    };
+    static const char *const scopes_kept[] = {
+        "{\"type\":\"groups\",\"group_ids\":[\"g1\"]}",
+        "{\"type\":\"all_users\"}",
+        "{\"type\":\"everyone_new\"}",
+    };
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    for (int i = 0; i < 3; i++) {
+        snprintf(auth, sizeof auth, auths[i], leaked);
+        snprintf(scope, sizeof scope, scopes[i], leaked);
+        target_body(target, sizeof target, auth, NULL);
+        /* Replace the default scope with the one under test. */
+        char *at = strstr(target, "\"scope\":{\"type\":\"all_users\"}");
+        TEST_ASSERT_NOT_NULL(at);
+        char rebuilt[4096];
+        snprintf(rebuilt, sizeof rebuilt, "%.*s\"scope\":%s%s", (int) (at - target), target, scope,
+                 at + strlen("\"scope\":{\"type\":\"all_users\"}"));
+        mgmt_mount(200, rebuilt);
+        axiam_mgmt_scim_target_response_t *t = NULL;
+        TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_get(c, TARGET_ID, &t, &err));
+        TEST_ASSERT_NOT_NULL(t->auth);
+        assert_no_fragment(t->auth->raw, leaked);
+        TEST_ASSERT_EQUAL_STRING(kept[i], t->auth->raw);
+        assert_no_fragment(t->scope->raw, leaked);
+        TEST_ASSERT_EQUAL_STRING(scopes_kept[i], t->scope->raw);
+        /* ... and the read-modify-write conversion cannot echo what was not kept. */
+        axiam_mgmt_scim_target_input_t *in = axiam_mgmt_scim_target_response_to_input(t);
+        TEST_ASSERT_NOT_NULL(in);
+        if (i < 2) {
+            mgmt_mount(200, rebuilt);
+            TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_update(c, TARGET_ID, in, NULL, &err));
+            assert_no_fragment(mgmt_last_body(), leaked);
+        }
+        axiam_mgmt_scim_target_input_free(in);
+        axiam_mgmt_scim_target_response_free(t);
+    }
+    axiam_client_free(c);
+}
+
 /* ---- 5. No retry ------------------------------------------------------------------ */
 
 static void test_no_write_is_retried_on_503(void) {
@@ -418,6 +481,7 @@ int main(void) {
     RUN_TEST(test_update_omits_an_absent_credential_and_the_variants_have_exact_keys);
     RUN_TEST(test_unknown_arms_and_values_decode_and_the_pager_carries_search);
     RUN_TEST(test_an_unknown_arm_is_never_sent);
+    RUN_TEST(test_only_declared_union_members_are_kept);
     RUN_TEST(test_no_write_is_retried_on_503);
     RUN_TEST(test_errors_and_reconcile);
     RUN_TEST(test_a_read_converts_into_the_replacement_body_without_the_credential);
