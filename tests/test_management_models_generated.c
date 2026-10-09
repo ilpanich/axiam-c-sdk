@@ -23,6 +23,8 @@
  * hands a raw cJSON to a model -- so this test declares them itself rather than the header
  * exposing them for a test's benefit.
  */
+axiam_mgmt_acs_endpoint_t *axiam_mgmt_acs_endpoint_parse(const cJSON *src);
+cJSON *axiam_mgmt_acs_endpoint_build(const axiam_mgmt_acs_endpoint_t *value);
 axiam_mgmt_add_member_request_t *axiam_mgmt_add_member_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_add_member_request_build(const axiam_mgmt_add_member_request_t *value);
 axiam_mgmt_add_service_account_member_request_t *axiam_mgmt_add_service_account_member_request_parse(const cJSON *src);
@@ -35,6 +37,8 @@ axiam_mgmt_assign_role_to_service_account_request_t *axiam_mgmt_assign_role_to_s
 cJSON *axiam_mgmt_assign_role_to_service_account_request_build(const axiam_mgmt_assign_role_to_service_account_request_t *value);
 axiam_mgmt_assign_role_to_user_request_t *axiam_mgmt_assign_role_to_user_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_assign_role_to_user_request_build(const axiam_mgmt_assign_role_to_user_request_t *value);
+axiam_mgmt_attribute_mapping_t *axiam_mgmt_attribute_mapping_parse(const cJSON *src);
+cJSON *axiam_mgmt_attribute_mapping_build(const axiam_mgmt_attribute_mapping_t *value);
 axiam_mgmt_audit_log_entry_t *axiam_mgmt_audit_log_entry_parse(const cJSON *src);
 cJSON *axiam_mgmt_audit_log_entry_build(const axiam_mgmt_audit_log_entry_t *value);
 axiam_mgmt_bind_certificate_t *axiam_mgmt_bind_certificate_parse(const cJSON *src);
@@ -93,6 +97,12 @@ axiam_mgmt_create_user_request_t *axiam_mgmt_create_user_request_parse(const cJS
 cJSON *axiam_mgmt_create_user_request_build(const axiam_mgmt_create_user_request_t *value);
 axiam_mgmt_create_webhook_request_t *axiam_mgmt_create_webhook_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_webhook_request_build(const axiam_mgmt_create_webhook_request_t *value);
+axiam_mgmt_directory_config_t *axiam_mgmt_directory_config_parse(const cJSON *src);
+cJSON *axiam_mgmt_directory_config_build(const axiam_mgmt_directory_config_t *value);
+axiam_mgmt_directory_link_result_t *axiam_mgmt_directory_link_result_parse(const cJSON *src);
+cJSON *axiam_mgmt_directory_link_result_build(const axiam_mgmt_directory_link_result_t *value);
+axiam_mgmt_directory_sync_status_t *axiam_mgmt_directory_sync_status_parse(const cJSON *src);
+cJSON *axiam_mgmt_directory_sync_status_build(const axiam_mgmt_directory_sync_status_t *value);
 axiam_mgmt_email_config_t *axiam_mgmt_email_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_email_config_build(const axiam_mgmt_email_config_t *value);
 axiam_mgmt_email_config_override_t *axiam_mgmt_email_config_override_parse(const cJSON *src);
@@ -123,10 +133,16 @@ axiam_mgmt_granted_scope_t *axiam_mgmt_granted_scope_parse(const cJSON *src);
 cJSON *axiam_mgmt_granted_scope_build(const axiam_mgmt_granted_scope_t *value);
 axiam_mgmt_group_t *axiam_mgmt_group_parse(const cJSON *src);
 cJSON *axiam_mgmt_group_build(const axiam_mgmt_group_t *value);
+axiam_mgmt_group_mapping_t *axiam_mgmt_group_mapping_parse(const cJSON *src);
+cJSON *axiam_mgmt_group_mapping_build(const axiam_mgmt_group_mapping_t *value);
 axiam_mgmt_health_response_t *axiam_mgmt_health_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_health_response_build(const axiam_mgmt_health_response_t *value);
 axiam_mgmt_import_ca_certificate_request_t *axiam_mgmt_import_ca_certificate_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_import_ca_certificate_request_build(const axiam_mgmt_import_ca_certificate_request_t *value);
+axiam_mgmt_issue_saml_idp_credential_t *axiam_mgmt_issue_saml_idp_credential_parse(const cJSON *src);
+cJSON *axiam_mgmt_issue_saml_idp_credential_build(const axiam_mgmt_issue_saml_idp_credential_t *value);
+axiam_mgmt_link_directory_account_t *axiam_mgmt_link_directory_account_parse(const cJSON *src);
+cJSON *axiam_mgmt_link_directory_account_build(const axiam_mgmt_link_directory_account_t *value);
 axiam_mgmt_lockout_policy_t *axiam_mgmt_lockout_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_lockout_policy_build(const axiam_mgmt_lockout_policy_t *value);
 axiam_mgmt_mds_refresh_outcome_t *axiam_mgmt_mds_refresh_outcome_parse(const cJSON *src);
@@ -165,6 +181,8 @@ axiam_mgmt_opaque_policy_t *axiam_mgmt_opaque_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_opaque_policy_build(const axiam_mgmt_opaque_policy_t *value);
 axiam_mgmt_organization_t *axiam_mgmt_organization_parse(const cJSON *src);
 cJSON *axiam_mgmt_organization_build(const axiam_mgmt_organization_t *value);
+axiam_mgmt_parse_saml_sp_metadata_t *axiam_mgmt_parse_saml_sp_metadata_parse(const cJSON *src);
+cJSON *axiam_mgmt_parse_saml_sp_metadata_build(const axiam_mgmt_parse_saml_sp_metadata_t *value);
 axiam_mgmt_password_policy_t *axiam_mgmt_password_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_password_policy_build(const axiam_mgmt_password_policy_t *value);
 axiam_mgmt_permission_t *axiam_mgmt_permission_parse(const cJSON *src);
@@ -203,6 +221,30 @@ axiam_mgmt_role_user_assignment_t *axiam_mgmt_role_user_assignment_parse(const c
 cJSON *axiam_mgmt_role_user_assignment_build(const axiam_mgmt_role_user_assignment_t *value);
 axiam_mgmt_rotate_secret_response_t *axiam_mgmt_rotate_secret_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_rotate_secret_response_build(const axiam_mgmt_rotate_secret_response_t *value);
+axiam_mgmt_saml_idp_credential_t *axiam_mgmt_saml_idp_credential_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_idp_credential_build(const axiam_mgmt_saml_idp_credential_t *value);
+axiam_mgmt_saml_idp_credential_promotion_t *axiam_mgmt_saml_idp_credential_promotion_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_idp_credential_promotion_build(const axiam_mgmt_saml_idp_credential_promotion_t *value);
+axiam_mgmt_saml_idp_info_t *axiam_mgmt_saml_idp_info_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_idp_info_build(const axiam_mgmt_saml_idp_info_t *value);
+axiam_mgmt_saml_service_provider_t *axiam_mgmt_saml_service_provider_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_service_provider_build(const axiam_mgmt_saml_service_provider_t *value);
+axiam_mgmt_saml_service_provider_input_t *axiam_mgmt_saml_service_provider_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_service_provider_input_build(const axiam_mgmt_saml_service_provider_input_t *value);
+axiam_mgmt_saml_sp_metadata_draft_t *axiam_mgmt_saml_sp_metadata_draft_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_sp_metadata_draft_build(const axiam_mgmt_saml_sp_metadata_draft_t *value);
+axiam_mgmt_scim_reconcile_accepted_t *axiam_mgmt_scim_reconcile_accepted_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_reconcile_accepted_build(const axiam_mgmt_scim_reconcile_accepted_t *value);
+axiam_mgmt_scim_target_auth_t *axiam_mgmt_scim_target_auth_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_auth_build(const axiam_mgmt_scim_target_auth_t *value);
+axiam_mgmt_scim_target_delivery_state_t *axiam_mgmt_scim_target_delivery_state_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_delivery_state_build(const axiam_mgmt_scim_target_delivery_state_t *value);
+axiam_mgmt_scim_target_input_t *axiam_mgmt_scim_target_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_input_build(const axiam_mgmt_scim_target_input_t *value);
+axiam_mgmt_scim_target_response_t *axiam_mgmt_scim_target_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_response_build(const axiam_mgmt_scim_target_response_t *value);
+axiam_mgmt_scim_target_scope_t *axiam_mgmt_scim_target_scope_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_scope_build(const axiam_mgmt_scim_target_scope_t *value);
 axiam_mgmt_scim_token_response_t *axiam_mgmt_scim_token_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_scim_token_response_build(const axiam_mgmt_scim_token_response_t *value);
 axiam_mgmt_scope_t *axiam_mgmt_scope_parse(const cJSON *src);
@@ -215,6 +257,8 @@ axiam_mgmt_service_account_response_t *axiam_mgmt_service_account_response_parse
 cJSON *axiam_mgmt_service_account_response_build(const axiam_mgmt_service_account_response_t *value);
 axiam_mgmt_session_response_t *axiam_mgmt_session_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_session_response_build(const axiam_mgmt_session_response_t *value);
+axiam_mgmt_set_directory_config_t *axiam_mgmt_set_directory_config_parse(const cJSON *src);
+cJSON *axiam_mgmt_set_directory_config_build(const axiam_mgmt_set_directory_config_t *value);
 axiam_mgmt_set_mtls_trust_anchor_t *axiam_mgmt_set_mtls_trust_anchor_parse(const cJSON *src);
 cJSON *axiam_mgmt_set_mtls_trust_anchor_build(const axiam_mgmt_set_mtls_trust_anchor_t *value);
 axiam_mgmt_set_org_email_config_t *axiam_mgmt_set_org_email_config_parse(const cJSON *src);
@@ -231,6 +275,10 @@ axiam_mgmt_signed_audit_batch_t *axiam_mgmt_signed_audit_batch_parse(const cJSON
 cJSON *axiam_mgmt_signed_audit_batch_build(const axiam_mgmt_signed_audit_batch_t *value);
 axiam_mgmt_smtp_config_t *axiam_mgmt_smtp_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_smtp_config_build(const axiam_mgmt_smtp_config_t *value);
+axiam_mgmt_ssf_stream_t *axiam_mgmt_ssf_stream_parse(const cJSON *src);
+cJSON *axiam_mgmt_ssf_stream_build(const axiam_mgmt_ssf_stream_t *value);
+axiam_mgmt_ssf_stream_input_t *axiam_mgmt_ssf_stream_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_ssf_stream_input_build(const axiam_mgmt_ssf_stream_input_t *value);
 axiam_mgmt_tenant_t *axiam_mgmt_tenant_parse(const cJSON *src);
 cJSON *axiam_mgmt_tenant_build(const axiam_mgmt_tenant_t *value);
 axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse(const cJSON *src);
@@ -241,6 +289,8 @@ axiam_mgmt_token_exchange_trust_response_t *axiam_mgmt_token_exchange_trust_resp
 cJSON *axiam_mgmt_token_exchange_trust_response_build(const axiam_mgmt_token_exchange_trust_response_t *value);
 axiam_mgmt_token_policy_t *axiam_mgmt_token_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_token_policy_build(const axiam_mgmt_token_policy_t *value);
+axiam_mgmt_update_directory_config_t *axiam_mgmt_update_directory_config_parse(const cJSON *src);
+cJSON *axiam_mgmt_update_directory_config_build(const axiam_mgmt_update_directory_config_t *value);
 axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_config_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update_federation_config_request_t *value);
 axiam_mgmt_update_group_t *axiam_mgmt_update_group_parse(const cJSON *src);
@@ -269,6 +319,8 @@ axiam_mgmt_update_user_request_t *axiam_mgmt_update_user_request_parse(const cJS
 cJSON *axiam_mgmt_update_user_request_build(const axiam_mgmt_update_user_request_t *value);
 axiam_mgmt_update_webhook_request_t *axiam_mgmt_update_webhook_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_webhook_request_build(const axiam_mgmt_update_webhook_request_t *value);
+axiam_mgmt_user_attribute_map_t *axiam_mgmt_user_attribute_map_parse(const cJSON *src);
+cJSON *axiam_mgmt_user_attribute_map_build(const axiam_mgmt_user_attribute_map_t *value);
 axiam_mgmt_user_response_t *axiam_mgmt_user_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_user_response_build(const axiam_mgmt_user_response_t *value);
 axiam_mgmt_webauthn_attestation_policy_t *axiam_mgmt_webauthn_attestation_policy_parse(const cJSON *src);
@@ -280,6 +332,81 @@ cJSON *axiam_mgmt_webhook_response_build(const axiam_mgmt_webhook_response_t *va
 
 void setUp(void) {}
 void tearDown(void) {}
+
+/* `AcsEndpoint`: a full wire object parses, builds back and frees. */
+static void test_acs_endpoint_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_acs_endpoint_t *model = axiam_mgmt_acs_endpoint_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_acs_endpoint_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_acs_endpoint_free(model);
+    cJSON_Delete(src);
+}
+
+/* `AcsEndpoint`: the server omitting every OPTIONAL field is not an error. */
+static void test_acs_endpoint_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"binding\": \"http_post\", \"index\": 1, \"url\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_acs_endpoint_t *model = axiam_mgmt_acs_endpoint_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_acs_endpoint_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_acs_endpoint_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `AcsEndpoint`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_acs_endpoint_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_acs_endpoint_t *model = axiam_mgmt_acs_endpoint_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_acs_endpoint_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_acs_endpoint_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_acs_endpoint_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_acs_endpoint_parse(scalar));
+    axiam_mgmt_acs_endpoint_free(NULL);
+    cJSON_Delete(scalar);
+}
 
 /* `AddMemberRequest`: a full wire object parses, builds back and frees. */
 static void test_add_member_request_round_trips(void) {
@@ -687,6 +814,81 @@ static void test_assign_role_to_user_request_rejects_a_non_object(void) {
     cJSON *scalar = cJSON_CreateString("nope");
     TEST_ASSERT_NULL(axiam_mgmt_assign_role_to_user_request_parse(scalar));
     axiam_mgmt_assign_role_to_user_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `AttributeMapping`: a full wire object parses, builds back and frees. */
+static void test_attribute_mapping_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_attribute_mapping_t *model = axiam_mgmt_attribute_mapping_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_attribute_mapping_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_attribute_mapping_free(model);
+    cJSON_Delete(src);
+}
+
+/* `AttributeMapping`: the server omitting every OPTIONAL field is not an error. */
+static void test_attribute_mapping_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"saml_name\": \"example\", \"source\": \"username\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_attribute_mapping_t *model = axiam_mgmt_attribute_mapping_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_attribute_mapping_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_attribute_mapping_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `AttributeMapping`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_attribute_mapping_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_attribute_mapping_t *model = axiam_mgmt_attribute_mapping_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_attribute_mapping_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_attribute_mapping_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_attribute_mapping_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_attribute_mapping_parse(scalar));
+    axiam_mgmt_attribute_mapping_free(NULL);
     cJSON_Delete(scalar);
 }
 
@@ -1635,7 +1837,7 @@ static void test_create_notification_rule_request_rejects_a_non_object(void) {
 
 /* `CreateOAuth2ClientRequest`: a full wire object parses, builds back and frees. */
 static void test_create_o_auth2_client_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_logout_uri\": \"example\", \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}");
+    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_create_o_auth2_client_request_t *model = axiam_mgmt_create_o_auth2_client_request_parse(src);
@@ -2651,6 +2853,209 @@ static void test_create_webhook_request_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `DirectoryConfig`: a full wire object parses, builds back and frees. */
+static void test_directory_config_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"trust_anchors_pem\": [\"example\"], \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_directory_config_t *model = axiam_mgmt_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_directory_config_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+/* `DirectoryConfig`: the server omitting every OPTIONAL field is not an error. */
+static void test_directory_config_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"trust_anchors_pem\": [\"example\"], \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_directory_config_t *model = axiam_mgmt_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_directory_config_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `DirectoryConfig`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_directory_config_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_directory_config_t *model = axiam_mgmt_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_directory_config_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_directory_config_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_directory_config_parse(scalar));
+    axiam_mgmt_directory_config_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `DirectoryLinkResult`: a full wire object parses, builds back and frees. */
+static void test_directory_link_result_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"certificates_revoked\": 1, \"directory_external_id\": \"example\", \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"was_already_linked\": true, \"webauthn_credentials_deleted\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_directory_link_result_t *model = axiam_mgmt_directory_link_result_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_directory_link_result_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_directory_link_result_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `DirectoryLinkResult`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_directory_link_result_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_directory_link_result_t *model = axiam_mgmt_directory_link_result_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_directory_link_result_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_directory_link_result_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_directory_link_result_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_directory_link_result_parse(scalar));
+    axiam_mgmt_directory_link_result_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `DirectorySyncStatus`: a full wire object parses, builds back and frees. */
+static void test_directory_sync_status_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"full_required\": true, \"has_watermark\": true, \"last_attempt_at\": \"2026-08-26T00:00:00Z\", \"last_full_run_at\": \"2026-08-26T00:00:00Z\", \"last_result\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_directory_sync_status_t *model = axiam_mgmt_directory_sync_status_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_directory_sync_status_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_directory_sync_status_free(model);
+    cJSON_Delete(src);
+}
+
+/* `DirectorySyncStatus`: the server omitting every OPTIONAL field is not an error. */
+static void test_directory_sync_status_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"full_required\": true, \"has_watermark\": true}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_directory_sync_status_t *model = axiam_mgmt_directory_sync_status_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_directory_sync_status_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_directory_sync_status_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `DirectorySyncStatus`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_directory_sync_status_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_directory_sync_status_t *model = axiam_mgmt_directory_sync_status_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_directory_sync_status_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_directory_sync_status_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_directory_sync_status_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_directory_sync_status_parse(scalar));
+    axiam_mgmt_directory_sync_status_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `EmailConfig`: a full wire object parses, builds back and frees. */
 static void test_email_config_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"from_email\": \"example\", \"from_name\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"provider\": {}, \"reply_to\": \"example\", \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
@@ -3644,9 +4049,62 @@ static void test_group_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `GroupMapping`: a full wire object parses, builds back and frees. */
+static void test_group_mapping_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_group_mapping_t *model = axiam_mgmt_group_mapping_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_group_mapping_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_group_mapping_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `GroupMapping`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_group_mapping_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_group_mapping_t *model = axiam_mgmt_group_mapping_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_group_mapping_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_group_mapping_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_group_mapping_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_group_mapping_parse(scalar));
+    axiam_mgmt_group_mapping_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `HealthResponse`: a full wire object parses, builds back and frees. */
 static void test_health_response_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"status\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"profile\": \"example\", \"status\": \"example\", \"unavailable\": [\"example\"]}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_health_response_t *model = axiam_mgmt_health_response_parse(src);
@@ -3663,6 +4121,28 @@ static void test_health_response_round_trips(void) {
         TEST_ASSERT_NOT_NULL_MESSAGE(
             cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
     }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_health_response_free(model);
+    cJSON_Delete(src);
+}
+
+/* `HealthResponse`: the server omitting every OPTIONAL field is not an error. */
+static void test_health_response_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"profile\": \"example\", \"status\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_health_response_t *model = axiam_mgmt_health_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_health_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
 
     cJSON_Delete(rebuilt);
     axiam_mgmt_health_response_free(model);
@@ -3769,6 +4249,134 @@ static void test_import_ca_certificate_request_rejects_a_non_object(void) {
     cJSON *scalar = cJSON_CreateString("nope");
     TEST_ASSERT_NULL(axiam_mgmt_import_ca_certificate_request_parse(scalar));
     axiam_mgmt_import_ca_certificate_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `IssueSamlIdpCredential`: a full wire object parses, builds back and frees. */
+static void test_issue_saml_idp_credential_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"slot\": \"active\", \"validity_days\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_issue_saml_idp_credential_t *model = axiam_mgmt_issue_saml_idp_credential_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_issue_saml_idp_credential_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_issue_saml_idp_credential_free(model);
+    cJSON_Delete(src);
+}
+
+/* `IssueSamlIdpCredential`: the server omitting every OPTIONAL field is not an error. */
+static void test_issue_saml_idp_credential_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"slot\": \"active\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_issue_saml_idp_credential_t *model = axiam_mgmt_issue_saml_idp_credential_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_issue_saml_idp_credential_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_issue_saml_idp_credential_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `IssueSamlIdpCredential`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_issue_saml_idp_credential_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_issue_saml_idp_credential_t *model = axiam_mgmt_issue_saml_idp_credential_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_issue_saml_idp_credential_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_issue_saml_idp_credential_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_issue_saml_idp_credential_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_issue_saml_idp_credential_parse(scalar));
+    axiam_mgmt_issue_saml_idp_credential_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `LinkDirectoryAccount`: a full wire object parses, builds back and frees. */
+static void test_link_directory_account_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"user_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_link_directory_account_t *model = axiam_mgmt_link_directory_account_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_link_directory_account_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_link_directory_account_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `LinkDirectoryAccount`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_link_directory_account_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_link_directory_account_t *model = axiam_mgmt_link_directory_account_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_link_directory_account_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_link_directory_account_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_link_directory_account_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_link_directory_account_parse(scalar));
+    axiam_mgmt_link_directory_account_free(NULL);
     cJSON_Delete(scalar);
 }
 
@@ -4361,7 +4969,7 @@ static void test_o_auth2_client_created_response_rejects_a_non_object(void) {
 
 /* `OAuth2ClientResponse`: a full wire object parses, builds back and frees. */
 static void test_o_auth2_client_response_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_o_auth2_client_response_t *model = axiam_mgmt_o_auth2_client_response_parse(src);
@@ -4648,7 +5256,7 @@ static void test_oidc_callback_response_rejects_a_non_object(void) {
 
 /* `OidcPolicy`: a full wire object parses, builds back and frees. */
 static void test_oidc_policy_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}");
+    cJSON *src = cJSON_Parse("{\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_oidc_policy_t *model = axiam_mgmt_oidc_policy_parse(src);
@@ -4877,6 +5485,81 @@ static void test_organization_rejects_a_non_object(void) {
     cJSON *scalar = cJSON_CreateString("nope");
     TEST_ASSERT_NULL(axiam_mgmt_organization_parse(scalar));
     axiam_mgmt_organization_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `ParseSamlSpMetadata`: a full wire object parses, builds back and frees. */
+static void test_parse_saml_sp_metadata_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"metadata_url\": \"example\", \"metadata_xml\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_parse_saml_sp_metadata_t *model = axiam_mgmt_parse_saml_sp_metadata_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_parse_saml_sp_metadata_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_parse_saml_sp_metadata_free(model);
+    cJSON_Delete(src);
+}
+
+/* `ParseSamlSpMetadata`: the server omitting every OPTIONAL field is not an error. */
+static void test_parse_saml_sp_metadata_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_parse_saml_sp_metadata_t *model = axiam_mgmt_parse_saml_sp_metadata_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_parse_saml_sp_metadata_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_parse_saml_sp_metadata_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `ParseSamlSpMetadata`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_parse_saml_sp_metadata_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_parse_saml_sp_metadata_t *model = axiam_mgmt_parse_saml_sp_metadata_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_parse_saml_sp_metadata_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_parse_saml_sp_metadata_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_parse_saml_sp_metadata_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_parse_saml_sp_metadata_parse(scalar));
+    axiam_mgmt_parse_saml_sp_metadata_free(NULL);
     cJSON_Delete(scalar);
 }
 
@@ -6010,6 +6693,734 @@ static void test_rotate_secret_response_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `SamlIdpCredential`: a full wire object parses, builds back and frees. */
+static void test_saml_idp_credential_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_credential_t *model = axiam_mgmt_saml_idp_credential_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_idp_credential_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_credential_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SamlIdpCredential`: the server omitting every OPTIONAL field is not an error. */
+static void test_saml_idp_credential_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_credential_t *model = axiam_mgmt_saml_idp_credential_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_saml_idp_credential_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_credential_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SamlIdpCredential`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_saml_idp_credential_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_credential_t *model = axiam_mgmt_saml_idp_credential_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_idp_credential_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_credential_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_saml_idp_credential_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_saml_idp_credential_parse(scalar));
+    axiam_mgmt_saml_idp_credential_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `SamlIdpCredentialPromotion`: a full wire object parses, builds back and frees. */
+static void test_saml_idp_credential_promotion_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"active\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}, \"retired\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_credential_promotion_t *model = axiam_mgmt_saml_idp_credential_promotion_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_idp_credential_promotion_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_credential_promotion_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SamlIdpCredentialPromotion`: the server omitting every OPTIONAL field is not an error. */
+static void test_saml_idp_credential_promotion_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"active\": {\"certificate_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"retired_at\": \"2026-08-26T00:00:00Z\", \"serial\": \"example\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_credential_promotion_t *model = axiam_mgmt_saml_idp_credential_promotion_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_saml_idp_credential_promotion_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_credential_promotion_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SamlIdpCredentialPromotion`: an EMPTY object parses without crashing. A server that
+ * omits a field openapi.json marks required is malformed, and this SDK's answer is a model
+ * with that member unset rather than an abort -- the caller is in a position to decide, and
+ * a parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_saml_idp_credential_promotion_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_credential_promotion_t *model = axiam_mgmt_saml_idp_credential_promotion_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_idp_credential_promotion_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_credential_promotion_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_saml_idp_credential_promotion_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_saml_idp_credential_promotion_parse(scalar));
+    axiam_mgmt_saml_idp_credential_promotion_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `SamlIdpInfo`: a full wire object parses, builds back and frees. */
+static void test_saml_idp_info_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"active_credential_id\": \"11111111-1111-4111-8111-111111111111\", \"entity_id\": \"example\", \"metadata_served\": true, \"metadata_url\": \"example\", \"next_credential_id\": \"11111111-1111-4111-8111-111111111111\", \"saml_available\": true, \"saml_idp_enabled\": true, \"slo_url\": \"example\", \"sso_url\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_info_t *model = axiam_mgmt_saml_idp_info_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_idp_info_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_info_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SamlIdpInfo`: the server omitting every OPTIONAL field is not an error. */
+static void test_saml_idp_info_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"entity_id\": \"example\", \"metadata_served\": true, \"metadata_url\": \"example\", \"saml_available\": true, \"saml_idp_enabled\": true, \"slo_url\": \"example\", \"sso_url\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_info_t *model = axiam_mgmt_saml_idp_info_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_saml_idp_info_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_info_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SamlIdpInfo`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_saml_idp_info_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_idp_info_t *model = axiam_mgmt_saml_idp_info_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_idp_info_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_idp_info_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_saml_idp_info_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_saml_idp_info_parse(scalar));
+    axiam_mgmt_saml_idp_info_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `SamlServiceProvider`: a full wire object parses, builds back and frees. */
+static void test_saml_service_provider_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_service_provider_t *model = axiam_mgmt_saml_service_provider_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_service_provider_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_service_provider_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SamlServiceProvider`: the server omitting every OPTIONAL field is not an error. */
+static void test_saml_service_provider_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_service_provider_t *model = axiam_mgmt_saml_service_provider_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_saml_service_provider_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_service_provider_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SamlServiceProvider`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_saml_service_provider_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_service_provider_t *model = axiam_mgmt_saml_service_provider_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_service_provider_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_service_provider_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_saml_service_provider_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_saml_service_provider_parse(scalar));
+    axiam_mgmt_saml_service_provider_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `SamlServiceProviderInput`: a full wire object parses, builds back and frees. */
+static void test_saml_service_provider_input_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_service_provider_input_t *model = axiam_mgmt_saml_service_provider_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_service_provider_input_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_service_provider_input_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SamlServiceProviderInput`: the server omitting every OPTIONAL field is not an error. */
+static void test_saml_service_provider_input_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"display_name\": \"example\", \"entity_id\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_service_provider_input_t *model = axiam_mgmt_saml_service_provider_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_saml_service_provider_input_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_service_provider_input_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SamlServiceProviderInput`: an EMPTY object parses without crashing. A server that omits
+ * a field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_saml_service_provider_input_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_service_provider_input_t *model = axiam_mgmt_saml_service_provider_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_service_provider_input_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_service_provider_input_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_saml_service_provider_input_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_saml_service_provider_input_parse(scalar));
+    axiam_mgmt_saml_service_provider_input_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `SamlSpMetadataDraft`: a full wire object parses, builds back and frees. */
+static void test_saml_sp_metadata_draft_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"encryption_certificate_fingerprint\": \"example\", \"service_provider\": {\"acs_urls\": [{\"binding\": null, \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": null}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"signing_certificate_fingerprint\": \"example\", \"warnings\": [\"example\"]}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_sp_metadata_draft_t *model = axiam_mgmt_saml_sp_metadata_draft_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_sp_metadata_draft_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_sp_metadata_draft_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SamlSpMetadataDraft`: the server omitting every OPTIONAL field is not an error. */
+static void test_saml_sp_metadata_draft_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"service_provider\": {\"acs_urls\": [{\"binding\": null, \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": null}], \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"want_authn_requests_signed\": true}, \"warnings\": [\"example\"]}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_sp_metadata_draft_t *model = axiam_mgmt_saml_sp_metadata_draft_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_saml_sp_metadata_draft_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_sp_metadata_draft_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SamlSpMetadataDraft`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_saml_sp_metadata_draft_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_saml_sp_metadata_draft_t *model = axiam_mgmt_saml_sp_metadata_draft_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_saml_sp_metadata_draft_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_saml_sp_metadata_draft_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_saml_sp_metadata_draft_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_saml_sp_metadata_draft_parse(scalar));
+    axiam_mgmt_saml_sp_metadata_draft_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `ScimReconcileAccepted`: a full wire object parses, builds back and frees. */
+static void test_scim_reconcile_accepted_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"status\": \"example\", \"target_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_reconcile_accepted_t *model = axiam_mgmt_scim_reconcile_accepted_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_scim_reconcile_accepted_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_reconcile_accepted_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `ScimReconcileAccepted`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_scim_reconcile_accepted_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_reconcile_accepted_t *model = axiam_mgmt_scim_reconcile_accepted_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_scim_reconcile_accepted_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_reconcile_accepted_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_scim_reconcile_accepted_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_scim_reconcile_accepted_parse(scalar));
+    axiam_mgmt_scim_reconcile_accepted_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `ScimTargetDeliveryState`: a full wire object parses, builds back and frees. */
+static void test_scim_target_delivery_state_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_delivery_state_t *model = axiam_mgmt_scim_target_delivery_state_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_scim_target_delivery_state_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_delivery_state_free(model);
+    cJSON_Delete(src);
+}
+
+/* `ScimTargetDeliveryState`: the server omitting every OPTIONAL field is not an error. */
+static void test_scim_target_delivery_state_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"consecutive_failures\": 1, \"dead_lettered_total\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_delivery_state_t *model = axiam_mgmt_scim_target_delivery_state_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_scim_target_delivery_state_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_delivery_state_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `ScimTargetDeliveryState`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_scim_target_delivery_state_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_delivery_state_t *model = axiam_mgmt_scim_target_delivery_state_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_scim_target_delivery_state_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_delivery_state_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_scim_target_delivery_state_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_scim_target_delivery_state_parse(scalar));
+    axiam_mgmt_scim_target_delivery_state_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `ScimTargetInput`: a full wire object parses, builds back and frees. */
+static void test_scim_target_input_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"auth\": {}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"name\": \"example\", \"push_groups\": true, \"scope\": {}, \"user_name_from\": \"username\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_input_t *model = axiam_mgmt_scim_target_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_scim_target_input_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_input_free(model);
+    cJSON_Delete(src);
+}
+
+/* `ScimTargetInput`: the server omitting every OPTIONAL field is not an error. */
+static void test_scim_target_input_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"auth\": {}, \"base_url\": \"example\", \"name\": \"example\", \"scope\": {}}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_input_t *model = axiam_mgmt_scim_target_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_scim_target_input_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_input_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `ScimTargetInput`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_scim_target_input_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_input_t *model = axiam_mgmt_scim_target_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_scim_target_input_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_input_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_scim_target_input_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_scim_target_input_parse(scalar));
+    axiam_mgmt_scim_target_input_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `ScimTargetResponse`: a full wire object parses, builds back and frees. */
+static void test_scim_target_response_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"auth\": {}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_response_t *model = axiam_mgmt_scim_target_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_scim_target_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_response_free(model);
+    cJSON_Delete(src);
+}
+
+/* `ScimTargetResponse`: the server omitting every OPTIONAL field is not an error. */
+static void test_scim_target_response_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"auth\": {}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_response_t *model = axiam_mgmt_scim_target_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_scim_target_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_response_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `ScimTargetResponse`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_scim_target_response_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_scim_target_response_t *model = axiam_mgmt_scim_target_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_scim_target_response_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_scim_target_response_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_scim_target_response_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_scim_target_response_parse(scalar));
+    axiam_mgmt_scim_target_response_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `ScimTokenResponse`: a full wire object parses, builds back and frees. */
 static void test_scim_token_response_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"expires_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_used_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"revoked_at\": \"2026-08-26T00:00:00Z\", \"status\": \"active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}");
@@ -6140,7 +7551,7 @@ static void test_scope_rejects_a_non_object(void) {
 
 /* `SecuritySettings`: a full wire object parses, builds back and frees. */
 static void test_security_settings_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"sensitive_scopes_enabled\": true}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
+    cJSON *src = cJSON_Parse("{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_security_settings_t *model = axiam_mgmt_security_settings_parse(src);
@@ -6419,6 +7830,81 @@ static void test_session_response_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `SetDirectoryConfig`: a full wire object parses, builds back and frees. */
+static void test_set_directory_config_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"bind_secret\": \"example\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"trust_anchors_pem\": [\"example\"], \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_set_directory_config_t *model = axiam_mgmt_set_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_set_directory_config_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_set_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SetDirectoryConfig`: the server omitting every OPTIONAL field is not an error. */
+static void test_set_directory_config_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"enabled\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"url\": \"example\", \"user_filter\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_set_directory_config_t *model = axiam_mgmt_set_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_set_directory_config_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_set_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SetDirectoryConfig`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_set_directory_config_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_set_directory_config_t *model = axiam_mgmt_set_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_set_directory_config_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_set_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_set_directory_config_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_set_directory_config_parse(scalar));
+    axiam_mgmt_set_directory_config_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `SetMtlsTrustAnchor`: a full wire object parses, builds back and frees. */
 static void test_set_mtls_trust_anchor_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"enabled\": true}");
@@ -6549,7 +8035,7 @@ static void test_set_org_email_config_rejects_a_non_object(void) {
 
 /* `SetOrgSettings`: a full wire object parses, builds back and frees. */
 static void test_set_org_settings_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_set_org_settings_t *model = axiam_mgmt_set_org_settings_parse(src);
@@ -6909,6 +8395,156 @@ static void test_smtp_config_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `SsfStream`: a full wire object parses, builds back and frees. */
+static void test_ssf_stream_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_ssf_stream_t *model = axiam_mgmt_ssf_stream_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_ssf_stream_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_ssf_stream_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SsfStream`: the server omitting every OPTIONAL field is not an error. */
+static void test_ssf_stream_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_ssf_stream_t *model = axiam_mgmt_ssf_stream_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_ssf_stream_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_ssf_stream_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SsfStream`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_ssf_stream_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_ssf_stream_t *model = axiam_mgmt_ssf_stream_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_ssf_stream_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_ssf_stream_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_ssf_stream_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_ssf_stream_parse(scalar));
+    axiam_mgmt_ssf_stream_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `SsfStreamInput`: a full wire object parses, builds back and frees. */
+static void test_ssf_stream_input_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_ssf_stream_input_t *model = axiam_mgmt_ssf_stream_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_ssf_stream_input_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_ssf_stream_input_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SsfStreamInput`: the server omitting every OPTIONAL field is not an error. */
+static void test_ssf_stream_input_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"audience\": \"example\", \"delivery_method\": \"push\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_ssf_stream_input_t *model = axiam_mgmt_ssf_stream_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_ssf_stream_input_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_ssf_stream_input_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `SsfStreamInput`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_ssf_stream_input_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_ssf_stream_input_t *model = axiam_mgmt_ssf_stream_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_ssf_stream_input_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_ssf_stream_input_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_ssf_stream_input_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_ssf_stream_input_parse(scalar));
+    axiam_mgmt_ssf_stream_input_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `Tenant`: a full wire object parses, builds back and frees. */
 static void test_tenant_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
@@ -6986,7 +8622,7 @@ static void test_tenant_rejects_a_non_object(void) {
 
 /* `TenantSettingsOverride`: a full wire object parses, builds back and frees. */
 static void test_tenant_settings_override_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"webauthn_user_verification\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_tenant_settings_override_t *model = axiam_mgmt_tenant_settings_override_parse(src);
@@ -7262,6 +8898,81 @@ static void test_token_policy_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `UpdateDirectoryConfig`: a full wire object parses, builds back and frees. */
+static void test_update_directory_config_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"base_dn\": \"example\", \"bind_dn\": \"example\", \"bind_secret\": \"example\", \"enabled\": true, \"group_base_dn\": \"example\", \"group_filter\": \"example\", \"group_mappings\": [{\"directory_group_dn\": \"example\", \"group_id\": \"11111111-1111-4111-8111-111111111111\"}], \"group_member_attribute\": \"example\", \"group_nesting_depth\": 1, \"jit_provisioning\": true, \"kind\": \"open_ldap\", \"start_tls\": true, \"sync_interval_secs\": 1, \"trust_anchors_pem\": [\"example\"], \"url\": \"example\", \"user_attribute_map\": {\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}, \"user_filter\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_update_directory_config_t *model = axiam_mgmt_update_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_update_directory_config_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_update_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+/* `UpdateDirectoryConfig`: the server omitting every OPTIONAL field is not an error. */
+static void test_update_directory_config_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_update_directory_config_t *model = axiam_mgmt_update_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_update_directory_config_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_update_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `UpdateDirectoryConfig`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_update_directory_config_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_update_directory_config_t *model = axiam_mgmt_update_directory_config_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_update_directory_config_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_update_directory_config_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_update_directory_config_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_update_directory_config_parse(scalar));
+    axiam_mgmt_update_directory_config_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `UpdateFederationConfigRequest`: a full wire object parses, builds back and frees. */
 static void test_update_federation_config_request_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
@@ -7495,7 +9206,7 @@ static void test_update_notification_rule_request_rejects_a_non_object(void) {
 
 /* `UpdateOAuth2ClientRequest`: a full wire object parses, builds back and frees. */
 static void test_update_o_auth2_client_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_logout_uri\": \"example\", \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}");
+    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_update_o_auth2_client_request_t *model = axiam_mgmt_update_o_auth2_client_request_parse(src);
@@ -8318,6 +10029,59 @@ static void test_update_webhook_request_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `UserAttributeMap`: a full wire object parses, builds back and frees. */
+static void test_user_attribute_map_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"display_name\": \"example\", \"email\": \"example\", \"external_id\": \"example\", \"username\": \"example\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_user_attribute_map_t *model = axiam_mgmt_user_attribute_map_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_user_attribute_map_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_user_attribute_map_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `UserAttributeMap`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_user_attribute_map_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_user_attribute_map_t *model = axiam_mgmt_user_attribute_map_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_user_attribute_map_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_user_attribute_map_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_user_attribute_map_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_user_attribute_map_parse(scalar));
+    axiam_mgmt_user_attribute_map_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `UserResponse`: a full wire object parses, builds back and frees. */
 static void test_user_response_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}");
@@ -8576,6 +10340,10 @@ static void test_webhook_response_rejects_a_non_object(void) {
 
 int main(void) {
     UNITY_BEGIN();
+    RUN_TEST(test_acs_endpoint_round_trips);
+    RUN_TEST(test_acs_endpoint_parses_without_optionals);
+    RUN_TEST(test_acs_endpoint_parses_an_empty_object);
+    RUN_TEST(test_acs_endpoint_rejects_a_non_object);
     RUN_TEST(test_add_member_request_round_trips);
     RUN_TEST(test_add_member_request_parses_an_empty_object);
     RUN_TEST(test_add_member_request_rejects_a_non_object);
@@ -8598,6 +10366,10 @@ int main(void) {
     RUN_TEST(test_assign_role_to_user_request_parses_without_optionals);
     RUN_TEST(test_assign_role_to_user_request_parses_an_empty_object);
     RUN_TEST(test_assign_role_to_user_request_rejects_a_non_object);
+    RUN_TEST(test_attribute_mapping_round_trips);
+    RUN_TEST(test_attribute_mapping_parses_without_optionals);
+    RUN_TEST(test_attribute_mapping_parses_an_empty_object);
+    RUN_TEST(test_attribute_mapping_rejects_a_non_object);
     RUN_TEST(test_audit_log_entry_round_trips);
     RUN_TEST(test_audit_log_entry_parses_without_optionals);
     RUN_TEST(test_audit_log_entry_parses_an_empty_object);
@@ -8704,6 +10476,17 @@ int main(void) {
     RUN_TEST(test_create_webhook_request_parses_without_optionals);
     RUN_TEST(test_create_webhook_request_parses_an_empty_object);
     RUN_TEST(test_create_webhook_request_rejects_a_non_object);
+    RUN_TEST(test_directory_config_round_trips);
+    RUN_TEST(test_directory_config_parses_without_optionals);
+    RUN_TEST(test_directory_config_parses_an_empty_object);
+    RUN_TEST(test_directory_config_rejects_a_non_object);
+    RUN_TEST(test_directory_link_result_round_trips);
+    RUN_TEST(test_directory_link_result_parses_an_empty_object);
+    RUN_TEST(test_directory_link_result_rejects_a_non_object);
+    RUN_TEST(test_directory_sync_status_round_trips);
+    RUN_TEST(test_directory_sync_status_parses_without_optionals);
+    RUN_TEST(test_directory_sync_status_parses_an_empty_object);
+    RUN_TEST(test_directory_sync_status_rejects_a_non_object);
     RUN_TEST(test_email_config_round_trips);
     RUN_TEST(test_email_config_parses_without_optionals);
     RUN_TEST(test_email_config_parses_an_empty_object);
@@ -8758,13 +10541,24 @@ int main(void) {
     RUN_TEST(test_group_round_trips);
     RUN_TEST(test_group_parses_an_empty_object);
     RUN_TEST(test_group_rejects_a_non_object);
+    RUN_TEST(test_group_mapping_round_trips);
+    RUN_TEST(test_group_mapping_parses_an_empty_object);
+    RUN_TEST(test_group_mapping_rejects_a_non_object);
     RUN_TEST(test_health_response_round_trips);
+    RUN_TEST(test_health_response_parses_without_optionals);
     RUN_TEST(test_health_response_parses_an_empty_object);
     RUN_TEST(test_health_response_rejects_a_non_object);
     RUN_TEST(test_import_ca_certificate_request_round_trips);
     RUN_TEST(test_import_ca_certificate_request_parses_without_optionals);
     RUN_TEST(test_import_ca_certificate_request_parses_an_empty_object);
     RUN_TEST(test_import_ca_certificate_request_rejects_a_non_object);
+    RUN_TEST(test_issue_saml_idp_credential_round_trips);
+    RUN_TEST(test_issue_saml_idp_credential_parses_without_optionals);
+    RUN_TEST(test_issue_saml_idp_credential_parses_an_empty_object);
+    RUN_TEST(test_issue_saml_idp_credential_rejects_a_non_object);
+    RUN_TEST(test_link_directory_account_round_trips);
+    RUN_TEST(test_link_directory_account_parses_an_empty_object);
+    RUN_TEST(test_link_directory_account_rejects_a_non_object);
     RUN_TEST(test_lockout_policy_round_trips);
     RUN_TEST(test_lockout_policy_parses_an_empty_object);
     RUN_TEST(test_lockout_policy_rejects_a_non_object);
@@ -8826,6 +10620,10 @@ int main(void) {
     RUN_TEST(test_organization_round_trips);
     RUN_TEST(test_organization_parses_an_empty_object);
     RUN_TEST(test_organization_rejects_a_non_object);
+    RUN_TEST(test_parse_saml_sp_metadata_round_trips);
+    RUN_TEST(test_parse_saml_sp_metadata_parses_without_optionals);
+    RUN_TEST(test_parse_saml_sp_metadata_parses_an_empty_object);
+    RUN_TEST(test_parse_saml_sp_metadata_rejects_a_non_object);
     RUN_TEST(test_password_policy_round_trips);
     RUN_TEST(test_password_policy_parses_an_empty_object);
     RUN_TEST(test_password_policy_rejects_a_non_object);
@@ -8888,6 +10686,45 @@ int main(void) {
     RUN_TEST(test_rotate_secret_response_round_trips);
     RUN_TEST(test_rotate_secret_response_parses_an_empty_object);
     RUN_TEST(test_rotate_secret_response_rejects_a_non_object);
+    RUN_TEST(test_saml_idp_credential_round_trips);
+    RUN_TEST(test_saml_idp_credential_parses_without_optionals);
+    RUN_TEST(test_saml_idp_credential_parses_an_empty_object);
+    RUN_TEST(test_saml_idp_credential_rejects_a_non_object);
+    RUN_TEST(test_saml_idp_credential_promotion_round_trips);
+    RUN_TEST(test_saml_idp_credential_promotion_parses_without_optionals);
+    RUN_TEST(test_saml_idp_credential_promotion_parses_an_empty_object);
+    RUN_TEST(test_saml_idp_credential_promotion_rejects_a_non_object);
+    RUN_TEST(test_saml_idp_info_round_trips);
+    RUN_TEST(test_saml_idp_info_parses_without_optionals);
+    RUN_TEST(test_saml_idp_info_parses_an_empty_object);
+    RUN_TEST(test_saml_idp_info_rejects_a_non_object);
+    RUN_TEST(test_saml_service_provider_round_trips);
+    RUN_TEST(test_saml_service_provider_parses_without_optionals);
+    RUN_TEST(test_saml_service_provider_parses_an_empty_object);
+    RUN_TEST(test_saml_service_provider_rejects_a_non_object);
+    RUN_TEST(test_saml_service_provider_input_round_trips);
+    RUN_TEST(test_saml_service_provider_input_parses_without_optionals);
+    RUN_TEST(test_saml_service_provider_input_parses_an_empty_object);
+    RUN_TEST(test_saml_service_provider_input_rejects_a_non_object);
+    RUN_TEST(test_saml_sp_metadata_draft_round_trips);
+    RUN_TEST(test_saml_sp_metadata_draft_parses_without_optionals);
+    RUN_TEST(test_saml_sp_metadata_draft_parses_an_empty_object);
+    RUN_TEST(test_saml_sp_metadata_draft_rejects_a_non_object);
+    RUN_TEST(test_scim_reconcile_accepted_round_trips);
+    RUN_TEST(test_scim_reconcile_accepted_parses_an_empty_object);
+    RUN_TEST(test_scim_reconcile_accepted_rejects_a_non_object);
+    RUN_TEST(test_scim_target_delivery_state_round_trips);
+    RUN_TEST(test_scim_target_delivery_state_parses_without_optionals);
+    RUN_TEST(test_scim_target_delivery_state_parses_an_empty_object);
+    RUN_TEST(test_scim_target_delivery_state_rejects_a_non_object);
+    RUN_TEST(test_scim_target_input_round_trips);
+    RUN_TEST(test_scim_target_input_parses_without_optionals);
+    RUN_TEST(test_scim_target_input_parses_an_empty_object);
+    RUN_TEST(test_scim_target_input_rejects_a_non_object);
+    RUN_TEST(test_scim_target_response_round_trips);
+    RUN_TEST(test_scim_target_response_parses_without_optionals);
+    RUN_TEST(test_scim_target_response_parses_an_empty_object);
+    RUN_TEST(test_scim_target_response_rejects_a_non_object);
     RUN_TEST(test_scim_token_response_round_trips);
     RUN_TEST(test_scim_token_response_parses_without_optionals);
     RUN_TEST(test_scim_token_response_parses_an_empty_object);
@@ -8910,6 +10747,10 @@ int main(void) {
     RUN_TEST(test_session_response_parses_without_optionals);
     RUN_TEST(test_session_response_parses_an_empty_object);
     RUN_TEST(test_session_response_rejects_a_non_object);
+    RUN_TEST(test_set_directory_config_round_trips);
+    RUN_TEST(test_set_directory_config_parses_without_optionals);
+    RUN_TEST(test_set_directory_config_parses_an_empty_object);
+    RUN_TEST(test_set_directory_config_rejects_a_non_object);
     RUN_TEST(test_set_mtls_trust_anchor_round_trips);
     RUN_TEST(test_set_mtls_trust_anchor_parses_an_empty_object);
     RUN_TEST(test_set_mtls_trust_anchor_rejects_a_non_object);
@@ -8937,6 +10778,14 @@ int main(void) {
     RUN_TEST(test_smtp_config_round_trips);
     RUN_TEST(test_smtp_config_parses_an_empty_object);
     RUN_TEST(test_smtp_config_rejects_a_non_object);
+    RUN_TEST(test_ssf_stream_round_trips);
+    RUN_TEST(test_ssf_stream_parses_without_optionals);
+    RUN_TEST(test_ssf_stream_parses_an_empty_object);
+    RUN_TEST(test_ssf_stream_rejects_a_non_object);
+    RUN_TEST(test_ssf_stream_input_round_trips);
+    RUN_TEST(test_ssf_stream_input_parses_without_optionals);
+    RUN_TEST(test_ssf_stream_input_parses_an_empty_object);
+    RUN_TEST(test_ssf_stream_input_rejects_a_non_object);
     RUN_TEST(test_tenant_round_trips);
     RUN_TEST(test_tenant_parses_without_optionals);
     RUN_TEST(test_tenant_parses_an_empty_object);
@@ -8956,6 +10805,10 @@ int main(void) {
     RUN_TEST(test_token_policy_round_trips);
     RUN_TEST(test_token_policy_parses_an_empty_object);
     RUN_TEST(test_token_policy_rejects_a_non_object);
+    RUN_TEST(test_update_directory_config_round_trips);
+    RUN_TEST(test_update_directory_config_parses_without_optionals);
+    RUN_TEST(test_update_directory_config_parses_an_empty_object);
+    RUN_TEST(test_update_directory_config_rejects_a_non_object);
     RUN_TEST(test_update_federation_config_request_round_trips);
     RUN_TEST(test_update_federation_config_request_parses_without_optionals);
     RUN_TEST(test_update_federation_config_request_parses_an_empty_object);
@@ -9012,6 +10865,9 @@ int main(void) {
     RUN_TEST(test_update_webhook_request_parses_without_optionals);
     RUN_TEST(test_update_webhook_request_parses_an_empty_object);
     RUN_TEST(test_update_webhook_request_rejects_a_non_object);
+    RUN_TEST(test_user_attribute_map_round_trips);
+    RUN_TEST(test_user_attribute_map_parses_an_empty_object);
+    RUN_TEST(test_user_attribute_map_rejects_a_non_object);
     RUN_TEST(test_user_response_round_trips);
     RUN_TEST(test_user_response_parses_without_optionals);
     RUN_TEST(test_user_response_parses_an_empty_object);

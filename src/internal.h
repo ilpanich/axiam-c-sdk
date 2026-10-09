@@ -505,6 +505,20 @@ int   axiam_str_ieq(const char *a, const char *b);
  * be silently dropped rather than 404/403 against the server. */
 int oidc_is_uuid(const char *s);
 
+/*
+ * A LOCAL refusal: the request was never sent, because the SDK can already tell it must
+ * not send it (CONTRACT.md §27.4 rule 2, §28.12.2 rule 1, §29.2, §31.2, §33.2).
+ *
+ * This is the C row of "the SDK's local ValidationError" (§28.7: C reports it through its
+ * axiam_error_t out-parameter): AXIAM_ERR_NETWORK with transport_cause 400, so
+ * axiam_mgmt_error_class() answers AXIAM_MGMT_ERR_VALIDATION exactly as it does for the
+ * server's own 400 -- a caller that branches on the class handles both the same way --
+ * and a message naming the operation and the member, never a value. "no request was
+ * sent" is in the text so a log line can tell the two apart.
+ */
+void axiam_local_refusal(axiam_error_t *err, const char *operation, const char *field,
+                         const char *detail);
+
 /* RFC 3986 percent-encode every byte outside the unreserved set. Returns a
  * malloc'd string, or NULL on OOM/NULL input. Used wherever a caller-supplied
  * value goes into a URL: a token spliced in raw can end the query early or land

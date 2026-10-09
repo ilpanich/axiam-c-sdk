@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -201,4 +202,13 @@ char *axiam_url_encode(const char *s) {
     }
     out[at] = '\0';
     return out;
+}
+
+void axiam_local_refusal(axiam_error_t *err, const char *operation, const char *field,
+                         const char *detail) {
+    char msg[256];
+    snprintf(msg, sizeof msg, "%s: %s: %s; no request was sent",
+             operation ? operation : "request", field ? field : "body",
+             detail ? detail : "refused");
+    axiam_error_set(err, AXIAM_ERR_NETWORK, 400, msg);
 }

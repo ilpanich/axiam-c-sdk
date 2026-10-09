@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Generate the CONTRACT §27 management surface for the C SDK.
 
-Reads ``management-registry.json`` (the 158 operations across 24 namespaces,
+Reads ``management-registry.json`` (the 190 operations across 28 namespaces,
 maintained in ``ilpanich/axiam`` and vendored here) plus ``openapi.json``, and writes:
 
 - ``include/axiam/management_models.h`` — one struct or enum per request and response
   type, plus a ``_free`` for every owning struct;
-- ``include/axiam/management_ops.h`` — the 158 flat operation declarations (§27.3);
+- ``include/axiam/management_ops.h`` — the 190 flat operation declarations (§27.3);
 - ``src/management_models.c`` — parse and free for every model;
-- ``src/management_ops.c`` — the 158 operation bodies;
+- ``src/management_ops.c`` — the 190 operation bodies;
 - ``tests/test_management_generated.c`` — one conformance case per operation.
 
 Run with ``--check`` to verify the committed output is current; that is what CI runs.
@@ -46,12 +46,31 @@ declare(strict_types=1);
 # §27.4 rule 3: `{org_id}` always defaults from the client. `{tenant_id}`
 # defaults from the client only where it names the *context*; in `tenants` and
 # the signing-CA routes it names the object being acted on.
-IMPLICIT_TENANT_NAMESPACES = {"email_config", "settings", "webauthn_policy"}
+#
+# The §29, §30 and §32 namespaces (contract 1.54-1.56) carry `{tenant_id}` as the
+# context on every route, and their sections say so in as many words ("defaulted from
+# the client's configured tenant per §27.4 rule 3"). `scim_targets` (§31) has no tenant
+# path parameter at all.
+IMPLICIT_TENANT_NAMESPACES = {
+    "directory", "email_config", "saml", "settings", "ssf", "webauthn_policy",
+}
+
+# Discriminated unions whose tag is an OPEN set (CONTRACT.md §31.2: "An SDK MUST decode
+# an unknown `type` without failing" and "MUST NOT send one"). Decoding already never
+# fails here -- a union is carried as its tag plus the raw object -- so what these gain
+# is the other half: an `_is_known()` predicate, and a local refusal in every operation
+# whose body carries one, before any request, when the tag that WOULD be sent is not one
+# the spec lists.
+OPEN_UNIONS = {"ScimTargetAuth", "ScimTargetScope"}
 
 # Schema names that would collide with a type this SDK already exports. The models
 # live in their own PHP namespace (Axiam\Sdk\Management\Models), so a collision can
 # only happen against another MODEL -- which the spec itself prevents.
 RENAMED_SCHEMAS: dict[str, str] = {}
+
+#: The registry's own counts, so no prose the generator emits can go stale on a re-vendor.
+OP_COUNT = sum(len(ns["operations"]) for ns in REGISTRY["namespaces"].values())
+NAMESPACE_COUNT = len(REGISTRY["namespaces"])
 
 EXAMPLE_UUID = "11111111-1111-4111-8111-111111111111"
 EXAMPLE_TIME = "2026-08-26T00:00:00Z"
@@ -460,7 +479,15 @@ def model_prefix(name: str) -> str:
 
 
 def enum_const(model: str, value: str) -> str:
-    """A C enum constant (``UserStatus``/``Active`` -> ``AXIAM_MGMT_USER_STATUS_ACTIVE``)."""
+    """A C enum constant (``UserStatus``/``Active`` -> ``AXIAM_MGMT_USER_STATUS_ACTIVE``).
+
+    Most wire values are words. §32's ``SsfEventType`` values are event-type URIs
+    (``https://schemas.openid.net/secevent/caep/event-type/session-revoked``); the last
+    path segment is what names the event, so that is what names the constant
+    (``AXIAM_MGMT_SSF_EVENT_TYPE_SESSION_REVOKED``) -- the URI stays the wire value.
+    """
+    if "/" in value:
+        value = value.rstrip("/").rsplit("/", 1)[-1]
     tail = snake(pascal(value)).upper()
     if not tail or not tail[0].isalpha():
         tail = f"V{tail}"
@@ -841,6 +868,21 @@ def emit_models_header() -> str:
             "allocated it and there is never a question of which half you own."))
         out.append(f"void {model_prefix(rendered)}_free({model_type(rendered)} *value);")
         out.append("")
+        if rendered in OPEN_UNIONS:
+            tag, arms = discriminated(SCHEMAS.get(name) or {})
+            known = ", ".join(f"`{v}`" for v, _ in arms)
+            out.extend(doc(
+                f"1 when the `{tag}` this value WOULD put on the wire is one this SDK's copy "
+                f"of the spec lists ({known}); 0 otherwise, and for NULL.\n\n"
+                f"The `{tag}` set is OPEN (CONTRACT.md \u00a731.2): a value the server sends "
+                "that is not listed decodes without failing, and keeps its tag and raw "
+                "object so it can be inspected. It is never SENT: every operation whose "
+                "body carries one refuses it locally, before any request, with "
+                "AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION. The tag read is "
+                f"`raw`'s own `{tag}` when `raw` is set -- `raw` is what goes on the wire -- "
+                f"and `{tag}` otherwise."))
+            out.append(f"int {model_prefix(rendered)}_is_known(const {model_type(rendered)} *value);")
+            out.append("")
 
     # ---- page and list wrappers ----
     for name in paginated_models():
@@ -1274,6 +1316,26 @@ def emit_models_source() -> str:
         out.append("}")
         out.append("")
 
+        if rendered in OPEN_UNIONS:
+            tag, arms = discriminated(SCHEMAS.get(name) or {})
+            out.append(f"int {model_prefix(rendered)}_is_known(const {model_type(rendered)} *value) {{")
+            out.append("    if (!value) return 0;")
+            out.extend(comment(
+                "`raw`, when set, is what _build() forwards -- so ITS tag is the one that "
+                "would reach the wire, and the one judged here. A `raw` that does not "
+                "parse, or names no tag, is not something this SDK can honestly send.",
+                "    "))
+            out.append("    cJSON *raw = value->raw ? cJSON_Parse(value->raw) : NULL;")
+            out.append("    if (value->raw && !raw) return 0;")
+            out.append(f'    const cJSON *t = raw ? cJSON_GetObjectItemCaseSensitive(raw, "{tag}") : NULL;')
+            out.append(f"    const char *tag = raw ? (cJSON_IsString(t) ? t->valuestring : NULL) : value->{cname(tag)};")
+            out.append("    int known = tag && (")
+            out.append(" ||\n".join(f'        strcmp(tag, "{v}") == 0' for v, _ in arms) + ");")
+            out.append("    cJSON_Delete(raw);")
+            out.append("    return known;")
+            out.append("}")
+            out.append("")
+
     # ---- page / list frees ----
     for name in paginated_models():
         s = snake(name)
@@ -1319,7 +1381,7 @@ def op_symbol(namespace: str, opname: str) -> str:
     Deliberately NOT `axiam_mgmt_<ns>_<op>`: an extra segment would be this SDK's own
     invention in the one place 27.3 spells the symbol out. The MODEL types below keep
     the `axiam_mgmt_` prefix, because 27.3 governs the operation accessor and says
-    nothing about type names -- and there the prefix earns its keep by separating 145
+    nothing about type names -- and there the prefix earns its keep by separating the
     generated types from the SDK's own.
     """
     return f"axiam_{cname(namespace)}_{cname(opname)}"
@@ -1449,7 +1511,7 @@ def op_doc(namespace: str, opname: str, op: dict[str, Any]) -> str:
 
 
 def emit_ops_header() -> str:
-    """The 158 flat operation declarations."""
+    """The flat operation declarations, one per registry operation."""
     out = [BANNER_C, ""]
     out.append("#ifndef AXIAM_MANAGEMENT_OPS_H")
     out.append("#define AXIAM_MANAGEMENT_OPS_H")
@@ -1486,7 +1548,7 @@ def emit_ops_header() -> str:
 
 
 def emit_ops_source() -> str:
-    """The 158 operation bodies. Every one funnels through axiam_mgmt_send() (27.8)."""
+    """The operation bodies. Every one funnels through axiam_mgmt_send() (27.8)."""
     out = [BANNER_C, ""]
     out.append("#include <stdlib.h>")
     out.append("#include <string.h>")
@@ -1555,6 +1617,21 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
         out.append("                return AXIAM_ERR_NETWORK;")
         out.append("            }")
         out.append("        }")
+        out.append("    }")
+
+    # ---- refuse an OPEN union member whose tag this SDK does not know (CONTRACT.md
+    # §31.2: an unknown `type` decodes, and is never sent) ----
+    open_fields: list[dict[str, Any]] = []
+    if body_param:
+        braw = op["request_schema"].lstrip("[]")
+        bfields, _ = fields_of(braw, sensitive_map().get(braw, set()))
+        open_fields = [f for f in bfields if f["kind"] == "model" and f["ref"] in OPEN_UNIONS]
+    for f in open_fields:
+        out.append(f"    if (body && body->{f['name']} && !{model_prefix(f['ref'])}_is_known(body->{f['name']})) {{")
+        out.append(f'        axiam_local_refusal(err, "{canonical}", "{f["wire"]}",')
+        out.append(f'            "a {f["ref"]} whose type this SDK does not know is never sent '
+                   f'(CONTRACT.md \\xc2\\xa7" "31.2)");')
+        out.append("        return AXIAM_ERR_NETWORK;")
         out.append("    }")
 
     # ---- path ----
@@ -1796,7 +1873,7 @@ def emit_test() -> str:
     out.append('#include "management_test_util.h"')
     out.append("")
     out.extend(comment(
-        "One case per CONTRACT.md 27 operation -- all 158 of them.\n\n"
+        f"One case per CONTRACT.md 27 operation -- all {OP_COUNT} of them.\n\n"
         "Each asserts that the operation issues the METHOD the registry names against the "
         "PATH the registry names, and that whatever it allocated frees cleanly (the suite "
         "runs under ASan/UBSan in CI, so a leak or a double free fails here rather than in "
@@ -2167,7 +2244,7 @@ def emit_model_test() -> str:
 
 
 def emit_alloc_test() -> str:
-    """An allocation-failure sweep over all 158 operations and every model.
+    """An allocation-failure sweep over every operation and every model.
 
     Every calloc/malloc in the generated surface is followed by a NULL check whose OOM
     arm never runs in an ordinary test, so gcovr reports it uncovered no matter how many
