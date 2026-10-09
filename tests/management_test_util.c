@@ -27,6 +27,9 @@ static char g_url[512];
 static char g_path[512];
 static char g_body[4096];
 
+/* Every request's URL, in order (index 0 is the login), for a walk's assertions. */
+static char g_urls[32][512];
+
 /* §16 waits the client asked for: recorded, never slept. */
 static long g_sleeps[16];
 static int g_sleep_count;
@@ -70,6 +73,10 @@ void mgmt_mount_retry_after(const char *value) {
 
 int mgmt_sleep_count(void) { return g_sleep_count; }
 
+const char *mgmt_url_at(int i) {
+    return (i >= 0 && i < g_count && i < (int) (sizeof g_urls / sizeof g_urls[0])) ? g_urls[i] : NULL;
+}
+
 long mgmt_sleep_ms(int i) { return (i >= 0 && i < g_sleep_count) ? g_sleeps[i] : -1; }
 
 static void fake_sleep(void *ctx, long ms) {
@@ -104,6 +111,8 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
     g_count++;
     snprintf(g_method, sizeof g_method, "%s", req->method ? req->method : "");
     snprintf(g_url, sizeof g_url, "%s", req->url ? req->url : "");
+    if (g_count - 1 < (int) (sizeof g_urls / sizeof g_urls[0]))
+        snprintf(g_urls[g_count - 1], sizeof g_urls[0], "%s", req->url ? req->url : "");
     snprintf(g_body, sizeof g_body, "%s", req->body ? req->body : "");
     record_path(req->url);
 

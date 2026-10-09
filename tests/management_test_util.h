@@ -29,6 +29,9 @@ void mgmt_mount_retry_after(const char *value);
  *  each wait is the whole backoff (or the `Retry-After` floor). */
 int mgmt_sleep_count(void);
 
+/** The URL of the i-th request since the last reset (0 is the sign-in), or NULL. */
+const char *mgmt_url_at(int i);
+
 /** The i-th recorded wait in ms, or -1. */
 long mgmt_sleep_ms(int i);
 

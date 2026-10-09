@@ -242,6 +242,56 @@ static void test_page_total_is_not_the_item_count(void) {
     axiam_client_free(c);
 }
 
+/* Contract 1.59 R-30 (C-3): §27.4 rule 4's auto-paging form. `_all` walks from the first
+ * page to the empty one that ends the walk, advancing `offset` by `limit`, and returns
+ * every item in one page whose `total` is the server's. */
+static void test_the_auto_pager_walks_to_exhaustion(void) {
+    char first[1024], second[1024];
+    snprintf(first, sizeof first, "{\"items\":[%s,%s],\"total\":3,\"offset\":0,\"limit\":50}", ROLE_JSON, ROLE_JSON);
+    snprintf(second, sizeof second, "{\"items\":[%s],\"total\":3,\"offset\":50,\"limit\":50}", ROLE_JSON);
+    mgmt_mount(200, first);
+    mgmt_mount_next(200, second);
+    mgmt_mount_next(200, "{\"items\":[],\"total\":3,\"offset\":100,\"limit\":50}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_page_t *all = NULL;
+
+    /* NULL: from the first page at the server's default size. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_roles_list_all(c, NULL, &all, &err));
+    TEST_ASSERT_EQUAL_INT(4, mgmt_request_count()); /* sign-in + three pages */
+    static const char *const offsets[] = {"offset=0", "offset=50", "offset=100"};
+    for (int i = 0; i < 3; i++) {
+        TEST_ASSERT_NOT_NULL(strstr(mgmt_url_at(1 + i), offsets[i]));
+        TEST_ASSERT_NOT_NULL(strstr(mgmt_url_at(1 + i), "limit=50"));
+        TEST_ASSERT_NULL_MESSAGE(strstr(mgmt_url_at(1 + i), "search="), "no term, no key");
+    }
+    TEST_ASSERT_NOT_NULL(all);
+    TEST_ASSERT_EQUAL_INT(3, (int) all->count);
+    TEST_ASSERT_EQUAL_INT(3, (int) all->total);
+    TEST_ASSERT_EQUAL_INT(0, (int) all->request.offset);
+    for (size_t i = 0; i < all->count; i++) TEST_ASSERT_NOT_NULL(all->items[i]);
+    axiam_mgmt_role_page_free(all);
+    axiam_client_free(c);
+}
+
+/* A failure mid-walk is the walk's answer: nothing partial comes back as though it were
+ * the whole set (§27.4 rule 4, "never silently truncate"). */
+static void test_the_auto_pager_never_returns_a_partial_walk(void) {
+    char first[1024];
+    snprintf(first, sizeof first, "{\"items\":[%s],\"total\":9,\"offset\":0,\"limit\":1}", ROLE_JSON);
+    mgmt_mount(200, first);
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_page_t *all = (axiam_mgmt_role_page_t *) &err; /* overwritten */
+    axiam_mgmt_page_req_t req = {0, 1, NULL};
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, axiam_roles_list_all(c, &req, &all, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_NOT_FOUND, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NULL(all);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count());
+    axiam_client_free(c);
+}
+
 static void test_page_next_advances_by_the_limit(void) {
     axiam_mgmt_page_req_t first = { 0, 25 };
     axiam_mgmt_page_req_t second = axiam_mgmt_page_next(first);
@@ -1005,6 +1055,8 @@ int main(void) {
     RUN_TEST(test_a_scope_overrides_the_implicit_org_id);
     RUN_TEST(test_a_scope_does_not_leak_into_the_next_call);
     RUN_TEST(test_page_total_is_not_the_item_count);
+    RUN_TEST(test_the_auto_pager_walks_to_exhaustion);
+    RUN_TEST(test_the_auto_pager_never_returns_a_partial_walk);
     RUN_TEST(test_page_next_advances_by_the_limit);
     RUN_TEST(test_page_next_clamps_nonsense);
     RUN_TEST(test_paging_reaches_the_query_string);

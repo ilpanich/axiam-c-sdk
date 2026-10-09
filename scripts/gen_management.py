@@ -1769,6 +1769,107 @@ def op_doc(namespace: str, opname: str, op: dict[str, Any]) -> str:
     return lead
 
 
+# ---------------------------------------------------------------------------
+# The auto-paging form (§27.4 rule 4; contract 1.59 R-30)
+# ---------------------------------------------------------------------------
+
+
+def page_model(op: dict[str, Any]) -> str:
+    """The `snake` name of a paginated operation's item model."""
+    return snake(pascal(op["response"]["schema"].lstrip("[]")))
+
+
+def all_signature(namespace: str, opname: str, op: dict[str, Any]) -> str:
+    """`<op>_all`: the operation's own parameters, `page` naming where the walk starts."""
+    params = op_params(namespace, op)
+    args = ["axiam_client_t *c"] + [f"{p['decl']}{p['name']}" for p in params]
+    return f"axiam_error_kind_t {op_symbol(namespace, opname)}_all({', '.join(args)})"
+
+
+def all_doc(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
+    """The Doxygen block for one `_all` function."""
+    item = page_model(op)
+    lead = (
+        f"Every page of {op_symbol(namespace, opname)}(), walked to exhaustion -- the "
+        "auto-paging form of 27.4 rule 4.\n\n"
+        "Starts at `page` (NULL: the first page at the server's default size, "
+        "AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the "
+        "same `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until "
+        "the server answers an empty page. Each request is one call of the single-page "
+        "operation, so each is retried per 16 as that one is.\n\n"
+        "Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is "
+        "the server's count from the last page, and `request` is the first request. Any "
+        "failure ends the walk and is returned, with `*out` NULL: a walk that stopped "
+        "half-way is never handed back as though it were the whole set. The whole set is "
+        "held in memory; to process a large one page by page, call the single-page form "
+        "with axiam_mgmt_page_next()."
+    )
+    tags = ["@param c The client. Must have an active session (27.4 rule 1)."]
+    for p in op_params(namespace, op):
+        text = p["text"]
+        if p["kind"] == "page":
+            text = "Where the walk starts, or NULL for the first page at the default size."
+        elif p["kind"] == "out":
+            text = (f"Receives every item of the walk on success; free with "
+                    f"axiam_mgmt_{item}_page_free(). Set to NULL on failure.")
+        tags.append(f"@param {p['name']} {text}")
+    tags.append("@return AXIAM_OK once the walk reached an empty page, or the failing kind.")
+    block = doc(lead)
+    return block[:-1] + [" *"] + [f" * {t}" for t in tags] + [" */"]
+
+
+def emit_all_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
+    """One `_all` implementation: the single-page operation, called until a page is empty."""
+    item = page_model(op)
+    page_t = f"axiam_mgmt_{item}_page_t"
+    page_free = f"axiam_mgmt_{item}_page_free"
+    canonical = f"{namespace}.{opname}"
+    params = op_params(namespace, op)
+    call_args = ["c"] + [("&req" if p["kind"] == "page" else "&one" if p["kind"] == "out"
+                          else p["name"]) for p in params]
+    out = [all_signature(namespace, opname, op) + " {"]
+    out.append("    if (out) *out = NULL;")
+    out.append("    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };")
+    out.append("    if (page) req = *page;")
+    out.append(f"    {page_t} *all = ({page_t} *) calloc(1, sizeof(*all));")
+    out.append("    if (!all) {")
+    out.append(f'        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "{canonical}: out of memory");')
+    out.append("        return AXIAM_ERR_NETWORK;")
+    out.append("    }")
+    out.append("    all->request = req;")
+    out.append("    for (;;) {")
+    out.append(f"        {page_t} *one = NULL;")
+    out.append(f"        axiam_error_kind_t rc = {op_symbol(namespace, opname)}({', '.join(call_args)});")
+    out.append("        if (rc != AXIAM_OK) {")
+    out.append(f"            {page_free}(all);")
+    out.append("            return rc;")
+    out.append("        }")
+    out.append("        all->total = one->total;")
+    out.append("        if (one->count == 0) {")
+    out.append(f"            {page_free}(one);")
+    out.append("            break;")
+    out.append("        }")
+    out.append("        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));")
+    out.append("        if (!grown) {")
+    out.append(f"            {page_free}(one);")
+    out.append(f"            {page_free}(all);")
+    out.append(f'            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "{canonical}: out of memory");')
+    out.append("            return AXIAM_ERR_NETWORK;")
+    out.append("        }")
+    out.append("        all->items = grown;")
+    out.append("        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));")
+    out.append("        all->count += one->count;")
+    out.append("        one->count = 0; /* the items are all's now; free one's array only */")
+    out.append(f"        {page_free}(one);")
+    out.append("        req = axiam_mgmt_page_next(req);")
+    out.append("    }")
+    out.append("    if (out) *out = all;")
+    out.append(f"    else {page_free}(all);")
+    out.append("    return AXIAM_OK;")
+    out.append("}")
+    return out
+
+
 def emit_ops_header() -> str:
     """The flat operation declarations, one per registry operation."""
     out = [BANNER_C, ""]
@@ -1797,6 +1898,10 @@ def emit_ops_header() -> str:
             out.extend(block)
             out.append(op_signature(namespace, opname, op) + ";")
             out.append("")
+            if op["paginated"]:
+                out.extend(all_doc(namespace, opname, op))
+                out.append(all_signature(namespace, opname, op) + ";")
+                out.append("")
 
     out.append("#ifdef __cplusplus")
     out.append("}")
@@ -1839,6 +1944,9 @@ def emit_ops_source() -> str:
         for opname, op in nsdef["operations"].items():
             out.extend(emit_op_body(namespace, opname, op))
             out.append("")
+            if op["paginated"]:
+                out.extend(emit_all_body(namespace, opname, op))
+                out.append("")
 
     return "\n".join(out) + "\n"
 
@@ -2353,6 +2461,61 @@ def emit_test() -> str:
                 cases.append("\n".join(unscoped))
                 extra_cases.append(f"{fn}_refuses_without_a_scope")
 
+    # A sixth case for the paginated operations: the auto-paging form (§27.4 rule 4,
+    # contract 1.59 R-30) walks to the empty page, returns every item, frees cleanly when
+    # the result is discarded, and returns nothing partial when a page fails.
+    for namespace, nsdef in REGISTRY["namespaces"].items():
+        for opname, op in nsdef["operations"].items():
+            if not op["paginated"]:
+                continue
+            params = op_params(namespace, op)
+            body = example_response(op)
+            items = len(body.get("items") or []) if isinstance(body, dict) else 0
+            empty = {"items": [], "total": items, "offset": 50, "limit": 50}
+            m = page_model(op)
+            fn = f"test_{cname(namespace)}_{cname(opname)}_all_walks_to_the_empty_page"
+            blk = [f"static void {fn}(void) {{"]
+            for _ in range(2):
+                blk.append(f"    mgmt_mount_next(200, {c_string(json.dumps(body))});")
+                blk.append(f"    mgmt_mount_next(200, {c_string(json.dumps(empty))});")
+            blk.append('    mgmt_mount_next(404, "{\\"error\\":\\"not_found\\",\\"message\\":\\"gone\\"}");')
+            blk.append("    axiam_client_t *c = mgmt_signed_in_client();")
+            blk.append("    axiam_error_t err;")
+            blk.append(f"    axiam_mgmt_{m}_page_t *result = NULL;")
+
+            def all_args(out_arg: str) -> str:
+                a = ["c"]
+                for p in params:
+                    if p["kind"] in ("scope", "query", "page"):
+                        a.append("NULL")
+                    elif p["kind"] == "path":
+                        a.append(f'"{EXAMPLE_UUID}"')
+                    elif p["kind"] == "out":
+                        a.append(out_arg)
+                    elif p["kind"] == "err":
+                        a.append("&err")
+                return ", ".join(a)
+
+            sym = op_symbol(namespace, opname) + "_all"
+            blk.append(f"    axiam_error_kind_t rc = {sym}({all_args('&result')});")
+            blk.append("    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);")
+            blk.append("    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */")
+            blk.append(f"    TEST_ASSERT_EQUAL_STRING(\"{expected_path(op)}\", mgmt_last_path());")
+            blk.append('    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));')
+            blk.append(f"    TEST_ASSERT_EQUAL_INT({items}, (int) result->count);")
+            blk.append(f"    TEST_ASSERT_EQUAL_INT({items}, (int) result->total);")
+            blk.append(f"    axiam_mgmt_{m}_page_free(result);")
+            blk.append(f"    rc = {sym}({all_args('NULL')});")
+            blk.append("    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);")
+            blk.append("    result = NULL;")
+            blk.append(f"    rc = {sym}({all_args('&result')});")
+            blk.append("    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);")
+            blk.append("    TEST_ASSERT_NULL(result);")
+            blk.append("    axiam_client_free(c);")
+            blk.append("}")
+            cases.append("\n".join(blk))
+            extra_cases.append(fn)
+
     # A fifth case for the operations whose body has required members (REQUIRED_MEMBER_
     # CHECKS): a NULL body is refused locally, before any request.
     for namespace, nsdef in REGISTRY["namespaces"].items():
@@ -2681,6 +2844,10 @@ def emit_alloc_test() -> str:
         "generated operation allocates a path, optionally a query and a body, a result "
         "and its items -- comfortably inside this many."))
     out.append("#define ALLOC_DEPTH 24")
+    out.extend(comment(
+        "The auto-paging form walks two pages: twice the operation's allocations, plus "
+        "the collected page and its growing item array."))
+    out.append("#define ALLOC_DEPTH_WALK 64")
     out.append("")
 
     cases = []
@@ -2747,6 +2914,42 @@ def emit_alloc_test() -> str:
             block.append("    TEST_PASS();")
             block.append("}")
             cases.append("\n".join(block))
+
+            # The auto-paging form (contract 1.59 R-30): a two-page walk, deeper.
+            if op["paginated"]:
+                m = page_model(op)
+                items = len(body.get("items") or []) if isinstance(body, dict) else 0
+                empty = {"items": [], "total": items, "offset": 50, "limit": 50}
+                afn = f"test_{cname(namespace)}_{cname(opname)}_all_survives_oom"
+                names.append(afn)
+                ab = [f"static void {afn}(void) {{"]
+                ab.append("    for (long n = 1; n <= ALLOC_DEPTH_WALK; n++) {")
+                ab.append("        mgmt_reset();")
+                ab.append(f"        mgmt_mount(200, {c_string(json.dumps(body))});")
+                ab.append(f"        mgmt_mount(200, {c_string(json.dumps(empty))});")
+                ab.append("        axiam_client_t *c = mgmt_signed_in_client();")
+                ab.append("        if (!c) continue;")
+                ab.append("        axiam_error_t err;")
+                ab.append(f"        axiam_mgmt_{m}_page_t *result = NULL;")
+                aargs = ["c"]
+                for p in params:
+                    if p["kind"] in ("scope", "query", "page"):
+                        aargs.append("NULL")
+                    elif p["kind"] == "path":
+                        aargs.append(f'"{EXAMPLE_UUID}"')
+                    elif p["kind"] == "out":
+                        aargs.append("&result")
+                    elif p["kind"] == "err":
+                        aargs.append("&err")
+                ab.append("        arm(n);")
+                ab.append(f"        (void) {op_symbol(namespace, opname)}_all(" + ", ".join(aargs) + ");")
+                ab.append("        disarm();")
+                ab.append(f"        axiam_mgmt_{m}_page_free(result);")
+                ab.append("        axiam_client_free(c);")
+                ab.append("    }")
+                ab.append("    TEST_PASS();")
+                ab.append("}")
+                cases.append("\n".join(ab))
 
     out.append("\n\n".join(cases))
     out.append("")

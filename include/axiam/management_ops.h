@@ -39,6 +39,30 @@ extern "C" {
 axiam_error_kind_t axiam_organizations_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_organization_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_organizations_list(), walked to exhaustion -- the auto-paging form of
+ * 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_organization_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_organizations_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_organization_page_t **out, axiam_error_t *err);
+
+/**
  * `GET /api/v1/organizations/{org_id}`
  *
  * `GET /api/v1/organizations/{org_id}`.
@@ -88,6 +112,31 @@ axiam_error_kind_t axiam_organizations_update(axiam_client_t *c, const axiam_mgm
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_tenants_list(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_tenant_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_tenants_list(), walked to exhaustion -- the auto-paging form of 27.4
+ * rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_tenant_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_tenants_list_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_tenant_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/organizations/{org_id}/tenants`
@@ -187,6 +236,30 @@ axiam_error_kind_t axiam_tenants_export_audit(axiam_client_t *c, const axiam_mgm
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_users_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_users_list(), walked to exhaustion -- the auto-paging form of 27.4
+ * rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_user_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_users_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/users`
@@ -362,6 +435,30 @@ axiam_error_kind_t axiam_users_list_sessions(axiam_client_t *c, const char *user
 axiam_error_kind_t axiam_groups_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_group_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_groups_list(), walked to exhaustion -- the auto-paging form of 27.4
+ * rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_group_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_groups_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_group_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/groups`
  *
  * `POST /api/v1/groups`.
@@ -436,6 +533,31 @@ axiam_error_kind_t axiam_groups_delete(axiam_client_t *c, const char *group_id, 
 axiam_error_kind_t axiam_groups_list_members(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_groups_list_members(), walked to exhaustion -- the auto-paging form
+ * of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param group_id The `{group_id}` path parameter.
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_user_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_groups_list_members_all(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/groups/{group_id}/members`
  *
  * `POST /api/v1/groups/{group_id}/members`.
@@ -502,6 +624,31 @@ axiam_error_kind_t axiam_groups_list_roles(axiam_client_t *c, const char *group_
 axiam_error_kind_t axiam_groups_list_service_accounts(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_groups_list_service_accounts(), walked to exhaustion -- the
+ * auto-paging form of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param group_id The `{group_id}` path parameter.
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_service_account_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_groups_list_service_accounts_all(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/groups/{group_id}/service-accounts`
  *
  * `POST /api/v1/groups/{group_id}/service-accounts`.
@@ -553,6 +700,30 @@ axiam_error_kind_t axiam_groups_remove_service_account(axiam_client_t *c, const 
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_roles_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_role_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_roles_list(), walked to exhaustion -- the auto-paging form of 27.4
+ * rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_role_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_roles_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_role_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/roles`
@@ -831,6 +1002,30 @@ axiam_error_kind_t axiam_roles_unassign_from_service_account(axiam_client_t *c, 
 axiam_error_kind_t axiam_permissions_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_permission_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_permissions_list(), walked to exhaustion -- the auto-paging form of
+ * 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_permission_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_permissions_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_permission_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/permissions`
  *
  * `POST /api/v1/permissions`.
@@ -906,6 +1101,30 @@ axiam_error_kind_t axiam_permissions_delete(axiam_client_t *c, const char *permi
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_resources_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_resource_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_resources_list(), walked to exhaustion -- the auto-paging form of
+ * 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_resource_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_resources_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_resource_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/resources`
@@ -1101,6 +1320,30 @@ axiam_error_kind_t axiam_scopes_delete(axiam_client_t *c, const char *resource_i
 axiam_error_kind_t axiam_service_accounts_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_service_accounts_list(), walked to exhaustion -- the auto-paging form
+ * of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_service_account_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_service_accounts_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/service-accounts`
  *
  * `POST /api/v1/service-accounts`.
@@ -1245,6 +1488,30 @@ axiam_error_kind_t axiam_service_accounts_list_groups(axiam_client_t *c, const c
 axiam_error_kind_t axiam_certificates_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_certificate_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_certificates_list(), walked to exhaustion -- the auto-paging form of
+ * 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_certificate_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_certificates_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_certificate_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/certificates`
  *
  * `POST /api/v1/certificates`.
@@ -1320,6 +1587,31 @@ axiam_error_kind_t axiam_certificates_revoke(axiam_client_t *c, const char *id, 
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_ca_certificates_list(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_ca_certificates_list(), walked to exhaustion -- the auto-paging form
+ * of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_ca_certificate_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_ca_certificates_list_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/organizations/{org_id}/ca-certificates`
@@ -1429,6 +1721,32 @@ axiam_error_kind_t axiam_ca_certificates_set_mtls_trust_anchor(axiam_client_t *c
 axiam_error_kind_t axiam_ca_certificates_list_signing_cas(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_ca_certificates_list_signing_cas(), walked to exhaustion -- the
+ * auto-paging form of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param tenant_id The `{tenant_id}` path parameter.
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_ca_certificate_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_ca_certificates_list_signing_cas_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/organizations/{org_id}/tenants/{tenant_id}/signing-cas`
  *
  * `POST /api/v1/organizations/{org_id}/tenants/{tenant_id}/signing-cas`.
@@ -1480,6 +1798,30 @@ axiam_error_kind_t axiam_ca_certificates_sign_signing_ca_csr(axiam_client_t *c, 
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_pgp_keys_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_pgp_key_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_pgp_keys_list(), walked to exhaustion -- the auto-paging form of 27.4
+ * rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_pgp_key_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_pgp_keys_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_pgp_key_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/pgp-keys`
@@ -1575,6 +1917,30 @@ axiam_error_kind_t axiam_pgp_keys_sign_audit_batch(axiam_client_t *c, const axia
 axiam_error_kind_t axiam_webhooks_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_webhook_response_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_webhooks_list(), walked to exhaustion -- the auto-paging form of 27.4
+ * rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_webhook_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_webhooks_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_webhook_response_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/webhooks`
  *
  * `POST /api/v1/webhooks`.
@@ -1653,6 +2019,30 @@ axiam_error_kind_t axiam_webhooks_delete(axiam_client_t *c, const char *id, axia
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_oauth2_clients_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_o_auth2_client_response_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_oauth2_clients_list(), walked to exhaustion -- the auto-paging form
+ * of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_o_auth2_client_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_oauth2_clients_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_o_auth2_client_response_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/oauth2-clients`
@@ -1764,6 +2154,30 @@ axiam_error_kind_t axiam_oauth2_clients_list_registration_tokens(axiam_client_t 
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_federation_list_configs(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_federation_config_response_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_federation_list_configs(), walked to exhaustion -- the auto-paging
+ * form of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_federation_config_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_federation_list_configs_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_federation_config_response_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/federation-configs`
@@ -1900,6 +2314,30 @@ axiam_error_kind_t axiam_federation_oidc_callback(axiam_client_t *c, const axiam
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_notification_rules_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_notification_rule_response_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_notification_rules_list(), walked to exhaustion -- the auto-paging
+ * form of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_notification_rule_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_notification_rules_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_notification_rule_response_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/notification-rules`
@@ -2244,6 +2682,31 @@ axiam_error_kind_t axiam_saml_get_idp(axiam_client_t *c, const axiam_mgmt_call_s
 axiam_error_kind_t axiam_saml_list_service_providers(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_saml_service_provider_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_saml_list_service_providers(), walked to exhaustion -- the
+ * auto-paging form of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_saml_service_provider_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_list_service_providers_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_saml_service_provider_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/tenants/{tenant_id}/saml/service-providers`
  *
  * `POST /api/v1/tenants/{tenant_id}/saml/service-providers`.
@@ -2439,6 +2902,31 @@ axiam_error_kind_t axiam_saml_retire_idp_credential(axiam_client_t *c, const axi
 axiam_error_kind_t axiam_ssf_list_streams(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ssf_stream_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_ssf_list_streams(), walked to exhaustion -- the auto-paging form of
+ * 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_ssf_stream_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_ssf_list_streams_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ssf_stream_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/tenants/{tenant_id}/ssf/streams`
  *
  * `POST /api/v1/tenants/{tenant_id}/ssf/streams`.
@@ -2531,6 +3019,30 @@ axiam_error_kind_t axiam_ssf_delete_stream(axiam_client_t *c, const axiam_mgmt_c
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_scim_targets_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_scim_target_response_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_scim_targets_list(), walked to exhaustion -- the auto-paging form of
+ * 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_scim_target_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_scim_targets_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_scim_target_response_page_t **out, axiam_error_t *err);
 
 /**
  * `POST /api/v1/scim-targets`
@@ -2800,6 +3312,30 @@ axiam_error_kind_t axiam_scim_tokens_revoke(axiam_client_t *c, const char *id, a
 axiam_error_kind_t axiam_reactors_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_reactor_response_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_reactors_list(), walked to exhaustion -- the auto-paging form of 27.4
+ * rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_reactor_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_reactors_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_reactor_response_page_t **out, axiam_error_t *err);
+
+/**
  * `POST /api/v1/reactors`
  *
  * `POST /api/v1/reactors`.
@@ -2948,6 +3484,36 @@ axiam_error_kind_t axiam_webauthn_policy_compliance_report(axiam_client_t *c, co
 axiam_error_kind_t axiam_audit_list(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err);
 
 /**
+ * Every page of axiam_audit_list(), walked to exhaustion -- the auto-paging form of 27.4
+ * rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param actor_id The `actor_id` query parameter, or NULL to omit it.
+ * @param action The `action` query parameter, or NULL to omit it.
+ * @param outcome The `outcome` query parameter, or NULL to omit it.
+ * @param resource_id The `resource_id` query parameter, or NULL to omit it.
+ * @param from The `from` query parameter, or NULL to omit it.
+ * @param to The `to` query parameter, or NULL to omit it.
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_audit_log_entry_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_audit_list_all(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err);
+
+/**
  * `GET /api/v1/audit-logs/system`
  *
  * `GET /api/v1/audit-logs/system`.
@@ -2968,6 +3534,36 @@ axiam_error_kind_t axiam_audit_list(axiam_client_t *c, const char *actor_id, con
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_audit_list_system(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_audit_list_system(), walked to exhaustion -- the auto-paging form of
+ * 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param actor_id The `actor_id` query parameter, or NULL to omit it.
+ * @param action The `action` query parameter, or NULL to omit it.
+ * @param outcome The `outcome` query parameter, or NULL to omit it.
+ * @param resource_id The `resource_id` query parameter, or NULL to omit it.
+ * @param from The `from` query parameter, or NULL to omit it.
+ * @param to The `to` query parameter, or NULL to omit it.
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_audit_log_entry_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_audit_list_system_all(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err);
 
 /* ============================================================================ */
 /*

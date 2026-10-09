@@ -239,7 +239,6 @@ static void test_unknown_arms_and_values_decode_and_the_pager_carries_search(voi
              "\"consecutive_failures\":3,\"dead_lettered_total\":1}}],"
              "\"total\":3,\"offset\":0,\"limit\":2}");
     mgmt_mount(200, body);
-    mgmt_mount(200, "{\"items\":[],\"total\":3,\"offset\":2,\"limit\":2}");
     axiam_mgmt_page_req_t req = {0, 2, "downstream"};
     axiam_mgmt_scim_target_response_page_t *page = NULL;
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_list(c, &req, &page, &err));
@@ -257,12 +256,25 @@ static void test_unknown_arms_and_values_decode_and_the_pager_carries_search(voi
     TEST_ASSERT_EQUAL_STRING("a phrase never seen", page->items[1]->state->last_failure_reason);
     TEST_ASSERT_TRUE(axiam_mgmt_scim_target_auth_is_known(page->items[1]->auth));
 
-    /* The auto-pager's next request carries the same term. */
-    axiam_mgmt_page_req_t next = axiam_mgmt_page_next(page->request);
     axiam_mgmt_scim_target_response_page_free(page);
-    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_list(c, &next, &page, &err));
-    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "search=downstream"));
-    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=2"));
+
+    /* The auto-pager (§31.8 t4): walks to the empty page and carries the same term on
+     * every request it issues. */
+    mgmt_mount(200, body);
+    mgmt_mount(200, "{\"items\":[{\"id\":\"" TARGET_ID "\",\"name\":\"o\",\"auth\":{\"type\":\"bearer\"},"
+                    "\"scope\":{\"type\":\"all_users\"}}],\"total\":3,\"offset\":2,\"limit\":2}");
+    mgmt_mount(200, "{\"items\":[],\"total\":3,\"offset\":4,\"limit\":2}");
+    int before = mgmt_request_count();
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_list_all(c, &req, &page, &err));
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count() - before);
+    static const char *const offsets[] = {"offset=0", "offset=2", "offset=4"};
+    for (int i = 0; i < 3; i++) {
+        TEST_ASSERT_NOT_NULL(strstr(mgmt_url_at(before + i), "search=downstream"));
+        TEST_ASSERT_NOT_NULL(strstr(mgmt_url_at(before + i), offsets[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(3, (int) page->count);
+    TEST_ASSERT_EQUAL_INT(3, (int) page->total);
+    TEST_ASSERT_EQUAL_STRING("o", page->items[2]->name);
     axiam_mgmt_scim_target_response_page_free(page);
     axiam_client_free(c);
 }

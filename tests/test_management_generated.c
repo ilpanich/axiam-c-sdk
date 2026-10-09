@@ -6509,6 +6509,630 @@ static void test_platform_mds_refresh_reaches_its_route_rejects_a_wrong_shaped_b
     axiam_client_free(c);
 }
 
+static void test_organizations_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"slug\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"slug\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_organization_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_organizations_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/organizations", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_organization_page_free(result);
+    rc = axiam_organizations_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_organizations_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_tenants_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"standard\", \"metadata\": {}, \"name\": \"example\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"slug\": \"example\", \"status\": \"Active\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_tenant_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_tenants_list_all(c, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/organizations/11111111-1111-4111-8111-111111111111/tenants", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_tenant_page_free(result);
+    rc = axiam_tenants_list_all(c, NULL, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_tenants_list_all(c, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_users_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_user_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_users_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/users", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_user_response_page_free(result);
+    rc = axiam_users_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_users_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_groups_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_group_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_groups_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/groups", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_group_page_free(result);
+    rc = axiam_groups_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_groups_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_groups_list_members_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"email\": \"example\", \"email_verified\": true, \"failed_login_attempts\": 1, \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_locked\": true, \"locked_until\": \"2026-08-26T00:00:00Z\", \"metadata\": {}, \"mfa_enabled\": true, \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"username\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_user_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_groups_list_members_all(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/groups/11111111-1111-4111-8111-111111111111/members", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_user_response_page_free(result);
+    rc = axiam_groups_list_members_all(c, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_groups_list_members_all(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_groups_list_service_accounts_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_service_account_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_groups_list_service_accounts_all(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/groups/11111111-1111-4111-8111-111111111111/service-accounts", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_service_account_response_page_free(result);
+    rc = axiam_groups_list_service_accounts_all(c, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_groups_list_service_accounts_all(c, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_roles_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"is_global\": true, \"name\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_roles_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/roles", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_role_page_free(result);
+    rc = axiam_roles_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_roles_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_permissions_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"action\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"action\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_permission_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_permissions_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/permissions", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_permission_page_free(result);
+    rc = axiam_permissions_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_permissions_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_resources_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"uma_registered_by\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"name\": \"example\", \"parent_id\": \"11111111-1111-4111-8111-111111111111\", \"resource_type\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"uma_registered_by\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_resource_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_resources_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/resources", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_resource_page_free(result);
+    rc = axiam_resources_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_resources_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_service_accounts_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_service_account_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_service_accounts_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/service-accounts", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_service_account_response_page_free(result);
+    rc = axiam_service_accounts_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_service_accounts_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_certificates_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_certificate_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_certificates_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/certificates", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_certificate_page_free(result);
+    rc = axiam_certificates_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_certificates_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_ca_certificates_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_ca_certificate_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_ca_certificates_list_all(c, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/organizations/11111111-1111-4111-8111-111111111111/ca-certificates", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_ca_certificate_page_free(result);
+    rc = axiam_ca_certificates_list_all(c, NULL, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_ca_certificates_list_all(c, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_ca_certificates_list_signing_cas_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"chain_pem\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"key_custody\": \"example\", \"key_locator\": \"example\", \"mtls_trust_anchor\": true, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"parent_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_ca_certificate_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_ca_certificates_list_signing_cas_all(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/organizations/11111111-1111-4111-8111-111111111111/tenants/11111111-1111-4111-8111-111111111111/signing-cas", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_ca_certificate_page_free(result);
+    rc = axiam_ca_certificates_list_signing_cas_all(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_ca_certificates_list_signing_cas_all(c, NULL, "11111111-1111-4111-8111-111111111111", NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_pgp_keys_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"algorithm\": \"Rsa4096\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"public_key_armored\": \"example\", \"purpose\": \"AuditSigning\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"algorithm\": \"Rsa4096\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"public_key_armored\": \"example\", \"purpose\": \"AuditSigning\", \"status\": \"Active\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_pgp_key_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_pgp_keys_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/pgp-keys", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_pgp_key_page_free(result);
+    rc = axiam_pgp_keys_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_pgp_keys_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_webhooks_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"events\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"retry_policy\": {\"backoff_multiplier\": 1.5, \"initial_delay_secs\": 1, \"max_retries\": 1}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"enabled\": true, \"events\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"retry_policy\": {\"backoff_multiplier\": 1.5, \"initial_delay_secs\": 1, \"max_retries\": 1}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"url\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_webhook_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_webhooks_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/webhooks", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_webhook_response_page_free(result);
+    rc = axiam_webhooks_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_webhooks_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_oauth2_clients_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_o_auth2_client_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_oauth2_clients_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/oauth2-clients", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_o_auth2_client_response_page_free(result);
+    rc = axiam_oauth2_clients_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_oauth2_clients_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_federation_list_configs_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_federation_config_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_federation_list_configs_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/federation-configs", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_federation_config_response_page_free(result);
+    rc = axiam_federation_list_configs_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_federation_list_configs_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_notification_rules_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_notification_rule_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_notification_rules_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/notification-rules", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_notification_rule_response_page_free(result);
+    rc = axiam_notification_rules_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_notification_rules_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_saml_list_service_providers_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"acs_urls\": [{\"binding\": \"http_post\", \"index\": 1, \"is_default\": true, \"url\": \"example\"}], \"allow_idp_initiated\": true, \"allowed_groups\": [\"11111111-1111-4111-8111-111111111111\"], \"attribute_mappings\": [{\"name_format\": \"example\", \"saml_name\": \"example\", \"source\": \"username\"}], \"created_at\": \"2026-08-26T00:00:00Z\", \"display_name\": \"example\", \"enabled\": true, \"encrypt_assertions\": true, \"entity_id\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"name_id_format\": \"persistent\", \"sign_responses\": true, \"slo_binding\": \"http_post\", \"slo_url\": \"example\", \"sp_encryption_cert_pem\": \"example\", \"sp_signing_cert_pem\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"want_authn_requests_signed\": true}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_saml_service_provider_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_saml_list_service_providers_all(c, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/tenants/11111111-1111-4111-8111-111111111111/saml/service-providers", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_saml_service_provider_page_free(result);
+    rc = axiam_saml_list_service_providers_all(c, NULL, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_saml_list_service_providers_all(c, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_ssf_list_streams_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"audience\": \"example\", \"authorization_header_set\": true, \"created_at\": \"2026-08-26T00:00:00Z\", \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_delivered\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_verification_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_actor\": \"admin\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"transmitter_active\": true, \"transmitter_inactive_reason\": \"example\", \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_ssf_stream_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_ssf_list_streams_all(c, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/tenants/11111111-1111-4111-8111-111111111111/ssf/streams", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_ssf_stream_page_free(result);
+    rc = axiam_ssf_list_streams_all(c, NULL, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_ssf_list_streams_all(c, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_scim_targets_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"auth\": {}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"auth\": {}, \"base_url\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"deprovision\": \"deactivate\", \"enabled\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"push_groups\": true, \"scope\": {}, \"state\": {\"consecutive_failures\": 1, \"dead_lettered_total\": 1, \"last_failure_at\": \"2026-08-26T00:00:00Z\", \"last_failure_reason\": \"example\", \"last_reconciled_at\": \"2026-08-26T00:00:00Z\", \"last_success_at\": \"2026-08-26T00:00:00Z\"}, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"user_name_from\": \"username\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_scim_target_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_scim_targets_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/scim-targets", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_scim_target_response_page_free(result);
+    rc = axiam_scim_targets_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_scim_targets_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_reactors_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"example\"], \"failure_policy\": \"fail_closed\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_seen_at\": \"2026-08-26T00:00:00Z\", \"mode\": \"intercept\", \"name\": \"example\", \"priority\": 1, \"recent_timeout_count\": 1, \"recent_veto_count\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timeout_ms\": 1, \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"example\"], \"failure_policy\": \"fail_closed\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"last_seen_at\": \"2026-08-26T00:00:00Z\", \"mode\": \"intercept\", \"name\": \"example\", \"priority\": 1, \"recent_timeout_count\": 1, \"recent_veto_count\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timeout_ms\": 1, \"updated_at\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_reactor_response_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_reactors_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/reactors", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_reactor_response_page_free(result);
+    rc = axiam_reactors_list_all(c, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_reactors_list_all(c, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_audit_list_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_audit_log_entry_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_audit_list_all(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/audit-logs", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_audit_log_entry_page_free(result);
+    rc = axiam_audit_list_all(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_audit_list_all(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
+static void test_audit_list_system_all_walks_to_the_empty_page(void) {
+    mgmt_mount_next(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+    mgmt_mount_next(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_audit_log_entry_page_t *result = NULL;
+    axiam_error_kind_t rc = axiam_audit_list_system_all(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */
+    TEST_ASSERT_EQUAL_STRING("/api/v1/audit-logs/system", mgmt_last_path());
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));
+    TEST_ASSERT_EQUAL_INT(1, (int) result->count);
+    TEST_ASSERT_EQUAL_INT(1, (int) result->total);
+    axiam_mgmt_audit_log_entry_page_free(result);
+    rc = axiam_audit_list_system_all(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);
+    result = NULL;
+    rc = axiam_audit_list_system_all(c, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &result, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);
+    TEST_ASSERT_NULL(result);
+    axiam_client_free(c);
+}
+
 static void test_directory_set_refuses_a_null_body(void) {
     axiam_client_t *c = mgmt_signed_in_client();
     axiam_error_t err;
@@ -7095,6 +7719,30 @@ int main(void) {
     RUN_TEST(test_platform_mds_status_reaches_its_route_rejects_a_wrong_shaped_body);
     RUN_TEST(test_platform_mds_refresh_reaches_its_route_discards_the_result);
     RUN_TEST(test_platform_mds_refresh_reaches_its_route_rejects_a_wrong_shaped_body);
+    RUN_TEST(test_organizations_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_tenants_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_users_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_groups_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_groups_list_members_all_walks_to_the_empty_page);
+    RUN_TEST(test_groups_list_service_accounts_all_walks_to_the_empty_page);
+    RUN_TEST(test_roles_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_permissions_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_resources_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_service_accounts_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_certificates_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_ca_certificates_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_ca_certificates_list_signing_cas_all_walks_to_the_empty_page);
+    RUN_TEST(test_pgp_keys_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_webhooks_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_oauth2_clients_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_federation_list_configs_all_walks_to_the_empty_page);
+    RUN_TEST(test_notification_rules_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_saml_list_service_providers_all_walks_to_the_empty_page);
+    RUN_TEST(test_ssf_list_streams_all_walks_to_the_empty_page);
+    RUN_TEST(test_scim_targets_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_reactors_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_audit_list_all_walks_to_the_empty_page);
+    RUN_TEST(test_audit_list_system_all_walks_to_the_empty_page);
     RUN_TEST(test_directory_set_refuses_a_null_body);
     RUN_TEST(test_saml_create_service_provider_refuses_a_null_body);
     RUN_TEST(test_saml_update_service_provider_refuses_a_null_body);

@@ -373,6 +373,47 @@ axiam_error_kind_t axiam_organizations_list(axiam_client_t *c, const axiam_mgmt_
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_organizations_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_organization_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_organization_page_t *all = (axiam_mgmt_organization_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "organizations.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_organization_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_organizations_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_organization_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_organization_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_organization_page_free(one);
+            axiam_mgmt_organization_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "organizations.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_organization_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_organization_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_organizations_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_organization_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[1];
@@ -496,6 +537,47 @@ axiam_error_kind_t axiam_tenants_list(axiam_client_t *c, const axiam_mgmt_call_s
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_tenant_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_tenants_list_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_tenant_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_tenant_page_t *all = (axiam_mgmt_tenant_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "tenants.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_tenant_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_tenants_list(c, scope, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_tenant_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_tenant_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_tenant_page_free(one);
+            axiam_mgmt_tenant_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "tenants.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_tenant_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_tenant_page_free(all);
     return AXIAM_OK;
 }
 
@@ -710,6 +792,47 @@ axiam_error_kind_t axiam_users_list(axiam_client_t *c, const axiam_mgmt_page_req
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_user_response_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_users_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_user_response_page_t *all = (axiam_mgmt_user_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "users.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_user_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_users_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_user_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_user_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_user_response_page_free(one);
+            axiam_mgmt_user_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "users.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_user_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_user_response_page_free(all);
     return AXIAM_OK;
 }
 
@@ -1049,6 +1172,47 @@ axiam_error_kind_t axiam_groups_list(axiam_client_t *c, const axiam_mgmt_page_re
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_groups_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_group_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_group_page_t *all = (axiam_mgmt_group_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_group_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_groups_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_group_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_group_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_group_page_free(one);
+            axiam_mgmt_group_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_group_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_group_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_groups_create(axiam_client_t *c, const axiam_mgmt_create_group_request_t *body, axiam_mgmt_group_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/groups", NULL, NULL, 0);
@@ -1208,6 +1372,47 @@ axiam_error_kind_t axiam_groups_list_members(axiam_client_t *c, const char *grou
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_groups_list_members_all(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_user_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_user_response_page_t *all = (axiam_mgmt_user_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list_members: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_user_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_groups_list_members(c, group_id, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_user_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_user_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_user_response_page_free(one);
+            axiam_mgmt_user_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list_members: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_user_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_user_response_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_groups_add_member(axiam_client_t *c, const char *group_id, const axiam_mgmt_add_member_request_t *body, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
@@ -1340,6 +1545,47 @@ axiam_error_kind_t axiam_groups_list_service_accounts(axiam_client_t *c, const c
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_groups_list_service_accounts_all(axiam_client_t *c, const char *group_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_service_account_response_page_t *all = (axiam_mgmt_service_account_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list_service_accounts: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_service_account_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_groups_list_service_accounts(c, group_id, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_service_account_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_service_account_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_service_account_response_page_free(one);
+            axiam_mgmt_service_account_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "groups.list_service_accounts: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_service_account_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_service_account_response_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_groups_add_service_account(axiam_client_t *c, const char *group_id, const axiam_mgmt_add_service_account_member_request_t *body, axiam_error_t *err) {
     const char *path_names[1];
     const char *path_values[1];
@@ -1430,6 +1676,47 @@ axiam_error_kind_t axiam_roles_list(axiam_client_t *c, const axiam_mgmt_page_req
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_role_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_roles_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_role_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_role_page_t *all = (axiam_mgmt_role_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "roles.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_role_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_roles_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_role_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_role_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_role_page_free(one);
+            axiam_mgmt_role_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "roles.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_role_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_role_page_free(all);
     return AXIAM_OK;
 }
 
@@ -1936,6 +2223,47 @@ axiam_error_kind_t axiam_permissions_list(axiam_client_t *c, const axiam_mgmt_pa
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_permissions_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_permission_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_permission_page_t *all = (axiam_mgmt_permission_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "permissions.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_permission_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_permissions_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_permission_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_permission_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_permission_page_free(one);
+            axiam_mgmt_permission_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "permissions.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_permission_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_permission_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_permissions_create(axiam_client_t *c, const axiam_mgmt_create_permission_request_t *body, axiam_mgmt_permission_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/permissions", NULL, NULL, 0);
@@ -2088,6 +2416,47 @@ axiam_error_kind_t axiam_resources_list(axiam_client_t *c, const axiam_mgmt_page
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_resource_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_resources_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_resource_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_resource_page_t *all = (axiam_mgmt_resource_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "resources.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_resource_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_resources_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_resource_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_resource_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_resource_page_free(one);
+            axiam_mgmt_resource_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "resources.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_resource_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_resource_page_free(all);
     return AXIAM_OK;
 }
 
@@ -2469,6 +2838,47 @@ axiam_error_kind_t axiam_service_accounts_list(axiam_client_t *c, const axiam_mg
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_service_accounts_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_service_account_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_service_account_response_page_t *all = (axiam_mgmt_service_account_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "service_accounts.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_service_account_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_service_accounts_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_service_account_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_service_account_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_service_account_response_page_free(one);
+            axiam_mgmt_service_account_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "service_accounts.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_service_account_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_service_account_response_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_service_accounts_create(axiam_client_t *c, const axiam_mgmt_create_service_account_request_t *body, axiam_mgmt_service_account_created_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/service-accounts", NULL, NULL, 0);
@@ -2746,6 +3156,47 @@ axiam_error_kind_t axiam_certificates_list(axiam_client_t *c, const axiam_mgmt_p
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_certificates_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_certificate_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_certificate_page_t *all = (axiam_mgmt_certificate_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_certificate_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_certificates_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_certificate_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_certificate_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_certificate_page_free(one);
+            axiam_mgmt_certificate_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_certificate_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_certificate_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_certificates_generate(axiam_client_t *c, const axiam_mgmt_create_certificate_request_t *body, axiam_mgmt_generated_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     if (body && body->subject_alt_names) {
@@ -2919,6 +3370,47 @@ axiam_error_kind_t axiam_ca_certificates_list(axiam_client_t *c, const axiam_mgm
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_ca_certificate_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_ca_certificates_list_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_ca_certificate_page_t *all = (axiam_mgmt_ca_certificate_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ca_certificates.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_ca_certificate_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_ca_certificates_list(c, scope, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_ca_certificate_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_ca_certificate_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_ca_certificate_page_free(one);
+            axiam_mgmt_ca_certificate_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ca_certificates.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_ca_certificate_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_ca_certificate_page_free(all);
     return AXIAM_OK;
 }
 
@@ -3190,6 +3682,47 @@ axiam_error_kind_t axiam_ca_certificates_list_signing_cas(axiam_client_t *c, con
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_ca_certificates_list_signing_cas_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_page_req_t *page, axiam_mgmt_ca_certificate_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_ca_certificate_page_t *all = (axiam_mgmt_ca_certificate_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ca_certificates.list_signing_cas: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_ca_certificate_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_ca_certificates_list_signing_cas(c, scope, tenant_id, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_ca_certificate_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_ca_certificate_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_ca_certificate_page_free(one);
+            axiam_mgmt_ca_certificate_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ca_certificates.list_signing_cas: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_ca_certificate_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_ca_certificate_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_ca_certificates_generate_signing_ca(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_create_intermediate_ca_request_t *body, axiam_mgmt_generated_ca_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     const char *path_names[2];
@@ -3308,6 +3841,47 @@ axiam_error_kind_t axiam_pgp_keys_list(axiam_client_t *c, const axiam_mgmt_page_
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_pgp_key_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_pgp_keys_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_pgp_key_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_pgp_key_page_t *all = (axiam_mgmt_pgp_key_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "pgp_keys.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_pgp_key_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_pgp_keys_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_pgp_key_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_pgp_key_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_pgp_key_page_free(one);
+            axiam_mgmt_pgp_key_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "pgp_keys.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_pgp_key_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_pgp_key_page_free(all);
     return AXIAM_OK;
 }
 
@@ -3492,6 +4066,47 @@ axiam_error_kind_t axiam_webhooks_list(axiam_client_t *c, const axiam_mgmt_page_
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_webhooks_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_webhook_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_webhook_response_page_t *all = (axiam_mgmt_webhook_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "webhooks.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_webhook_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_webhooks_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_webhook_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_webhook_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_webhook_response_page_free(one);
+            axiam_mgmt_webhook_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "webhooks.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_webhook_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_webhook_response_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_webhooks_create(axiam_client_t *c, const axiam_mgmt_create_webhook_request_t *body, axiam_mgmt_webhook_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/webhooks", NULL, NULL, 0);
@@ -3644,6 +4259,47 @@ axiam_error_kind_t axiam_oauth2_clients_list(axiam_client_t *c, const axiam_mgmt
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_o_auth2_client_response_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_oauth2_clients_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_o_auth2_client_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_o_auth2_client_response_page_t *all = (axiam_mgmt_o_auth2_client_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oauth2_clients.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_o_auth2_client_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_oauth2_clients_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_o_auth2_client_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_o_auth2_client_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_o_auth2_client_response_page_free(one);
+            axiam_mgmt_o_auth2_client_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oauth2_clients.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_o_auth2_client_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_o_auth2_client_response_page_free(all);
     return AXIAM_OK;
 }
 
@@ -3856,6 +4512,47 @@ axiam_error_kind_t axiam_federation_list_configs(axiam_client_t *c, const axiam_
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_federation_config_response_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_federation_list_configs_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_federation_config_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_federation_config_response_page_t *all = (axiam_mgmt_federation_config_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "federation.list_configs: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_federation_config_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_federation_list_configs(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_federation_config_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_federation_config_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_federation_config_response_page_free(one);
+            axiam_mgmt_federation_config_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "federation.list_configs: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_federation_config_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_federation_config_response_page_free(all);
     return AXIAM_OK;
 }
 
@@ -4120,6 +4817,47 @@ axiam_error_kind_t axiam_notification_rules_list(axiam_client_t *c, const axiam_
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_notification_rule_response_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_notification_rules_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_notification_rule_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_notification_rule_response_page_t *all = (axiam_mgmt_notification_rule_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "notification_rules.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_notification_rule_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_notification_rules_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_notification_rule_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_notification_rule_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_notification_rule_response_page_free(one);
+            axiam_mgmt_notification_rule_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "notification_rules.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_notification_rule_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_notification_rule_response_page_free(all);
     return AXIAM_OK;
 }
 
@@ -4812,6 +5550,47 @@ axiam_error_kind_t axiam_saml_list_service_providers(axiam_client_t *c, const ax
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_saml_list_service_providers_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_saml_service_provider_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_saml_service_provider_page_t *all = (axiam_mgmt_saml_service_provider_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.list_service_providers: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_saml_service_provider_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_saml_list_service_providers(c, scope, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_saml_service_provider_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_saml_service_provider_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_saml_service_provider_page_free(one);
+            axiam_mgmt_saml_service_provider_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.list_service_providers: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_saml_service_provider_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_saml_service_provider_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_saml_create_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     if (!body) {
@@ -5233,6 +6012,47 @@ axiam_error_kind_t axiam_ssf_list_streams(axiam_client_t *c, const axiam_mgmt_ca
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_ssf_list_streams_all(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ssf_stream_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_ssf_stream_page_t *all = (axiam_mgmt_ssf_stream_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.list_streams: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_ssf_stream_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_ssf_list_streams(c, scope, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_ssf_stream_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_ssf_stream_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_ssf_stream_page_free(one);
+            axiam_mgmt_ssf_stream_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.list_streams: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_ssf_stream_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_ssf_stream_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_ssf_create_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     if (!body) {
@@ -5453,6 +6273,47 @@ axiam_error_kind_t axiam_scim_targets_list(axiam_client_t *c, const axiam_mgmt_p
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_scim_target_response_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_scim_targets_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_scim_target_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_scim_target_response_page_t *all = (axiam_mgmt_scim_target_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_scim_target_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_scim_targets_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_scim_target_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_scim_target_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_scim_target_response_page_free(one);
+            axiam_mgmt_scim_target_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_scim_target_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_scim_target_response_page_free(all);
     return AXIAM_OK;
 }
 
@@ -6007,6 +6868,47 @@ axiam_error_kind_t axiam_reactors_list(axiam_client_t *c, const axiam_mgmt_page_
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_reactors_list_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_reactor_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_reactor_response_page_t *all = (axiam_mgmt_reactor_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "reactors.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_reactor_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_reactors_list(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_reactor_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_reactor_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_reactor_response_page_free(one);
+            axiam_mgmt_reactor_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "reactors.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_reactor_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_reactor_response_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_reactors_create(axiam_client_t *c, const axiam_mgmt_create_reactor_request_t *body, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/reactors", NULL, NULL, 0);
@@ -6309,6 +7211,47 @@ axiam_error_kind_t axiam_audit_list(axiam_client_t *c, const char *actor_id, con
     return AXIAM_OK;
 }
 
+axiam_error_kind_t axiam_audit_list_all(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_audit_log_entry_page_t *all = (axiam_mgmt_audit_log_entry_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "audit.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_audit_log_entry_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_audit_list(c, actor_id, action, outcome, resource_id, from, to, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_audit_log_entry_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_audit_log_entry_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_audit_log_entry_page_free(one);
+            axiam_mgmt_audit_log_entry_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "audit.list: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_audit_log_entry_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_audit_log_entry_page_free(all);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_audit_list_system(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
     char *path = axiam_mgmt_path("/api/v1/audit-logs/system", NULL, NULL, 0);
@@ -6359,6 +7302,47 @@ axiam_error_kind_t axiam_audit_list_system(axiam_client_t *c, const char *actor_
     cJSON_Delete(json);
     if (out) *out = result;
     else axiam_mgmt_audit_log_entry_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_audit_list_system_all(axiam_client_t *c, const char *actor_id, const char *action, const char *outcome, const char *resource_id, const char *from, const char *to, const axiam_mgmt_page_req_t *page, axiam_mgmt_audit_log_entry_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_audit_log_entry_page_t *all = (axiam_mgmt_audit_log_entry_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "audit.list_system: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_audit_log_entry_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_audit_list_system(c, actor_id, action, outcome, resource_id, from, to, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_audit_log_entry_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_audit_log_entry_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_audit_log_entry_page_free(one);
+            axiam_mgmt_audit_log_entry_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "audit.list_system: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_audit_log_entry_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_audit_log_entry_page_free(all);
     return AXIAM_OK;
 }
 

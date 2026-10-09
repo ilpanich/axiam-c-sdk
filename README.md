@@ -1640,8 +1640,16 @@ axiam_mgmt_page_req_t page = { 0, 50, term };
 axiam_mgmt_user_response_page_t *matches = NULL;
 axiam_users_list(c, &page, &matches, &err);
 
-/* The whole filtered set: axiam_mgmt_page_next() carries the term, so every request of
- * the walk asks the same question. */
+/* The whole filtered set, in one call: the auto-paging form walks to the empty page,
+ * the same term and limit on every request it issues. */
+axiam_mgmt_user_response_page_t *every = NULL;
+if (axiam_users_list_all(c, &page, &every, &err) == AXIAM_OK) {
+    /* every->items[0 .. every->count) is the whole set; every->total the server's count */
+    axiam_mgmt_user_response_page_free(every);
+}
+
+/* The same walk a page at a time, when the set is too large to hold at once:
+ * axiam_mgmt_page_next() carries the term, so every request asks the same question. */
 for (;;) {
     axiam_mgmt_user_response_page_t *p = NULL;
     if (axiam_users_list(c, &page, &p, &err) != AXIAM_OK || !p) break;
@@ -1652,10 +1660,19 @@ for (;;) {
 }
 ```
 
+**The auto-paging form (§27.4 rule 4).** Every paginated operation has an `_all`
+twin — `axiam_users_list_all()`, `axiam_saml_list_service_providers_all()`,
+`axiam_scim_targets_list_all()`, `axiam_ssf_list_streams_all()`, … — taking the same
+arguments. It starts at `page` (`NULL`: the first page at the server's default size),
+advances `offset` by `limit` until the server answers an empty page, and returns every
+item in one page (`count` the whole walk, `total` the server's). Each request is one call
+of the single-page operation, so each is retried per §16. A failure on any page is the
+walk's answer, with `*out` `NULL`: a half-walked set is never handed back as the whole.
+
 The term lives on `axiam_mgmt_page_req_t`, beside `offset` and `limit`, rather than as an
-extra argument on twenty operations. That is what makes the walk above work at all: an
-argument has nowhere to live between one request and the next, so a walk built on one
-would return the matches followed by the unfiltered tail.
+extra argument on every paginated operation. That is what makes both walks above work at
+all: an argument has nowhere to live between one request and the next, so a walk built on
+one would return the matches followed by the unfiltered tail.
 
 `search` is **borrowed, never owned** — nothing copies it and nothing frees it, so it must
 outlive every request derived from it. In the loop above that means declaring the term
