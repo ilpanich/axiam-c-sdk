@@ -82,6 +82,8 @@ set(AXIAM_SOURCES
     src/oidc_exchange.c
     src/oidc_logout.c
     src/oidc_par.c
+    # CONTRACT.md §28.12 (contract 1.53): RFC 7592 client configuration.
+    src/registration.c
     src/reactor.c
     src/webauthn.c
     src/account.c
@@ -94,7 +96,14 @@ set(AXIAM_SOURCES
     src/management.c
     src/management_models.c
     src/management_ops.c
-    src/management_manifest.c)
+    src/management_manifest.c
+    # Hand-written conveniences around the generated models (CONTRACT.md §29 - §32):
+    # read-modify-write conversions, the §31.2 union constructors, the PRECHECKS.
+    src/management_helpers.c
+    # CONTRACT.md §32.7 (contract 1.56): the SSF receiver helper.
+    src/ssf.c
+    # CONTRACT.md §33 (contract 1.58): CIBA, including the §33.2 signed request.
+    src/oidc_ciba.c)
 
 # Compile the SDK sources once into an object library shared by both variants.
 add_library(axiam_obj OBJECT ${AXIAM_SOURCES})

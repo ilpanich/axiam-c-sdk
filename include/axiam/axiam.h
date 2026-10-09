@@ -2,10 +2,12 @@
  * AXIAM C SDK — umbrella header.
  *
  * The AXIAM C SDK conforms to CONTRACT.md §1–§7, §9–§13, §14, §15, §16–§20,
- * §23, and §24–§26 (including §6.1 mTLS, §12.7 logout, and the §11 rule 9
- * decision reason codes). §24 ships the six wire operations and §24.6a's JSON
- * bridge but no §24.6b ceremony helper: a C program has no authenticator, and
- * rule 2 forbids emulating one in software. gRPC and §8 AMQP are out of scope
+ * §23, §24–§26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and
+ * §33.2 signed (including §6.1 mTLS, §12.7 logout, and the §11 rule 9
+ * decision reason codes); README.md carries the authoritative statement.
+ * §24 ships the six wire operations and §24.6a's JSON bridge but no §24.6b
+ * ceremony helper: a C program has no authenticator, and rule 2 forbids
+ * emulating one in software. gRPC and §8 AMQP are out of scope
  * for v1.0 (tracked as follow-ups).
  *
  * All public symbols are prefixed `axiam_` and use snake_case (CONTRACT §1).
@@ -24,6 +26,9 @@
 #include "axiam/guard.h"
 #include "axiam/mcp.h"
 #include "axiam/oidc.h"
+#include "axiam/registration.h"
+#include "axiam/ciba.h"
+#include "axiam/ssf.h"
 #include "axiam/opaque.h"
 #include "axiam/reactor.h"
 #include "axiam/uma.h"

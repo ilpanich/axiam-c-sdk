@@ -97,6 +97,48 @@ int axiam_mgmt_attestation_mode_from_wire(const char *value, axiam_mgmt_attestat
 const char *axiam_mgmt_attestation_mode_to_wire(axiam_mgmt_attestation_mode_t value);
 
 /**
+ * Where an attribute's value comes from.
+ *
+ * Every variant has a real source today; a variant with none (a telephone number the OIDC
+ * `phone` scope gates behind its own consent, say) is deliberately absent rather than
+ * mapped to an empty value.
+ */
+typedef enum axiam_mgmt_attribute_source {
+    AXIAM_MGMT_ATTRIBUTE_SOURCE_USERNAME = 0, /**< Wire value `username`. */
+    AXIAM_MGMT_ATTRIBUTE_SOURCE_EMAIL, /**< Wire value `email`. */
+    AXIAM_MGMT_ATTRIBUTE_SOURCE_DISPLAY_NAME, /**< Wire value `display_name`. */
+    AXIAM_MGMT_ATTRIBUTE_SOURCE_GIVEN_NAME, /**< Wire value `given_name`. */
+    AXIAM_MGMT_ATTRIBUTE_SOURCE_FAMILY_NAME, /**< Wire value `family_name`. */
+    AXIAM_MGMT_ATTRIBUTE_SOURCE_GROUPS, /**< Wire value `groups`. */
+    AXIAM_MGMT_ATTRIBUTE_SOURCE_ROLES, /**< Wire value `roles`. */
+    AXIAM_MGMT_ATTRIBUTE_SOURCE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_attribute_source_t;
+
+/**
+ * Parse a wire value into an AttributeSource.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_ATTRIBUTE_SOURCE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_attribute_source_from_wire(const char *value, axiam_mgmt_attribute_source_t *out);
+
+/**
+ * The wire spelling of an AttributeSource. Never NULL.
+ *
+ * `AXIAM_MGMT_ATTRIBUTE_SOURCE_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
+ */
+const char *axiam_mgmt_attribute_source_to_wire(axiam_mgmt_attribute_source_t value);
+
+/**
  * The `AuditOutcome` enumeration from the server's OpenAPI document.
  */
 typedef enum axiam_mgmt_audit_outcome {
@@ -288,6 +330,84 @@ int axiam_mgmt_certification_level_from_wire(const char *value, axiam_mgmt_certi
 const char *axiam_mgmt_certification_level_to_wire(axiam_mgmt_certification_level_t value);
 
 /**
+ * How a CIBA client learns that a request has been decided (CIBA Core §5).
+ *
+ * `push` is deliberately absent: AXIAM does not offer it, and the FAPI-CIBA profile forbids
+ * it — push delivers the tokens themselves to a client endpoint, which makes the
+ * notification endpoint a token sink.
+ */
+typedef enum axiam_mgmt_ciba_delivery_mode {
+    AXIAM_MGMT_CIBA_DELIVERY_MODE_POLL = 0, /**< Wire value `poll`. */
+    AXIAM_MGMT_CIBA_DELIVERY_MODE_PING, /**< Wire value `ping`. */
+    AXIAM_MGMT_CIBA_DELIVERY_MODE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_ciba_delivery_mode_t;
+
+/**
+ * Parse a wire value into an CibaDeliveryMode.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_CIBA_DELIVERY_MODE_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_ciba_delivery_mode_from_wire(const char *value, axiam_mgmt_ciba_delivery_mode_t *out);
+
+/**
+ * The wire spelling of an CibaDeliveryMode. Never NULL.
+ *
+ * `AXIAM_MGMT_CIBA_DELIVERY_MODE_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
+ */
+const char *axiam_mgmt_ciba_delivery_mode_to_wire(axiam_mgmt_ciba_delivery_mode_t value);
+
+/**
+ * The JWS algorithm a CIBA client signs its authentication requests with (CIBA Core §4
+ * `backchannel_authentication_request_signing_alg`, §7.1.1).
+ *
+ * Exactly the three algorithms AXIAM verifies on any client-signed JWT
+ * (`axiam_oauth2::jose::PERMITTED_ALGORITHMS`): FAPI 2.0 §5.3.1.1's list. A registration
+ * naming anything else — `RS256`, `HS256`, `none` — is refused rather than stored, so no
+ * row can hold an algorithm the verifier would not honour (D-61).
+ */
+typedef enum axiam_mgmt_ciba_request_signing_alg {
+    AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_PS256 = 0, /**< Wire value `PS256`. */
+    AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_ES256, /**< Wire value `ES256`. */
+    AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_ED_DSA, /**< Wire value `EdDSA`. */
+    AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_ciba_request_signing_alg_t;
+
+/**
+ * Parse a wire value into an CibaRequestSigningAlg.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_UNKNOWN` for a value this SDK's
+ * copy of the spec does not list, rather than reporting a failure the caller would have to
+ * fail the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL
+ * argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_ciba_request_signing_alg_from_wire(const char *value, axiam_mgmt_ciba_request_signing_alg_t *out);
+
+/**
+ * The wire spelling of an CibaRequestSigningAlg. Never NULL.
+ *
+ * `AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_UNKNOWN` spells as the empty string, which no server
+ * value is: carrying an unrecognised value back into an update is refused by the server
+ * rather than written as a spelling it never used.
+ */
+const char *axiam_mgmt_ciba_request_signing_alg_to_wire(axiam_mgmt_ciba_request_signing_alg_t value);
+
+/**
  * How a client proves its identity at the token endpoint (RFC 8705 §2, OIDC Core §9
  * naming).
  *
@@ -377,6 +497,78 @@ int axiam_mgmt_client_profile_from_wire(const char *value, axiam_mgmt_client_pro
  * written as a spelling it never used.
  */
 const char *axiam_mgmt_client_profile_to_wire(axiam_mgmt_client_profile_t value);
+
+/**
+ * What happens downstream to a user who falls out of scope or is no longer active. Erasure
+ * always deletes, whatever this says.
+ */
+typedef enum axiam_mgmt_deprovision_policy {
+    AXIAM_MGMT_DEPROVISION_POLICY_DEACTIVATE = 0, /**< Wire value `deactivate`. */
+    AXIAM_MGMT_DEPROVISION_POLICY_DELETE, /**< Wire value `delete`. */
+    AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_deprovision_policy_t;
+
+/**
+ * Parse a wire value into an DeprovisionPolicy.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_deprovision_policy_from_wire(const char *value, axiam_mgmt_deprovision_policy_t *out);
+
+/**
+ * The wire spelling of an DeprovisionPolicy. Never NULL.
+ *
+ * `AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
+ */
+const char *axiam_mgmt_deprovision_policy_to_wire(axiam_mgmt_deprovision_policy_t value);
+
+/**
+ * Which kind of directory server a configuration points at.
+ *
+ * It drives **defaults only**: the external-id attribute, the group-membership strategy and
+ * the change attribute the sync job reads. Every one of them is still an explicit, editable
+ * field of the configuration (or, for the strategy and change attribute, derived from this
+ * value at the point of use); nothing about the kind changes what is *allowed*.
+ */
+typedef enum axiam_mgmt_directory_kind {
+    AXIAM_MGMT_DIRECTORY_KIND_OPEN_LDAP = 0, /**< Wire value `open_ldap`. */
+    AXIAM_MGMT_DIRECTORY_KIND_ACTIVE_DIRECTORY, /**< Wire value `active_directory`. */
+    AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_directory_kind_t;
+
+/**
+ * Parse a wire value into an DirectoryKind.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_directory_kind_from_wire(const char *value, axiam_mgmt_directory_kind_t *out);
+
+/**
+ * The wire spelling of an DirectoryKind. Never NULL.
+ *
+ * `AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
+ */
+const char *axiam_mgmt_directory_kind_to_wire(axiam_mgmt_directory_kind_t value);
 
 /**
  * What the server does when an interceptor does not produce a usable reply — timeout,
@@ -529,6 +721,39 @@ int axiam_mgmt_mfa_method_type_from_wire(const char *value, axiam_mgmt_mfa_metho
 const char *axiam_mgmt_mfa_method_type_to_wire(axiam_mgmt_mfa_method_type_t value);
 
 /**
+ * How the assertion's `NameID` is formed (per service provider).
+ */
+typedef enum axiam_mgmt_name_id_format {
+    AXIAM_MGMT_NAME_ID_FORMAT_PERSISTENT = 0, /**< Wire value `persistent`. */
+    AXIAM_MGMT_NAME_ID_FORMAT_EMAIL_ADDRESS, /**< Wire value `email_address`. */
+    AXIAM_MGMT_NAME_ID_FORMAT_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_name_id_format_t;
+
+/**
+ * Parse a wire value into an NameIdFormat.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_NAME_ID_FORMAT_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_name_id_format_from_wire(const char *value, axiam_mgmt_name_id_format_t *out);
+
+/**
+ * The wire spelling of an NameIdFormat. Never NULL.
+ *
+ * `AXIAM_MGMT_NAME_ID_FORMAT_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
+ */
+const char *axiam_mgmt_name_id_format_to_wire(axiam_mgmt_name_id_format_t value);
+
+/**
  * Events that can trigger an admin notification.
  */
 typedef enum axiam_mgmt_notification_event_type {
@@ -549,6 +774,7 @@ typedef enum axiam_mgmt_notification_event_type {
     AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_USER_UPDATED, /**< Wire value `user_updated`. */
     AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_CREATED, /**< Wire value `service_account_created`. */
     AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_DELETED, /**< Wire value `service_account_deleted`. */
+    AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SCIM_DELIVERY_FAILED, /**< Wire value `scim_delivery_failed`. */
     AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
 } axiam_mgmt_notification_event_type_t;
 
@@ -758,6 +984,111 @@ int axiam_mgmt_reactor_mode_from_wire(const char *value, axiam_mgmt_reactor_mode
 const char *axiam_mgmt_reactor_mode_to_wire(axiam_mgmt_reactor_mode_t value);
 
 /**
+ * A SAML 2.0 protocol binding (SAML Bindings §3).
+ *
+ * The response binding for Web Browser SSO is always [`Self::HttpPost`], but the enum keeps
+ * both because SP metadata carries both, and an `slo_url` may use either.
+ */
+typedef enum axiam_mgmt_saml_binding {
+    AXIAM_MGMT_SAML_BINDING_HTTP_POST = 0, /**< Wire value `http_post`. */
+    AXIAM_MGMT_SAML_BINDING_HTTP_REDIRECT, /**< Wire value `http_redirect`. */
+    AXIAM_MGMT_SAML_BINDING_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_saml_binding_t;
+
+/**
+ * Parse a wire value into an SamlBinding.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_SAML_BINDING_UNKNOWN` for a value this SDK's copy of the
+ * spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_saml_binding_from_wire(const char *value, axiam_mgmt_saml_binding_t *out);
+
+/**
+ * The wire spelling of an SamlBinding. Never NULL.
+ *
+ * `AXIAM_MGMT_SAML_BINDING_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
+ */
+const char *axiam_mgmt_saml_binding_to_wire(axiam_mgmt_saml_binding_t value);
+
+/**
+ * Where a signing credential is in its life. An open set: an SDK decodes a value it does
+ * not know without failing.
+ */
+typedef enum axiam_mgmt_saml_idp_credential_status {
+    AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_ACTIVE = 0, /**< Wire value `active`. */
+    AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_NEXT, /**< Wire value `next`. */
+    AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_RETIRED, /**< Wire value `retired`. */
+    AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_saml_idp_credential_status_t;
+
+/**
+ * Parse a wire value into an SamlIdpCredentialStatus.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_UNKNOWN` for a value this
+ * SDK's copy of the spec does not list, rather than reporting a failure the caller would
+ * have to fail the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a
+ * NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_saml_idp_credential_status_from_wire(const char *value, axiam_mgmt_saml_idp_credential_status_t *out);
+
+/**
+ * The wire spelling of an SamlIdpCredentialStatus. Never NULL.
+ *
+ * `AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_UNKNOWN` spells as the empty string, which no
+ * server value is: carrying an unrecognised value back into an update is refused by the
+ * server rather than written as a spelling it never used.
+ */
+const char *axiam_mgmt_saml_idp_credential_status_to_wire(axiam_mgmt_saml_idp_credential_status_t value);
+
+/**
+ * Which slot a credential is issued into.
+ */
+typedef enum axiam_mgmt_saml_idp_slot {
+    AXIAM_MGMT_SAML_IDP_SLOT_ACTIVE = 0, /**< Wire value `active`. */
+    AXIAM_MGMT_SAML_IDP_SLOT_NEXT, /**< Wire value `next`. */
+    AXIAM_MGMT_SAML_IDP_SLOT_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_saml_idp_slot_t;
+
+/**
+ * Parse a wire value into an SamlIdpSlot.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_SAML_IDP_SLOT_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_saml_idp_slot_from_wire(const char *value, axiam_mgmt_saml_idp_slot_t *out);
+
+/**
+ * The wire spelling of an SamlIdpSlot. Never NULL.
+ *
+ * `AXIAM_MGMT_SAML_IDP_SLOT_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
+ */
+const char *axiam_mgmt_saml_idp_slot_to_wire(axiam_mgmt_saml_idp_slot_t value);
+
+/**
  * Why a token is or is not currently usable — for display only. The authentication path
  * never surfaces this distinction on the wire.
  */
@@ -824,6 +1155,180 @@ int axiam_mgmt_settings_scope_from_wire(const char *value, axiam_mgmt_settings_s
  * written as a spelling it never used.
  */
 const char *axiam_mgmt_settings_scope_to_wire(axiam_mgmt_settings_scope_t value);
+
+/**
+ * How SETs reach the receiver.
+ */
+typedef enum axiam_mgmt_ssf_delivery_method {
+    AXIAM_MGMT_SSF_DELIVERY_METHOD_PUSH = 0, /**< Wire value `push`. */
+    AXIAM_MGMT_SSF_DELIVERY_METHOD_POLL, /**< Wire value `poll`. */
+    AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_ssf_delivery_method_t;
+
+/**
+ * Parse a wire value into an SsfDeliveryMethod.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_ssf_delivery_method_from_wire(const char *value, axiam_mgmt_ssf_delivery_method_t *out);
+
+/**
+ * The wire spelling of an SsfDeliveryMethod. Never NULL.
+ *
+ * `AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN` spells as the empty string, which no server
+ * value is: carrying an unrecognised value back into an update is refused by the server
+ * rather than written as a spelling it never used.
+ */
+const char *axiam_mgmt_ssf_delivery_method_to_wire(axiam_mgmt_ssf_delivery_method_t value);
+
+/**
+ * The six event types AXIAM transmits (G-5).
+ *
+ * Stored and sent as their event-type URIs; [`Self::ALL`] is the canonical order every list
+ * AXIAM returns is sorted in.
+ */
+typedef enum axiam_mgmt_ssf_event_type {
+    AXIAM_MGMT_SSF_EVENT_TYPE_SESSION_REVOKED = 0, /**< Wire value `https://schemas.openid.net/secevent/caep/event-type/session-revoked`. */
+    AXIAM_MGMT_SSF_EVENT_TYPE_CREDENTIAL_CHANGE, /**< Wire value `https://schemas.openid.net/secevent/caep/event-type/credential-change`. */
+    AXIAM_MGMT_SSF_EVENT_TYPE_ASSURANCE_LEVEL_CHANGE, /**< Wire value `https://schemas.openid.net/secevent/caep/event-type/assurance-level-change`. */
+    AXIAM_MGMT_SSF_EVENT_TYPE_ACCOUNT_DISABLED, /**< Wire value `https://schemas.openid.net/secevent/risc/event-type/account-disabled`. */
+    AXIAM_MGMT_SSF_EVENT_TYPE_ACCOUNT_ENABLED, /**< Wire value `https://schemas.openid.net/secevent/risc/event-type/account-enabled`. */
+    AXIAM_MGMT_SSF_EVENT_TYPE_ACCOUNT_PURGED, /**< Wire value `https://schemas.openid.net/secevent/risc/event-type/account-purged`. */
+    AXIAM_MGMT_SSF_EVENT_TYPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_ssf_event_type_t;
+
+/**
+ * Parse a wire value into an SsfEventType.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_SSF_EVENT_TYPE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_ssf_event_type_from_wire(const char *value, axiam_mgmt_ssf_event_type_t *out);
+
+/**
+ * The wire spelling of an SsfEventType. Never NULL.
+ *
+ * `AXIAM_MGMT_SSF_EVENT_TYPE_UNKNOWN` spells as the empty string, which no server value is:
+ * carrying an unrecognised value back into an update is refused by the server rather than
+ * written as a spelling it never used.
+ */
+const char *axiam_mgmt_ssf_event_type_to_wire(axiam_mgmt_ssf_event_type_t value);
+
+/**
+ * Who set a stream's current status. A status an administrator set to anything but
+ * `enabled` cannot be changed by the receiver (D-51).
+ */
+typedef enum axiam_mgmt_ssf_status_actor {
+    AXIAM_MGMT_SSF_STATUS_ACTOR_ADMIN = 0, /**< Wire value `admin`. */
+    AXIAM_MGMT_SSF_STATUS_ACTOR_RECEIVER, /**< Wire value `receiver`. */
+    AXIAM_MGMT_SSF_STATUS_ACTOR_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_ssf_status_actor_t;
+
+/**
+ * Parse a wire value into an SsfStatusActor.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_SSF_STATUS_ACTOR_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_ssf_status_actor_from_wire(const char *value, axiam_mgmt_ssf_status_actor_t *out);
+
+/**
+ * The wire spelling of an SsfStatusActor. Never NULL.
+ *
+ * `AXIAM_MGMT_SSF_STATUS_ACTOR_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
+ */
+const char *axiam_mgmt_ssf_status_actor_to_wire(axiam_mgmt_ssf_status_actor_t value);
+
+/**
+ * A stream's SSF status (SSF 1.0 §8.1.2), with AXIAM's meaning pinned by D-51.
+ */
+typedef enum axiam_mgmt_ssf_stream_status {
+    AXIAM_MGMT_SSF_STREAM_STATUS_ENABLED = 0, /**< Wire value `enabled`. */
+    AXIAM_MGMT_SSF_STREAM_STATUS_PAUSED, /**< Wire value `paused`. */
+    AXIAM_MGMT_SSF_STREAM_STATUS_DISABLED, /**< Wire value `disabled`. */
+    AXIAM_MGMT_SSF_STREAM_STATUS_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_ssf_stream_status_t;
+
+/**
+ * Parse a wire value into an SsfStreamStatus.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_SSF_STREAM_STATUS_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_ssf_stream_status_from_wire(const char *value, axiam_mgmt_ssf_stream_status_t *out);
+
+/**
+ * The wire spelling of an SsfStreamStatus. Never NULL.
+ *
+ * `AXIAM_MGMT_SSF_STREAM_STATUS_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
+ */
+const char *axiam_mgmt_ssf_stream_status_to_wire(axiam_mgmt_ssf_stream_status_t value);
+
+/**
+ * Which RFC 9493 subject identifier names the user in the SETs of a stream (D-46).
+ */
+typedef enum axiam_mgmt_ssf_subject_format {
+    AXIAM_MGMT_SSF_SUBJECT_FORMAT_ISS_SUB = 0, /**< Wire value `iss_sub`. */
+    AXIAM_MGMT_SSF_SUBJECT_FORMAT_EMAIL, /**< Wire value `email`. */
+    AXIAM_MGMT_SSF_SUBJECT_FORMAT_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_ssf_subject_format_t;
+
+/**
+ * Parse a wire value into an SsfSubjectFormat.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_SSF_SUBJECT_FORMAT_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_ssf_subject_format_from_wire(const char *value, axiam_mgmt_ssf_subject_format_t *out);
+
+/**
+ * The wire spelling of an SsfSubjectFormat. Never NULL.
+ *
+ * `AXIAM_MGMT_SSF_SUBJECT_FORMAT_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
+ */
+const char *axiam_mgmt_ssf_subject_format_to_wire(axiam_mgmt_ssf_subject_format_t value);
 
 /**
  * What a tenant *is*, as distinct from what state it is in.
@@ -937,6 +1442,40 @@ int axiam_mgmt_unknown_aaguid_action_from_wire(const char *value, axiam_mgmt_unk
 const char *axiam_mgmt_unknown_aaguid_action_to_wire(axiam_mgmt_unknown_aaguid_action_t value);
 
 /**
+ * Which AXIAM attribute becomes the downstream `userName`. The mapping is a fixed attribute
+ * set, not a mapping language (D-57).
+ */
+typedef enum axiam_mgmt_user_name_source {
+    AXIAM_MGMT_USER_NAME_SOURCE_USERNAME = 0, /**< Wire value `username`. */
+    AXIAM_MGMT_USER_NAME_SOURCE_EMAIL, /**< Wire value `email`. */
+    AXIAM_MGMT_USER_NAME_SOURCE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_user_name_source_t;
+
+/**
+ * Parse a wire value into an UserNameSource.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_USER_NAME_SOURCE_UNKNOWN` for a value this SDK's copy of
+ * the spec does not list, rather than reporting a failure the caller would have to fail the
+ * whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_user_name_source_from_wire(const char *value, axiam_mgmt_user_name_source_t *out);
+
+/**
+ * The wire spelling of an UserNameSource. Never NULL.
+ *
+ * `AXIAM_MGMT_USER_NAME_SOURCE_UNKNOWN` spells as the empty string, which no server value
+ * is: carrying an unrecognised value back into an update is refused by the server rather
+ * than written as a spelling it never used.
+ */
+const char *axiam_mgmt_user_name_source_to_wire(axiam_mgmt_user_name_source_t value);
+
+/**
  * The `UserStatus` enumeration from the server's OpenAPI document.
  */
 typedef enum axiam_mgmt_user_status {
@@ -977,12 +1516,14 @@ const char *axiam_mgmt_user_status_to_wire(axiam_mgmt_user_status_t value);
  * Forward declarations. The spec's types reference each other freely and in both
  * directions, so every struct is named before any is defined.
  */
+typedef struct axiam_mgmt_acs_endpoint axiam_mgmt_acs_endpoint_t;
 typedef struct axiam_mgmt_add_member_request axiam_mgmt_add_member_request_t;
 typedef struct axiam_mgmt_add_service_account_member_request axiam_mgmt_add_service_account_member_request_t;
 typedef struct axiam_mgmt_api_provider_config axiam_mgmt_api_provider_config_t;
 typedef struct axiam_mgmt_assign_role_to_group_request axiam_mgmt_assign_role_to_group_request_t;
 typedef struct axiam_mgmt_assign_role_to_service_account_request axiam_mgmt_assign_role_to_service_account_request_t;
 typedef struct axiam_mgmt_assign_role_to_user_request axiam_mgmt_assign_role_to_user_request_t;
+typedef struct axiam_mgmt_attribute_mapping axiam_mgmt_attribute_mapping_t;
 typedef struct axiam_mgmt_audit_log_entry axiam_mgmt_audit_log_entry_t;
 typedef struct axiam_mgmt_bind_certificate axiam_mgmt_bind_certificate_t;
 typedef struct axiam_mgmt_ca_certificate axiam_mgmt_ca_certificate_t;
@@ -1012,6 +1553,9 @@ typedef struct axiam_mgmt_create_service_account_request axiam_mgmt_create_servi
 typedef struct axiam_mgmt_create_tenant_request axiam_mgmt_create_tenant_request_t;
 typedef struct axiam_mgmt_create_user_request axiam_mgmt_create_user_request_t;
 typedef struct axiam_mgmt_create_webhook_request axiam_mgmt_create_webhook_request_t;
+typedef struct axiam_mgmt_directory_config axiam_mgmt_directory_config_t;
+typedef struct axiam_mgmt_directory_link_result axiam_mgmt_directory_link_result_t;
+typedef struct axiam_mgmt_directory_sync_status axiam_mgmt_directory_sync_status_t;
 typedef struct axiam_mgmt_email_config axiam_mgmt_email_config_t;
 typedef struct axiam_mgmt_email_config_override axiam_mgmt_email_config_override_t;
 typedef struct axiam_mgmt_email_test_result axiam_mgmt_email_test_result_t;
@@ -1027,8 +1571,11 @@ typedef struct axiam_mgmt_grant_permission_request axiam_mgmt_grant_permission_r
 typedef struct axiam_mgmt_grant_scope_consent axiam_mgmt_grant_scope_consent_t;
 typedef struct axiam_mgmt_granted_scope axiam_mgmt_granted_scope_t;
 typedef struct axiam_mgmt_group axiam_mgmt_group_t;
+typedef struct axiam_mgmt_group_mapping axiam_mgmt_group_mapping_t;
 typedef struct axiam_mgmt_health_response axiam_mgmt_health_response_t;
 typedef struct axiam_mgmt_import_ca_certificate_request axiam_mgmt_import_ca_certificate_request_t;
+typedef struct axiam_mgmt_issue_saml_idp_credential axiam_mgmt_issue_saml_idp_credential_t;
+typedef struct axiam_mgmt_link_directory_account axiam_mgmt_link_directory_account_t;
 typedef struct axiam_mgmt_lockout_policy axiam_mgmt_lockout_policy_t;
 typedef struct axiam_mgmt_mds_refresh_outcome axiam_mgmt_mds_refresh_outcome_t;
 typedef struct axiam_mgmt_mds_status_response axiam_mgmt_mds_status_response_t;
@@ -1048,6 +1595,7 @@ typedef struct axiam_mgmt_oidc_policy axiam_mgmt_oidc_policy_t;
 typedef struct axiam_mgmt_opaque_enrollment axiam_mgmt_opaque_enrollment_t;
 typedef struct axiam_mgmt_opaque_policy axiam_mgmt_opaque_policy_t;
 typedef struct axiam_mgmt_organization axiam_mgmt_organization_t;
+typedef struct axiam_mgmt_parse_saml_sp_metadata axiam_mgmt_parse_saml_sp_metadata_t;
 typedef struct axiam_mgmt_password_policy axiam_mgmt_password_policy_t;
 typedef struct axiam_mgmt_permission axiam_mgmt_permission_t;
 typedef struct axiam_mgmt_pgp_key axiam_mgmt_pgp_key_t;
@@ -1067,12 +1615,25 @@ typedef struct axiam_mgmt_role_group_assignment axiam_mgmt_role_group_assignment
 typedef struct axiam_mgmt_role_service_account_assignment axiam_mgmt_role_service_account_assignment_t;
 typedef struct axiam_mgmt_role_user_assignment axiam_mgmt_role_user_assignment_t;
 typedef struct axiam_mgmt_rotate_secret_response axiam_mgmt_rotate_secret_response_t;
+typedef struct axiam_mgmt_saml_idp_credential axiam_mgmt_saml_idp_credential_t;
+typedef struct axiam_mgmt_saml_idp_credential_promotion axiam_mgmt_saml_idp_credential_promotion_t;
+typedef struct axiam_mgmt_saml_idp_info axiam_mgmt_saml_idp_info_t;
+typedef struct axiam_mgmt_saml_service_provider axiam_mgmt_saml_service_provider_t;
+typedef struct axiam_mgmt_saml_service_provider_input axiam_mgmt_saml_service_provider_input_t;
+typedef struct axiam_mgmt_saml_sp_metadata_draft axiam_mgmt_saml_sp_metadata_draft_t;
+typedef struct axiam_mgmt_scim_reconcile_accepted axiam_mgmt_scim_reconcile_accepted_t;
+typedef struct axiam_mgmt_scim_target_auth axiam_mgmt_scim_target_auth_t;
+typedef struct axiam_mgmt_scim_target_delivery_state axiam_mgmt_scim_target_delivery_state_t;
+typedef struct axiam_mgmt_scim_target_input axiam_mgmt_scim_target_input_t;
+typedef struct axiam_mgmt_scim_target_response axiam_mgmt_scim_target_response_t;
+typedef struct axiam_mgmt_scim_target_scope axiam_mgmt_scim_target_scope_t;
 typedef struct axiam_mgmt_scim_token_response axiam_mgmt_scim_token_response_t;
 typedef struct axiam_mgmt_scope axiam_mgmt_scope_t;
 typedef struct axiam_mgmt_security_settings axiam_mgmt_security_settings_t;
 typedef struct axiam_mgmt_service_account_created_response axiam_mgmt_service_account_created_response_t;
 typedef struct axiam_mgmt_service_account_response axiam_mgmt_service_account_response_t;
 typedef struct axiam_mgmt_session_response axiam_mgmt_session_response_t;
+typedef struct axiam_mgmt_set_directory_config axiam_mgmt_set_directory_config_t;
 typedef struct axiam_mgmt_set_mtls_trust_anchor axiam_mgmt_set_mtls_trust_anchor_t;
 typedef struct axiam_mgmt_set_org_email_config axiam_mgmt_set_org_email_config_t;
 typedef struct axiam_mgmt_set_org_settings axiam_mgmt_set_org_settings_t;
@@ -1081,12 +1642,15 @@ typedef struct axiam_mgmt_sign_certificate_csr_request axiam_mgmt_sign_certifica
 typedef struct axiam_mgmt_sign_intermediate_csr_request axiam_mgmt_sign_intermediate_csr_request_t;
 typedef struct axiam_mgmt_signed_audit_batch axiam_mgmt_signed_audit_batch_t;
 typedef struct axiam_mgmt_smtp_config axiam_mgmt_smtp_config_t;
+typedef struct axiam_mgmt_ssf_stream axiam_mgmt_ssf_stream_t;
+typedef struct axiam_mgmt_ssf_stream_input axiam_mgmt_ssf_stream_input_t;
 typedef struct axiam_mgmt_subject_alt_name axiam_mgmt_subject_alt_name_t;
 typedef struct axiam_mgmt_tenant axiam_mgmt_tenant_t;
 typedef struct axiam_mgmt_tenant_settings_override axiam_mgmt_tenant_settings_override_t;
 typedef struct axiam_mgmt_token_exchange_trust_request axiam_mgmt_token_exchange_trust_request_t;
 typedef struct axiam_mgmt_token_exchange_trust_response axiam_mgmt_token_exchange_trust_response_t;
 typedef struct axiam_mgmt_token_policy axiam_mgmt_token_policy_t;
+typedef struct axiam_mgmt_update_directory_config axiam_mgmt_update_directory_config_t;
 typedef struct axiam_mgmt_update_federation_config_request axiam_mgmt_update_federation_config_request_t;
 typedef struct axiam_mgmt_update_group axiam_mgmt_update_group_t;
 typedef struct axiam_mgmt_update_notification_rule_request axiam_mgmt_update_notification_rule_request_t;
@@ -1101,10 +1665,46 @@ typedef struct axiam_mgmt_update_service_account axiam_mgmt_update_service_accou
 typedef struct axiam_mgmt_update_tenant axiam_mgmt_update_tenant_t;
 typedef struct axiam_mgmt_update_user_request axiam_mgmt_update_user_request_t;
 typedef struct axiam_mgmt_update_webhook_request axiam_mgmt_update_webhook_request_t;
+typedef struct axiam_mgmt_user_attribute_map axiam_mgmt_user_attribute_map_t;
 typedef struct axiam_mgmt_user_response axiam_mgmt_user_response_t;
 typedef struct axiam_mgmt_webauthn_attestation_policy axiam_mgmt_webauthn_attestation_policy_t;
 typedef struct axiam_mgmt_webauthn_policy axiam_mgmt_webauthn_policy_t;
 typedef struct axiam_mgmt_webhook_response axiam_mgmt_webhook_response_t;
+
+/**
+ * One `AssertionConsumerService` endpoint of a service provider. The list of these is an
+ * **allow-list**, checked the way OAuth2 redirect URIs are: an `AuthnRequest` naming an ACS
+ * URL is honoured only when the URL equals one registered here, byte for byte. No globs, no
+ * prefix match.
+ */
+struct axiam_mgmt_acs_endpoint {
+    /**
+     * The binding the endpoint accepts.
+     */
+    axiam_mgmt_saml_binding_t binding;
+    /**
+     * The `index` an `AuthnRequest` may use instead of a URL. Unique per SP.
+     */
+    long index;
+    /**
+     * Whether this is the SP's default endpoint. At most one is; when none is marked, the
+     * first listed is the default (SAML Metadata §2.4.4.1). Optional.
+     */
+    int is_default;
+    int has_is_default; /**< 1 when `is_default` is set. */
+    /**
+     * The endpoint URL.
+     */
+    char *url;
+};
+
+/**
+ * Free a AcsEndpoint and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_acs_endpoint_free(axiam_mgmt_acs_endpoint_t *value);
 
 /**
  * The `AddMemberRequest` schema from the server's OpenAPI document.
@@ -1297,6 +1897,34 @@ struct axiam_mgmt_assign_role_to_user_request {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_assign_role_to_user_request_free(axiam_mgmt_assign_role_to_user_request_t *value);
+
+/**
+ * One entry of an SP's attribute mapping table.
+ */
+struct axiam_mgmt_attribute_mapping {
+    /**
+     * The `NameFormat`, one of [`ATTRIBUTE_NAME_FORMATS`]. `None` leaves the attribute
+     * unqualified (`unspecified`). Optional.
+     */
+    char *name_format;
+    /**
+     * The `Name` of the emitted `<saml:Attribute>`. Unique within one SP, compared exactly
+     * (SAML attribute names are case-sensitive).
+     */
+    char *saml_name;
+    /**
+     * Where the value comes from.
+     */
+    axiam_mgmt_attribute_source_t source;
+};
+
+/**
+ * Free a AttributeMapping and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_attribute_mapping_free(axiam_mgmt_attribute_mapping_t *value);
 
 /**
  * The `AuditLogEntry` schema from the server's OpenAPI document.
@@ -2128,10 +2756,37 @@ struct axiam_mgmt_create_o_auth2_client_request {
     axiam_mgmt_authn_request_params_mode_t authn_request_params;
     int has_authn_request_params; /**< 1 when `authn_request_params` is set. */
     /**
+     * G-7 — CIBA Core §4: `PS256`, `ES256` or `EdDSA`. When set, every backchannel
+     * authentication request must be a signed `request` JWT under this algorithm, verified
+     * against `jwks` or `jwks_uri` (exactly one is required; an inline `jwks` must hold a
+     * key of the algorithm). Required for a `fapi2` client holding the CIBA grant.
+     * Optional.
+     */
+    char *backchannel_authentication_request_signing_alg;
+    /**
+     * G-7 — CIBA Core §4: where a ping-mode client is notified. Required in ping mode and
+     * refused in poll mode; an absolute `https` URL held to the webhook address policy (no
+     * credentials, no fragment, no private, loopback or internal host). Optional.
+     */
+    char *backchannel_client_notification_endpoint;
+    /**
      * B5 — where OIDC back-channel logout tokens are delivered. Omit for a client that does
      * not participate. Optional.
      */
     char *backchannel_logout_uri;
+    /**
+     * G-7 — CIBA Core §4 `backchannel_token_delivery_mode`: `poll` or `ping`. Required when
+     * `grant_types` holds `urn:openid:params:grant-type:ciba`, refused otherwise; `push` is
+     * not offered. A CIBA client must be confidential; a `fapi2` one must also register
+     * `backchannel_authentication_request_signing_alg`. Optional.
+     */
+    char *backchannel_token_delivery_mode;
+    /**
+     * G-7 — CIBA Core §4. `true` is **refused**: this server holds no user code to verify.
+     * Optional.
+     */
+    int backchannel_user_code_parameter;
+    int has_backchannel_user_code_parameter; /**< 1 when `backchannel_user_code_parameter` is set. */
     /**
      * X7.3 — whether an unauthenticated authorization request from this client may be
      * answered with a redirect to the login page rather than the `401` AXIAM answers today.
@@ -2691,6 +3346,182 @@ struct axiam_mgmt_create_webhook_request {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_create_webhook_request_free(axiam_mgmt_create_webhook_request_t *value);
+
+/**
+ * A tenant's directory configuration, as stored and as read back. Carries no secret: see
+ * the module documentation.
+ */
+struct axiam_mgmt_directory_config {
+    /**
+     * Where users are searched for.
+     */
+    char *base_dn;
+    /**
+     * The service account AXIAM binds as to search. It should hold read-only rights: AXIAM
+     * never writes to a directory.
+     */
+    char *bind_dn;
+    /**
+     * When the row was created.
+     */
+    char *created_at;
+    /**
+     * Whether the directory is used for sign-in and sync.
+     */
+    int enabled;
+    /**
+     * Where groups are searched for (reverse-`member` lookups, group sync). Optional.
+     */
+    char *group_base_dn;
+    /**
+     * Restricts which entries under [`Self::group_base_dn`] are groups. Optional.
+     */
+    char *group_filter;
+    /**
+     * The group-mapping table (D-30): which directory groups put a user into which AXIAM
+     * groups. Empty means no directory group maps to anything, and a sign-in then removes
+     * every directory-sourced membership the user held.
+     */
+    axiam_mgmt_group_mapping_t **group_mappings;
+    size_t group_mappings_count; /**< Entries in `group_mappings`. */
+    /**
+     * `memberOf` (user-side, AD) or `member` (group-side, OpenLDAP).
+     */
+    char *group_member_attribute;
+    /**
+     * How many levels of nested groups are followed, `0..=10`.
+     */
+    long group_nesting_depth;
+    /**
+     * Row identifier.
+     */
+    char *id;
+    /**
+     * Provision an AXIAM user on first successful directory sign-in.
+     */
+    int jit_provisioning;
+    /**
+     * The kind of directory, which selects defaults.
+     */
+    axiam_mgmt_directory_kind_t kind;
+    /**
+     * Upgrade an `ldap://` connection with StartTLS before any bind.
+     */
+    int start_tls;
+    /**
+     * Seconds between incremental sync runs.
+     */
+    long sync_interval_secs;
+    /**
+     * The owning tenant. At most one configuration exists per tenant.
+     */
+    char *tenant_id;
+    /**
+     * PEM CA certificates that anchor trust in the directory's server certificate. Empty
+     * means the platform roots used by the rest of the workspace's outbound TLS. An
+     * organisation CA's PEM can be pasted here.
+     */
+    char **trust_anchors_pem;
+    size_t trust_anchors_pem_count; /**< Entries in `trust_anchors_pem`. */
+    /**
+     * When the row was last written.
+     */
+    char *updated_at;
+    /**
+     * `ldaps://host[:port]` or `ldap://host[:port]` together with [`Self::start_tls`]. A
+     * plaintext URL is refused at configuration time.
+     */
+    char *url;
+    /**
+     * Which attribute feeds which user field.
+     */
+    axiam_mgmt_user_attribute_map_t *user_attribute_map;
+    /**
+     * The user-lookup filter template. It contains exactly one `{username}` placeholder,
+     * which the bind path replaces with the RFC 4515-escaped login name; the template
+     * itself is never formatted with raw input.
+     */
+    char *user_filter;
+};
+
+/**
+ * Free a DirectoryConfig and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_directory_config_free(axiam_mgmt_directory_config_t *value);
+
+/**
+ * What linking did.
+ */
+struct axiam_mgmt_directory_link_result {
+    /**
+     * `User`-type certificates revoked.
+     */
+    long certificates_revoked;
+    /**
+     * The entry's `entryUUID` or `objectGUID` as text: an identifier, not a secret.
+     */
+    char *directory_external_id;
+    /**
+     * The account that was linked.
+     */
+    char *user_id;
+    /**
+     * `true` when the account was already linked to that very entry and the call only
+     * re-ran the revocations (an interrupted link completed).
+     */
+    int was_already_linked;
+    /**
+     * Passkeys and security keys deleted.
+     */
+    long webauthn_credentials_deleted;
+};
+
+/**
+ * Free a DirectoryLinkResult and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_directory_link_result_free(axiam_mgmt_directory_link_result_t *value);
+
+/**
+ * A read-only view of the sync job's state for one tenant. Counts of what a run did are in
+ * its audit rows, and no account id is here.
+ */
+struct axiam_mgmt_directory_sync_status {
+    /**
+     * The next run must be a full reconciliation.
+     */
+    int full_required;
+    /**
+     * An incremental run has a starting point.
+     */
+    int has_watermark;
+    /**
+     * When the last attempt started, or null before the first run. Optional.
+     */
+    char *last_attempt_at;
+    /**
+     * When the last complete full run finished, or null. Optional.
+     */
+    char *last_full_run_at;
+    /**
+     * `ok`, `partial`, `failed` or `safety_valve` (an open set: decode another value
+     * without failing), or null before the first run. Optional.
+     */
+    char *last_result;
+};
+
+/**
+ * Free a DirectorySyncStatus and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_directory_sync_status_free(axiam_mgmt_directory_sync_status_t *value);
 
 /**
  * Fully resolved email configuration (all fields present).
@@ -3440,13 +4271,57 @@ struct axiam_mgmt_group {
 void axiam_mgmt_group_free(axiam_mgmt_group_t *value);
 
 /**
- * The `HealthResponse` schema from the server's OpenAPI document.
+ * One row of the group-mapping table (G-3, T23.3.4, D-30): a directory group, named by its
+ * distinguished name, and the AXIAM group a member of it is put into. **The table is the
+ * only way a directory group reaches an AXIAM group.** There is no match by name, no prefix
+ * or wildcard, and no AXIAM group is ever created from a directory one: a directory
+ * administrator who names a group `admins` gains nothing unless a tenant administrator
+ * mapped it here. The DN is stored as the administrator typed it and compared after RFC
+ * 4514 normalisation (`axiam_directory::dn`), so `CN=Staff, OU=Groups` and
+ * `cn=staff,ou=groups` are the same row. One DN may map to several AXIAM groups; the same
+ * (DN, group) pair twice is refused as redundant.
+ */
+struct axiam_mgmt_group_mapping {
+    /**
+     * The directory group's distinguished name.
+     */
+    char *directory_group_dn;
+    /**
+     * The AXIAM group of the same tenant a member of that directory group is put into.
+     * Checked to exist in the tenant when the configuration is written.
+     */
+    char *group_id;
+};
+
+/**
+ * Free a GroupMapping and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_group_mapping_free(axiam_mgmt_group_mapping_t *value);
+
+/**
+ * Response body for `GET /health`. `profile` and `unavailable` are additive (G-8, D-59): a
+ * client that reads only `status` is unaffected.
  */
 struct axiam_mgmt_health_response {
+    /**
+     * The messaging profile this process runs: `full` (RabbitMQ is used) or `minimal`
+     * (`AXIAM__AMQP__ENABLED=false`, no broker).
+     */
+    char *profile;
     /**
      * The server's `status` field.
      */
     char *status;
+    /**
+     * Present only in the `minimal` profile: the capabilities it does not provide —
+     * `reactors`, `amqp_authz`, `amqp_audit_ingestion` and `decision_cache_broadcast`.
+     * Absent in `full`. Optional.
+     */
+    char **unavailable;
+    size_t unavailable_count; /**< Entries in `unavailable`. */
 };
 
 /**
@@ -3484,6 +4359,52 @@ struct axiam_mgmt_import_ca_certificate_request {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_import_ca_certificate_request_free(axiam_mgmt_import_ca_certificate_request_t *value);
+
+/**
+ * `POST …/saml/idp-credentials` body.
+ */
+struct axiam_mgmt_issue_saml_idp_credential {
+    /**
+     * An active signing CA the caller may issue from.
+     */
+    char *issuer_ca_id;
+    /**
+     * The slot to fill; it must be empty.
+     */
+    axiam_mgmt_saml_idp_slot_t slot;
+    /**
+     * 1 to 730, default 365; never beyond the CA's own expiry. Optional.
+     */
+    long validity_days;
+    int has_validity_days; /**< 1 when `validity_days` is set. */
+};
+
+/**
+ * Free a IssueSamlIdpCredential and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_issue_saml_idp_credential_free(axiam_mgmt_issue_saml_idp_credential_t *value);
+
+/**
+ * `POST /api/v1/tenants/{tenant_id}/directory/links` body.
+ */
+struct axiam_mgmt_link_directory_account {
+    /**
+     * The local account to link. The directory entry is found by the directory, from the
+     * account's own username; the caller names no entry.
+     */
+    char *user_id;
+};
+
+/**
+ * Free a LinkDirectoryAccount and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_link_directory_account_free(axiam_mgmt_link_directory_account_t *value);
 
 /**
  * Account lockout rules.
@@ -3849,6 +4770,20 @@ struct axiam_mgmt_o_auth2_client_response {
      */
     axiam_mgmt_authn_request_params_mode_t authn_request_params;
     /**
+     * The server's `backchannel_authentication_request_signing_alg` field. Optional.
+     */
+    axiam_mgmt_ciba_request_signing_alg_t backchannel_authentication_request_signing_alg;
+    int has_backchannel_authentication_request_signing_alg; /**< 1 when `backchannel_authentication_request_signing_alg` is set. */
+    /**
+     * G-7 — the ping-mode notification endpoint. Optional.
+     */
+    char *backchannel_client_notification_endpoint;
+    /**
+     * The server's `backchannel_token_delivery_mode` field. Optional.
+     */
+    axiam_mgmt_ciba_delivery_mode_t backchannel_token_delivery_mode;
+    int has_backchannel_token_delivery_mode; /**< 1 when `backchannel_token_delivery_mode` is set. */
+    /**
      * X7.3 — echoed for the same reason.
      */
     int browser_sso;
@@ -4095,22 +5030,25 @@ void axiam_mgmt_oidc_callback_response_free(axiam_mgmt_oidc_callback_response_t 
  * [`Self::sensitive_scopes_enabled`], validated **disable-only** — the mirror image of
  * `mfa_enforced`, because releasing personal data is the less-restrictive direction, so a
  * tenant can turn its organization's decision off but never on. *
- * [`Self::dynamic_registration`], on the ladder `disabled` → `initial_access_token` →
- * `anonymous`: a tenant may move down it and never up. * [`Self::dcr_max_clients`] and
- * [`Self::dcr_unused_client_ttl_days`], on the ordinary `tenant <= org` rule — with the
- * wrinkle that `0` on the second means *never sweep*, which is the longest window of all
- * and is handled by [`dcr_ttl_strictness`]. **Not ordered**, therefore never validated
- * against the baseline and never clamped: * [`Self::default_locale`]. A language is a
- * presentation preference; there is no sense in which Italian is stricter than French. *
- * [`Self::dcr_allowed_scopes`], [`Self::dcr_allowed_redirect_hosts`] and
- * [`Self::external_client_allowed_resources`]. Each names per-tenant resources — *this*
- * tenant's MCP servers, *this* tenant's callback hosts — and there is no sense in which one
- * such list is stricter than another. A subset rule would force an organization to
- * enumerate every tenant's resource servers in its own baseline before any tenant could
- * name one. The model's rule is "a tenant may only be more restrictive", which binds every
- * field that *has* a restrictiveness; a field that has none cannot violate it. One
- * cross-field interlock spans both groups and is checked on the resolved policy rather than
- * on either input: see [`validate_dcr_policy`].
+ * [`Self::saml_idp_enabled`], validated **disable-only** exactly like
+ * [`Self::sensitive_scopes_enabled`] (D-20): a tenant may turn its organization's `true`
+ * off and never its `false` on. * [`Self::ssf_enabled`], validated **disable-only** the
+ * same way (D-45). * [`Self::dynamic_registration`], on the ladder `disabled` →
+ * `initial_access_token` → `anonymous`: a tenant may move down it and never up. *
+ * [`Self::dcr_max_clients`] and [`Self::dcr_unused_client_ttl_days`], on the ordinary
+ * `tenant <= org` rule — with the wrinkle that `0` on the second means *never sweep*, which
+ * is the longest window of all and is handled by [`dcr_ttl_strictness`]. **Not ordered**,
+ * therefore never validated against the baseline and never clamped: *
+ * [`Self::default_locale`]. A language is a presentation preference; there is no sense in
+ * which Italian is stricter than French. * [`Self::dcr_allowed_scopes`],
+ * [`Self::dcr_allowed_redirect_hosts`] and [`Self::external_client_allowed_resources`].
+ * Each names per-tenant resources — *this* tenant's MCP servers, *this* tenant's callback
+ * hosts — and there is no sense in which one such list is stricter than another. A subset
+ * rule would force an organization to enumerate every tenant's resource servers in its own
+ * baseline before any tenant could name one. The model's rule is "a tenant may only be more
+ * restrictive", which binds every field that *has* a restrictiveness; a field that has none
+ * cannot violate it. One cross-field interlock spans both groups and is checked on the
+ * resolved policy rather than on either input: see [`validate_dcr_policy`].
  */
 struct axiam_mgmt_oidc_policy {
     /**
@@ -4197,6 +5135,23 @@ struct axiam_mgmt_oidc_policy {
     char **external_client_allowed_resources;
     size_t external_client_allowed_resources_count; /**< Entries in `external_client_allowed_resources`. */
     /**
+     * G-2 / D-20 — whether this tenant may act as a SAML 2.0 identity provider: publish IdP
+     * metadata and accept `AuthnRequest`s on `/saml/v2/{tenant}/{metadata,sso,slo}`. **Off
+     * unless an organization turns it on.** A SAML IdP issues assertions that other systems
+     * accept as proof of identity, so a deployment that has never decided to be one issues
+     * none, and the three endpoints answer `404` as if they did not exist. The switch lives
+     * on this policy, beside the other OpenID Provider surface controls, because the SSO
+     * endpoint is the same browser login hop and OP session with a different wire format.
+     * **Disable-only**, with the shape of [`Self::sensitive_scopes_enabled`]: a tenant may
+     * turn its organization's `true` off but never its `false` on, because the decision to
+     * issue identity assertions on behalf of the organization's tenants is the
+     * organization's. A deployment built without the `saml` feature answers `404` whatever
+     * this says; the setting is a capability, not a grant (each SP must still be
+     * registered, and `allow_idp_initiated` is its own opt-in). Optional.
+     */
+    int saml_idp_enabled;
+    int has_saml_idp_enabled; /**< 1 when `saml_idp_enabled` is set. */
+    /**
      * Whether `address` and `phone` may be registered on a client, requested at the
      * authorization endpoint, and released at UserInfo (X7 G8). **Off unless an
      * organization turns it on.** The two scopes release a postal address and a telephone
@@ -4209,6 +5164,23 @@ struct axiam_mgmt_oidc_policy {
      * only one an operator can close for everybody at once.
      */
     int sensitive_scopes_enabled;
+    /**
+     * G-5 / D-45 — whether the tenant is a Shared Signals Framework transmitter: its
+     * `/.well-known/ssf-configuration` is served, its receivers can use the stream
+     * management API, and events are signed and transmitted on its streams. Default
+     * **`false`**. **Disable-only**, with the shape of [`Self::saml_idp_enabled`]: sending
+     * security events about the organization's users to third parties is the organization's
+     * decision. Streams can be registered while it is off; they carry nothing until it is
+     * on. Optional.
+     */
+    int ssf_enabled;
+    int has_ssf_enabled; /**< 1 when `ssf_enabled` is set. */
+    /**
+     * **Read-only**, D-55: set on a settings response when `ssf_enabled` is on but the
+     * transmitter is inactive anyway, saying why — the deployment holds more than one
+     * tenant and serves no per-tenant issuers. Never stored. Optional.
+     */
+    char *ssf_inactive_reason;
 };
 
 /**
@@ -4319,6 +5291,34 @@ struct axiam_mgmt_organization {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_organization_free(axiam_mgmt_organization_t *value);
+
+/**
+ * `POST …/saml/parse-sp-metadata` body: **exactly one** of the two members.
+ *
+ * Every member is optional, so this is a SPARSE body (27.4 rule 5): a NULL pointer -- or a
+ * `has_` flag left 0 -- means the field is OMITTED from the request entirely, not sent as
+ * null. On a sparse update those say opposite things, and only omission means "leave it
+ * alone".
+ */
+struct axiam_mgmt_parse_saml_sp_metadata {
+    /**
+     * An `https` URL the server fetches the document from, once, through its SSRF guard.
+     * Optional.
+     */
+    char *metadata_url;
+    /**
+     * A metadata document, at most 512 KiB. Optional.
+     */
+    char *metadata_xml;
+};
+
+/**
+ * Free a ParseSamlSpMetadata and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_parse_saml_sp_metadata_free(axiam_mgmt_parse_saml_sp_metadata_t *value);
 
 /**
  * Password complexity and history requirements.
@@ -5075,6 +6075,649 @@ struct axiam_mgmt_rotate_secret_response {
 void axiam_mgmt_rotate_secret_response_free(axiam_mgmt_rotate_secret_response_t *value);
 
 /**
+ * The tenant's IdP signing credential, **public facts only**. There is no key on it and no
+ * field a key could be put in: the private key is generated by the server, sealed at rest,
+ * never returned by any route and destroyed on retirement (D-21).
+ */
+struct axiam_mgmt_saml_idp_credential {
+    /**
+     * The leaf certificate, PEM. Public: it is what the metadata publishes.
+     */
+    char *certificate_pem;
+    /**
+     * When the credential was issued.
+     */
+    char *created_at;
+    /**
+     * Lower-case hex SHA-256 of the certificate's DER — what an SP administrator compares
+     * out of band.
+     */
+    char *fingerprint;
+    /**
+     * Credential id.
+     */
+    char *id;
+    /**
+     * The signing CA that issued the leaf.
+     */
+    char *issuer_ca_id;
+    /**
+     * End of the certificate's validity (at most 730 days after the start).
+     */
+    char *not_after;
+    /**
+     * Start of the certificate's validity.
+     */
+    char *not_before;
+    /**
+     * When it was retired, or null. Optional.
+     */
+    char *retired_at;
+    /**
+     * The certificate's serial, lower-case hex.
+     */
+    char *serial;
+    /**
+     * `active`, `next` or `retired`. At most one `active` and one `next` per tenant.
+     */
+    axiam_mgmt_saml_idp_credential_status_t status;
+    /**
+     * The tenant it signs for.
+     */
+    char *tenant_id;
+};
+
+/**
+ * Free a SamlIdpCredential and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_saml_idp_credential_free(axiam_mgmt_saml_idp_credential_t *value);
+
+/**
+ * What promoting the `next` credential did.
+ */
+struct axiam_mgmt_saml_idp_credential_promotion {
+    /**
+     * The credential that is now `active`.
+     */
+    axiam_mgmt_saml_idp_credential_t *active;
+    /**
+     * The server's `retired` field. Optional.
+     */
+    axiam_mgmt_saml_idp_credential_t *retired;
+};
+
+/**
+ * Free a SamlIdpCredentialPromotion and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_saml_idp_credential_promotion_free(axiam_mgmt_saml_idp_credential_promotion_t *value);
+
+/**
+ * The tenant's SAML IdP, as the administrator needs to see it before and while switching it
+ * on: what an SP will be given, and whether it answers yet.
+ */
+struct axiam_mgmt_saml_idp_info {
+    /**
+     * The `active` credential, or null. Optional.
+     */
+    char *active_credential_id;
+    /**
+     * Presence of `active_credential_id`, so an explicit `null` stays distinct from an
+     * absent member (CONTRACT.md §27.4 rule 5). `active_credential_id` NULL with this 0 is
+     * ABSENT; NULL with this 1 is JSON `null`; a non-NULL value is itself, whatever this
+     * says.
+     */
+    int has_active_credential_id;
+    /**
+     * The IdP's entity id (the metadata URL itself).
+     */
+    char *entity_id;
+    /**
+     * Whether `metadata_url` answers now: SAML is available, enabled for the tenant, and an
+     * `active` or `next` credential exists (D-40).
+     */
+    int metadata_served;
+    /**
+     * Where the IdP metadata is served.
+     */
+    char *metadata_url;
+    /**
+     * The `next` credential, or null. Optional.
+     */
+    char *next_credential_id;
+    /**
+     * Presence of `next_credential_id`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `next_credential_id` NULL with this 0 is ABSENT;
+     * NULL with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_next_credential_id;
+    /**
+     * Whether this server build serves SAML at all (it was built with the `saml` feature).
+     */
+    int saml_available;
+    /**
+     * The tenant's **effective** `saml_idp_enabled` setting (D-20). Written through the
+     * `settings` operations, not here.
+     */
+    int saml_idp_enabled;
+    /**
+     * The single-logout endpoint.
+     */
+    char *slo_url;
+    /**
+     * The single-sign-on endpoint.
+     */
+    char *sso_url;
+    /**
+     * The tenant.
+     */
+    char *tenant_id;
+};
+
+/**
+ * Free a SamlIdpInfo and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_saml_idp_info_free(axiam_mgmt_saml_idp_info_t *value);
+
+/**
+ * A registered service provider, as stored.
+ */
+struct axiam_mgmt_saml_service_provider {
+    /**
+     * See [`SamlServiceProviderInput::acs_urls`].
+     */
+    axiam_mgmt_acs_endpoint_t **acs_urls;
+    size_t acs_urls_count; /**< Entries in `acs_urls`. */
+    /**
+     * See [`SamlServiceProviderInput::allow_idp_initiated`].
+     */
+    int allow_idp_initiated;
+    /**
+     * See [`SamlServiceProviderInput::allowed_groups`].
+     */
+    char **allowed_groups;
+    size_t allowed_groups_count; /**< Entries in `allowed_groups`. */
+    /**
+     * See [`SamlServiceProviderInput::attribute_mappings`].
+     */
+    axiam_mgmt_attribute_mapping_t **attribute_mappings;
+    size_t attribute_mappings_count; /**< Entries in `attribute_mappings`. */
+    /**
+     * When the SP was registered.
+     */
+    char *created_at;
+    /**
+     * See [`SamlServiceProviderInput::display_name`].
+     */
+    char *display_name;
+    /**
+     * See [`SamlServiceProviderInput::enabled`].
+     */
+    int enabled;
+    /**
+     * See [`SamlServiceProviderInput::encrypt_assertions`].
+     */
+    int encrypt_assertions;
+    /**
+     * See [`SamlServiceProviderInput::entity_id`].
+     */
+    char *entity_id;
+    /**
+     * Record id.
+     */
+    char *id;
+    /**
+     * See [`SamlServiceProviderInput::name_id_format`].
+     */
+    axiam_mgmt_name_id_format_t name_id_format;
+    /**
+     * See [`SamlServiceProviderInput::sign_responses`].
+     */
+    int sign_responses;
+    /**
+     * The server's `slo_binding` field. Optional.
+     */
+    axiam_mgmt_saml_binding_t slo_binding;
+    int has_slo_binding; /**< 1 when `slo_binding` is set. */
+    /**
+     * See [`SamlServiceProviderInput::slo_url`]. Optional.
+     */
+    char *slo_url;
+    /**
+     * See [`SamlServiceProviderInput::sp_encryption_cert_pem`]. Optional.
+     */
+    char *sp_encryption_cert_pem;
+    /**
+     * See [`SamlServiceProviderInput::sp_signing_cert_pem`]. Optional.
+     */
+    char *sp_signing_cert_pem;
+    /**
+     * The owning tenant.
+     */
+    char *tenant_id;
+    /**
+     * When it was last replaced.
+     */
+    char *updated_at;
+    /**
+     * See [`SamlServiceProviderInput::want_authn_requests_signed`].
+     */
+    int want_authn_requests_signed;
+};
+
+/**
+ * Free a SamlServiceProvider and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_saml_service_provider_free(axiam_mgmt_saml_service_provider_t *value);
+
+/**
+ * Everything an administrator supplies when registering or replacing a service provider
+ * (`create` and `update` both take it; `update` is a full replacement). Every field but
+ * `entity_id`, `display_name` and `acs_urls` has a default, so a client written against a
+ * later revision of this struct keeps working.
+ */
+struct axiam_mgmt_saml_service_provider_input {
+    /**
+     * The ACS allow-list. At least one, at most one default.
+     */
+    axiam_mgmt_acs_endpoint_t **acs_urls;
+    size_t acs_urls_count; /**< Entries in `acs_urls`. */
+    /**
+     * Whether IdP-initiated SSO is allowed for this SP (D-3). A per-SP opt-in, off by
+     * default: an unsolicited assertion has no `InResponseTo` to bind it to a request the
+     * SP made. Optional.
+     */
+    int allow_idp_initiated;
+    int has_allow_idp_initiated; /**< 1 when `allow_idp_initiated` is set. */
+    /**
+     * Groups whose members may sign in to this SP. **Empty means every active user of the
+     * tenant may.** Evaluated by the SSO endpoint (T23.2.3). Optional.
+     */
+    char **allowed_groups;
+    size_t allowed_groups_count; /**< Entries in `allowed_groups`. */
+    /**
+     * Attribute mapping table, at most [`MAX_ATTRIBUTE_MAPPINGS`] entries. Optional.
+     */
+    axiam_mgmt_attribute_mapping_t **attribute_mappings;
+    size_t attribute_mappings_count; /**< Entries in `attribute_mappings`. */
+    /**
+     * Human-readable name for the console.
+     */
+    char *display_name;
+    /**
+     * Whether the SP may sign in at all. A disabled SP stays registered but every SSO
+     * request for it is refused. Optional.
+     */
+    int enabled;
+    int has_enabled; /**< 1 when `enabled` is set. */
+    /**
+     * Encrypt assertions to the SP's encryption certificate (D-2). Off by default; requires
+     * [`Self::sp_encryption_cert_pem`]. Optional.
+     */
+    int encrypt_assertions;
+    int has_encrypt_assertions; /**< 1 when `encrypt_assertions` is set. */
+    /**
+     * The SP's `entityID`, unique per tenant. At most [`MAX_ENTITY_ID_BYTES`].
+     */
+    char *entity_id;
+    /**
+     * `NameID` policy. Default: persistent, pairwise. Optional.
+     */
+    axiam_mgmt_name_id_format_t name_id_format;
+    int has_name_id_format; /**< 1 when `name_id_format` is set. */
+    /**
+     * Sign the `<samlp:Response>` envelope as well as the assertion (which is signed
+     * always). Default **`true`**: it costs nothing and many SPs require it. Optional.
+     */
+    int sign_responses;
+    int has_sign_responses; /**< 1 when `sign_responses` is set. */
+    /**
+     * The server's `slo_binding` field. Optional.
+     */
+    axiam_mgmt_saml_binding_t slo_binding;
+    int has_slo_binding; /**< 1 when `slo_binding` is set. */
+    /**
+     * Single-logout endpoint, if the SP supports it. Optional.
+     */
+    char *slo_url;
+    /**
+     * PEM certificate assertions are encrypted to. Required when `encrypt_assertions` is
+     * set. Optional.
+     */
+    char *sp_encryption_cert_pem;
+    /**
+     * PEM certificate the SP signs its `AuthnRequest`s with. Optional.
+     */
+    char *sp_signing_cert_pem;
+    /**
+     * Refuse an `AuthnRequest` that is not signed by `sp_signing_cert_pem`. Requires that
+     * certificate. Optional.
+     */
+    int want_authn_requests_signed;
+    int has_want_authn_requests_signed; /**< 1 when `want_authn_requests_signed` is set. */
+};
+
+/**
+ * Free a SamlServiceProviderInput and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_saml_service_provider_input_free(axiam_mgmt_saml_service_provider_input_t *value);
+
+/**
+ * A parse of SP metadata: **a draft, not a registration**. Nothing is stored until the
+ * caller submits `service_provider` to `create_service_provider` or
+ * `update_service_provider`, and nothing in it is trusted because it came from a document
+ * (D-41).
+ */
+struct axiam_mgmt_saml_sp_metadata_draft {
+    /**
+     * Lower-case hex SHA-256 of the encryption certificate's DER the draft carries, or
+     * null. Optional.
+     */
+    char *encryption_certificate_fingerprint;
+    /**
+     * A body `create_service_provider` accepts unchanged (bar the rules that need the
+     * datastore). `encrypt_assertions` is never set.
+     */
+    axiam_mgmt_saml_service_provider_input_t *service_provider;
+    /**
+     * Lower-case hex SHA-256 of the signing certificate's DER the draft carries, or null.
+     * Optional.
+     */
+    char *signing_certificate_fingerprint;
+    /**
+     * What to know before submitting it. Human text; do not parse it.
+     */
+    char **warnings;
+    size_t warnings_count; /**< Entries in `warnings`. */
+};
+
+/**
+ * Free a SamlSpMetadataDraft and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_saml_sp_metadata_draft_free(axiam_mgmt_saml_sp_metadata_draft_t *value);
+
+/**
+ * The body of a started reconciliation's `202`.
+ */
+struct axiam_mgmt_scim_reconcile_accepted {
+    /**
+     * Always `started`.
+     */
+    char *status;
+    /**
+     * The target being reconciled.
+     */
+    char *target_id;
+};
+
+/**
+ * Free a ScimReconcileAccepted and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_scim_reconcile_accepted_free(axiam_mgmt_scim_reconcile_accepted_t *value);
+
+/**
+ * How AXIAM authenticates to the downstream service provider, without the credential
+ * itself.
+ */
+struct axiam_mgmt_scim_target_auth {
+    /**
+     * The `type` discriminator naming which variant this is.
+     */
+    char *type;
+    /**
+     * The whole object as the server sent it, to read the variant's own fields from once
+     * `type` says which variant it is. Optional.
+     */
+    char *raw;
+};
+
+/**
+ * Free a ScimTargetAuth and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_scim_target_auth_free(axiam_mgmt_scim_target_auth_t *value);
+
+/**
+ * 1 when the `type` this value WOULD put on the wire is one this SDK's copy of the spec
+ * lists (`bearer`, `oauth2_client_credentials`); 0 otherwise, and for NULL.
+ *
+ * The `type` set is OPEN (CONTRACT.md §31.2): a value the server sends that is not listed
+ * decodes without failing, and keeps its tag and raw object so it can be inspected. It is
+ * never SENT: every operation whose body carries one refuses it locally, before any
+ * request, with AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION. The tag read is
+ * `raw`'s own `type` when `raw` is set -- `raw` is what goes on the wire -- and `type`
+ * otherwise.
+ */
+int axiam_mgmt_scim_target_auth_is_known(const axiam_mgmt_scim_target_auth_t *value);
+
+/**
+ * A target's delivery state, as `GET` projects it. Fixed vocabulary only: the failure
+ * reason is one of the deliverer's phrases, never a URL, a response body or a value.
+ */
+struct axiam_mgmt_scim_target_delivery_state {
+    /**
+     * Failed attempts since the last success.
+     */
+    long consecutive_failures;
+    /**
+     * Deliveries dead-lettered over the target's lifetime.
+     */
+    long dead_lettered_total;
+    /**
+     * When a delivery attempt last failed or was dead-lettered. Optional.
+     */
+    char *last_failure_at;
+    /**
+     * Why, in the deliverer's fixed vocabulary. Optional.
+     */
+    char *last_failure_reason;
+    /**
+     * When reconciliation last ran. Optional.
+     */
+    char *last_reconciled_at;
+    /**
+     * When a delivery last succeeded. Optional.
+     */
+    char *last_success_at;
+};
+
+/**
+ * Free a ScimTargetDeliveryState and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_scim_target_delivery_state_free(axiam_mgmt_scim_target_delivery_state_t *value);
+
+/**
+ * `create` and `update` (a **replacement**) body.
+ */
+struct axiam_mgmt_scim_target_input {
+    /**
+     * `bearer`, or `oauth2_client_credentials` with `token_url` (the same URL policy),
+     * `client_id` (1–256 bytes) and an optional `scope`.
+     */
+    axiam_mgmt_scim_target_auth_t *auth;
+    /**
+     * The downstream's SCIM service root: an `https` URL under the outbound address policy
+     * (no credentials or fragment, at most 2 048 bytes, no non-public address, no local
+     * name).
+     */
+    char *base_url;
+    /**
+     * **Write-only.** The bearer token or the OAuth2 client secret, 1–4 096 bytes. Required
+     * on create. On update, absent keeps the stored one — except that moving it to another
+     * URL (`base_url` of a bearer target, `token_url` or `base_url` of a client-credentials
+     * one) or switching `auth.type` requires it again. Optional.
+     */
+    axiam_sensitive_t *credential;
+    /**
+     * `deactivate` (default: `PATCH active=false`) or `delete`. Optional.
+     */
+    axiam_mgmt_deprovision_policy_t deprovision;
+    int has_deprovision; /**< 1 when `deprovision` is set. */
+    /**
+     * `true` by default. A disabled target receives nothing. Optional.
+     */
+    int enabled;
+    int has_enabled; /**< 1 when `enabled` is set. */
+    /**
+     * 1–128 bytes.
+     */
+    char *name;
+    /**
+     * Push groups too (every group for `all_users`, the listed ones for `groups`). `false`
+     * by default. Optional.
+     */
+    int push_groups;
+    int has_push_groups; /**< 1 when `push_groups` is set. */
+    /**
+     * `all_users`, or `groups` with 1–100 `group_ids` of this tenant: users who are direct
+     * members of any listed group.
+     */
+    axiam_mgmt_scim_target_scope_t *scope;
+    /**
+     * `username` (default) or `email`. Optional.
+     */
+    axiam_mgmt_user_name_source_t user_name_from;
+    int has_user_name_from; /**< 1 when `user_name_from` is set. */
+};
+
+/**
+ * Free a ScimTargetInput and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_scim_target_input_free(axiam_mgmt_scim_target_input_t *value);
+
+/**
+ * A registered SCIM target, as the management API returns it. **The credential is never
+ * returned**, and there is no member that says anything about it.
+ */
+struct axiam_mgmt_scim_target_response {
+    /**
+     * How AXIAM authenticates to it (no credential).
+     */
+    axiam_mgmt_scim_target_auth_t *auth;
+    /**
+     * The downstream's SCIM service root.
+     */
+    char *base_url;
+    /**
+     * When the target was registered.
+     */
+    char *created_at;
+    /**
+     * What happens downstream to a user who leaves scope or is no longer active (erasure
+     * always deletes).
+     */
+    axiam_mgmt_deprovision_policy_t deprovision;
+    /**
+     * Whether AXIAM pushes to it.
+     */
+    int enabled;
+    /**
+     * The target id.
+     */
+    char *id;
+    /**
+     * The name.
+     */
+    char *name;
+    /**
+     * Whether groups are pushed too.
+     */
+    int push_groups;
+    /**
+     * Which users it provisions.
+     */
+    axiam_mgmt_scim_target_scope_t *scope;
+    /**
+     * The server's `state` field. Optional.
+     */
+    axiam_mgmt_scim_target_delivery_state_t *state;
+    /**
+     * The owning tenant.
+     */
+    char *tenant_id;
+    /**
+     * When it was last written: the version an update is conditional on.
+     */
+    char *updated_at;
+    /**
+     * Which attribute becomes `userName`.
+     */
+    axiam_mgmt_user_name_source_t user_name_from;
+};
+
+/**
+ * Free a ScimTargetResponse and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_scim_target_response_free(axiam_mgmt_scim_target_response_t *value);
+
+/**
+ * Which users a target provisions.
+ */
+struct axiam_mgmt_scim_target_scope {
+    /**
+     * The `type` discriminator naming which variant this is.
+     */
+    char *type;
+    /**
+     * The whole object as the server sent it, to read the variant's own fields from once
+     * `type` says which variant it is. Optional.
+     */
+    char *raw;
+};
+
+/**
+ * Free a ScimTargetScope and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_scim_target_scope_free(axiam_mgmt_scim_target_scope_t *value);
+
+/**
+ * 1 when the `type` this value WOULD put on the wire is one this SDK's copy of the spec
+ * lists (`all_users`, `groups`); 0 otherwise, and for NULL.
+ *
+ * The `type` set is OPEN (CONTRACT.md §31.2): a value the server sends that is not listed
+ * decodes without failing, and keeps its tag and raw object so it can be inspected. It is
+ * never SENT: every operation whose body carries one refuses it locally, before any
+ * request, with AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION. The tag read is
+ * `raw`'s own `type` when `raw` is set -- `raw` is what goes on the wire -- and `type`
+ * otherwise.
+ */
+int axiam_mgmt_scim_target_scope_is_known(const axiam_mgmt_scim_target_scope_t *value);
+
+/**
  * Metadata only. The handle is never in a list response — it exists in plaintext exactly
  * once, in [`CreateScimTokenResponse`].
  */
@@ -5411,6 +7054,98 @@ struct axiam_mgmt_session_response {
 void axiam_mgmt_session_response_free(axiam_mgmt_session_response_t *value);
 
 /**
+ * `PUT /api/v1/tenants/{tenant_id}/directory` — a **replacement**. Every `DirectoryConfig`
+ * member except `id`, `tenant_id` and the two timestamps, plus the write-only
+ * `bind_secret`. An omitted optional member is **reset to its default**, not kept.
+ */
+struct axiam_mgmt_set_directory_config {
+    /**
+     * Where users are searched for.
+     */
+    char *base_dn;
+    /**
+     * The service account the search runs as.
+     */
+    char *bind_dn;
+    /**
+     * The service account's password: **write-only**, 1 to 4096 octets. Required when the
+     * tenant has no configuration yet; on a replacement, absent means *keep the stored
+     * secret* — unless the write moves the connection (`url`, `start_tls`, `bind_dn` or
+     * `trust_anchors_pem`), which then requires it (`400`, P23W2-01). Optional.
+     */
+    axiam_sensitive_t *bind_secret;
+    /**
+     * A disabled directory serves no sign-in and is not synced.
+     */
+    int enabled;
+    /**
+     * Defaults to null. Optional.
+     */
+    char *group_base_dn;
+    /**
+     * Defaults to null. Optional.
+     */
+    char *group_filter;
+    /**
+     * At most 500; every `group_id` a group of the tenant. Default empty. Optional.
+     */
+    axiam_mgmt_group_mapping_t **group_mappings;
+    size_t group_mappings_count; /**< Entries in `group_mappings`. */
+    /**
+     * Defaults by `kind`. Optional.
+     */
+    char *group_member_attribute;
+    /**
+     * `0..=10`, default 5. Optional.
+     */
+    long group_nesting_depth;
+    int has_group_nesting_depth; /**< 1 when `group_nesting_depth` is set. */
+    /**
+     * Default false. Optional.
+     */
+    int jit_provisioning;
+    int has_jit_provisioning; /**< 1 when `jit_provisioning` is set. */
+    /**
+     * Chooses defaults only.
+     */
+    axiam_mgmt_directory_kind_t kind;
+    /**
+     * Upgrade an `ldap://` connection with StartTLS before any bind.
+     */
+    int start_tls;
+    /**
+     * `300..=86400`, default 3600. Optional.
+     */
+    long sync_interval_secs;
+    int has_sync_interval_secs; /**< 1 when `sync_interval_secs` is set. */
+    /**
+     * At most 16 CA certificates in PEM. Default empty (the public roots). Optional.
+     */
+    char **trust_anchors_pem;
+    size_t trust_anchors_pem_count; /**< Entries in `trust_anchors_pem`. */
+    /**
+     * `ldaps://host[:port]`, or `ldap://host[:port]` with `start_tls`.
+     */
+    char *url;
+    /**
+     * The server's `user_attribute_map` field. Optional.
+     */
+    axiam_mgmt_user_attribute_map_t *user_attribute_map;
+    /**
+     * One `{username}` placeholder in value position.
+     */
+    char *user_filter;
+};
+
+/**
+ * Free a SetDirectoryConfig and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_set_directory_config_free(axiam_mgmt_set_directory_config_t *value);
+
+/**
  * Body for `PUT .../ca-certificates/{id}/mtls-trust-anchor`.
  */
 struct axiam_mgmt_set_mtls_trust_anchor {
@@ -5603,6 +7338,12 @@ struct axiam_mgmt_set_org_settings {
      */
     int require_uppercase;
     /**
+     * G-2 / D-20 — defaulted, so an API client written before the SAML identity provider
+     * existed lands on `false`, which is what every deployment did before (I1). Optional.
+     */
+    int saml_idp_enabled;
+    int has_saml_idp_enabled; /**< 1 when `saml_idp_enabled` is set. */
+    /**
      * The server's `sensitive_scopes_enabled` field. Optional.
      */
     int sensitive_scopes_enabled;
@@ -5613,6 +7354,12 @@ struct axiam_mgmt_set_org_settings {
      */
     char **server_cert_allowed_names;
     size_t server_cert_allowed_names_count; /**< Entries in `server_cert_allowed_names`. */
+    /**
+     * G-5 / D-45 — defaulted, so an API client written before the SSF transmitter existed
+     * lands on `false`, which is what every deployment did before (I1). Optional.
+     */
+    int ssf_enabled;
+    int has_ssf_enabled; /**< 1 when `ssf_enabled` is set. */
     /**
      * The server's `webauthn_user_verification` field. Optional.
      */
@@ -5793,6 +7540,175 @@ struct axiam_mgmt_smtp_config {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_smtp_config_free(axiam_mgmt_smtp_config_t *value);
+
+/**
+ * A registered SSF stream, as the management API returns it. **The push `Authorization`
+ * header is never returned**; `authorization_header_set` says whether one is stored.
+ */
+struct axiam_mgmt_ssf_stream {
+    /**
+     * The SET `aud`. Unique across the deployment.
+     */
+    char *audience;
+    /**
+     * Whether a push `Authorization` header is stored.
+     */
+    int authorization_header_set;
+    /**
+     * When the stream was registered.
+     */
+    char *created_at;
+    /**
+     * `push` (RFC 8935) or `poll` (RFC 8936).
+     */
+    axiam_mgmt_ssf_delivery_method_t delivery_method;
+    /**
+     * A description. Optional.
+     */
+    char *description;
+    /**
+     * The push endpoint, or null for a poll stream. Optional.
+     */
+    char *endpoint_url;
+    /**
+     * The event types the receiver may have.
+     */
+    char *events_allowed;
+    /**
+     * What the stream carries: the intersection of the two.
+     */
+    char *events_delivered;
+    /**
+     * The event types the receiver asked for (a subset of `events_allowed`).
+     */
+    char *events_requested;
+    /**
+     * The stream id, also the SSF `stream_id`.
+     */
+    char *id;
+    /**
+     * When the receiver last asked for a verification event, or null. Optional.
+     */
+    char *last_verification_at;
+    /**
+     * The OAuth2 `client_id` whose client-credentials token (scope `ssf.manage`) is this
+     * stream's receiver on the stream management API.
+     */
+    char *receiver_client_id;
+    /**
+     * `enabled`, `paused` or `disabled`.
+     */
+    axiam_mgmt_ssf_stream_status_t status;
+    /**
+     * Who set the status: `admin` or `receiver`.
+     */
+    axiam_mgmt_ssf_status_actor_t status_actor;
+    /**
+     * Why, if anyone said. Optional.
+     */
+    char *status_reason;
+    /**
+     * `iss_sub` (default) or `email`.
+     */
+    axiam_mgmt_ssf_subject_format_t subject_format;
+    /**
+     * The owning tenant.
+     */
+    char *tenant_id;
+    /**
+     * Whether the tenant's transmitter is active: its `ssf_enabled` is on and the
+     * deployment does not make every tenant share one issuer (D-55). A stream of an
+     * inactive transmitter is kept, and carries nothing.
+     */
+    int transmitter_active;
+    /**
+     * Why the transmitter is inactive, when it is. Optional.
+     */
+    char *transmitter_inactive_reason;
+    /**
+     * When it was last written.
+     */
+    char *updated_at;
+};
+
+/**
+ * Free a SsfStream and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_ssf_stream_free(axiam_mgmt_ssf_stream_t *value);
+
+/**
+ * `create_stream` and `update_stream` (a **replacement**) body.
+ */
+struct axiam_mgmt_ssf_stream_input {
+    /**
+     * 1–512 bytes; unique across the deployment.
+     */
+    char *audience;
+    /**
+     * **Write-only.** The `Authorization` header value AXIAM sends to a push endpoint. On
+     * update, absent keeps the stored one — except that moving the endpoint to another
+     * origin requires it again. Optional.
+     */
+    axiam_sensitive_t *authorization_header;
+    /**
+     * On update: remove the stored header. Refused together with `authorization_header`.
+     * Optional.
+     */
+    int clear_authorization_header;
+    int has_clear_authorization_header; /**< 1 when `clear_authorization_header` is set. */
+    /**
+     * `push` or `poll`.
+     */
+    axiam_mgmt_ssf_delivery_method_t delivery_method;
+    /**
+     * At most 256 bytes. Optional.
+     */
+    char *description;
+    /**
+     * Required for `push` (an `https` URL under the outbound address policy), refused for
+     * `poll`. Optional.
+     */
+    char *endpoint_url;
+    /**
+     * 1–6 event types.
+     */
+    char *events_allowed;
+    /**
+     * A subset of `events_allowed`; absent means all of them. The receiver may narrow it
+     * later, never widen it. Optional.
+     */
+    char *events_requested;
+    /**
+     * An OAuth2 client of the tenant with the `client_credentials` grant and the
+     * `ssf.manage` scope.
+     */
+    char *receiver_client_id;
+    /**
+     * `enabled` by default. Optional.
+     */
+    axiam_mgmt_ssf_stream_status_t status;
+    int has_status; /**< 1 when `status` is set. */
+    /**
+     * At most 256 bytes. Optional.
+     */
+    char *status_reason;
+    /**
+     * `iss_sub` by default. Optional.
+     */
+    axiam_mgmt_ssf_subject_format_t subject_format;
+    int has_subject_format; /**< 1 when `subject_format` is set. */
+};
+
+/**
+ * Free a SsfStreamInput and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_ssf_stream_input_free(axiam_mgmt_ssf_stream_input_t *value);
 
 /**
  * A name to put in a `Server` certificate's `subjectAltName`. Stated explicitly in the
@@ -6043,6 +7959,12 @@ struct axiam_mgmt_tenant_settings_override {
     int require_uppercase;
     int has_require_uppercase; /**< 1 when `require_uppercase` is set. */
     /**
+     * G-2 / D-20 — disable-only, like `sensitive_scopes_enabled`; see
+     * [`OidcPolicy::saml_idp_enabled`]. Optional.
+     */
+    int saml_idp_enabled;
+    int has_saml_idp_enabled; /**< 1 when `saml_idp_enabled` is set. */
+    /**
      * The server's `sensitive_scopes_enabled` field. Optional.
      */
     int sensitive_scopes_enabled;
@@ -6054,6 +7976,12 @@ struct axiam_mgmt_tenant_settings_override {
      */
     char **server_cert_allowed_names;
     size_t server_cert_allowed_names_count; /**< Entries in `server_cert_allowed_names`. */
+    /**
+     * G-5 / D-45 — disable-only, like `saml_idp_enabled`; see [`OidcPolicy::ssf_enabled`].
+     * Optional.
+     */
+    int ssf_enabled;
+    int has_ssf_enabled; /**< 1 when `ssf_enabled` is set. */
     /**
      * The server's `webauthn_user_verification` field. Optional.
      */
@@ -6184,6 +8112,116 @@ struct axiam_mgmt_token_policy {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_token_policy_free(axiam_mgmt_token_policy_t *value);
+
+/**
+ * `PATCH /api/v1/tenants/{tenant_id}/directory` — a **sparse** update. Every member
+ * optional: absent leaves the stored value, and for the two nullable members an explicit
+ * `null` clears it.
+ *
+ * Every member is optional, so this is a SPARSE body (27.4 rule 5): a NULL pointer -- or a
+ * `has_` flag left 0 -- means the field is OMITTED from the request entirely, not sent as
+ * null. On a sparse update those say opposite things, and only omission means "leave it
+ * alone".
+ */
+struct axiam_mgmt_update_directory_config {
+    /**
+     * See [`SetDirectoryConfig::base_dn`]. Optional.
+     */
+    char *base_dn;
+    /**
+     * See [`SetDirectoryConfig::bind_dn`]. Optional.
+     */
+    char *bind_dn;
+    /**
+     * See [`SetDirectoryConfig::bind_secret`]; absent keeps the stored secret, subject to
+     * the same P23W2-01 rule. Optional.
+     */
+    axiam_sensitive_t *bind_secret;
+    /**
+     * See [`SetDirectoryConfig::enabled`]. Optional.
+     */
+    int enabled;
+    int has_enabled; /**< 1 when `enabled` is set. */
+    /**
+     * Explicit `null` clears it. Optional.
+     */
+    char *group_base_dn;
+    /**
+     * Presence of `group_base_dn`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `group_base_dn` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_group_base_dn;
+    /**
+     * Explicit `null` clears it. Optional.
+     */
+    char *group_filter;
+    /**
+     * Presence of `group_filter`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `group_filter` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_group_filter;
+    /**
+     * Replaces the whole table when present. Optional.
+     */
+    axiam_mgmt_group_mapping_t **group_mappings;
+    size_t group_mappings_count; /**< Entries in `group_mappings`. */
+    /**
+     * See [`SetDirectoryConfig::group_member_attribute`]. Optional.
+     */
+    char *group_member_attribute;
+    /**
+     * See [`SetDirectoryConfig::group_nesting_depth`]. Optional.
+     */
+    long group_nesting_depth;
+    int has_group_nesting_depth; /**< 1 when `group_nesting_depth` is set. */
+    /**
+     * See [`SetDirectoryConfig::jit_provisioning`]. Optional.
+     */
+    int jit_provisioning;
+    int has_jit_provisioning; /**< 1 when `jit_provisioning` is set. */
+    /**
+     * The server's `kind` field. Optional.
+     */
+    axiam_mgmt_directory_kind_t kind;
+    int has_kind; /**< 1 when `kind` is set. */
+    /**
+     * See [`SetDirectoryConfig::start_tls`]. Optional.
+     */
+    int start_tls;
+    int has_start_tls; /**< 1 when `start_tls` is set. */
+    /**
+     * See [`SetDirectoryConfig::sync_interval_secs`]. Optional.
+     */
+    long sync_interval_secs;
+    int has_sync_interval_secs; /**< 1 when `sync_interval_secs` is set. */
+    /**
+     * Replaces the whole list when present. Optional.
+     */
+    char **trust_anchors_pem;
+    size_t trust_anchors_pem_count; /**< Entries in `trust_anchors_pem`. */
+    /**
+     * See [`SetDirectoryConfig::url`]. Optional.
+     */
+    char *url;
+    /**
+     * The server's `user_attribute_map` field. Optional.
+     */
+    axiam_mgmt_user_attribute_map_t *user_attribute_map;
+    /**
+     * See [`SetDirectoryConfig::user_filter`]. Optional.
+     */
+    char *user_filter;
+};
+
+/**
+ * Free a UpdateDirectoryConfig and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_update_directory_config_free(axiam_mgmt_update_directory_config_t *value);
 
 /**
  * The `UpdateFederationConfigRequest` schema from the server's OpenAPI document.
@@ -6384,10 +8422,27 @@ struct axiam_mgmt_update_o_auth2_client_request {
     axiam_mgmt_authn_request_params_mode_t authn_request_params;
     int has_authn_request_params; /**< 1 when `authn_request_params` is set. */
     /**
+     * G-7 — see the create DTO. `""` clears. Optional.
+     */
+    char *backchannel_authentication_request_signing_alg;
+    /**
+     * G-7 — see the create DTO. `""` clears. Optional.
+     */
+    char *backchannel_client_notification_endpoint;
+    /**
      * Pass an empty string to clear a previously registered URI — the one edit an operator
      * makes when an RP is decommissioned. Optional.
      */
     char *backchannel_logout_uri;
+    /**
+     * G-7 — see the create DTO. `""` clears. Optional.
+     */
+    char *backchannel_token_delivery_mode;
+    /**
+     * G-7 — `true` refused, as on create. Optional.
+     */
+    int backchannel_user_code_parameter;
+    int has_backchannel_user_code_parameter; /**< 1 when `backchannel_user_code_parameter` is set. */
     /**
      * X7.3 — see [`CreateOAuth2ClientRequest::browser_sso`]. Optional.
      */
@@ -6839,6 +8894,36 @@ struct axiam_mgmt_update_webhook_request {
 void axiam_mgmt_update_webhook_request_free(axiam_mgmt_update_webhook_request_t *value);
 
 /**
+ * Which directory attribute feeds each AXIAM user field.
+ */
+struct axiam_mgmt_user_attribute_map {
+    /**
+     * The attribute holding the human-readable name.
+     */
+    char *display_name;
+    /**
+     * The attribute holding the e-mail address.
+     */
+    char *email;
+    /**
+     * The attribute holding the immutable entry identifier (`entryUUID`, `objectGUID`).
+     */
+    char *external_id;
+    /**
+     * The attribute holding the login name (`uid`, `sAMAccountName`).
+     */
+    char *username;
+};
+
+/**
+ * Free a UserAttributeMap and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_user_attribute_map_free(axiam_mgmt_user_attribute_map_t *value);
+
+/**
  * Public-safe user representation (no password_hash, no mfa_secret).
  */
 struct axiam_mgmt_user_response {
@@ -7279,6 +9364,44 @@ typedef struct axiam_mgmt_role_page {
 void axiam_mgmt_role_page_free(axiam_mgmt_role_page_t *page);
 
 /**
+ * One page of SamlServiceProvider objects (27.4 rule 4).
+ *
+ * `total` is the SERVER's count across every page. It is NOT `count`, and deriving one from
+ * the other is how a management tool silently processes the first fifty of four hundred
+ * rows -- so they are separate members and neither is computed from the other.
+ */
+typedef struct axiam_mgmt_saml_service_provider_page {
+    axiam_mgmt_saml_service_provider_t **items; /**< The items on THIS page. */
+    size_t count;              /**< How many items are on this page. */
+    long total;                /**< The server's total across all pages. */
+    axiam_mgmt_page_req_t request; /**< The request that produced this page. */
+} axiam_mgmt_saml_service_provider_page_t;
+
+/**
+ * Free a page of SamlServiceProvider objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_saml_service_provider_page_free(axiam_mgmt_saml_service_provider_page_t *page);
+
+/**
+ * One page of ScimTargetResponse objects (27.4 rule 4).
+ *
+ * `total` is the SERVER's count across every page. It is NOT `count`, and deriving one from
+ * the other is how a management tool silently processes the first fifty of four hundred
+ * rows -- so they are separate members and neither is computed from the other.
+ */
+typedef struct axiam_mgmt_scim_target_response_page {
+    axiam_mgmt_scim_target_response_t **items; /**< The items on THIS page. */
+    size_t count;              /**< How many items are on this page. */
+    long total;                /**< The server's total across all pages. */
+    axiam_mgmt_page_req_t request; /**< The request that produced this page. */
+} axiam_mgmt_scim_target_response_page_t;
+
+/**
+ * Free a page of ScimTargetResponse objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_scim_target_response_page_free(axiam_mgmt_scim_target_response_page_t *page);
+
+/**
  * One page of ServiceAccountResponse objects (27.4 rule 4).
  *
  * `total` is the SERVER's count across every page. It is NOT `count`, and deriving one from
@@ -7296,6 +9419,25 @@ typedef struct axiam_mgmt_service_account_response_page {
  * Free a page of ServiceAccountResponse objects and every item in it. Safe to pass NULL.
  */
 void axiam_mgmt_service_account_response_page_free(axiam_mgmt_service_account_response_page_t *page);
+
+/**
+ * One page of SsfStream objects (27.4 rule 4).
+ *
+ * `total` is the SERVER's count across every page. It is NOT `count`, and deriving one from
+ * the other is how a management tool silently processes the first fifty of four hundred
+ * rows -- so they are separate members and neither is computed from the other.
+ */
+typedef struct axiam_mgmt_ssf_stream_page {
+    axiam_mgmt_ssf_stream_t **items; /**< The items on THIS page. */
+    size_t count;              /**< How many items are on this page. */
+    long total;                /**< The server's total across all pages. */
+    axiam_mgmt_page_req_t request; /**< The request that produced this page. */
+} axiam_mgmt_ssf_stream_page_t;
+
+/**
+ * Free a page of SsfStream objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_ssf_stream_page_free(axiam_mgmt_ssf_stream_page_t *page);
 
 /**
  * One page of Tenant objects (27.4 rule 4).
@@ -7575,6 +9717,23 @@ typedef struct axiam_mgmt_role_user_assignment_list {
  * Free a list of RoleUserAssignment objects and every item in it. Safe to pass NULL.
  */
 void axiam_mgmt_role_user_assignment_list_free(axiam_mgmt_role_user_assignment_list_t *list);
+
+/**
+ * A plain list of SamlIdpCredential objects.
+ *
+ * This is what a BARE-ARRAY endpoint returns. 27.4 rule 4 is explicit that such a response
+ * MUST NOT be modelled as a page: there is no `total`, no offset and no next page, and
+ * dressing it as one would invite a caller to walk something that has already ended.
+ */
+typedef struct axiam_mgmt_saml_idp_credential_list {
+    axiam_mgmt_saml_idp_credential_t **items; /**< Every item the server returned. */
+    size_t count;              /**< How many. */
+} axiam_mgmt_saml_idp_credential_list_t;
+
+/**
+ * Free a list of SamlIdpCredential objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_saml_idp_credential_list_free(axiam_mgmt_saml_idp_credential_list_t *list);
 
 /**
  * A plain list of ScimTokenResponse objects.

@@ -144,9 +144,10 @@ extern "C" {
 /* ------------------------------------------------------------------ */
 
 /**
- * RFC 8705 §5 `mtls_endpoint_aliases` — the six endpoints re-based on the host
- * that performs the mutual-TLS handshake (wire schema `MtlsEndpointAliases`,
- * contract 1.40). All members owned; NULL when the server named that endpoint
+ * RFC 8705 §5 `mtls_endpoint_aliases` — the seven endpoints re-based on the
+ * host that performs the mutual-TLS handshake (wire schema `MtlsEndpointAliases`,
+ * contract 1.40; the seventh, `backchannel_authentication_endpoint`, contract
+ * 1.58 — CONTRACT.md §21.3.1 as amended for §33 CIBA). All members owned; NULL when the server named that endpoint
  * no alias.
  *
  * A TLS listener decides whether to request a client certificate during the
@@ -154,14 +155,14 @@ extern "C" {
  * `/oauth2/token` but not on `/oauth2/authorize`" is not something one listener
  * can do. A deployment wanting both runs two, and this object names the second.
  *
- * Only these six are ever aliased. `authorization_endpoint` and
+ * Only these seven are ever aliased. `authorization_endpoint` and
  * `end_session_endpoint` are front-channel and `jwks_uri` is public key
  * material, so CONTRACT.md §21.3 rule 2 forbids synthesising an alias for any of
  * them — sending a browser to an mTLS host raises a native certificate-chooser
  * dialog most users cannot answer. `issuer` is not an endpoint and does not move
  * either: §12.4 rule 3 still compares `iss` against it by exact string.
  *
- * EVERY MEMBER MAY BE NULL, though the server's schema marks all six required.
+ * EVERY MEMBER MAY BE NULL, though the server's schema marks them required.
  * AXIAM builds them from one path through a shared macro and so always publishes
  * the complete set, but RFC 8705 §5 permits an OP to alias fewer, and the shape
  * of this member must never be why a client stops working — the same principle
@@ -182,6 +183,13 @@ typedef struct axiam_mtls_endpoint_aliases {
     char *device_authorization_endpoint;
     /** RFC 9126 §2 — authenticates the client. */
     char *pushed_authorization_request_endpoint;
+    /**
+     * CIBA Core §7 (CONTRACT.md §33, contract 1.58) — authenticates the client: a
+     * `tls_client_auth` CIBA client, the FAPI-CIBA shape, presents its certificate
+     * at `bc-authorize` exactly as at the token endpoint. Added at the END of the
+     * struct, so the six members before it keep their offsets.
+     */
+    char *backchannel_authentication_endpoint;
 } axiam_mtls_endpoint_aliases_t;
 
 /**
@@ -275,6 +283,22 @@ typedef struct axiam_oidc_config {
      */
     char **token_endpoint_auth_signing_alg_values_supported;
     size_t token_endpoint_auth_signing_alg_values_supported_count;
+    /**
+     * CIBA Core §4 / CONTRACT.md §33.1 (contract 1.58): where axiam_ciba_initiate()
+     * posts. NULL when the server does not support CIBA — an error at call time,
+     * never a cue to build the URL by concatenation.
+     */
+    char *backchannel_authentication_endpoint;
+    /** `poll` and/or `ping` (AXIAM offers no push). NULL with a count of 0 when absent. */
+    char **backchannel_token_delivery_modes_supported;
+    size_t backchannel_token_delivery_modes_supported_count;
+    /** The algorithms a signed CIBA request may use (§33.2). Informational. */
+    char **backchannel_authentication_request_signing_alg_values_supported;
+    size_t backchannel_authentication_request_signing_alg_values_supported_count;
+    /** AXIAM publishes `false`: no user code is ever sent (§33.3 rule 3). Valid only
+     *  when `has_backchannel_user_code_parameter_supported` is 1. */
+    int backchannel_user_code_parameter_supported;
+    int has_backchannel_user_code_parameter_supported; /**< 1 when the member was present. */
 } axiam_oidc_config_t;
 
 /**

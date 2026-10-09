@@ -7,7 +7,8 @@
  *  - a call going over mTLS prefers the alias;
  *  - a call NOT going over mTLS keeps the top-level entry;
  *  - an ABSENT member means "no separate mTLS host", never "unsupported";
- *  - only the six listed endpoints are ever aliased — not
+ *  - only the seven listed endpoints are ever aliased (the seventh,
+ *    `backchannel_authentication_endpoint`, since contract 1.58) — not
  *    `authorization_endpoint`, `end_session_endpoint` or `jwks_uri`;
  *  - `issuer` is not an endpoint, does not move, and still governs `iss`
  *    validation by exact string.
@@ -23,6 +24,8 @@
 
 #include "unity.h"
 #include "axiam/axiam.h"
+#include "axiam/ciba.h"
+#include "cJSON.h"
 #include "oidc_test_util.h"
 /* oidc_assert_usable_mtls_alias is module-private: the validator is asserted
  * directly as well as through a call, because a table of boundary cases reads
@@ -49,7 +52,7 @@
     "bm90LWtleS1tYXRlcmlhbA==\n"                                               \
     "-----END AXIAM TEST PLACEHOLDER-----\n"
 
-/* The conventional document, plus all six aliases on the mTLS host. */
+/* The conventional document, plus all seven aliases on the mTLS host. */
 #define ALIAS_DISCOVERY_BODY                                                   \
     "{\"issuer\":\"" OIDC_ISSUER "\","                                         \
     "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","           \
@@ -61,13 +64,15 @@
     "\"end_session_endpoint\":\"" OIDC_BASE "/oauth2/end_session\","           \
     "\"device_authorization_endpoint\":\"" OIDC_BASE "/oauth2/device_authorization\"," \
     "\"pushed_authorization_request_endpoint\":\"" OIDC_BASE "/oauth2/par\","  \
+    "\"backchannel_authentication_endpoint\":\"" OIDC_BASE "/oauth2/bc-authorize\"," \
     "\"mtls_endpoint_aliases\":{"                                              \
     "\"token_endpoint\":\"" MTLS_BASE "/oauth2/token\","                       \
     "\"userinfo_endpoint\":\"" MTLS_BASE "/oauth2/userinfo\","                 \
     "\"revocation_endpoint\":\"" MTLS_BASE "/oauth2/revoke\","                 \
     "\"introspection_endpoint\":\"" MTLS_BASE "/oauth2/introspect\","          \
     "\"device_authorization_endpoint\":\"" MTLS_BASE "/oauth2/device_authorization\"," \
-    "\"pushed_authorization_request_endpoint\":\"" MTLS_BASE "/oauth2/par\"},"  \
+    "\"pushed_authorization_request_endpoint\":\"" MTLS_BASE "/oauth2/par\","   \
+    "\"backchannel_authentication_endpoint\":\"" MTLS_BASE "/oauth2/bc-authorize\"}," \
     "\"response_types_supported\":[\"code\"],"                                 \
     "\"id_token_signing_alg_values_supported\":[\"EdDSA\"],"                   \
     "\"scopes_supported\":[\"openid\",\"profile\"]}"
@@ -584,6 +589,122 @@ void test_one_malformed_alias_does_not_poison_the_others(void) {
 /* The validator itself, asserted directly: the two defects and the two shapes
  * that are NOT defects. A published alias reaches it only through a call, and a
  * table like this is what keeps the boundary cases readable. */
+/* ------------------------------------------------------------------ */
+/* CONTRACT.md §21.3.1 vector A, read verbatim from the vendored copy  */
+/* ------------------------------------------------------------------ */
+
+/* The JSON block of vector A, as CONTRACT.md carries it: the first ```json fence after
+ * the vector's heading. Read rather than retyped, so a re-vendor that amends the vector
+ * (as contract 1.58 did, adding the seventh alias) reaches this test by itself. */
+static char *vector_a(void) {
+    FILE *f = fopen(AXIAM_REPO_ROOT "/CONTRACT.md", "rb");
+    TEST_ASSERT_NOT_NULL(f);
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *text = malloc((size_t)size + 1);
+    TEST_ASSERT_NOT_NULL(text);
+    TEST_ASSERT_EQUAL_INT((int)size, (int)fread(text, 1, (size_t)size, f));
+    text[size] = '\0';
+    fclose(f);
+    const char *heading = strstr(text, "**Vector A — a two-listener deployment.**");
+    TEST_ASSERT_NOT_NULL(heading);
+    const char *open = strstr(heading, "```json\n");
+    TEST_ASSERT_NOT_NULL(open);
+    open += strlen("```json\n");
+    const char *close = strstr(open, "```");
+    TEST_ASSERT_NOT_NULL(close);
+    size_t n = (size_t)(close - open);
+    char *json = malloc(n + 1);
+    memcpy(json, open, n);
+    json[n] = '\0';
+    free(text);
+    return json;
+}
+
+void test_vector_a_carries_seven_aliases_and_every_one_is_decoded(void) {
+    char *doc = vector_a();
+    cJSON *parsed = cJSON_Parse(doc);
+    TEST_ASSERT_NOT_NULL(parsed);
+    const cJSON *aliases = cJSON_GetObjectItemCaseSensitive(parsed, "mtls_endpoint_aliases");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(7, cJSON_GetArraySize(aliases), "vector A names seven aliases");
+    TEST_ASSERT_NOT_NULL(cJSON_GetObjectItemCaseSensitive(parsed, "backchannel_authentication_endpoint"));
+
+    g_oidc.discovery_body = doc;
+    axiam_client_t *c = mtls_client();
+    axiam_oidc_config_t cfg;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL_INT(1, cfg.has_mtls_endpoint_aliases);
+    const char *decoded[7] = {
+        cfg.mtls_endpoint_aliases.token_endpoint,
+        cfg.mtls_endpoint_aliases.userinfo_endpoint,
+        cfg.mtls_endpoint_aliases.revocation_endpoint,
+        cfg.mtls_endpoint_aliases.introspection_endpoint,
+        cfg.mtls_endpoint_aliases.device_authorization_endpoint,
+        cfg.mtls_endpoint_aliases.pushed_authorization_request_endpoint,
+        cfg.mtls_endpoint_aliases.backchannel_authentication_endpoint,
+    };
+    static const char *const names[7] = {
+        "token_endpoint", "userinfo_endpoint", "revocation_endpoint", "introspection_endpoint",
+        "device_authorization_endpoint", "pushed_authorization_request_endpoint",
+        "backchannel_authentication_endpoint",
+    };
+    /* Every alias the vector carries has a member, and holds exactly the vector's value. */
+    for (int i = 0; i < 7; i++) {
+        const cJSON *v = cJSON_GetObjectItemCaseSensitive(aliases, names[i]);
+        TEST_ASSERT_NOT_NULL_MESSAGE(v, names[i]);
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(v->valuestring, decoded[i], names[i]);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(0, strncmp(decoded[i], "https://mtls.iam.example.test/", 30),
+                                      names[i]);
+    }
+    TEST_ASSERT_EQUAL_STRING("https://iam.example.test/oauth2/bc-authorize?tenant_id="
+                             "6f3e0a5c-1b2d-4e8f-9a7b-0c1d2e3f4a5b",
+                             cfg.backchannel_authentication_endpoint);
+    /* The issuer does not move. */
+    TEST_ASSERT_EQUAL_STRING("https://iam.example.test", cfg.issuer);
+
+    /* The CIBA backchannel call, from an mTLS client, goes to the alias — with the
+     * caller's tenant displacing the published one, never duplicated. */
+    g_oidc.bc_authorize_answer =
+        (oidc_answer_t){200, "{\"auth_req_id\":\"r-1\",\"expires_in\":60}", 0};
+    axiam_ciba_initiate_params_t p;
+    memset(&p, 0, sizeof p);
+    p.scope = "openid";
+    p.hint = "alice";
+    axiam_ciba_initiate_response_t r;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_ciba_initiate(c, &p, &r, &err));
+    int i = oidc_last_call("/oauth2/bc-authorize");
+    TEST_ASSERT_TRUE(i >= 0);
+    TEST_ASSERT_EQUAL_STRING("https://mtls.iam.example.test/oauth2/bc-authorize?tenant_id="
+                             AXIAM_TEST_TENANT_ID, g_oidc.urls[i]);
+    axiam_ciba_initiate_response_dispose(&r);
+
+    axiam_oidc_config_dispose(&cfg);
+    cJSON_Delete(parsed);
+    axiam_client_free(c);
+    free(doc);
+}
+
+void test_a_client_not_doing_mtls_sends_ciba_to_the_top_level_endpoint(void) {
+    g_oidc.discovery_body = ALIAS_DISCOVERY_BODY;
+    g_oidc.bc_authorize_answer =
+        (oidc_answer_t){200, "{\"auth_req_id\":\"r-2\",\"expires_in\":60}", 0};
+    axiam_client_t *c = oidc_make_client();
+    axiam_ciba_initiate_params_t p;
+    memset(&p, 0, sizeof p);
+    p.scope = "openid";
+    p.hint = "alice";
+    axiam_ciba_initiate_response_t r;
+    axiam_error_t err;
+    axiam_error_reset(&err);
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_ciba_initiate(c, &p, &r, &err));
+    assert_went_to("/oauth2/bc-authorize", OIDC_BASE);
+    axiam_ciba_initiate_response_dispose(&r);
+    axiam_client_free(c);
+}
+
 void test_the_alias_validator_refuses_exactly_two_shapes(void) {
     axiam_error_t err;
 
@@ -627,5 +748,7 @@ int main(void) {
     RUN_TEST(test_a_malformed_alias_cannot_break_a_client_not_doing_mtls);
     RUN_TEST(test_one_malformed_alias_does_not_poison_the_others);
     RUN_TEST(test_the_alias_validator_refuses_exactly_two_shapes);
+    RUN_TEST(test_vector_a_carries_seven_aliases_and_every_one_is_decoded);
+    RUN_TEST(test_a_client_not_doing_mtls_sends_ciba_to_the_top_level_endpoint);
     return UNITY_END();
 }

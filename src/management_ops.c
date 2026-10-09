@@ -16,6 +16,8 @@
  * Internal parse/build, shared with management_models.c. Declared rather than made public:
  * a caller has the typed operations above and never needs to hand a raw cJSON to a model.
  */
+axiam_mgmt_acs_endpoint_t *axiam_mgmt_acs_endpoint_parse(const cJSON *src);
+cJSON *axiam_mgmt_acs_endpoint_build(const axiam_mgmt_acs_endpoint_t *value);
 axiam_mgmt_add_member_request_t *axiam_mgmt_add_member_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_add_member_request_build(const axiam_mgmt_add_member_request_t *value);
 axiam_mgmt_add_service_account_member_request_t *axiam_mgmt_add_service_account_member_request_parse(const cJSON *src);
@@ -28,6 +30,8 @@ axiam_mgmt_assign_role_to_service_account_request_t *axiam_mgmt_assign_role_to_s
 cJSON *axiam_mgmt_assign_role_to_service_account_request_build(const axiam_mgmt_assign_role_to_service_account_request_t *value);
 axiam_mgmt_assign_role_to_user_request_t *axiam_mgmt_assign_role_to_user_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_assign_role_to_user_request_build(const axiam_mgmt_assign_role_to_user_request_t *value);
+axiam_mgmt_attribute_mapping_t *axiam_mgmt_attribute_mapping_parse(const cJSON *src);
+cJSON *axiam_mgmt_attribute_mapping_build(const axiam_mgmt_attribute_mapping_t *value);
 axiam_mgmt_audit_log_entry_t *axiam_mgmt_audit_log_entry_parse(const cJSON *src);
 cJSON *axiam_mgmt_audit_log_entry_build(const axiam_mgmt_audit_log_entry_t *value);
 axiam_mgmt_bind_certificate_t *axiam_mgmt_bind_certificate_parse(const cJSON *src);
@@ -86,6 +90,12 @@ axiam_mgmt_create_user_request_t *axiam_mgmt_create_user_request_parse(const cJS
 cJSON *axiam_mgmt_create_user_request_build(const axiam_mgmt_create_user_request_t *value);
 axiam_mgmt_create_webhook_request_t *axiam_mgmt_create_webhook_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_webhook_request_build(const axiam_mgmt_create_webhook_request_t *value);
+axiam_mgmt_directory_config_t *axiam_mgmt_directory_config_parse(const cJSON *src);
+cJSON *axiam_mgmt_directory_config_build(const axiam_mgmt_directory_config_t *value);
+axiam_mgmt_directory_link_result_t *axiam_mgmt_directory_link_result_parse(const cJSON *src);
+cJSON *axiam_mgmt_directory_link_result_build(const axiam_mgmt_directory_link_result_t *value);
+axiam_mgmt_directory_sync_status_t *axiam_mgmt_directory_sync_status_parse(const cJSON *src);
+cJSON *axiam_mgmt_directory_sync_status_build(const axiam_mgmt_directory_sync_status_t *value);
 axiam_mgmt_email_config_t *axiam_mgmt_email_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_email_config_build(const axiam_mgmt_email_config_t *value);
 axiam_mgmt_email_config_override_t *axiam_mgmt_email_config_override_parse(const cJSON *src);
@@ -116,10 +126,16 @@ axiam_mgmt_granted_scope_t *axiam_mgmt_granted_scope_parse(const cJSON *src);
 cJSON *axiam_mgmt_granted_scope_build(const axiam_mgmt_granted_scope_t *value);
 axiam_mgmt_group_t *axiam_mgmt_group_parse(const cJSON *src);
 cJSON *axiam_mgmt_group_build(const axiam_mgmt_group_t *value);
+axiam_mgmt_group_mapping_t *axiam_mgmt_group_mapping_parse(const cJSON *src);
+cJSON *axiam_mgmt_group_mapping_build(const axiam_mgmt_group_mapping_t *value);
 axiam_mgmt_health_response_t *axiam_mgmt_health_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_health_response_build(const axiam_mgmt_health_response_t *value);
 axiam_mgmt_import_ca_certificate_request_t *axiam_mgmt_import_ca_certificate_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_import_ca_certificate_request_build(const axiam_mgmt_import_ca_certificate_request_t *value);
+axiam_mgmt_issue_saml_idp_credential_t *axiam_mgmt_issue_saml_idp_credential_parse(const cJSON *src);
+cJSON *axiam_mgmt_issue_saml_idp_credential_build(const axiam_mgmt_issue_saml_idp_credential_t *value);
+axiam_mgmt_link_directory_account_t *axiam_mgmt_link_directory_account_parse(const cJSON *src);
+cJSON *axiam_mgmt_link_directory_account_build(const axiam_mgmt_link_directory_account_t *value);
 axiam_mgmt_lockout_policy_t *axiam_mgmt_lockout_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_lockout_policy_build(const axiam_mgmt_lockout_policy_t *value);
 axiam_mgmt_mds_refresh_outcome_t *axiam_mgmt_mds_refresh_outcome_parse(const cJSON *src);
@@ -158,6 +174,8 @@ axiam_mgmt_opaque_policy_t *axiam_mgmt_opaque_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_opaque_policy_build(const axiam_mgmt_opaque_policy_t *value);
 axiam_mgmt_organization_t *axiam_mgmt_organization_parse(const cJSON *src);
 cJSON *axiam_mgmt_organization_build(const axiam_mgmt_organization_t *value);
+axiam_mgmt_parse_saml_sp_metadata_t *axiam_mgmt_parse_saml_sp_metadata_parse(const cJSON *src);
+cJSON *axiam_mgmt_parse_saml_sp_metadata_build(const axiam_mgmt_parse_saml_sp_metadata_t *value);
 axiam_mgmt_password_policy_t *axiam_mgmt_password_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_password_policy_build(const axiam_mgmt_password_policy_t *value);
 axiam_mgmt_permission_t *axiam_mgmt_permission_parse(const cJSON *src);
@@ -196,6 +214,30 @@ axiam_mgmt_role_user_assignment_t *axiam_mgmt_role_user_assignment_parse(const c
 cJSON *axiam_mgmt_role_user_assignment_build(const axiam_mgmt_role_user_assignment_t *value);
 axiam_mgmt_rotate_secret_response_t *axiam_mgmt_rotate_secret_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_rotate_secret_response_build(const axiam_mgmt_rotate_secret_response_t *value);
+axiam_mgmt_saml_idp_credential_t *axiam_mgmt_saml_idp_credential_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_idp_credential_build(const axiam_mgmt_saml_idp_credential_t *value);
+axiam_mgmt_saml_idp_credential_promotion_t *axiam_mgmt_saml_idp_credential_promotion_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_idp_credential_promotion_build(const axiam_mgmt_saml_idp_credential_promotion_t *value);
+axiam_mgmt_saml_idp_info_t *axiam_mgmt_saml_idp_info_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_idp_info_build(const axiam_mgmt_saml_idp_info_t *value);
+axiam_mgmt_saml_service_provider_t *axiam_mgmt_saml_service_provider_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_service_provider_build(const axiam_mgmt_saml_service_provider_t *value);
+axiam_mgmt_saml_service_provider_input_t *axiam_mgmt_saml_service_provider_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_service_provider_input_build(const axiam_mgmt_saml_service_provider_input_t *value);
+axiam_mgmt_saml_sp_metadata_draft_t *axiam_mgmt_saml_sp_metadata_draft_parse(const cJSON *src);
+cJSON *axiam_mgmt_saml_sp_metadata_draft_build(const axiam_mgmt_saml_sp_metadata_draft_t *value);
+axiam_mgmt_scim_reconcile_accepted_t *axiam_mgmt_scim_reconcile_accepted_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_reconcile_accepted_build(const axiam_mgmt_scim_reconcile_accepted_t *value);
+axiam_mgmt_scim_target_auth_t *axiam_mgmt_scim_target_auth_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_auth_build(const axiam_mgmt_scim_target_auth_t *value);
+axiam_mgmt_scim_target_delivery_state_t *axiam_mgmt_scim_target_delivery_state_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_delivery_state_build(const axiam_mgmt_scim_target_delivery_state_t *value);
+axiam_mgmt_scim_target_input_t *axiam_mgmt_scim_target_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_input_build(const axiam_mgmt_scim_target_input_t *value);
+axiam_mgmt_scim_target_response_t *axiam_mgmt_scim_target_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_response_build(const axiam_mgmt_scim_target_response_t *value);
+axiam_mgmt_scim_target_scope_t *axiam_mgmt_scim_target_scope_parse(const cJSON *src);
+cJSON *axiam_mgmt_scim_target_scope_build(const axiam_mgmt_scim_target_scope_t *value);
 axiam_mgmt_scim_token_response_t *axiam_mgmt_scim_token_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_scim_token_response_build(const axiam_mgmt_scim_token_response_t *value);
 axiam_mgmt_scope_t *axiam_mgmt_scope_parse(const cJSON *src);
@@ -208,6 +250,8 @@ axiam_mgmt_service_account_response_t *axiam_mgmt_service_account_response_parse
 cJSON *axiam_mgmt_service_account_response_build(const axiam_mgmt_service_account_response_t *value);
 axiam_mgmt_session_response_t *axiam_mgmt_session_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_session_response_build(const axiam_mgmt_session_response_t *value);
+axiam_mgmt_set_directory_config_t *axiam_mgmt_set_directory_config_parse(const cJSON *src);
+cJSON *axiam_mgmt_set_directory_config_build(const axiam_mgmt_set_directory_config_t *value);
 axiam_mgmt_set_mtls_trust_anchor_t *axiam_mgmt_set_mtls_trust_anchor_parse(const cJSON *src);
 cJSON *axiam_mgmt_set_mtls_trust_anchor_build(const axiam_mgmt_set_mtls_trust_anchor_t *value);
 axiam_mgmt_set_org_email_config_t *axiam_mgmt_set_org_email_config_parse(const cJSON *src);
@@ -224,6 +268,10 @@ axiam_mgmt_signed_audit_batch_t *axiam_mgmt_signed_audit_batch_parse(const cJSON
 cJSON *axiam_mgmt_signed_audit_batch_build(const axiam_mgmt_signed_audit_batch_t *value);
 axiam_mgmt_smtp_config_t *axiam_mgmt_smtp_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_smtp_config_build(const axiam_mgmt_smtp_config_t *value);
+axiam_mgmt_ssf_stream_t *axiam_mgmt_ssf_stream_parse(const cJSON *src);
+cJSON *axiam_mgmt_ssf_stream_build(const axiam_mgmt_ssf_stream_t *value);
+axiam_mgmt_ssf_stream_input_t *axiam_mgmt_ssf_stream_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_ssf_stream_input_build(const axiam_mgmt_ssf_stream_input_t *value);
 axiam_mgmt_subject_alt_name_t *axiam_mgmt_subject_alt_name_parse(const cJSON *src);
 cJSON *axiam_mgmt_subject_alt_name_build(const axiam_mgmt_subject_alt_name_t *value);
 int axiam_mgmt_subject_alt_name_valid(const axiam_mgmt_subject_alt_name_t *value);
@@ -237,6 +285,8 @@ axiam_mgmt_token_exchange_trust_response_t *axiam_mgmt_token_exchange_trust_resp
 cJSON *axiam_mgmt_token_exchange_trust_response_build(const axiam_mgmt_token_exchange_trust_response_t *value);
 axiam_mgmt_token_policy_t *axiam_mgmt_token_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_token_policy_build(const axiam_mgmt_token_policy_t *value);
+axiam_mgmt_update_directory_config_t *axiam_mgmt_update_directory_config_parse(const cJSON *src);
+cJSON *axiam_mgmt_update_directory_config_build(const axiam_mgmt_update_directory_config_t *value);
 axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_config_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update_federation_config_request_t *value);
 axiam_mgmt_update_group_t *axiam_mgmt_update_group_parse(const cJSON *src);
@@ -265,6 +315,8 @@ axiam_mgmt_update_user_request_t *axiam_mgmt_update_user_request_parse(const cJS
 cJSON *axiam_mgmt_update_user_request_build(const axiam_mgmt_update_user_request_t *value);
 axiam_mgmt_update_webhook_request_t *axiam_mgmt_update_webhook_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_webhook_request_build(const axiam_mgmt_update_webhook_request_t *value);
+axiam_mgmt_user_attribute_map_t *axiam_mgmt_user_attribute_map_parse(const cJSON *src);
+cJSON *axiam_mgmt_user_attribute_map_build(const axiam_mgmt_user_attribute_map_t *value);
 axiam_mgmt_user_response_t *axiam_mgmt_user_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_user_response_build(const axiam_mgmt_user_response_t *value);
 axiam_mgmt_webauthn_attestation_policy_t *axiam_mgmt_webauthn_attestation_policy_parse(const cJSON *src);
@@ -4440,6 +4492,1173 @@ axiam_error_kind_t axiam_email_config_test_tenant(axiam_client_t *c, const axiam
     }
     if (out) *out = result;
     else axiam_mgmt_email_test_result_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_directory_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_directory_config_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/directory", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.get: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "directory.get", "GET", "/api/v1/tenants/{tenant_id}/directory", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_directory_config_t *result = axiam_mgmt_directory_config_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.get: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_directory_config_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_directory_set(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_directory_config_t *body, axiam_mgmt_directory_config_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "directory.set", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->base_dn) {
+        axiam_local_refusal(err, "directory.set", "base_dn",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->bind_dn) {
+        axiam_local_refusal(err, "directory.set", "bind_dn",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->url) {
+        axiam_local_refusal(err, "directory.set", "url",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->user_filter) {
+        axiam_local_refusal(err, "directory.set", "user_filter",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/directory", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.set: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_set_directory_config_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "directory.set", "PUT", "/api/v1/tenants/{tenant_id}/directory", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_directory_config_t *result = axiam_mgmt_directory_config_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.set: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_directory_config_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_directory_update(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_update_directory_config_t *body, axiam_mgmt_directory_config_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/directory", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.update: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_update_directory_config_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "directory.update", "PATCH", "/api/v1/tenants/{tenant_id}/directory", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_directory_config_t *result = axiam_mgmt_directory_config_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.update: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_directory_config_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_directory_delete(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_error_t *err) {
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/directory", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.delete: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "directory.delete", "DELETE", "/api/v1/tenants/{tenant_id}/directory", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_directory_link_account(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_link_directory_account_t *body, axiam_mgmt_directory_link_result_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/directory/links", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.link_account: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_link_directory_account_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "directory.link_account", "POST", "/api/v1/tenants/{tenant_id}/directory/links", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_directory_link_result_t *result = axiam_mgmt_directory_link_result_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.link_account: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_directory_link_result_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_directory_get_sync_status(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_directory_sync_status_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/directory/sync-status", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.get_sync_status: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "directory.get_sync_status", "GET", "/api/v1/tenants/{tenant_id}/directory/sync-status", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_directory_sync_status_t *result = axiam_mgmt_directory_sync_status_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "directory.get_sync_status: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_directory_sync_status_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_get_idp(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_saml_idp_info_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/idp", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.get_idp: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.get_idp", "GET", "/api/v1/tenants/{tenant_id}/saml/idp", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_idp_info_t *result = axiam_mgmt_saml_idp_info_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.get_idp: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_saml_idp_info_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_list_service_providers(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_saml_service_provider_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/service-providers", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.list_service_providers: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[3];
+    const char *q_values[3];
+    char offset_buf[24], limit_buf[24];
+    axiam_mgmt_page_query(page, offset_buf, limit_buf);
+    q_names[0] = "offset"; q_values[0] = offset_buf;
+    q_names[1] = "limit"; q_values[1] = limit_buf;
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.list_service_providers: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.list_service_providers", "GET", "/api/v1/tenants/{tenant_id}/saml/service-providers", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_service_provider_page_t *result = (axiam_mgmt_saml_service_provider_page_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    const cJSON *items = axiam_mgmt_page_items(json);
+    size_t n = items ? (size_t) cJSON_GetArraySize(items) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_saml_service_provider_t **) calloc(n, sizeof(axiam_mgmt_saml_service_provider_t *));
+        if (!result->items) { axiam_mgmt_saml_service_provider_page_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_saml_service_provider_parse(cJSON_GetArrayItem((cJSON *) items, (int) i));
+        result->count = n;
+    }
+    result->total = axiam_mgmt_page_total(json, (long) n);
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_saml_service_provider_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_create_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "saml.create_service_provider", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->acs_urls) {
+        axiam_local_refusal(err, "saml.create_service_provider", "acs_urls",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->display_name) {
+        axiam_local_refusal(err, "saml.create_service_provider", "display_name",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->entity_id) {
+        axiam_local_refusal(err, "saml.create_service_provider", "entity_id",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/service-providers", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.create_service_provider: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_saml_service_provider_input_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.create_service_provider", "POST", "/api/v1/tenants/{tenant_id}/saml/service-providers", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_service_provider_t *result = axiam_mgmt_saml_service_provider_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.create_service_provider: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_saml_service_provider_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_get_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *sp_id, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    path_names[1] = "sp_id";
+    path_values[1] = sp_id;
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.get_service_provider: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.get_service_provider", "GET", "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_service_provider_t *result = axiam_mgmt_saml_service_provider_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.get_service_provider: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_saml_service_provider_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_update_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *sp_id, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "saml.update_service_provider", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->acs_urls) {
+        axiam_local_refusal(err, "saml.update_service_provider", "acs_urls",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->display_name) {
+        axiam_local_refusal(err, "saml.update_service_provider", "display_name",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->entity_id) {
+        axiam_local_refusal(err, "saml.update_service_provider", "entity_id",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    path_names[1] = "sp_id";
+    path_values[1] = sp_id;
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.update_service_provider: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_saml_service_provider_input_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.update_service_provider", "PUT", "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_service_provider_t *result = axiam_mgmt_saml_service_provider_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.update_service_provider: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_saml_service_provider_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_delete_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *sp_id, axiam_error_t *err) {
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    path_names[1] = "sp_id";
+    path_values[1] = sp_id;
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.delete_service_provider: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.delete_service_provider", "DELETE", "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_parse_sp_metadata(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_parse_saml_sp_metadata_t *body, axiam_mgmt_saml_sp_metadata_draft_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    /*
+     * A local check the contract requires before any I/O (see PRECHECKS in
+     * scripts/gen_management.py).
+     */
+    if (axiam_mgmt_check_parse_sp_metadata(body, err) != AXIAM_OK) return AXIAM_ERR_NETWORK;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/parse-sp-metadata", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.parse_sp_metadata: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_parse_saml_sp_metadata_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.parse_sp_metadata", "POST", "/api/v1/tenants/{tenant_id}/saml/parse-sp-metadata", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_sp_metadata_draft_t *result = axiam_mgmt_saml_sp_metadata_draft_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.parse_sp_metadata: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_saml_sp_metadata_draft_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_list_idp_credentials(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_saml_idp_credential_list_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/idp-credentials", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.list_idp_credentials: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.list_idp_credentials", "GET", "/api/v1/tenants/{tenant_id}/saml/idp-credentials", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_idp_credential_list_t *result = (axiam_mgmt_saml_idp_credential_list_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    size_t n = cJSON_IsArray(json) ? (size_t) cJSON_GetArraySize(json) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_saml_idp_credential_t **) calloc(n, sizeof(axiam_mgmt_saml_idp_credential_t *));
+        if (!result->items) { axiam_mgmt_saml_idp_credential_list_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_saml_idp_credential_parse(cJSON_GetArrayItem(json, (int) i));
+        result->count = n;
+    }
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_saml_idp_credential_list_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_issue_idp_credential(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_issue_saml_idp_credential_t *body, axiam_mgmt_saml_idp_credential_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/idp-credentials", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.issue_idp_credential: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_issue_saml_idp_credential_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.issue_idp_credential", "POST", "/api/v1/tenants/{tenant_id}/saml/idp-credentials", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_idp_credential_t *result = axiam_mgmt_saml_idp_credential_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.issue_idp_credential: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_saml_idp_credential_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_promote_idp_credential(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *credential_id, axiam_mgmt_saml_idp_credential_promotion_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    path_names[1] = "credential_id";
+    path_values[1] = credential_id;
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/promote", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.promote_idp_credential: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.promote_idp_credential", "POST", "/api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/promote", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_idp_credential_promotion_t *result = axiam_mgmt_saml_idp_credential_promotion_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.promote_idp_credential: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_saml_idp_credential_promotion_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_saml_retire_idp_credential(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *credential_id, axiam_mgmt_saml_idp_credential_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    path_names[1] = "credential_id";
+    path_values[1] = credential_id;
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/retire", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.retire_idp_credential: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "saml.retire_idp_credential", "POST", "/api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/retire", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_saml_idp_credential_t *result = axiam_mgmt_saml_idp_credential_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "saml.retire_idp_credential: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_saml_idp_credential_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_ssf_list_streams(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ssf_stream_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/ssf/streams", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.list_streams: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[3];
+    const char *q_values[3];
+    char offset_buf[24], limit_buf[24];
+    axiam_mgmt_page_query(page, offset_buf, limit_buf);
+    q_names[0] = "offset"; q_values[0] = offset_buf;
+    q_names[1] = "limit"; q_values[1] = limit_buf;
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.list_streams: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "ssf.list_streams", "GET", "/api/v1/tenants/{tenant_id}/ssf/streams", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_ssf_stream_page_t *result = (axiam_mgmt_ssf_stream_page_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    const cJSON *items = axiam_mgmt_page_items(json);
+    size_t n = items ? (size_t) cJSON_GetArraySize(items) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_ssf_stream_t **) calloc(n, sizeof(axiam_mgmt_ssf_stream_t *));
+        if (!result->items) { axiam_mgmt_ssf_stream_page_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_ssf_stream_parse(cJSON_GetArrayItem((cJSON *) items, (int) i));
+        result->count = n;
+    }
+    result->total = axiam_mgmt_page_total(json, (long) n);
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_ssf_stream_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_ssf_create_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "ssf.create_stream", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->audience) {
+        axiam_local_refusal(err, "ssf.create_stream", "audience",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->events_allowed) {
+        axiam_local_refusal(err, "ssf.create_stream", "events_allowed",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->receiver_client_id) {
+        axiam_local_refusal(err, "ssf.create_stream", "receiver_client_id",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/ssf/streams", path_names, path_values, 1);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.create_stream: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_ssf_stream_input_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "ssf.create_stream", "POST", "/api/v1/tenants/{tenant_id}/ssf/streams", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_ssf_stream_t *result = axiam_mgmt_ssf_stream_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.create_stream: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_ssf_stream_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_ssf_get_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *stream_id, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    path_names[1] = "stream_id";
+    path_values[1] = stream_id;
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.get_stream: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "ssf.get_stream", "GET", "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_ssf_stream_t *result = axiam_mgmt_ssf_stream_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.get_stream: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_ssf_stream_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_ssf_update_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *stream_id, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "ssf.update_stream", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->audience) {
+        axiam_local_refusal(err, "ssf.update_stream", "audience",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->events_allowed) {
+        axiam_local_refusal(err, "ssf.update_stream", "events_allowed",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->receiver_client_id) {
+        axiam_local_refusal(err, "ssf.update_stream", "receiver_client_id",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    path_names[1] = "stream_id";
+    path_values[1] = stream_id;
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.update_stream: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_ssf_stream_input_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "ssf.update_stream", "PUT", "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_ssf_stream_t *result = axiam_mgmt_ssf_stream_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.update_stream: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_ssf_stream_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_ssf_delete_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *stream_id, axiam_error_t *err) {
+    const char *path_names[2];
+    const char *path_values[2];
+    path_names[0] = "tenant_id";
+    path_values[0] = axiam_mgmt_resolved_tenant_id(c, scope);
+    path_names[1] = "stream_id";
+    path_values[1] = stream_id;
+    char *path = axiam_mgmt_path("/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path_names, path_values, 2);
+    if (!path) {
+        /*
+         * A NULL path means an identifier was missing -- almost always the implicit
+         * org/tenant id on a client that was never given one. Reporting it names what to
+         * fix; sending an empty path segment would surface as an undiagnosable 404.
+         */
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "ssf.delete_stream: missing an organization or tenant id -- configure one on the client or pass a scope (27.4 rule 3)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "ssf.delete_stream", "DELETE", "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_scim_targets_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_scim_target_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/scim-targets", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.list: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[3];
+    const char *q_values[3];
+    char offset_buf[24], limit_buf[24];
+    axiam_mgmt_page_query(page, offset_buf, limit_buf);
+    q_names[0] = "offset"; q_values[0] = offset_buf;
+    q_names[1] = "limit"; q_values[1] = limit_buf;
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.list: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "scim_targets.list", "GET", "/api/v1/scim-targets", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_scim_target_response_page_t *result = (axiam_mgmt_scim_target_response_page_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    const cJSON *items = axiam_mgmt_page_items(json);
+    size_t n = items ? (size_t) cJSON_GetArraySize(items) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_scim_target_response_t **) calloc(n, sizeof(axiam_mgmt_scim_target_response_t *));
+        if (!result->items) { axiam_mgmt_scim_target_response_page_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_scim_target_response_parse(cJSON_GetArrayItem((cJSON *) items, (int) i));
+        result->count = n;
+    }
+    result->total = axiam_mgmt_page_total(json, (long) n);
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_scim_target_response_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_scim_targets_create(axiam_client_t *c, const axiam_mgmt_scim_target_input_t *body, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "scim_targets.create", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->auth) {
+        axiam_local_refusal(err, "scim_targets.create", "auth",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->base_url) {
+        axiam_local_refusal(err, "scim_targets.create", "base_url",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->name) {
+        axiam_local_refusal(err, "scim_targets.create", "name",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->scope) {
+        axiam_local_refusal(err, "scim_targets.create", "scope",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (body && body->auth && !axiam_mgmt_scim_target_auth_is_known(body->auth)) {
+        axiam_local_refusal(err, "scim_targets.create", "auth",
+            "a ScimTargetAuth whose type this SDK does not know is never sent (CONTRACT.md \xc2\xa7" "31.2)");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (body && body->scope && !axiam_mgmt_scim_target_scope_is_known(body->scope)) {
+        axiam_local_refusal(err, "scim_targets.create", "scope",
+            "a ScimTargetScope whose type this SDK does not know is never sent (CONTRACT.md \xc2\xa7" "31.2)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *path = axiam_mgmt_path("/api/v1/scim-targets", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.create: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_scim_target_input_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "scim_targets.create", "POST", "/api/v1/scim-targets", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_scim_target_response_t *result = axiam_mgmt_scim_target_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.create: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_scim_target_response_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_scim_targets_get(axiam_client_t *c, const char *id, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "id";
+    path_values[0] = id;
+    char *path = axiam_mgmt_path("/api/v1/scim-targets/{id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.get: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "scim_targets.get", "GET", "/api/v1/scim-targets/{id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_scim_target_response_t *result = axiam_mgmt_scim_target_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.get: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_scim_target_response_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_scim_targets_update(axiam_client_t *c, const char *id, const axiam_mgmt_scim_target_input_t *body, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "scim_targets.update", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->auth) {
+        axiam_local_refusal(err, "scim_targets.update", "auth",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->base_url) {
+        axiam_local_refusal(err, "scim_targets.update", "base_url",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->name) {
+        axiam_local_refusal(err, "scim_targets.update", "name",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->scope) {
+        axiam_local_refusal(err, "scim_targets.update", "scope",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (body && body->auth && !axiam_mgmt_scim_target_auth_is_known(body->auth)) {
+        axiam_local_refusal(err, "scim_targets.update", "auth",
+            "a ScimTargetAuth whose type this SDK does not know is never sent (CONTRACT.md \xc2\xa7" "31.2)");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (body && body->scope && !axiam_mgmt_scim_target_scope_is_known(body->scope)) {
+        axiam_local_refusal(err, "scim_targets.update", "scope",
+            "a ScimTargetScope whose type this SDK does not know is never sent (CONTRACT.md \xc2\xa7" "31.2)");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "id";
+    path_values[0] = id;
+    char *path = axiam_mgmt_path("/api/v1/scim-targets/{id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.update: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_scim_target_input_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "scim_targets.update", "PUT", "/api/v1/scim-targets/{id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_scim_target_response_t *result = axiam_mgmt_scim_target_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.update: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_scim_target_response_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_scim_targets_delete(axiam_client_t *c, const char *id, axiam_error_t *err) {
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "id";
+    path_values[0] = id;
+    char *path = axiam_mgmt_path("/api/v1/scim-targets/{id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.delete: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "scim_targets.delete", "DELETE", "/api/v1/scim-targets/{id}", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_scim_targets_reconcile(axiam_client_t *c, const char *id, axiam_mgmt_scim_reconcile_accepted_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "id";
+    path_values[0] = id;
+    char *path = axiam_mgmt_path("/api/v1/scim-targets/{id}/reconcile", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.reconcile: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "scim_targets.reconcile", "POST", "/api/v1/scim-targets/{id}/reconcile", path, body_json,
+        &json, err);
+    free(path);
+    free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_scim_reconcile_accepted_t *result = axiam_mgmt_scim_reconcile_accepted_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "scim_targets.reconcile: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_scim_reconcile_accepted_free(result);
     return AXIAM_OK;
 }
 

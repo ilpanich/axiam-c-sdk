@@ -337,6 +337,37 @@ int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *pat
     return transport_once(c, method, path, body, 1, resp);
 }
 
+char *axiam_client_url(const axiam_client_t *c, const char *path) {
+    return (c && path) ? build_url(c, path) : NULL;
+}
+
+int axiam_client_send_bare(axiam_client_t *c, const char *method, const char *url,
+                           axiam_kv_t *headers, const char *body,
+                           axiam_http_response_t *resp) {
+    memset(resp, 0, sizeof(*resp));
+    /* The empty Cookie entry is a SIGNAL, not a wire header: axiam_curl_transport()
+     * reads it as "withhold the jar for this request" (see the comment there). Without
+     * it the request would carry the session cookie, which §28.12.2 rule 3 forbids --
+     * so failing to allocate it fails the request rather than sending it anyway. */
+    axiam_kv_t *signal = axiam_kv_append(NULL, "Cookie", "");
+    if (!signal) {
+        axiam_kv_free(headers);
+        return -1;
+    }
+    signal->next = headers;
+
+    axiam_http_request_t req = {0};
+    req.method = method;
+    req.url = url;
+    req.headers = signal;
+    req.body = body;
+    req.body_len = body ? strlen(body) : 0;
+
+    int rc = c->transport(c->transport_ctx, &req, resp);
+    axiam_kv_free(signal);
+    return rc;
+}
+
 int axiam_client_is_shut(axiam_client_t *c) { return client_is_closed(c); }
 
 axiam_error_kind_t axiam_client_shut_error(axiam_error_t *err) { return closed_error(err); }

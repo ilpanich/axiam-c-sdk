@@ -2080,6 +2080,547 @@ axiam_error_kind_t axiam_email_config_delete_tenant(axiam_client_t *c, const axi
 axiam_error_kind_t axiam_email_config_test_tenant(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_email_test_result_t **out, axiam_error_t *err);
 
 /* ============================================================================ */
+/*
+ * directory -- A tenant's LDAP / Active Directory identity source (CONTRACT §30): the one
+ * configuration, the explicit act that links an existing local account to its directory
+ * entry, and a read-only view of the sync job. Signing in needs nothing new -- a directory
+ * account calls the same §1 `login`.
+ */
+/* ============================================================================ */
+
+/**
+ * `GET /api/v1/tenants/{tenant_id}/directory`
+ *
+ * `GET /api/v1/tenants/{tenant_id}/directory`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param out Receives the object on success; free with axiam_mgmt_directory_config_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_directory_get(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_directory_config_t **out, axiam_error_t *err);
+
+/**
+ * `PUT /api/v1/tenants/{tenant_id}/directory` — create or **replace**.
+ *
+ * `PUT /api/v1/tenants/{tenant_id}/directory`.
+ *
+ * **Moving the connection requires the secret again** (§30.3 rule 2): a `set` that changes
+ * `url`, `start_tls`, `bind_dn` or `trust_anchors_pem` without `bind_secret` is refused
+ * `400` and changes nothing. The SDK holds no copy of the secret and cannot re-send one for
+ * you. `bind_secret` is required while the tenant has no configuration; otherwise absent
+ * keeps the stored secret. Every other optional member left out is **reset to its
+ * default**. An enabled directory and an effective `opaque_mode = required` never coexist
+ * (`409`); without the deployment's directory key a write carrying a secret is `503`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_directory_config_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_directory_set(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_directory_config_t *body, axiam_mgmt_directory_config_t **out, axiam_error_t *err);
+
+/**
+ * `PATCH /api/v1/tenants/{tenant_id}/directory` — a **sparse** update.
+ *
+ * `PATCH /api/v1/tenants/{tenant_id}/directory`.
+ *
+ * **Moving the connection requires the secret again** (§30.3 rule 2): an `update` that
+ * changes `url`, `start_tls`, `bind_dn` or `trust_anchors_pem` without `bind_secret` is
+ * refused `400` and changes nothing; the SDK holds no copy of the secret to re-send. A
+ * member left NULL (or with its `has_` flag 0) is not sent and stays as stored;
+ * `group_base_dn` / `group_filter` left NULL with `has_group_base_dn` / `has_group_filter`
+ * set to 1 are sent as `null` and clear the value. An enabled directory and an effective
+ * `opaque_mode = required` never coexist (`409`).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_directory_config_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_directory_update(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_update_directory_config_t *body, axiam_mgmt_directory_config_t **out, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/tenants/{tenant_id}/directory`
+ *
+ * `DELETE /api/v1/tenants/{tenant_id}/directory`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * **Deleting stops the directory, and only that** (§30.3 rule 5): directory accounts can no
+ * longer sign in with a password -- there is no fallback to a local hash -- and the sync
+ * stops. Sessions, refresh tokens and passkeys those accounts already hold keep working
+ * until they expire or the accounts are deactivated. There is no unlink: a linked account
+ * stays a directory account.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_directory_delete(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/tenants/{tenant_id}/directory/links` — link a local account to its
+ * directory entry (D-28).
+ *
+ * `POST /api/v1/tenants/{tenant_id}/directory/links`.
+ *
+ * **Signs the account's owner out everywhere** (§30.3 rule 6): linking deletes the
+ * account's WebAuthn credentials and federation links, revokes its `User` certificates, all
+ * its sessions and its OAuth2 refresh tokens (TOTP is kept). The entry is found by the
+ * account's own username; a repeat on an already-linked account answers
+ * `was_already_linked` and repeats the revocations.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_directory_link_result_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_directory_link_account(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_link_directory_account_t *body, axiam_mgmt_directory_link_result_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/tenants/{tenant_id}/directory/sync-status`
+ *
+ * `GET /api/v1/tenants/{tenant_id}/directory/sync-status`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param out Receives the object on success; free with axiam_mgmt_directory_sync_status_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_directory_get_sync_status(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_directory_sync_status_t **out, axiam_error_t *err);
+
+/* ============================================================================ */
+/*
+ * saml -- A tenant's SAML 2.0 identity provider (CONTRACT §29): the registry of service
+ * providers, the import of an SP's metadata into a *draft* registration (never a write),
+ * and the lifecycle of the IdP signing credential. The protocol itself -- single sign-on,
+ * single logout, the IdP metadata document -- is browser and SP-to-IdP surface under
+ * /saml/v2/{tenant_id}, an SP's own SAML library speaks to it, and it is not in this
+ * registry.
+ */
+/* ============================================================================ */
+
+/**
+ * `GET /api/v1/tenants/{tenant_id}/saml/idp`
+ *
+ * `GET /api/v1/tenants/{tenant_id}/saml/idp`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param out Receives the object on success; free with axiam_mgmt_saml_idp_info_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_get_idp(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_saml_idp_info_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/tenants/{tenant_id}/saml/service-providers`
+ *
+ * `GET /api/v1/tenants/{tenant_id}/saml/service-providers`.
+ *
+ * Returns ONE page. `total` on it is the server's count across all pages and is not `count`
+ * -- see 27.4 rule 4.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param page Which page to fetch, or NULL for the first at the default size.
+ * @param out Receives the page on success; free with axiam_mgmt_saml_service_provider_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_list_service_providers(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_saml_service_provider_page_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/tenants/{tenant_id}/saml/service-providers`
+ *
+ * `POST /api/v1/tenants/{tenant_id}/saml/service-providers`.
+ *
+ * `sp_signing_cert_pem` must be RSA (2048 bits or more) or ECDSA on P-256, P-384 or P-521;
+ * an **ECDSA certificate verifies HTTP-POST requests only** -- the HTTP-Redirect binding is
+ * RSA-only (§29.3 rule 2). `encrypt_assertions: true` is refused while encryption is
+ * unimplemented. `entity_id` is unique per tenant (`409`) and immutable once created.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_saml_service_provider_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_create_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`
+ *
+ * `GET /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param sp_id The `{sp_id}` path parameter.
+ * @param out Receives the object on success; free with axiam_mgmt_saml_service_provider_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_get_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *sp_id, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err);
+
+/**
+ * `PUT /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}` — a **replacement**:
+ * every member the body omits takes its default, it is not kept. `entity_id` is immutable.
+ *
+ * `PUT /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`.
+ *
+ * An omitted member takes its **default**, not its stored value: `enabled` and
+ * `sign_responses` default to `true`, `name_id_format` to `persistent`, the other flags to
+ * `false`, certificates and `slo_url` / `slo_binding` to null, the lists to empty (§29.2).
+ * Start from axiam_saml_get_service_provider() and
+ * axiam_mgmt_saml_service_provider_to_input(). `entity_id` is immutable: changing it is
+ * `400` -- register a new service provider instead (§29.3 rule 3). An ECDSA
+ * `sp_signing_cert_pem` verifies HTTP-POST requests only; HTTP-Redirect is RSA-only.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param sp_id The `{sp_id}` path parameter.
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_saml_service_provider_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_update_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *sp_id, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`
+ *
+ * `DELETE /api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * Ends no session: users already signed in to the SP stay signed in there until their SP
+ * session ends (§29.3 rule 5).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param sp_id The `{sp_id}` path parameter.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_delete_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *sp_id, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/tenants/{tenant_id}/saml/parse-sp-metadata`
+ *
+ * `POST /api/v1/tenants/{tenant_id}/saml/parse-sp-metadata`.
+ *
+ * **Parses and stores nothing** (§29.3 rule 6): the result is a draft to review and pass to
+ * axiam_saml_create_service_provider(). Exactly one of `metadata_xml` and `metadata_url`
+ * must be set; both or neither is refused locally, before any request
+ * (axiam_mgmt_parse_saml_sp_metadata_from_url() and
+ * axiam_mgmt_parse_saml_sp_metadata_from_xml() build a valid body). The metadata's own
+ * signature is not evaluated. `503` in a server built without SAML.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_saml_sp_metadata_draft_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_parse_sp_metadata(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_parse_saml_sp_metadata_t *body, axiam_mgmt_saml_sp_metadata_draft_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/tenants/{tenant_id}/saml/idp-credentials`
+ *
+ * `GET /api/v1/tenants/{tenant_id}/saml/idp-credentials`.
+ *
+ * Returns the server's complete list. This endpoint is NOT paginated, so the result is a
+ * plain list and never a page (27.4 rule 4).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param out Receives the list on success; free with axiam_mgmt_saml_idp_credential_list_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_list_idp_credentials(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, axiam_mgmt_saml_idp_credential_list_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials`
+ *
+ * `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials`.
+ *
+ * Generates an RSA-4096 key on the server, which takes seconds; the key is never returned.
+ * An occupied slot is `409` (§29.3 rule 7).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_saml_idp_credential_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_issue_idp_credential(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_issue_saml_idp_credential_t *body, axiam_mgmt_saml_idp_credential_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/promote`
+ *
+ * `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/promote`.
+ *
+ * `credential_id` must be the tenant's current `next` credential; in one transaction the
+ * old `active` is retired -- its key destroyed -- and `next` becomes `active` (§29.3 rule
+ * 7).
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param credential_id The `{credential_id}` path parameter.
+ * @param out Receives the object on success; free with axiam_mgmt_saml_idp_credential_promotion_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_promote_idp_credential(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *credential_id, axiam_mgmt_saml_idp_credential_promotion_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/retire`
+ *
+ * `POST /api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/retire`.
+ *
+ * **Retiring the `active` credential with no successor stops SAML sign-on for the whole
+ * tenant at once** (§29.3 rule 7) -- it is the incident response to a leaked key. The key
+ * is destroyed. The safe rotation is: issue into `next`, wait until every SP has refreshed
+ * the metadata, then promote.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param credential_id The `{credential_id}` path parameter.
+ * @param out Receives the object on success; free with axiam_mgmt_saml_idp_credential_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_saml_retire_idp_credential(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *credential_id, axiam_mgmt_saml_idp_credential_t **out, axiam_error_t *err);
+
+/* ============================================================================ */
+/*
+ * ssf -- A tenant's Shared Signals Framework streams (CONTRACT §32): which receiver -- an
+ * OAuth2 client of the tenant -- receives which CAEP and RISC security events, as SETs
+ * pushed to its endpoint or polled. The receiver's own protocol (transmitter metadata, the
+ * SSF stream management API, polling) is not in this registry.
+ */
+/* ============================================================================ */
+
+/**
+ * `GET /api/v1/tenants/{tenant_id}/ssf/streams`
+ *
+ * `GET /api/v1/tenants/{tenant_id}/ssf/streams`.
+ *
+ * Returns ONE page. `total` on it is the server's count across all pages and is not `count`
+ * -- see 27.4 rule 4.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param page Which page to fetch, or NULL for the first at the default size.
+ * @param out Receives the page on success; free with axiam_mgmt_ssf_stream_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_ssf_list_streams(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_page_req_t *page, axiam_mgmt_ssf_stream_page_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/tenants/{tenant_id}/ssf/streams`
+ *
+ * `POST /api/v1/tenants/{tenant_id}/ssf/streams`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_ssf_stream_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_ssf_create_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`
+ *
+ * `GET /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param stream_id The `{stream_id}` path parameter.
+ * @param out Receives the object on success; free with axiam_mgmt_ssf_stream_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_ssf_get_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *stream_id, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err);
+
+/**
+ * `PUT /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}` — a **replacement**: an omitted
+ * optional member takes its default, except the header, which absent keeps.
+ *
+ * `PUT /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`.
+ *
+ * An omitted optional member takes its default (§32.2) -- **except `authorization_header`,
+ * which absent keeps the stored one** -- unless the update moves `endpoint_url` to another
+ * scheme, host or port while a header is stored: then it must carry `authorization_header`
+ * again or `clear_authorization_header: true`, else `400` (§32.3 rule 5). An update
+ * overtaken by the receiver's own write is `409`: read the stream again.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param stream_id The `{stream_id}` path parameter.
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_ssf_stream_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_ssf_update_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *stream_id, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}` — the stream and its
+ * buffered events.
+ *
+ * `DELETE /api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
+ * @param stream_id The `{stream_id}` path parameter.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_ssf_delete_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *stream_id, axiam_error_t *err);
+
+/* ============================================================================ */
+/*
+ * scim_targets -- A tenant's outbound SCIM targets (CONTRACT §31): the downstream SCIM 2.0
+ * service providers AXIAM pushes the tenant's users and groups to, each with its delivery
+ * state. The credential AXIAM pushes with is write-only. Deleting a target does not
+ * deprovision anything downstream.
+ */
+/* ============================================================================ */
+
+/**
+ * `GET /api/v1/scim-targets`
+ *
+ * `GET /api/v1/scim-targets`.
+ *
+ * Returns ONE page. `total` on it is the server's count across all pages and is not `count`
+ * -- see 27.4 rule 4.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Which page to fetch, or NULL for the first at the default size.
+ * @param out Receives the page on success; free with axiam_mgmt_scim_target_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_scim_targets_list(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_scim_target_response_page_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/scim-targets`
+ *
+ * `POST /api/v1/scim-targets`.
+ *
+ * `credential` is required here (§31.3 rule 2). It is write-only: no response ever carries
+ * it, and the SDK keeps no copy.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_scim_target_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_scim_targets_create(axiam_client_t *c, const axiam_mgmt_scim_target_input_t *body, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/scim-targets/{id}`
+ *
+ * `GET /api/v1/scim-targets/{id}`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param id The `{id}` path parameter.
+ * @param out Receives the object on success; free with axiam_mgmt_scim_target_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_scim_targets_get(axiam_client_t *c, const char *id, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err);
+
+/**
+ * `PUT /api/v1/scim-targets/{id}`
+ *
+ * `PUT /api/v1/scim-targets/{id}`.
+ *
+ * **The credential is bound to its URL** (§31.3 rule 2): absent `credential` keeps the
+ * stored one -- except that changing `base_url` of a bearer target, `auth.token_url` or
+ * `base_url` of a client-credentials target, or `auth.type`, without `credential` in the
+ * same write is refused `400` and changes nothing. The SDK holds no credential to re-send.
+ * Every other member left out takes its default. An update overtaken by another
+ * administrator's write is `409` (§31.3 rule 4): reload, then retry yourself.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param id The `{id}` path parameter.
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_scim_target_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_scim_targets_update(axiam_client_t *c, const char *id, const axiam_mgmt_scim_target_input_t *body, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/scim-targets/{id}`
+ *
+ * `DELETE /api/v1/scim-targets/{id}`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * **Deprovisions nothing downstream** (§31.3 rule 8): the users and groups AXIAM created in
+ * the service provider stay there, and AXIAM no longer knows them. To remove them, set
+ * `deprovision` to `delete`, let AXIAM push, and only then delete the target.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param id The `{id}` path parameter.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_scim_targets_delete(axiam_client_t *c, const char *id, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/scim-targets/{id}/reconcile`
+ *
+ * `POST /api/v1/scim-targets/{id}/reconcile`.
+ *
+ * Starts a reconciliation in the background and answers `202`; its outcome is on the
+ * target's `state` (§31.3 rule 7). `409` while a run holds the claim, within five minutes
+ * of the last one, or for a disabled target.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param id The `{id}` path parameter.
+ * @param out Receives the object on success; free with axiam_mgmt_scim_reconcile_accepted_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_scim_targets_reconcile(axiam_client_t *c, const char *id, axiam_mgmt_scim_reconcile_accepted_t **out, axiam_error_t *err);
+
+/* ============================================================================ */
 /* settings -- Effective settings, and the organization/tenant layers they resolve from. */
 /* ============================================================================ */
 

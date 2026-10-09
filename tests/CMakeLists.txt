@@ -251,6 +251,9 @@ set_tests_properties(test_device_auth_tls PROPERTIES FIXTURES_REQUIRED AXIAM_PKI
 # calls is worse than an absent one.
 axiam_add_test(test_oidc test_oidc.c)
 axiam_add_test(test_mtls_endpoint_aliases test_mtls_endpoint_aliases.c)
+# CONTRACT.md §21.3.1 vector A is read verbatim from the vendored CONTRACT.md.
+target_compile_definitions(test_mtls_endpoint_aliases
+    PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
 axiam_add_test(test_oidc_login_providers test_oidc_login_providers.c)
 
 # The ID-token suites need real EdDSA signatures, so they link the JWT fixture.
@@ -373,7 +376,7 @@ axiam_add_test(test_management_models_generated test_management_models_generated
 axiam_add_test(test_contract_151_models test_contract_151_models.c)
 # The §27 allocation-failure sweep. Same --wrap technique as test_alloc_failures above:
 # every generated operation's OOM guard is one-sided by construction, so this drives each
-# of the 147 call graphs with each of the first N allocations failed in turn.
+# of the 190 call graphs with each of the first N allocations failed in turn.
 add_executable(test_management_alloc_generated
     test_management_alloc_generated.c management_test_util.c)
 target_include_directories(test_management_alloc_generated PRIVATE ${AXIAM_TEST_INCLUDES})
@@ -385,3 +388,45 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_management_alloc_generated COMMAND test_management_alloc_generated)
 
+
+# ---- Contract 1.53 - 1.58 ----
+#
+# §28.12 RFC 7592 client configuration: its own recording transport, because what it
+# asserts is what is NOT on the request (no session cookie, no CSRF token, no tenant
+# header, no device bearer).
+axiam_add_test(test_client_registration test_client_registration.c)
+# §29 / §30 / §31 / §32.1-§32.5: the four new management namespaces, on the §27 rig.
+axiam_add_test(test_directory test_directory.c management_test_util.c)
+axiam_add_test(test_saml test_saml.c management_test_util.c)
+axiam_add_test(test_scim_targets test_scim_targets.c management_test_util.c)
+axiam_add_test(test_ssf_management test_ssf_management.c management_test_util.c)
+# §32.7 the SSF receiver helper: signs its SETs with an Ed25519 key it generates, so it
+# links the JWT fixture for the base64url encoder.
+add_executable(test_ssf_receiver test_ssf_receiver.c)
+target_include_directories(test_ssf_receiver PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_ssf_receiver PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_ssf_receiver PRIVATE --coverage)
+endif()
+add_test(NAME test_ssf_receiver COMMAND test_ssf_receiver)
+# §33 CIBA: real ID tokens (the JWT fixture), and the source path, because the ping
+# helper's constant-time comparison is asserted structurally (§33.8 test 11).
+add_executable(test_ciba test_ciba.c)
+target_include_directories(test_ciba PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_ciba PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+target_compile_definitions(test_ciba PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_ciba PRIVATE --coverage)
+endif()
+add_test(NAME test_ciba COMMAND test_ciba)
+# The allocation-failure sweep over the contract 1.53 - 1.58 additions: the same --wrap
+# technique as test_alloc_failures, scoped to this one binary.
+add_executable(test_contract_158_alloc test_contract_158_alloc.c)
+target_include_directories(test_contract_158_alloc PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_contract_158_alloc PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+target_link_options(test_contract_158_alloc PRIVATE
+    -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_contract_158_alloc PRIVATE --coverage)
+endif()
+add_test(NAME test_contract_158_alloc COMMAND test_contract_158_alloc)

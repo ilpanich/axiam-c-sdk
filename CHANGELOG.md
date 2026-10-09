@@ -7,6 +7,50 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- **Contract 1.58** — re-vendored `CONTRACT.md`, `openapi.json` and
+  `management-registry.json` (contracts 1.53 – 1.58) and regenerated the §27 surface:
+  **190 operations across 28 namespaces**. The README's Conformance Statement now reads
+  "§28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed".
+- **RFC 7592 client configuration (§28.12)** — `axiam_read_client_registration()`,
+  `axiam_update_client_registration()`, `axiam_delete_client_registration()` and
+  `axiam_client_registration_t` (`axiam/registration.h`). Same-origin only, refused
+  locally otherwise; bearer only, never the SDK's session; writes never retried; tolerant
+  decoding that round-trips unknown members through `extra`.
+- **Directory (§30), SAML service providers (§29), outbound SCIM targets (§31) and SSF
+  streams (§32)** — the generated `axiam_directory_*`, `axiam_saml_*`,
+  `axiam_scim_targets_*` and `axiam_ssf_*_stream(s)` operations, with the contract's
+  call-site warnings in their documentation; explicit `null` through a `has_` flag on
+  `UpdateDirectoryConfig.group_base_dn` / `group_filter` and
+  `SamlIdpInfo.active_credential_id` / `next_credential_id`; `axiam/management_helpers.h`
+  with the read-modify-write conversions, `ParseSamlSpMetadata` constructors and the
+  §31.2 union constructors.
+- **The SSF receiver helper (§32.7)** — `axiam/ssf.h`: `axiam_ssf_verify_set()` (the
+  nine steps, Ed25519 from the configured JWKS only, rate-limited forced refetch, a
+  pluggable replay store with a seven-day floor) and `axiam_ssf_poll()`.
+- **CIBA (§33)** — `axiam/ciba.h`: `axiam_ciba_initiate()` (never retried),
+  `axiam_ciba_poll()`, `axiam_ciba_await()` (injectable clock) and the I/O-free
+  `axiam_ciba_handle_ping()` (constant-time bearer check); `axiam_error_is_access_denied()`
+  / `axiam_error_is_expired_token()`; the §33.2 signed request in PS256, ES256 and EdDSA
+  (`axiam_ciba_request_signer_new()`), all with the OpenSSL already linked.
+- `axiam_oidc_config_t` gains the four CIBA discovery members, and
+  `axiam_mtls_endpoint_aliases_t` its seventh, `backchannel_authentication_endpoint`
+  (CONTRACT.md §21.3.1 vector A as amended). Both are appended at the END of their
+  structs, so existing members keep their offsets — but the structs grew, so code that
+  allocates them must be rebuilt against the new header.
+
+### Changed
+
+- A management `400`/`422` error's message now carries the server's `message` (§29.4,
+  §30.4, §31.4).
+- The four replacement bodies of §29 – §32 (`SetDirectoryConfig`,
+  `SamlServiceProviderInput`, `ScimTargetInput`, `SsfStreamInput`) are refused locally
+  when a required pointer member is NULL — C has no compile-time check, so the operation
+  is the builder that refuses. Local refusals of this kind, the §28.12 origin rule and the
+  CIBA argument checks are `AXIAM_ERR_NETWORK` with `transport_cause` 400 (class
+  `AXIAM_MGMT_ERR_VALIDATION`) and a message ending "no request was sent".
+
 ## [1.0.0-beta17] - 2026-09-25
 
 ### Added
