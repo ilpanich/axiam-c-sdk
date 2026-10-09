@@ -85,7 +85,12 @@ struct axiam_mgmt_parse_saml_sp_metadata;
 axiam_error_kind_t axiam_mgmt_check_parse_sp_metadata(
     const struct axiam_mgmt_parse_saml_sp_metadata *body, axiam_error_t *err);
 
-/* Serialize a cJSON body to a malloc'd string and delete the cJSON. NULL-safe. */
+/* Serialize a cJSON body to a malloc'd string and delete the cJSON. NULL-safe. Every
+ * intermediate copy of the text, and every string in the tree, is scrubbed before it is
+ * released (contract 1.59 R-19): a body may carry a write-only secret. */
 char *axiam_mgmt_render(cJSON *body);
+
+/* Scrub, then free, a body axiam_mgmt_render() returned. NULL-safe. */
+void axiam_mgmt_body_free(char *body_json);
 
 #endif /* AXIAM_MANAGEMENT_INTERNAL_H */

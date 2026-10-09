@@ -243,11 +243,45 @@ char *axiam_mgmt_query(char *path, const char *const *names,
 /* ---------------------------------------------------------------- */
 
 
+/* Zero every string value the tree owns. A request body may carry a write-only secret
+ * (§27.5, §30.5, §31.5, §32.5: `bind_secret`, `credential`, `authorization_header`, …),
+ * and cJSON_Delete() releases its copies as they are. */
+static void scrub_tree(cJSON *item) {
+    for (; item; item = item->next) {
+        if (item->valuestring && !(item->type & cJSON_IsReference))
+            axiam_secure_zero(item->valuestring, strlen(item->valuestring));
+        if (item->child && !(item->type & cJSON_IsReference)) scrub_tree(item->child);
+    }
+}
+
+/* The largest body render tries before giving up (a guard, not a limit any real body
+ * approaches). */
+#define AXIAM_MGMT_RENDER_MAX ((size_t)64 * 1024 * 1024)
+
 char *axiam_mgmt_render(cJSON *body) {
     if (!body) return NULL;
-    char *json = cJSON_PrintUnformatted(body);
+    /* Into a buffer we own, never cJSON_PrintUnformatted(): that one grows its buffer by
+     * realloc(), which releases each outgrown copy of the text -- secret included --
+     * without scrubbing it. A buffer too small is scrubbed and released here, and the
+     * next is twice its size. */
+    char *json = NULL;
+    for (size_t size = 256; size <= AXIAM_MGMT_RENDER_MAX; size *= 2) {
+        json = malloc(size);
+        if (!json) break;
+        if (cJSON_PrintPreallocated(body, json, (int)size, 0)) break;
+        axiam_secure_zero(json, size);
+        free(json);
+        json = NULL;
+    }
+    scrub_tree(body);
     cJSON_Delete(body);
     return json;
+}
+
+void axiam_mgmt_body_free(char *body_json) {
+    if (!body_json) return;
+    axiam_secure_zero(body_json, strlen(body_json));
+    free(body_json);
 }
 
 /* ---------------------------------------------------------------- */

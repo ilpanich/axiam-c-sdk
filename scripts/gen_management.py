@@ -1942,7 +1942,9 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
     out.append(f'        c, "{canonical}", "{op["method"]}", "{op["path"]}", path, body_json,')
     out.append("        &json, err);")
     out.append("    free(path);")
-    out.append("    free(body_json);")
+    # A body may carry a write-only secret (§27.5, §30.5, §31.5, §32.5): scrubbed before
+    # it is released, never a plain free() (contract 1.59 R-19).
+    out.append("    axiam_mgmt_body_free(body_json);")
     out.append("    if (rc != AXIAM_OK) return rc;")
 
     # ---- decode ----

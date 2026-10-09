@@ -352,7 +352,7 @@ axiam_error_kind_t axiam_organizations_list(axiam_client_t *c, const axiam_mgmt_
         c, "organizations.list", "GET", "/api/v1/organizations", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_organization_page_t *result = (axiam_mgmt_organization_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -395,7 +395,7 @@ axiam_error_kind_t axiam_organizations_get(axiam_client_t *c, const axiam_mgmt_c
         c, "organizations.get", "GET", "/api/v1/organizations/{org_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_organization_t *result = axiam_mgmt_organization_parse(json);
     cJSON_Delete(json);
@@ -430,7 +430,7 @@ axiam_error_kind_t axiam_organizations_update(axiam_client_t *c, const axiam_mgm
         c, "organizations.update", "PUT", "/api/v1/organizations/{org_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_organization_t *result = axiam_mgmt_organization_parse(json);
     cJSON_Delete(json);
@@ -478,7 +478,7 @@ axiam_error_kind_t axiam_tenants_list(axiam_client_t *c, const axiam_mgmt_call_s
         c, "tenants.list", "GET", "/api/v1/organizations/{org_id}/tenants", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_tenant_page_t *result = (axiam_mgmt_tenant_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -521,7 +521,7 @@ axiam_error_kind_t axiam_tenants_create(axiam_client_t *c, const axiam_mgmt_call
         c, "tenants.create", "POST", "/api/v1/organizations/{org_id}/tenants", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_tenant_t *result = axiam_mgmt_tenant_parse(json);
     cJSON_Delete(json);
@@ -558,7 +558,7 @@ axiam_error_kind_t axiam_tenants_get(axiam_client_t *c, const axiam_mgmt_call_sc
         c, "tenants.get", "GET", "/api/v1/organizations/{org_id}/tenants/{tenant_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_tenant_t *result = axiam_mgmt_tenant_parse(json);
     cJSON_Delete(json);
@@ -595,7 +595,7 @@ axiam_error_kind_t axiam_tenants_update(axiam_client_t *c, const axiam_mgmt_call
         c, "tenants.update", "PUT", "/api/v1/organizations/{org_id}/tenants/{tenant_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_tenant_t *result = axiam_mgmt_tenant_parse(json);
     cJSON_Delete(json);
@@ -631,7 +631,7 @@ axiam_error_kind_t axiam_tenants_delete(axiam_client_t *c, const axiam_mgmt_call
         c, "tenants.delete", "DELETE", "/api/v1/organizations/{org_id}/tenants/{tenant_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -660,7 +660,7 @@ axiam_error_kind_t axiam_tenants_export_audit(axiam_client_t *c, const axiam_mgm
         c, "tenants.export_audit", "POST", "/api/v1/organizations/{org_id}/tenants/{tenant_id}/audit-export", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -692,7 +692,7 @@ axiam_error_kind_t axiam_users_list(axiam_client_t *c, const axiam_mgmt_page_req
         c, "users.list", "GET", "/api/v1/users", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_user_response_page_t *result = (axiam_mgmt_user_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -726,7 +726,7 @@ axiam_error_kind_t axiam_users_create(axiam_client_t *c, const axiam_mgmt_create
         c, "users.create", "POST", "/api/v1/users", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_user_response_t *result = axiam_mgmt_user_response_parse(json);
     cJSON_Delete(json);
@@ -756,7 +756,7 @@ axiam_error_kind_t axiam_users_get(axiam_client_t *c, const char *user_id, axiam
         c, "users.get", "GET", "/api/v1/users/{user_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_user_response_t *result = axiam_mgmt_user_response_parse(json);
     cJSON_Delete(json);
@@ -786,7 +786,7 @@ axiam_error_kind_t axiam_users_update(axiam_client_t *c, const char *user_id, co
         c, "users.update", "PUT", "/api/v1/users/{user_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_user_response_t *result = axiam_mgmt_user_response_parse(json);
     cJSON_Delete(json);
@@ -815,7 +815,7 @@ axiam_error_kind_t axiam_users_delete(axiam_client_t *c, const char *user_id, ax
         c, "users.delete", "DELETE", "/api/v1/users/{user_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -838,7 +838,7 @@ axiam_error_kind_t axiam_users_list_mfa_methods(axiam_client_t *c, const char *u
         c, "users.list_mfa_methods", "GET", "/api/v1/users/{user_id}/mfa-methods", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_mfa_method_response_list_t *result = (axiam_mgmt_mfa_method_response_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -874,7 +874,7 @@ axiam_error_kind_t axiam_users_delete_mfa_method(axiam_client_t *c, const char *
         c, "users.delete_mfa_method", "DELETE", "/api/v1/users/{user_id}/mfa-methods/{method_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -896,7 +896,7 @@ axiam_error_kind_t axiam_users_reset_mfa(axiam_client_t *c, const char *user_id,
         c, "users.reset_mfa", "POST", "/api/v1/users/{user_id}/reset-mfa", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -919,7 +919,7 @@ axiam_error_kind_t axiam_users_unlock(axiam_client_t *c, const char *user_id, ax
         c, "users.unlock", "POST", "/api/v1/users/{user_id}/unlock", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_user_response_t *result = axiam_mgmt_user_response_parse(json);
     cJSON_Delete(json);
@@ -949,7 +949,7 @@ axiam_error_kind_t axiam_users_list_roles(axiam_client_t *c, const char *user_id
         c, "users.list_roles", "GET", "/api/v1/users/{user_id}/roles", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_assignment_list_t *result = (axiam_mgmt_role_assignment_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -984,7 +984,7 @@ axiam_error_kind_t axiam_users_list_sessions(axiam_client_t *c, const char *user
         c, "users.list_sessions", "GET", "/api/v1/users/{user_id}/sessions", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_session_response_list_t *result = (axiam_mgmt_session_response_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1028,7 +1028,7 @@ axiam_error_kind_t axiam_groups_list(axiam_client_t *c, const axiam_mgmt_page_re
         c, "groups.list", "GET", "/api/v1/groups", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_group_page_t *result = (axiam_mgmt_group_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1062,7 +1062,7 @@ axiam_error_kind_t axiam_groups_create(axiam_client_t *c, const axiam_mgmt_creat
         c, "groups.create", "POST", "/api/v1/groups", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_group_t *result = axiam_mgmt_group_parse(json);
     cJSON_Delete(json);
@@ -1092,7 +1092,7 @@ axiam_error_kind_t axiam_groups_get(axiam_client_t *c, const char *group_id, axi
         c, "groups.get", "GET", "/api/v1/groups/{group_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_group_t *result = axiam_mgmt_group_parse(json);
     cJSON_Delete(json);
@@ -1122,7 +1122,7 @@ axiam_error_kind_t axiam_groups_update(axiam_client_t *c, const char *group_id, 
         c, "groups.update", "PUT", "/api/v1/groups/{group_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_group_t *result = axiam_mgmt_group_parse(json);
     cJSON_Delete(json);
@@ -1151,7 +1151,7 @@ axiam_error_kind_t axiam_groups_delete(axiam_client_t *c, const char *group_id, 
         c, "groups.delete", "DELETE", "/api/v1/groups/{group_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1187,7 +1187,7 @@ axiam_error_kind_t axiam_groups_list_members(axiam_client_t *c, const char *grou
         c, "groups.list_members", "GET", "/api/v1/groups/{group_id}/members", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_user_response_page_t *result = (axiam_mgmt_user_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1224,7 +1224,7 @@ axiam_error_kind_t axiam_groups_add_member(axiam_client_t *c, const char *group_
         c, "groups.add_member", "POST", "/api/v1/groups/{group_id}/members", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1248,7 +1248,7 @@ axiam_error_kind_t axiam_groups_remove_member(axiam_client_t *c, const char *gro
         c, "groups.remove_member", "DELETE", "/api/v1/groups/{group_id}/members/{user_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1271,7 +1271,7 @@ axiam_error_kind_t axiam_groups_list_roles(axiam_client_t *c, const char *group_
         c, "groups.list_roles", "GET", "/api/v1/groups/{group_id}/roles", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_assignment_list_t *result = (axiam_mgmt_role_assignment_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1319,7 +1319,7 @@ axiam_error_kind_t axiam_groups_list_service_accounts(axiam_client_t *c, const c
         c, "groups.list_service_accounts", "GET", "/api/v1/groups/{group_id}/service-accounts", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_service_account_response_page_t *result = (axiam_mgmt_service_account_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1356,7 +1356,7 @@ axiam_error_kind_t axiam_groups_add_service_account(axiam_client_t *c, const cha
         c, "groups.add_service_account", "POST", "/api/v1/groups/{group_id}/service-accounts", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1380,7 +1380,7 @@ axiam_error_kind_t axiam_groups_remove_service_account(axiam_client_t *c, const 
         c, "groups.remove_service_account", "DELETE", "/api/v1/groups/{group_id}/service-accounts/{service_account_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1412,7 +1412,7 @@ axiam_error_kind_t axiam_roles_list(axiam_client_t *c, const axiam_mgmt_page_req
         c, "roles.list", "GET", "/api/v1/roles", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_page_t *result = (axiam_mgmt_role_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1446,7 +1446,7 @@ axiam_error_kind_t axiam_roles_create(axiam_client_t *c, const axiam_mgmt_create
         c, "roles.create", "POST", "/api/v1/roles", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_t *result = axiam_mgmt_role_parse(json);
     cJSON_Delete(json);
@@ -1476,7 +1476,7 @@ axiam_error_kind_t axiam_roles_get(axiam_client_t *c, const char *role_id, axiam
         c, "roles.get", "GET", "/api/v1/roles/{role_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_t *result = axiam_mgmt_role_parse(json);
     cJSON_Delete(json);
@@ -1506,7 +1506,7 @@ axiam_error_kind_t axiam_roles_update(axiam_client_t *c, const char *role_id, co
         c, "roles.update", "PUT", "/api/v1/roles/{role_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_t *result = axiam_mgmt_role_parse(json);
     cJSON_Delete(json);
@@ -1535,7 +1535,7 @@ axiam_error_kind_t axiam_roles_delete(axiam_client_t *c, const char *role_id, ax
         c, "roles.delete", "DELETE", "/api/v1/roles/{role_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1558,7 +1558,7 @@ axiam_error_kind_t axiam_roles_list_users(axiam_client_t *c, const char *role_id
         c, "roles.list_users", "GET", "/api/v1/roles/{role_id}/users", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_user_assignment_list_t *result = (axiam_mgmt_role_user_assignment_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1592,7 +1592,7 @@ axiam_error_kind_t axiam_roles_assign_to_user(axiam_client_t *c, const char *rol
         c, "roles.assign_to_user", "POST", "/api/v1/roles/{role_id}/users", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1624,7 +1624,7 @@ axiam_error_kind_t axiam_roles_unassign_from_user(axiam_client_t *c, const char 
         c, "roles.unassign_from_user", "DELETE", "/api/v1/roles/{role_id}/users/{user_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1647,7 +1647,7 @@ axiam_error_kind_t axiam_roles_list_groups(axiam_client_t *c, const char *role_i
         c, "roles.list_groups", "GET", "/api/v1/roles/{role_id}/groups", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_group_assignment_list_t *result = (axiam_mgmt_role_group_assignment_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1681,7 +1681,7 @@ axiam_error_kind_t axiam_roles_assign_to_group(axiam_client_t *c, const char *ro
         c, "roles.assign_to_group", "POST", "/api/v1/roles/{role_id}/groups", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1713,7 +1713,7 @@ axiam_error_kind_t axiam_roles_unassign_from_group(axiam_client_t *c, const char
         c, "roles.unassign_from_group", "DELETE", "/api/v1/roles/{role_id}/groups/{group_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1736,7 +1736,7 @@ axiam_error_kind_t axiam_roles_list_permissions(axiam_client_t *c, const char *r
         c, "roles.list_permissions", "GET", "/api/v1/roles/{role_id}/permissions", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_resolved_permission_grant_list_t *result = (axiam_mgmt_resolved_permission_grant_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1770,7 +1770,7 @@ axiam_error_kind_t axiam_roles_grant_permission(axiam_client_t *c, const char *r
         c, "roles.grant_permission", "POST", "/api/v1/roles/{role_id}/permissions", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1794,7 +1794,7 @@ axiam_error_kind_t axiam_roles_revoke_permission(axiam_client_t *c, const char *
         c, "roles.revoke_permission", "DELETE", "/api/v1/roles/{role_id}/permissions/{permission_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1817,7 +1817,7 @@ axiam_error_kind_t axiam_roles_list_service_accounts(axiam_client_t *c, const ch
         c, "roles.list_service_accounts", "GET", "/api/v1/roles/{role_id}/service-accounts", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_service_account_assignment_list_t *result = (axiam_mgmt_role_service_account_assignment_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1851,7 +1851,7 @@ axiam_error_kind_t axiam_roles_assign_to_service_account(axiam_client_t *c, cons
         c, "roles.assign_to_service_account", "POST", "/api/v1/roles/{role_id}/service-accounts", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1883,7 +1883,7 @@ axiam_error_kind_t axiam_roles_unassign_from_service_account(axiam_client_t *c, 
         c, "roles.unassign_from_service_account", "DELETE", "/api/v1/roles/{role_id}/service-accounts/{service_account_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -1915,7 +1915,7 @@ axiam_error_kind_t axiam_permissions_list(axiam_client_t *c, const axiam_mgmt_pa
         c, "permissions.list", "GET", "/api/v1/permissions", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_permission_page_t *result = (axiam_mgmt_permission_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -1949,7 +1949,7 @@ axiam_error_kind_t axiam_permissions_create(axiam_client_t *c, const axiam_mgmt_
         c, "permissions.create", "POST", "/api/v1/permissions", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_permission_t *result = axiam_mgmt_permission_parse(json);
     cJSON_Delete(json);
@@ -1979,7 +1979,7 @@ axiam_error_kind_t axiam_permissions_get(axiam_client_t *c, const char *permissi
         c, "permissions.get", "GET", "/api/v1/permissions/{permission_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_permission_t *result = axiam_mgmt_permission_parse(json);
     cJSON_Delete(json);
@@ -2009,7 +2009,7 @@ axiam_error_kind_t axiam_permissions_update(axiam_client_t *c, const char *permi
         c, "permissions.update", "PUT", "/api/v1/permissions/{permission_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_permission_t *result = axiam_mgmt_permission_parse(json);
     cJSON_Delete(json);
@@ -2038,7 +2038,7 @@ axiam_error_kind_t axiam_permissions_delete(axiam_client_t *c, const char *permi
         c, "permissions.delete", "DELETE", "/api/v1/permissions/{permission_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -2070,7 +2070,7 @@ axiam_error_kind_t axiam_resources_list(axiam_client_t *c, const axiam_mgmt_page
         c, "resources.list", "GET", "/api/v1/resources", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_resource_page_t *result = (axiam_mgmt_resource_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2104,7 +2104,7 @@ axiam_error_kind_t axiam_resources_create(axiam_client_t *c, const axiam_mgmt_cr
         c, "resources.create", "POST", "/api/v1/resources", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_resource_t *result = axiam_mgmt_resource_parse(json);
     cJSON_Delete(json);
@@ -2134,7 +2134,7 @@ axiam_error_kind_t axiam_resources_get(axiam_client_t *c, const char *resource_i
         c, "resources.get", "GET", "/api/v1/resources/{resource_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_resource_t *result = axiam_mgmt_resource_parse(json);
     cJSON_Delete(json);
@@ -2164,7 +2164,7 @@ axiam_error_kind_t axiam_resources_update(axiam_client_t *c, const char *resourc
         c, "resources.update", "PUT", "/api/v1/resources/{resource_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_resource_t *result = axiam_mgmt_resource_parse(json);
     cJSON_Delete(json);
@@ -2193,7 +2193,7 @@ axiam_error_kind_t axiam_resources_delete(axiam_client_t *c, const char *resourc
         c, "resources.delete", "DELETE", "/api/v1/resources/{resource_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -2216,7 +2216,7 @@ axiam_error_kind_t axiam_resources_list_children(axiam_client_t *c, const char *
         c, "resources.list_children", "GET", "/api/v1/resources/{resource_id}/children", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_resource_list_t *result = (axiam_mgmt_resource_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2251,7 +2251,7 @@ axiam_error_kind_t axiam_resources_list_ancestors(axiam_client_t *c, const char 
         c, "resources.list_ancestors", "GET", "/api/v1/resources/{resource_id}/ancestors", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_resource_list_t *result = (axiam_mgmt_resource_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2286,7 +2286,7 @@ axiam_error_kind_t axiam_scopes_list(axiam_client_t *c, const char *resource_id,
         c, "scopes.list", "GET", "/api/v1/resources/{resource_id}/scopes", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scope_list_t *result = (axiam_mgmt_scope_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2321,7 +2321,7 @@ axiam_error_kind_t axiam_scopes_create(axiam_client_t *c, const char *resource_i
         c, "scopes.create", "POST", "/api/v1/resources/{resource_id}/scopes", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scope_t *result = axiam_mgmt_scope_parse(json);
     cJSON_Delete(json);
@@ -2353,7 +2353,7 @@ axiam_error_kind_t axiam_scopes_get(axiam_client_t *c, const char *resource_id, 
         c, "scopes.get", "GET", "/api/v1/resources/{resource_id}/scopes/{scope_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scope_t *result = axiam_mgmt_scope_parse(json);
     cJSON_Delete(json);
@@ -2385,7 +2385,7 @@ axiam_error_kind_t axiam_scopes_update(axiam_client_t *c, const char *resource_i
         c, "scopes.update", "PUT", "/api/v1/resources/{resource_id}/scopes/{scope_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scope_t *result = axiam_mgmt_scope_parse(json);
     cJSON_Delete(json);
@@ -2416,7 +2416,7 @@ axiam_error_kind_t axiam_scopes_delete(axiam_client_t *c, const char *resource_i
         c, "scopes.delete", "DELETE", "/api/v1/resources/{resource_id}/scopes/{scope_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -2448,7 +2448,7 @@ axiam_error_kind_t axiam_service_accounts_list(axiam_client_t *c, const axiam_mg
         c, "service_accounts.list", "GET", "/api/v1/service-accounts", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_service_account_response_page_t *result = (axiam_mgmt_service_account_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2482,7 +2482,7 @@ axiam_error_kind_t axiam_service_accounts_create(axiam_client_t *c, const axiam_
         c, "service_accounts.create", "POST", "/api/v1/service-accounts", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_service_account_created_response_t *result = axiam_mgmt_service_account_created_response_parse(json);
     cJSON_Delete(json);
@@ -2512,7 +2512,7 @@ axiam_error_kind_t axiam_service_accounts_get(axiam_client_t *c, const char *sa_
         c, "service_accounts.get", "GET", "/api/v1/service-accounts/{sa_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_service_account_response_t *result = axiam_mgmt_service_account_response_parse(json);
     cJSON_Delete(json);
@@ -2542,7 +2542,7 @@ axiam_error_kind_t axiam_service_accounts_update(axiam_client_t *c, const char *
         c, "service_accounts.update", "PUT", "/api/v1/service-accounts/{sa_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_service_account_response_t *result = axiam_mgmt_service_account_response_parse(json);
     cJSON_Delete(json);
@@ -2571,7 +2571,7 @@ axiam_error_kind_t axiam_service_accounts_delete(axiam_client_t *c, const char *
         c, "service_accounts.delete", "DELETE", "/api/v1/service-accounts/{sa_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -2594,7 +2594,7 @@ axiam_error_kind_t axiam_service_accounts_rotate_secret(axiam_client_t *c, const
         c, "service_accounts.rotate_secret", "POST", "/api/v1/service-accounts/{sa_id}/rotate-secret", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_rotate_secret_response_t *result = axiam_mgmt_rotate_secret_response_parse(json);
     cJSON_Delete(json);
@@ -2623,7 +2623,7 @@ axiam_error_kind_t axiam_service_accounts_bind_certificate(axiam_client_t *c, co
         c, "service_accounts.bind_certificate", "POST", "/api/v1/service-accounts/{sa_id}/bind-certificate", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -2646,7 +2646,7 @@ axiam_error_kind_t axiam_service_accounts_list_roles(axiam_client_t *c, const ch
         c, "service_accounts.list_roles", "GET", "/api/v1/service-accounts/{service_account_id}/roles", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_role_assignment_list_t *result = (axiam_mgmt_role_assignment_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2681,7 +2681,7 @@ axiam_error_kind_t axiam_service_accounts_list_groups(axiam_client_t *c, const c
         c, "service_accounts.list_groups", "GET", "/api/v1/service-accounts/{service_account_id}/groups", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_group_list_t *result = (axiam_mgmt_group_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2725,7 +2725,7 @@ axiam_error_kind_t axiam_certificates_list(axiam_client_t *c, const axiam_mgmt_p
         c, "certificates.list", "GET", "/api/v1/certificates", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_certificate_page_t *result = (axiam_mgmt_certificate_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2767,7 +2767,7 @@ axiam_error_kind_t axiam_certificates_generate(axiam_client_t *c, const axiam_mg
         c, "certificates.generate", "POST", "/api/v1/certificates", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_generated_certificate_t *result = axiam_mgmt_generated_certificate_parse(json);
     cJSON_Delete(json);
@@ -2801,7 +2801,7 @@ axiam_error_kind_t axiam_certificates_sign_csr(axiam_client_t *c, const axiam_mg
         c, "certificates.sign_csr", "POST", "/api/v1/certificates/sign-csr", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_certificate_t *result = axiam_mgmt_certificate_parse(json);
     cJSON_Delete(json);
@@ -2831,7 +2831,7 @@ axiam_error_kind_t axiam_certificates_get(axiam_client_t *c, const char *id, axi
         c, "certificates.get", "GET", "/api/v1/certificates/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_certificate_t *result = axiam_mgmt_certificate_parse(json);
     cJSON_Delete(json);
@@ -2860,7 +2860,7 @@ axiam_error_kind_t axiam_certificates_revoke(axiam_client_t *c, const char *id, 
         c, "certificates.revoke", "POST", "/api/v1/certificates/{id}/revoke", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -2901,7 +2901,7 @@ axiam_error_kind_t axiam_ca_certificates_list(axiam_client_t *c, const axiam_mgm
         c, "ca_certificates.list", "GET", "/api/v1/organizations/{org_id}/ca-certificates", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ca_certificate_page_t *result = (axiam_mgmt_ca_certificate_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -2944,7 +2944,7 @@ axiam_error_kind_t axiam_ca_certificates_generate(axiam_client_t *c, const axiam
         c, "ca_certificates.generate", "POST", "/api/v1/organizations/{org_id}/ca-certificates", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_generated_ca_certificate_t *result = axiam_mgmt_generated_ca_certificate_parse(json);
     cJSON_Delete(json);
@@ -2979,7 +2979,7 @@ axiam_error_kind_t axiam_ca_certificates_import_ca(axiam_client_t *c, const axia
         c, "ca_certificates.import_ca", "POST", "/api/v1/organizations/{org_id}/ca-certificates/import", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ca_certificate_t *result = axiam_mgmt_ca_certificate_parse(json);
     cJSON_Delete(json);
@@ -3016,7 +3016,7 @@ axiam_error_kind_t axiam_ca_certificates_get(axiam_client_t *c, const axiam_mgmt
         c, "ca_certificates.get", "GET", "/api/v1/organizations/{org_id}/ca-certificates/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ca_certificate_t *result = axiam_mgmt_ca_certificate_parse(json);
     cJSON_Delete(json);
@@ -3052,7 +3052,7 @@ axiam_error_kind_t axiam_ca_certificates_revoke(axiam_client_t *c, const axiam_m
         c, "ca_certificates.revoke", "POST", "/api/v1/organizations/{org_id}/ca-certificates/{id}/revoke", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -3082,7 +3082,7 @@ axiam_error_kind_t axiam_ca_certificates_migrate_custody(axiam_client_t *c, cons
         c, "ca_certificates.migrate_custody", "POST", "/api/v1/organizations/{org_id}/ca-certificates/{id}/migrate-custody", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_migrate_custody_response_t *result = axiam_mgmt_migrate_custody_response_parse(json);
     cJSON_Delete(json);
@@ -3119,7 +3119,7 @@ axiam_error_kind_t axiam_ca_certificates_set_mtls_trust_anchor(axiam_client_t *c
         c, "ca_certificates.set_mtls_trust_anchor", "PUT", "/api/v1/organizations/{org_id}/ca-certificates/{id}/mtls-trust-anchor", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_mtls_trust_anchor_response_t *result = axiam_mgmt_mtls_trust_anchor_response_parse(json);
     cJSON_Delete(json);
@@ -3169,7 +3169,7 @@ axiam_error_kind_t axiam_ca_certificates_list_signing_cas(axiam_client_t *c, con
         c, "ca_certificates.list_signing_cas", "GET", "/api/v1/organizations/{org_id}/tenants/{tenant_id}/signing-cas", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ca_certificate_page_t *result = (axiam_mgmt_ca_certificate_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -3214,7 +3214,7 @@ axiam_error_kind_t axiam_ca_certificates_generate_signing_ca(axiam_client_t *c, 
         c, "ca_certificates.generate_signing_ca", "POST", "/api/v1/organizations/{org_id}/tenants/{tenant_id}/signing-cas", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_generated_ca_certificate_t *result = axiam_mgmt_generated_ca_certificate_parse(json);
     cJSON_Delete(json);
@@ -3251,7 +3251,7 @@ axiam_error_kind_t axiam_ca_certificates_sign_signing_ca_csr(axiam_client_t *c, 
         c, "ca_certificates.sign_signing_ca_csr", "POST", "/api/v1/organizations/{org_id}/tenants/{tenant_id}/signing-cas/sign-csr", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ca_certificate_t *result = axiam_mgmt_ca_certificate_parse(json);
     cJSON_Delete(json);
@@ -3290,7 +3290,7 @@ axiam_error_kind_t axiam_pgp_keys_list(axiam_client_t *c, const axiam_mgmt_page_
         c, "pgp_keys.list", "GET", "/api/v1/pgp-keys", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_pgp_key_page_t *result = (axiam_mgmt_pgp_key_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -3324,7 +3324,7 @@ axiam_error_kind_t axiam_pgp_keys_generate(axiam_client_t *c, const axiam_mgmt_c
         c, "pgp_keys.generate", "POST", "/api/v1/pgp-keys", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_generated_pgp_key_t *result = axiam_mgmt_generated_pgp_key_parse(json);
     cJSON_Delete(json);
@@ -3354,7 +3354,7 @@ axiam_error_kind_t axiam_pgp_keys_get(axiam_client_t *c, const char *id, axiam_m
         c, "pgp_keys.get", "GET", "/api/v1/pgp-keys/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_pgp_key_t *result = axiam_mgmt_pgp_key_parse(json);
     cJSON_Delete(json);
@@ -3383,7 +3383,7 @@ axiam_error_kind_t axiam_pgp_keys_revoke(axiam_client_t *c, const char *id, axia
         c, "pgp_keys.revoke", "POST", "/api/v1/pgp-keys/{id}/revoke", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -3406,7 +3406,7 @@ axiam_error_kind_t axiam_pgp_keys_encrypt(axiam_client_t *c, const char *id, con
         c, "pgp_keys.encrypt", "POST", "/api/v1/pgp-keys/{id}/encrypt", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_encrypted_export_t *result = axiam_mgmt_encrypted_export_parse(json);
     cJSON_Delete(json);
@@ -3432,7 +3432,7 @@ axiam_error_kind_t axiam_pgp_keys_sign_audit_batch(axiam_client_t *c, const axia
         c, "pgp_keys.sign_audit_batch", "POST", "/api/v1/pgp-keys/sign-audit-batch", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_signed_audit_batch_t *result = axiam_mgmt_signed_audit_batch_parse(json);
     cJSON_Delete(json);
@@ -3471,7 +3471,7 @@ axiam_error_kind_t axiam_webhooks_list(axiam_client_t *c, const axiam_mgmt_page_
         c, "webhooks.list", "GET", "/api/v1/webhooks", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_webhook_response_page_t *result = (axiam_mgmt_webhook_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -3505,7 +3505,7 @@ axiam_error_kind_t axiam_webhooks_create(axiam_client_t *c, const axiam_mgmt_cre
         c, "webhooks.create", "POST", "/api/v1/webhooks", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_webhook_response_t *result = axiam_mgmt_webhook_response_parse(json);
     cJSON_Delete(json);
@@ -3535,7 +3535,7 @@ axiam_error_kind_t axiam_webhooks_get(axiam_client_t *c, const char *id, axiam_m
         c, "webhooks.get", "GET", "/api/v1/webhooks/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_webhook_response_t *result = axiam_mgmt_webhook_response_parse(json);
     cJSON_Delete(json);
@@ -3565,7 +3565,7 @@ axiam_error_kind_t axiam_webhooks_update(axiam_client_t *c, const char *id, cons
         c, "webhooks.update", "PUT", "/api/v1/webhooks/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_webhook_response_t *result = axiam_mgmt_webhook_response_parse(json);
     cJSON_Delete(json);
@@ -3594,7 +3594,7 @@ axiam_error_kind_t axiam_webhooks_delete(axiam_client_t *c, const char *id, axia
         c, "webhooks.delete", "DELETE", "/api/v1/webhooks/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -3626,7 +3626,7 @@ axiam_error_kind_t axiam_oauth2_clients_list(axiam_client_t *c, const axiam_mgmt
         c, "oauth2_clients.list", "GET", "/api/v1/oauth2-clients", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_o_auth2_client_response_page_t *result = (axiam_mgmt_o_auth2_client_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -3660,7 +3660,7 @@ axiam_error_kind_t axiam_oauth2_clients_create(axiam_client_t *c, const axiam_mg
         c, "oauth2_clients.create", "POST", "/api/v1/oauth2-clients", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_o_auth2_client_created_response_t *result = axiam_mgmt_o_auth2_client_created_response_parse(json);
     cJSON_Delete(json);
@@ -3690,7 +3690,7 @@ axiam_error_kind_t axiam_oauth2_clients_get(axiam_client_t *c, const char *id, a
         c, "oauth2_clients.get", "GET", "/api/v1/oauth2-clients/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_o_auth2_client_response_t *result = axiam_mgmt_o_auth2_client_response_parse(json);
     cJSON_Delete(json);
@@ -3720,7 +3720,7 @@ axiam_error_kind_t axiam_oauth2_clients_update(axiam_client_t *c, const char *id
         c, "oauth2_clients.update", "PUT", "/api/v1/oauth2-clients/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_o_auth2_client_response_t *result = axiam_mgmt_o_auth2_client_response_parse(json);
     cJSON_Delete(json);
@@ -3749,7 +3749,7 @@ axiam_error_kind_t axiam_oauth2_clients_delete(axiam_client_t *c, const char *id
         c, "oauth2_clients.delete", "DELETE", "/api/v1/oauth2-clients/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -3768,7 +3768,7 @@ axiam_error_kind_t axiam_oauth2_clients_create_registration_token(axiam_client_t
         c, "oauth2_clients.create_registration_token", "POST", "/api/v1/oauth2-clients/registration-tokens", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_create_registration_token_response_t *result = axiam_mgmt_create_registration_token_response_parse(json);
     cJSON_Delete(json);
@@ -3794,7 +3794,7 @@ axiam_error_kind_t axiam_oauth2_clients_list_registration_tokens(axiam_client_t 
         c, "oauth2_clients.list_registration_tokens", "GET", "/api/v1/oauth2-clients/registration-tokens", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_registration_token_response_list_t *result = (axiam_mgmt_registration_token_response_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -3838,7 +3838,7 @@ axiam_error_kind_t axiam_federation_list_configs(axiam_client_t *c, const axiam_
         c, "federation.list_configs", "GET", "/api/v1/federation-configs", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_federation_config_response_page_t *result = (axiam_mgmt_federation_config_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -3872,7 +3872,7 @@ axiam_error_kind_t axiam_federation_create_config(axiam_client_t *c, const axiam
         c, "federation.create_config", "POST", "/api/v1/federation-configs", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_federation_config_response_t *result = axiam_mgmt_federation_config_response_parse(json);
     cJSON_Delete(json);
@@ -3902,7 +3902,7 @@ axiam_error_kind_t axiam_federation_get_config(axiam_client_t *c, const char *id
         c, "federation.get_config", "GET", "/api/v1/federation-configs/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_federation_config_response_t *result = axiam_mgmt_federation_config_response_parse(json);
     cJSON_Delete(json);
@@ -3932,7 +3932,7 @@ axiam_error_kind_t axiam_federation_update_config(axiam_client_t *c, const char 
         c, "federation.update_config", "PUT", "/api/v1/federation-configs/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_federation_config_response_t *result = axiam_mgmt_federation_config_response_parse(json);
     cJSON_Delete(json);
@@ -3961,7 +3961,7 @@ axiam_error_kind_t axiam_federation_delete_config(axiam_client_t *c, const char 
         c, "federation.delete_config", "DELETE", "/api/v1/federation-configs/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -3984,7 +3984,7 @@ axiam_error_kind_t axiam_federation_list_user_links(axiam_client_t *c, const cha
         c, "federation.list_user_links", "GET", "/api/v1/federation-links/user/{user_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_federation_link_response_list_t *result = (axiam_mgmt_federation_link_response_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -4018,7 +4018,7 @@ axiam_error_kind_t axiam_federation_delete_link(axiam_client_t *c, const char *i
         c, "federation.delete_link", "DELETE", "/api/v1/federation-links/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -4037,7 +4037,7 @@ axiam_error_kind_t axiam_federation_oidc_authorize(axiam_client_t *c, const axia
         c, "federation.oidc_authorize", "POST", "/api/v1/federation/oidc/authorize", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_oidc_authorize_response_t *result = axiam_mgmt_oidc_authorize_response_parse(json);
     cJSON_Delete(json);
@@ -4063,7 +4063,7 @@ axiam_error_kind_t axiam_federation_oidc_callback(axiam_client_t *c, const axiam
         c, "federation.oidc_callback", "POST", "/api/v1/federation/oidc/callback", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_oidc_callback_response_t *result = axiam_mgmt_oidc_callback_response_parse(json);
     cJSON_Delete(json);
@@ -4102,7 +4102,7 @@ axiam_error_kind_t axiam_notification_rules_list(axiam_client_t *c, const axiam_
         c, "notification_rules.list", "GET", "/api/v1/notification-rules", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_notification_rule_response_page_t *result = (axiam_mgmt_notification_rule_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -4136,7 +4136,7 @@ axiam_error_kind_t axiam_notification_rules_create(axiam_client_t *c, const axia
         c, "notification_rules.create", "POST", "/api/v1/notification-rules", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_notification_rule_response_t *result = axiam_mgmt_notification_rule_response_parse(json);
     cJSON_Delete(json);
@@ -4166,7 +4166,7 @@ axiam_error_kind_t axiam_notification_rules_get(axiam_client_t *c, const char *i
         c, "notification_rules.get", "GET", "/api/v1/notification-rules/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_notification_rule_response_t *result = axiam_mgmt_notification_rule_response_parse(json);
     cJSON_Delete(json);
@@ -4196,7 +4196,7 @@ axiam_error_kind_t axiam_notification_rules_update(axiam_client_t *c, const char
         c, "notification_rules.update", "PUT", "/api/v1/notification-rules/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_notification_rule_response_t *result = axiam_mgmt_notification_rule_response_parse(json);
     cJSON_Delete(json);
@@ -4225,7 +4225,7 @@ axiam_error_kind_t axiam_notification_rules_delete(axiam_client_t *c, const char
         c, "notification_rules.delete", "DELETE", "/api/v1/notification-rules/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -4253,7 +4253,7 @@ axiam_error_kind_t axiam_email_config_get_org(axiam_client_t *c, const axiam_mgm
         c, "email_config.get_org", "GET", "/api/v1/organizations/{org_id}/email-config", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_email_config_t *result = axiam_mgmt_email_config_parse(json);
     cJSON_Delete(json);
@@ -4288,7 +4288,7 @@ axiam_error_kind_t axiam_email_config_set_org(axiam_client_t *c, const axiam_mgm
         c, "email_config.set_org", "PUT", "/api/v1/organizations/{org_id}/email-config", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_email_config_t *result = axiam_mgmt_email_config_parse(json);
     cJSON_Delete(json);
@@ -4322,7 +4322,7 @@ axiam_error_kind_t axiam_email_config_delete_org(axiam_client_t *c, const axiam_
         c, "email_config.delete_org", "DELETE", "/api/v1/organizations/{org_id}/email-config", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -4350,7 +4350,7 @@ axiam_error_kind_t axiam_email_config_test_org(axiam_client_t *c, const axiam_mg
         c, "email_config.test_org", "POST", "/api/v1/organizations/{org_id}/email-config/test", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_email_test_result_t *result = axiam_mgmt_email_test_result_parse(json);
     cJSON_Delete(json);
@@ -4385,7 +4385,7 @@ axiam_error_kind_t axiam_email_config_get_tenant(axiam_client_t *c, const axiam_
         c, "email_config.get_tenant", "GET", "/api/v1/tenants/{tenant_id}/email-config", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_email_config_override_t *result = axiam_mgmt_email_config_override_parse(json);
     cJSON_Delete(json);
@@ -4420,7 +4420,7 @@ axiam_error_kind_t axiam_email_config_set_tenant(axiam_client_t *c, const axiam_
         c, "email_config.set_tenant", "PUT", "/api/v1/tenants/{tenant_id}/email-config", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_email_config_override_t *result = axiam_mgmt_email_config_override_parse(json);
     cJSON_Delete(json);
@@ -4454,7 +4454,7 @@ axiam_error_kind_t axiam_email_config_delete_tenant(axiam_client_t *c, const axi
         c, "email_config.delete_tenant", "DELETE", "/api/v1/tenants/{tenant_id}/email-config", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -4482,7 +4482,7 @@ axiam_error_kind_t axiam_email_config_test_tenant(axiam_client_t *c, const axiam
         c, "email_config.test_tenant", "POST", "/api/v1/tenants/{tenant_id}/email-config/test", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_email_test_result_t *result = axiam_mgmt_email_test_result_parse(json);
     cJSON_Delete(json);
@@ -4517,7 +4517,7 @@ axiam_error_kind_t axiam_directory_get(axiam_client_t *c, const axiam_mgmt_call_
         c, "directory.get", "GET", "/api/v1/tenants/{tenant_id}/directory", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_directory_config_t *result = axiam_mgmt_directory_config_parse(json);
     cJSON_Delete(json);
@@ -4576,7 +4576,7 @@ axiam_error_kind_t axiam_directory_set(axiam_client_t *c, const axiam_mgmt_call_
         c, "directory.set", "PUT", "/api/v1/tenants/{tenant_id}/directory", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_directory_config_t *result = axiam_mgmt_directory_config_parse(json);
     cJSON_Delete(json);
@@ -4611,7 +4611,7 @@ axiam_error_kind_t axiam_directory_update(axiam_client_t *c, const axiam_mgmt_ca
         c, "directory.update", "PATCH", "/api/v1/tenants/{tenant_id}/directory", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_directory_config_t *result = axiam_mgmt_directory_config_parse(json);
     cJSON_Delete(json);
@@ -4645,7 +4645,7 @@ axiam_error_kind_t axiam_directory_delete(axiam_client_t *c, const axiam_mgmt_ca
         c, "directory.delete", "DELETE", "/api/v1/tenants/{tenant_id}/directory", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -4673,7 +4673,7 @@ axiam_error_kind_t axiam_directory_link_account(axiam_client_t *c, const axiam_m
         c, "directory.link_account", "POST", "/api/v1/tenants/{tenant_id}/directory/links", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_directory_link_result_t *result = axiam_mgmt_directory_link_result_parse(json);
     cJSON_Delete(json);
@@ -4708,7 +4708,7 @@ axiam_error_kind_t axiam_directory_get_sync_status(axiam_client_t *c, const axia
         c, "directory.get_sync_status", "GET", "/api/v1/tenants/{tenant_id}/directory/sync-status", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_directory_sync_status_t *result = axiam_mgmt_directory_sync_status_parse(json);
     cJSON_Delete(json);
@@ -4743,7 +4743,7 @@ axiam_error_kind_t axiam_saml_get_idp(axiam_client_t *c, const axiam_mgmt_call_s
         c, "saml.get_idp", "GET", "/api/v1/tenants/{tenant_id}/saml/idp", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_idp_info_t *result = axiam_mgmt_saml_idp_info_parse(json);
     cJSON_Delete(json);
@@ -4791,7 +4791,7 @@ axiam_error_kind_t axiam_saml_list_service_providers(axiam_client_t *c, const ax
         c, "saml.list_service_providers", "GET", "/api/v1/tenants/{tenant_id}/saml/service-providers", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_service_provider_page_t *result = (axiam_mgmt_saml_service_provider_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -4853,7 +4853,7 @@ axiam_error_kind_t axiam_saml_create_service_provider(axiam_client_t *c, const a
         c, "saml.create_service_provider", "POST", "/api/v1/tenants/{tenant_id}/saml/service-providers", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_service_provider_t *result = axiam_mgmt_saml_service_provider_parse(json);
     cJSON_Delete(json);
@@ -4890,7 +4890,7 @@ axiam_error_kind_t axiam_saml_get_service_provider(axiam_client_t *c, const axia
         c, "saml.get_service_provider", "GET", "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_service_provider_t *result = axiam_mgmt_saml_service_provider_parse(json);
     cJSON_Delete(json);
@@ -4946,7 +4946,7 @@ axiam_error_kind_t axiam_saml_update_service_provider(axiam_client_t *c, const a
         c, "saml.update_service_provider", "PUT", "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_service_provider_t *result = axiam_mgmt_saml_service_provider_parse(json);
     cJSON_Delete(json);
@@ -4982,7 +4982,7 @@ axiam_error_kind_t axiam_saml_delete_service_provider(axiam_client_t *c, const a
         c, "saml.delete_service_provider", "DELETE", "/api/v1/tenants/{tenant_id}/saml/service-providers/{sp_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -5015,7 +5015,7 @@ axiam_error_kind_t axiam_saml_parse_sp_metadata(axiam_client_t *c, const axiam_m
         c, "saml.parse_sp_metadata", "POST", "/api/v1/tenants/{tenant_id}/saml/parse-sp-metadata", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_sp_metadata_draft_t *result = axiam_mgmt_saml_sp_metadata_draft_parse(json);
     cJSON_Delete(json);
@@ -5050,7 +5050,7 @@ axiam_error_kind_t axiam_saml_list_idp_credentials(axiam_client_t *c, const axia
         c, "saml.list_idp_credentials", "GET", "/api/v1/tenants/{tenant_id}/saml/idp-credentials", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_idp_credential_list_t *result = (axiam_mgmt_saml_idp_credential_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -5090,7 +5090,7 @@ axiam_error_kind_t axiam_saml_issue_idp_credential(axiam_client_t *c, const axia
         c, "saml.issue_idp_credential", "POST", "/api/v1/tenants/{tenant_id}/saml/idp-credentials", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_idp_credential_t *result = axiam_mgmt_saml_idp_credential_parse(json);
     cJSON_Delete(json);
@@ -5127,7 +5127,7 @@ axiam_error_kind_t axiam_saml_promote_idp_credential(axiam_client_t *c, const ax
         c, "saml.promote_idp_credential", "POST", "/api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/promote", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_idp_credential_promotion_t *result = axiam_mgmt_saml_idp_credential_promotion_parse(json);
     cJSON_Delete(json);
@@ -5164,7 +5164,7 @@ axiam_error_kind_t axiam_saml_retire_idp_credential(axiam_client_t *c, const axi
         c, "saml.retire_idp_credential", "POST", "/api/v1/tenants/{tenant_id}/saml/idp-credentials/{credential_id}/retire", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_saml_idp_credential_t *result = axiam_mgmt_saml_idp_credential_parse(json);
     cJSON_Delete(json);
@@ -5212,7 +5212,7 @@ axiam_error_kind_t axiam_ssf_list_streams(axiam_client_t *c, const axiam_mgmt_ca
         c, "ssf.list_streams", "GET", "/api/v1/tenants/{tenant_id}/ssf/streams", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ssf_stream_page_t *result = (axiam_mgmt_ssf_stream_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -5274,7 +5274,7 @@ axiam_error_kind_t axiam_ssf_create_stream(axiam_client_t *c, const axiam_mgmt_c
         c, "ssf.create_stream", "POST", "/api/v1/tenants/{tenant_id}/ssf/streams", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ssf_stream_t *result = axiam_mgmt_ssf_stream_parse(json);
     cJSON_Delete(json);
@@ -5311,7 +5311,7 @@ axiam_error_kind_t axiam_ssf_get_stream(axiam_client_t *c, const axiam_mgmt_call
         c, "ssf.get_stream", "GET", "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ssf_stream_t *result = axiam_mgmt_ssf_stream_parse(json);
     cJSON_Delete(json);
@@ -5367,7 +5367,7 @@ axiam_error_kind_t axiam_ssf_update_stream(axiam_client_t *c, const axiam_mgmt_c
         c, "ssf.update_stream", "PUT", "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ssf_stream_t *result = axiam_mgmt_ssf_stream_parse(json);
     cJSON_Delete(json);
@@ -5403,7 +5403,7 @@ axiam_error_kind_t axiam_ssf_delete_stream(axiam_client_t *c, const axiam_mgmt_c
         c, "ssf.delete_stream", "DELETE", "/api/v1/tenants/{tenant_id}/ssf/streams/{stream_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -5435,7 +5435,7 @@ axiam_error_kind_t axiam_scim_targets_list(axiam_client_t *c, const axiam_mgmt_p
         c, "scim_targets.list", "GET", "/api/v1/scim-targets", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scim_target_response_page_t *result = (axiam_mgmt_scim_target_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -5503,7 +5503,7 @@ axiam_error_kind_t axiam_scim_targets_create(axiam_client_t *c, const axiam_mgmt
         c, "scim_targets.create", "POST", "/api/v1/scim-targets", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scim_target_response_t *result = axiam_mgmt_scim_target_response_parse(json);
     cJSON_Delete(json);
@@ -5533,7 +5533,7 @@ axiam_error_kind_t axiam_scim_targets_get(axiam_client_t *c, const char *id, axi
         c, "scim_targets.get", "GET", "/api/v1/scim-targets/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scim_target_response_t *result = axiam_mgmt_scim_target_response_parse(json);
     cJSON_Delete(json);
@@ -5597,7 +5597,7 @@ axiam_error_kind_t axiam_scim_targets_update(axiam_client_t *c, const char *id, 
         c, "scim_targets.update", "PUT", "/api/v1/scim-targets/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scim_target_response_t *result = axiam_mgmt_scim_target_response_parse(json);
     cJSON_Delete(json);
@@ -5626,7 +5626,7 @@ axiam_error_kind_t axiam_scim_targets_delete(axiam_client_t *c, const char *id, 
         c, "scim_targets.delete", "DELETE", "/api/v1/scim-targets/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -5649,7 +5649,7 @@ axiam_error_kind_t axiam_scim_targets_reconcile(axiam_client_t *c, const char *i
         c, "scim_targets.reconcile", "POST", "/api/v1/scim-targets/{id}/reconcile", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scim_reconcile_accepted_t *result = axiam_mgmt_scim_reconcile_accepted_parse(json);
     cJSON_Delete(json);
@@ -5684,7 +5684,7 @@ axiam_error_kind_t axiam_settings_get_org(axiam_client_t *c, const axiam_mgmt_ca
         c, "settings.get_org", "GET", "/api/v1/organizations/{org_id}/settings", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_security_settings_t *result = axiam_mgmt_security_settings_parse(json);
     cJSON_Delete(json);
@@ -5719,7 +5719,7 @@ axiam_error_kind_t axiam_settings_set_org(axiam_client_t *c, const axiam_mgmt_ca
         c, "settings.set_org", "PUT", "/api/v1/organizations/{org_id}/settings", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_security_settings_t *result = axiam_mgmt_security_settings_parse(json);
     cJSON_Delete(json);
@@ -5745,7 +5745,7 @@ axiam_error_kind_t axiam_settings_get_effective(axiam_client_t *c, axiam_mgmt_se
         c, "settings.get_effective", "GET", "/api/v1/settings", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_security_settings_t *result = axiam_mgmt_security_settings_parse(json);
     cJSON_Delete(json);
@@ -5771,7 +5771,7 @@ axiam_error_kind_t axiam_settings_set_effective(axiam_client_t *c, const axiam_m
         c, "settings.set_effective", "PUT", "/api/v1/settings", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_security_settings_t *result = axiam_mgmt_security_settings_parse(json);
     cJSON_Delete(json);
@@ -5806,7 +5806,7 @@ axiam_error_kind_t axiam_settings_get_tenant_override(axiam_client_t *c, const a
         c, "settings.get_tenant_override", "GET", "/api/v1/tenants/{tenant_id}/settings", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_tenant_settings_override_t *result = axiam_mgmt_tenant_settings_override_parse(json);
     cJSON_Delete(json);
@@ -5841,7 +5841,7 @@ axiam_error_kind_t axiam_settings_set_tenant_override(axiam_client_t *c, const a
         c, "settings.set_tenant_override", "PUT", "/api/v1/tenants/{tenant_id}/settings", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_tenant_settings_override_t *result = axiam_mgmt_tenant_settings_override_parse(json);
     cJSON_Delete(json);
@@ -5875,7 +5875,7 @@ axiam_error_kind_t axiam_settings_delete_tenant_override(axiam_client_t *c, cons
         c, "settings.delete_tenant_override", "DELETE", "/api/v1/tenants/{tenant_id}/settings", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -5894,7 +5894,7 @@ axiam_error_kind_t axiam_scim_tokens_list(axiam_client_t *c, axiam_mgmt_scim_tok
         c, "scim_tokens.list", "GET", "/api/v1/scim-tokens", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_scim_token_response_list_t *result = (axiam_mgmt_scim_token_response_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -5925,7 +5925,7 @@ axiam_error_kind_t axiam_scim_tokens_create(axiam_client_t *c, const axiam_mgmt_
         c, "scim_tokens.create", "POST", "/api/v1/scim-tokens", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_create_scim_token_response_t *result = axiam_mgmt_create_scim_token_response_parse(json);
     cJSON_Delete(json);
@@ -5954,7 +5954,7 @@ axiam_error_kind_t axiam_scim_tokens_revoke(axiam_client_t *c, const char *id, a
         c, "scim_tokens.revoke", "DELETE", "/api/v1/scim-tokens/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -5986,7 +5986,7 @@ axiam_error_kind_t axiam_reactors_list(axiam_client_t *c, const axiam_mgmt_page_
         c, "reactors.list", "GET", "/api/v1/reactors", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_reactor_response_page_t *result = (axiam_mgmt_reactor_response_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -6020,7 +6020,7 @@ axiam_error_kind_t axiam_reactors_create(axiam_client_t *c, const axiam_mgmt_cre
         c, "reactors.create", "POST", "/api/v1/reactors", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_reactor_response_t *result = axiam_mgmt_reactor_response_parse(json);
     cJSON_Delete(json);
@@ -6050,7 +6050,7 @@ axiam_error_kind_t axiam_reactors_get(axiam_client_t *c, const char *id, axiam_m
         c, "reactors.get", "GET", "/api/v1/reactors/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_reactor_response_t *result = axiam_mgmt_reactor_response_parse(json);
     cJSON_Delete(json);
@@ -6080,7 +6080,7 @@ axiam_error_kind_t axiam_reactors_update(axiam_client_t *c, const char *id, cons
         c, "reactors.update", "PUT", "/api/v1/reactors/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_reactor_response_t *result = axiam_mgmt_reactor_response_parse(json);
     cJSON_Delete(json);
@@ -6109,7 +6109,7 @@ axiam_error_kind_t axiam_reactors_delete(axiam_client_t *c, const char *id, axia
         c, "reactors.delete", "DELETE", "/api/v1/reactors/{id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -6128,7 +6128,7 @@ axiam_error_kind_t axiam_reactors_list_events(axiam_client_t *c, axiam_mgmt_reac
         c, "reactors.list_events", "GET", "/api/v1/reactors/events", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_reactor_event_descriptor_list_t *result = (axiam_mgmt_reactor_event_descriptor_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -6168,7 +6168,7 @@ axiam_error_kind_t axiam_webauthn_policy_get(axiam_client_t *c, const axiam_mgmt
         c, "webauthn_policy.get", "GET", "/api/v1/tenants/{tenant_id}/webauthn/attestation-policy", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_policy_response_t *result = axiam_mgmt_policy_response_parse(json);
     cJSON_Delete(json);
@@ -6203,7 +6203,7 @@ axiam_error_kind_t axiam_webauthn_policy_set(axiam_client_t *c, const axiam_mgmt
         c, "webauthn_policy.set", "PUT", "/api/v1/tenants/{tenant_id}/webauthn/attestation-policy", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_webauthn_attestation_policy_t *result = axiam_mgmt_webauthn_attestation_policy_parse(json);
     cJSON_Delete(json);
@@ -6238,7 +6238,7 @@ axiam_error_kind_t axiam_webauthn_policy_compliance_report(axiam_client_t *c, co
         c, "webauthn_policy.compliance_report", "GET", "/api/v1/tenants/{tenant_id}/webauthn/compliance-report", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_compliance_report_entry_list_t *result = (axiam_mgmt_compliance_report_entry_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -6288,7 +6288,7 @@ axiam_error_kind_t axiam_audit_list(axiam_client_t *c, const char *actor_id, con
         c, "audit.list", "GET", "/api/v1/audit-logs", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_audit_log_entry_page_t *result = (axiam_mgmt_audit_log_entry_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -6341,7 +6341,7 @@ axiam_error_kind_t axiam_audit_list_system(axiam_client_t *c, const char *actor_
         c, "audit.list_system", "GET", "/api/v1/audit-logs/system", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_audit_log_entry_page_t *result = (axiam_mgmt_audit_log_entry_page_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -6374,7 +6374,7 @@ axiam_error_kind_t axiam_privacy_request_export(axiam_client_t *c, axiam_error_t
         c, "privacy.request_export", "POST", "/api/v1/account/export", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -6396,7 +6396,7 @@ axiam_error_kind_t axiam_privacy_download_export(axiam_client_t *c, const char *
         c, "privacy.download_export", "GET", "/api/v1/account/export/{token}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -6414,7 +6414,7 @@ axiam_error_kind_t axiam_privacy_request_delete(axiam_client_t *c, axiam_error_t
         c, "privacy.request_delete", "POST", "/api/v1/account/delete", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -6440,7 +6440,7 @@ axiam_error_kind_t axiam_privacy_cancel_delete(axiam_client_t *c, const char *to
         c, "privacy.cancel_delete", "GET", "/api/v1/auth/account/delete/cancel", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -6459,7 +6459,7 @@ axiam_error_kind_t axiam_privacy_list_consents(axiam_client_t *c, axiam_mgmt_con
         c, "privacy.list_consents", "GET", "/api/v1/account/consents", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_consent_view_list_t *result = (axiam_mgmt_consent_view_list_t *) calloc(1, sizeof(*result));
     if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
@@ -6489,7 +6489,7 @@ axiam_error_kind_t axiam_privacy_grant_scope_consent(axiam_client_t *c, const ax
         c, "privacy.grant_scope_consent", "POST", "/api/v1/account/consents/oidc-scopes", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -6511,7 +6511,7 @@ axiam_error_kind_t axiam_privacy_withdraw_scope_consent(axiam_client_t *c, const
         c, "privacy.withdraw_scope_consent", "DELETE", "/api/v1/account/consents/oidc-scopes/{client_id}", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     cJSON_Delete(json);
     return AXIAM_OK;
@@ -6530,7 +6530,7 @@ axiam_error_kind_t axiam_platform_health(axiam_client_t *c, axiam_mgmt_health_re
         c, "platform.health", "GET", "/health", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_health_response_t *result = axiam_mgmt_health_response_parse(json);
     cJSON_Delete(json);
@@ -6556,7 +6556,7 @@ axiam_error_kind_t axiam_platform_ready(axiam_client_t *c, axiam_mgmt_ready_resp
         c, "platform.ready", "GET", "/ready", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_ready_response_t *result = axiam_mgmt_ready_response_parse(json);
     cJSON_Delete(json);
@@ -6582,7 +6582,7 @@ axiam_error_kind_t axiam_platform_mds_status(axiam_client_t *c, axiam_mgmt_mds_s
         c, "platform.mds_status", "GET", "/api/v1/mds/status", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_mds_status_response_t *result = axiam_mgmt_mds_status_response_parse(json);
     cJSON_Delete(json);
@@ -6608,7 +6608,7 @@ axiam_error_kind_t axiam_platform_mds_refresh(axiam_client_t *c, axiam_mgmt_mds_
         c, "platform.mds_refresh", "POST", "/api/v1/mds/refresh", path, body_json,
         &json, err);
     free(path);
-    free(body_json);
+    axiam_mgmt_body_free(body_json);
     if (rc != AXIAM_OK) return rc;
     axiam_mgmt_mds_refresh_outcome_t *result = axiam_mgmt_mds_refresh_outcome_parse(json);
     cJSON_Delete(json);
