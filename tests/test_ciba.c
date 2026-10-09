@@ -698,8 +698,11 @@ static void test_t07_no_request_after_expires_in_and_expired_token_is_raised_loc
 static void test_t08_a_500_and_a_429_mid_loop_are_survived(void) {
     mint_tokens();
     axiam_client_t *c = make_client();
+    /* Contract 1.59 P8: the 500 carries the body AXIAM's token endpoint sends for an
+     * internal failure. A 5xx on ciba_poll is retried under §16 and never ends the loop,
+     * with or without an `error` member. */
     g.token[0] = (answer_t){400, "{\"error\":\"authorization_pending\"}", 0};
-    g.token[1] = (answer_t){500, NULL, 0};
+    g.token[1] = (answer_t){500, "{\"error\":\"server_error\"}", 0};
     g.token[2] = (answer_t){429, "{\"error\":\"rate_limit_exceeded\"}", 0};
     g.token[3] = (answer_t){200, g_tokens, 0};
     g.token_len = 4;

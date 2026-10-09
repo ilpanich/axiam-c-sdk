@@ -430,3 +430,18 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_contract_158_alloc PRIVATE --coverage)
 endif()
 add_test(NAME test_contract_158_alloc COMMAND test_contract_158_alloc)
+# Contract 1.59 R-19: the rendered §30 / §31 / §32 request bodies carrying a write-only
+# secret are scrubbed before they are released. free() and realloc() are wrapped (GNU ld
+# --wrap, as above) so every block the library releases is searched for the secret.
+add_executable(test_secret_bodies_scrubbed test_secret_bodies_scrubbed.c management_test_util.c)
+target_include_directories(test_secret_bodies_scrubbed PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_secret_bodies_scrubbed PRIVATE ${AXIAM_TEST_LINK})
+target_link_options(test_secret_bodies_scrubbed PRIVATE -Wl,--wrap=free -Wl,--wrap=realloc)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_secret_bodies_scrubbed PRIVATE --coverage)
+endif()
+add_test(NAME test_secret_bodies_scrubbed COMMAND test_secret_bodies_scrubbed)
+# Contract 1.59 documentation rows (R-29, R-41), pinned against the generated public
+# headers and the README a consumer reads.
+axiam_add_test(test_contract_159_docs test_contract_159_docs.c)
+target_compile_definitions(test_contract_159_docs PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")

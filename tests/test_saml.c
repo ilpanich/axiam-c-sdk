@@ -256,23 +256,23 @@ static void test_service_providers_page_with_search_and_credentials_are_a_plain_
     mgmt_mount(200, "{\"items\":[" SP_BODY "],\"total\":2,\"offset\":1,\"limit\":1}");
     mgmt_mount(200, "{\"items\":[],\"total\":2,\"offset\":2,\"limit\":1}");
     axiam_mgmt_page_req_t req = {0, 1, "payroll"};
-    size_t seen = 0;
-    int pages = 0;
-    for (;;) {
-        axiam_mgmt_saml_service_provider_page_t *page = NULL;
-        TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_saml_list_service_providers(c, NULL, &req, &page, &err));
-        pages++;
-        TEST_ASSERT_NOT_NULL_MESSAGE(strstr(mgmt_last_url(), "search=payroll"),
+    int before = mgmt_request_count();
+    axiam_mgmt_saml_service_provider_page_t *all = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_saml_list_service_providers_all(c, NULL, &req, &all, &err));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(3, mgmt_request_count() - before, "walked to the empty page");
+    static const char *const offsets[] = {"offset=0", "offset=1", "offset=2"};
+    for (int i = 0; i < 3; i++) {
+        const char *url = mgmt_url_at(before + i);
+        TEST_ASSERT_NOT_NULL(url);
+        TEST_ASSERT_NOT_NULL_MESSAGE(strstr(url, "search=payroll"),
                                      "the walk carries the search term on every request");
-        TEST_ASSERT_EQUAL_INT(2, (int) page->total);
-        size_t count = page->count;
-        seen += count;
-        req = axiam_mgmt_page_next(page->request);
-        axiam_mgmt_saml_service_provider_page_free(page);
-        if (count == 0) break;
+        TEST_ASSERT_NOT_NULL(strstr(url, offsets[i]));
+        TEST_ASSERT_NOT_NULL(strstr(url, "limit=1"));
     }
-    TEST_ASSERT_EQUAL_INT(3, pages);
-    TEST_ASSERT_EQUAL_INT(2, (int) seen);
+    TEST_ASSERT_EQUAL_INT(2, (int) all->count);
+    TEST_ASSERT_EQUAL_INT(2, (int) all->total);
+    TEST_ASSERT_EQUAL_STRING(all->items[0]->entity_id, all->items[1]->entity_id);
+    axiam_mgmt_saml_service_provider_page_free(all);
 
     mgmt_mount(200, "[" CREDENTIAL("next") "}," CREDENTIAL("active") "}]");
     axiam_mgmt_saml_idp_credential_list_t *list = NULL;

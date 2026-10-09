@@ -21,6 +21,20 @@ void mgmt_mount(long status, const char *body);
 /** Queue a second response, for the cases that make two requests. */
 void mgmt_mount_next(long status, const char *body);
 
+/** Give the most recently queued response a `Retry-After` header. */
+void mgmt_mount_retry_after(const char *value);
+
+/** How many §16 waits the client asked for since the last reset. Never actually slept:
+ *  the rig's clients record the wait instead, and draw full jitter at its top (1.0), so
+ *  each wait is the whole backoff (or the `Retry-After` floor). */
+int mgmt_sleep_count(void);
+
+/** The URL of the i-th request since the last reset (0 is the sign-in), or NULL. */
+const char *mgmt_url_at(int i);
+
+/** The i-th recorded wait in ms, or -1. */
+long mgmt_sleep_ms(int i);
+
 /**
  * A client with an established session.
  *

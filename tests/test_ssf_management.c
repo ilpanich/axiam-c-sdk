@@ -221,11 +221,26 @@ static void test_list_streams_pages_with_search(void) {
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "search=rp.example"));
     TEST_ASSERT_EQUAL_INT(4, (int) page->total);
     TEST_ASSERT_EQUAL_INT(1, (int) page->count);
-    axiam_mgmt_page_req_t next = axiam_mgmt_page_next(page->request);
     axiam_mgmt_ssf_stream_page_free(page);
-    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_list_streams(c, NULL, &next, &page, &err));
-    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "search=rp.example"));
-    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=1"));
+
+    /* The auto-pager walks to the empty page, the term on every request (§32.8 t4). */
+    axiam_client_free(c);
+    mgmt_reset();
+    c = mgmt_signed_in_client();
+    mgmt_mount(200, "{\"items\":[" STREAM_BODY "," STREAM_BODY "],\"total\":3,\"offset\":0,\"limit\":2}");
+    mgmt_mount(200, "{\"items\":[" STREAM_BODY "],\"total\":3,\"offset\":2,\"limit\":2}");
+    mgmt_mount(200, "{\"items\":[],\"total\":3,\"offset\":4,\"limit\":2}");
+    int before = mgmt_request_count();
+    axiam_mgmt_page_req_t first = {0, 2, "rp.example"};
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_list_streams_all(c, NULL, &first, &page, &err));
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count() - before);
+    static const char *const offsets[] = {"offset=0", "offset=2", "offset=4"};
+    for (int i = 0; i < 3; i++) {
+        TEST_ASSERT_NOT_NULL(strstr(mgmt_url_at(before + i), "search=rp.example"));
+        TEST_ASSERT_NOT_NULL(strstr(mgmt_url_at(before + i), offsets[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(3, (int) page->count);
+    TEST_ASSERT_EQUAL_INT(3, (int) page->total);
     axiam_mgmt_ssf_stream_page_free(page);
     axiam_client_free(c);
 }

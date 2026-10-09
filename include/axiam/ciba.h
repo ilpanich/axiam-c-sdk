@@ -36,7 +36,8 @@
  * Errors (§33.4): a body with an `error` member is an OAuthProtocolError at ANY status —
  * AXIAM_ERR_AUTH with axiam_error_t::oauth_error set (e.g. `invalid_binding_message`,
  * with the server's `error_description` in the message) — and a `401` among them never
- * enters the §9 refresh guard. axiam_error_is_access_denied() and
+ * enters the §9 refresh guard. The one exception is a `5xx` on axiam_ciba_poll(), which is
+ * AXIAM_ERR_NETWORK and transient whatever its body (contract 1.59, P8). axiam_error_is_access_denied() and
  * axiam_error_is_expired_token() tell the two terminal outcomes of a poll apart.
  *
  * Sensitive (§33.5): `auth_req_id` wherever it appears, `client_notification_token`, the
@@ -193,8 +194,10 @@ axiam_error_kind_t axiam_ciba_initiate(axiam_client_t *client,
  * The answers of §33.3 rule 6 surface as AXIAM_ERR_AUTH carrying `oauth_error`:
  * `authorization_pending` and `slow_down` (non-terminal), `access_denied` and
  * `expired_token` (terminal and distinct), `invalid_grant`. They are never retried. A
- * transport failure, a `5xx`, `408` or a `429` WITHOUT an `error` body is retried per §16
- * within the call; any other `4xx` is not.
+ * transport failure, a `5xx` — with or without an `error` member: AXIAM answers an
+ * internal failure `500 {"error":"server_error"}` (contract 1.59, P8) — and a `408` or
+ * `429` WITHOUT an `error` body are retried per §16 within the call; any other `4xx` is
+ * not. A `5xx` that outlives §16 is AXIAM_ERR_NETWORK.
  *
  * A `200` is validated as every other grant's token set (§12.4, no nonce). **Store the
  * returned tokens before anything else**: a request is redeemed once, and a second
@@ -223,9 +226,9 @@ typedef struct axiam_ciba_clock {
  *   longer wait.
  * - `slow_down` adds AXIAM_CIBA_SLOW_DOWN_INCREMENT_S to the interval, cumulatively and
  *   permanently; `authorization_pending` never lowers it.
- * - A transport failure, a `5xx` or a `429` that outlived §16's retries — and the
- *   `rate_limit_exceeded` answer — is not terminal: the loop waits the interval and polls
- *   again.
+ * - A transport failure, a `5xx` (whatever its body, P8) or a `429` that outlived §16's
+ *   retries — and the `rate_limit_exceeded` answer — is not terminal: the loop waits the
+ *   interval and polls again.
  * - Polling stops at `received_at + expires_in`, even if the server has not said
  *   `expired_token`: when the next poll would not fall before the deadline, the same
  *   `expired_token` (AXIAM_ERR_AUTH, `oauth_error` "expired_token") is raised locally,

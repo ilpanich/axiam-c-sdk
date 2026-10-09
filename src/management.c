@@ -243,16 +243,94 @@ char *axiam_mgmt_query(char *path, const char *const *names,
 /* ---------------------------------------------------------------- */
 
 
+/* Zero every string value the tree owns. A request body may carry a write-only secret
+ * (§27.5, §30.5, §31.5, §32.5: `bind_secret`, `credential`, `authorization_header`, …),
+ * and cJSON_Delete() releases its copies as they are. */
+static void scrub_tree(cJSON *item) {
+    for (; item; item = item->next) {
+        if (item->valuestring && !(item->type & cJSON_IsReference))
+            axiam_secure_zero(item->valuestring, strlen(item->valuestring));
+        if (item->child && !(item->type & cJSON_IsReference)) scrub_tree(item->child);
+    }
+}
+
+/* The largest body render tries before giving up (a guard, not a limit any real body
+ * approaches). */
+#define AXIAM_MGMT_RENDER_MAX ((size_t)64 * 1024 * 1024)
+
 char *axiam_mgmt_render(cJSON *body) {
     if (!body) return NULL;
-    char *json = cJSON_PrintUnformatted(body);
+    /* Into a buffer we own, never cJSON_PrintUnformatted(): that one grows its buffer by
+     * realloc(), which releases each outgrown copy of the text -- secret included --
+     * without scrubbing it. A buffer too small is scrubbed and released here, and the
+     * next is twice its size. */
+    char *json = NULL;
+    for (size_t size = 256; size <= AXIAM_MGMT_RENDER_MAX; size *= 2) {
+        json = malloc(size);
+        if (!json) break;
+        if (cJSON_PrintPreallocated(body, json, (int)size, 0)) break;
+        axiam_secure_zero(json, size);
+        free(json);
+        json = NULL;
+    }
+    scrub_tree(body);
     cJSON_Delete(body);
     return json;
+}
+
+char *axiam_mgmt_union_declared(const cJSON *src, const char *tag, const char *const *tags,
+                                const char *const *const *members) {
+    if (!cJSON_IsObject(src) || !tag) return NULL;
+    const cJSON *t = cJSON_GetObjectItemCaseSensitive(src, tag);
+    const char *const *keep = NULL;
+    for (size_t i = 0; cJSON_IsString(t) && tags && tags[i]; i++) {
+        if (strcmp(tags[i], t->valuestring) == 0) {
+            keep = members[i];
+            break;
+        }
+    }
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    for (const cJSON *m = src->child; m; m = m->next) {
+        int wanted = m->string && strcmp(m->string, tag) == 0;
+        for (size_t i = 0; !wanted && m->string && keep && keep[i]; i++)
+            wanted = strcmp(m->string, keep[i]) == 0;
+        if (!wanted) continue;
+        cJSON *copy = cJSON_Duplicate(m, 1);
+        if (!copy || !cJSON_AddItemToObject(obj, m->string, copy)) {
+            cJSON_Delete(copy);
+            cJSON_Delete(obj);
+            return NULL;
+        }
+    }
+    char *text = cJSON_PrintUnformatted(obj);
+    cJSON_Delete(obj);
+    return text;
+}
+
+void axiam_mgmt_body_free(char *body_json) {
+    if (!body_json) return;
+    axiam_secure_zero(body_json, strlen(body_json));
+    free(body_json);
 }
 
 /* ---------------------------------------------------------------- */
 /* The one wire path (§27.8)                                        */
 /* ---------------------------------------------------------------- */
+
+/* §16.1's wait before attempt `attempt + 1`: full-jitter backoff, the response's
+ * `Retry-After` as a floor. Reported through §19 (§16.5), then `resp` is disposed. */
+static void mgmt_retry_wait(axiam_client_t *c, const char *operation, int attempt,
+                            axiam_http_response_t *resp, int transport_failed, long status) {
+    long retry_after = axiam_retry_after_ms(axiam_kv_get(resp->headers, "Retry-After"));
+    long delay = axiam_retry_delay_ms(attempt, retry_after, c->jitter_fn(c->jitter_ctx));
+    char reason[32];
+    if (transport_failed) snprintf(reason, sizeof reason, "transport failure");
+    else snprintf(reason, sizeof reason, "HTTP %ld", status);
+    axiam_telemetry_retry(&c->telemetry, operation, attempt, delay, reason);
+    axiam_http_response_dispose(resp);
+    c->sleep_fn(c->sleep_ctx, delay);
+}
 
 axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
                                    const char *operation,
@@ -285,9 +363,13 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
 
     /* Rule 8: a GET is the only method the §16 policy may replay. Everything else may
      * already have been applied server-side, and no client can tell from a transport
-     * failure. A rejected body is never retried either, whatever the method. */
+     * failure. A rejected body is never retried either, whatever the method.
+     *
+     * A GET is retried the §16 way (contract 1.59 R-30): the client's switch decides
+     * whether at all, §16.3 which failures (transport, 408, 429, 5xx -- never a 409 or
+     * another 4xx), and §16.1 the wait (full-jitter backoff, `Retry-After` as a floor). */
     int retryable = strcmp(method, "GET") == 0;
-    int attempts = retryable ? 3 : 1;
+    int attempts = (retryable && c->retry_enabled) ? AXIAM_RETRY_MAX_ATTEMPTS : 1;
 
     axiam_error_kind_t kind = AXIAM_ERR_NETWORK;
 
@@ -314,8 +396,11 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
             axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
                             resp.transport_msg ? resp.transport_msg : "network failure");
             kind = AXIAM_ERR_NETWORK;
+            if (attempt < attempts) {
+                mgmt_retry_wait(c, operation, attempt, &resp, 1, 0);
+                continue;
+            }
             axiam_http_response_dispose(&resp);
-            if (attempt < attempts) continue;
             return kind;
         }
 
@@ -336,12 +421,15 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
 
         axiam_mgmt_classify(err, status, operation, resp.body);
         kind = err ? err->kind : AXIAM_ERR_NETWORK;
-        axiam_http_response_dispose(&resp);
 
         /* A 4xx is a decisive answer, not a transport failure: re-sending it just spends
-         * the caller's rate limit to be told the same thing again. Only a 5xx or a
-         * transport failure is worth another attempt, and only on a GET. */
-        if (attempt < attempts && status >= 500) continue;
+         * the caller's rate limit to be told the same thing again. Only a 5xx, 408, 429
+         * or a transport failure is worth another attempt (§16.3), and only on a GET. */
+        if (attempt < attempts && axiam_retry_should_retry(0, status)) {
+            mgmt_retry_wait(c, operation, attempt, &resp, 0, status);
+            continue;
+        }
+        axiam_http_response_dispose(&resp);
         return kind;
     }
 

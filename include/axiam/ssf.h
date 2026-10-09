@@ -246,6 +246,12 @@ typedef struct axiam_ssf_poll_result {
     int more_available;               /**< Whether the transmitter holds more. */
     axiam_ssf_refused_set_t *refused; /**< The SETs that did not verify. */
     size_t refused_count;
+    /** The keys of the SETs this poll could NOT judge (contract 1.59, P1): a JWKS or
+     *  configuration fetch, or the replay store, failed before a verdict. They are in
+     *  neither `events` nor `refused`, and their `jti`s were not recorded — neither
+     *  acknowledge nor refuse them, and the transmitter offers them again. */
+    char **unjudged;
+    size_t unjudged_count;
 } axiam_ssf_poll_result_t;
 
 /** Release the members of a poll result (not the struct). Safe on NULL. */
@@ -261,12 +267,21 @@ void axiam_ssf_poll_result_dispose(axiam_ssf_poll_result_t *result);
  * differs from the key it was returned under is refused `invalid_request`, and one that is
  * not a string `malformed`. The verified and the refused come back apart. **Nothing is
  * acknowledged on your behalf**: acknowledge, on the next call, the `jti`s you processed,
- * and pass each refused one in `set_errs`. A SET you neither acknowledge nor refuse is
- * re-offered — and, having been recorded when it verified, then reads as `replayed`.
+ * and pass each refused one in `set_errs` — except one refused `replayed`, which this
+ * receiver accepted on an earlier poll: acknowledge that one (contract 1.59, P2). A SET
+ * you neither acknowledge nor refuse is re-offered — and, having been recorded when it
+ * verified, then reads as `replayed`.
  *
  * Retried per §16 on a transport failure, a `5xx`, `408` or `429` — never on another
  * `4xx`, which maps as on the management surface (`400` validation, `404` not found, …).
- * A JWKS fetch failure while verifying aborts the poll with that error.
+ *
+ * **A poll never keeps a `jti` it does not return** (contract 1.59, P1). A failure that is
+ * not a verdict on a SET — a JWKS or configuration fetch, a replay store that cannot
+ * answer — stops the batch there: that SET and the ones after it are unjudged, not
+ * recorded, and listed in `out->unjudged`; the transmitter offers them again. When SETs
+ * before it were judged, the call returns AXIAM_OK with them in `events` and `refused`, so
+ * every `jti` this poll recorded is returned to you; when the failure is on the first SET,
+ * nothing was judged and the call raises it (AXIAM_ERR_NETWORK, no reason code).
  */
 axiam_error_kind_t axiam_ssf_poll(axiam_ssf_receiver_t *receiver, const char *stream_id,
                                   const axiam_ssf_poll_options_t *options,

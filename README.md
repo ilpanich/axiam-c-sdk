@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.58 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.59 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -21,6 +21,17 @@ framework-agnostic route guard and declarative authorization helpers.
 > contract makes retry policy and deterministic shutdown MUST-level and says
 > they are not named, because an SDK is either conformant on them or it is not.
 > This one is.
+>
+> **Contract 1.59** (§34, the cross-SDK review of the 1.53 – 1.58 ports; no wire
+> change). This SDK's follow-up, F-59-10: `axiam_ssf_poll()` never keeps a `jti` it does
+> not return — a non-verdict failure mid-batch returns the SETs already judged and lists
+> the rest in `unjudged` (§32.7, P1); a `replayed` SET on a later poll is acknowledged
+> (P2); a `5xx` on `axiam_ciba_poll()` is transient whatever its body (§33.7, P8); every
+> rendered management request body is scrubbed before it is released (§30.5 – §32.5);
+> a union keeps only its arm's declared members (§31.2, P12.1); every paginated
+> management operation has an auto-paging `_all` form, and management reads are retried
+> per §16 (§27.4 rules 4 and 8); the §31.3 rule 2 and §29.3 rule 2 call-site notes; and
+> the DPoP decline's stated reason (§21.9). The section list above is unchanged.
 >
 > **Contracts 1.53 – 1.58.** RFC 7592 client configuration
 > ([§28.12](#rfc-7592-client-configuration-2812)); four new management namespaces —
@@ -1084,10 +1095,16 @@ does its own local verification with `axiam_jwt_verify_with_evidence()` /
 its authorization decision itself.
 
 **This SDK deliberately declines §21.7.2 DPoP proof verification** (recorded in
-the contract's §21.9 per-SDK table). Its role here is resource-server-side
-validation, and it ships no JOSE implementation covering PS256/ES256/EdDSA that
-could verify a proof without adding a dependency this contract does not
-otherwise require.
+the contract's §21.9 per-SDK table). The reason is not the cryptography: since
+contract 1.58 this SDK signs PS256, ES256 and EdDSA with OpenSSL for the §33.2
+CIBA signed request, and the same library verifies all three. It is that a
+proof is judged against the HTTP request it arrived with — `htm` and `htu`
+against the method and URL the resource server received, `ath` against the
+access token, `iat` within a window, and `jti` against a replay cache every
+instance shares — and this SDK's guards are framework-agnostic: they are handed
+a token, not a request, which is the same reason they cannot obtain certificate
+evidence (above). A signature check without those would be the stub this
+section refuses to ship.
 
 Declining is a supported answer, and §21.7.3 defines it as exactly three
 obligations — all three are met here:
@@ -1634,8 +1651,16 @@ axiam_mgmt_page_req_t page = { 0, 50, term };
 axiam_mgmt_user_response_page_t *matches = NULL;
 axiam_users_list(c, &page, &matches, &err);
 
-/* The whole filtered set: axiam_mgmt_page_next() carries the term, so every request of
- * the walk asks the same question. */
+/* The whole filtered set, in one call: the auto-paging form walks to the empty page,
+ * the same term and limit on every request it issues. */
+axiam_mgmt_user_response_page_t *every = NULL;
+if (axiam_users_list_all(c, &page, &every, &err) == AXIAM_OK) {
+    /* every->items[0 .. every->count) is the whole set; every->total the server's count */
+    axiam_mgmt_user_response_page_free(every);
+}
+
+/* The same walk a page at a time, when the set is too large to hold at once:
+ * axiam_mgmt_page_next() carries the term, so every request asks the same question. */
 for (;;) {
     axiam_mgmt_user_response_page_t *p = NULL;
     if (axiam_users_list(c, &page, &p, &err) != AXIAM_OK || !p) break;
@@ -1646,10 +1671,19 @@ for (;;) {
 }
 ```
 
+**The auto-paging form (§27.4 rule 4).** Every paginated operation has an `_all`
+twin — `axiam_users_list_all()`, `axiam_saml_list_service_providers_all()`,
+`axiam_scim_targets_list_all()`, `axiam_ssf_list_streams_all()`, … — taking the same
+arguments. It starts at `page` (`NULL`: the first page at the server's default size),
+advances `offset` by `limit` until the server answers an empty page, and returns every
+item in one page (`count` the whole walk, `total` the server's). Each request is one call
+of the single-page operation, so each is retried per §16. A failure on any page is the
+walk's answer, with `*out` `NULL`: a half-walked set is never handed back as the whole.
+
 The term lives on `axiam_mgmt_page_req_t`, beside `offset` and `limit`, rather than as an
-extra argument on twenty operations. That is what makes the walk above work at all: an
-argument has nowhere to live between one request and the next, so a walk built on one
-would return the matches followed by the unfiltered tail.
+extra argument on every paginated operation. That is what makes both walks above work at
+all: an argument has nowhere to live between one request and the next, so a walk built on
+one would return the matches followed by the unfiltered tail.
 
 `search` is **borrowed, never owned** — nothing copies it and nothing frees it, so it must
 outlive every request derived from it. In the loop above that means declaring the term
@@ -1703,6 +1737,13 @@ row of "the SDK's local `ValidationError`" (§28.7): C reports through its `axia
 
 `axiam_error_kind_from_http_status()` is deliberately **unchanged** — mapping a bare
 `404` to `AXIAM_ERR_NETWORK` is right for every non-management call in this SDK.
+
+**Retry (§27.4 rule 8, §16).** A `GET` is retried under the same §16 policy as every
+other read in this SDK: three attempts in all, on a transport failure, `408`, `429` or a
+`5xx` — never on a `409` or another `4xx` — with a full-jitter backoff (200 ms base, 5 s
+cap) and `Retry-After` as a floor, and not at all when
+`axiam_client_config_set_retry_enabled(cfg, 0)` turned retrying off. A `POST`, `PUT` or
+`DELETE` is sent exactly once, whatever the answer.
 
 **Memory.** Every model has a `_free()` that walks it *and* frees the struct itself, so
 it pairs with whatever allocated it and there is never a question of which half you own.
@@ -2193,7 +2234,8 @@ o.ack = processed_jtis;  o.ack_count = n_processed;
 o.set_errs = set_errs;   o.set_errs_count = n_errs;  /* axiam_ssf_set_err_from_reason(jti, why) */
 axiam_ssf_poll_result_t r;
 if (axiam_ssf_poll(rx, stream_id, &o, &r, &err) == AXIAM_OK) {
-    /* r.events verified; r.refused[i].{jti, reason} to pass back in set_errs next time */
+    /* r.events verified; r.refused[i].{jti, reason} to pass back in set_errs next time,
+     * except `replayed`, which you acknowledge; r.unjudged: neither -- offered again */
     axiam_ssf_poll_result_dispose(&r);
 }
 axiam_ssf_receiver_free(rx);
@@ -2209,11 +2251,23 @@ fetched is `AXIAM_ERR_NETWORK` with reason `NONE` — not a verdict on the SET.
 `invalid_request`, since they are not RFC 8935 codes.
 
 **A verified SET is recorded** in the replay store (in-memory by default, pluggable,
-seven days minimum — a shorter window is refused at construction). Verifying it again is
+seven days minimum — a shorter window is refused at construction). The default store is
+bounded in time, not in count: it holds every `jti` of the window and drops expired ones
+as it goes (§32.7 step 9, P4). A pluggable store that cannot answer returns a negative
+value, and the SET is not accepted — the store fails closed. Verifying it again is
 `replayed`, so acknowledge every polled SET you processed: one re-offered unacknowledged
 reads as a replay. `axiam_ssf_poll()` acknowledges nothing on its own, sends exactly the
 members you set (`{}` when none), uses the provider's bearer and never the client's
-session, and is retried on a transport failure or `5xx` — never on a `4xx`.
+session, and is retried on a transport failure, a `5xx`, `408` or `429` — never on another
+`4xx`. A SET refused `replayed` on a later poll was accepted earlier: acknowledge it rather
+than reporting it in `set_errs` (contract 1.59, P2).
+
+**A poll never keeps a `jti` it does not return** (contract 1.59, P1). A JWKS fetch or a
+replay store that fails mid-batch is not a verdict: that SET and the ones after it are
+left unrecorded and listed in `r.unjudged` (neither acknowledge nor refuse them — the
+transmitter offers them again), and the SETs judged before it are returned with
+`AXIAM_OK`. Only when the first SET of the batch cannot be judged does the poll raise the
+failure, having recorded nothing.
 
 ## CIBA (§33)
 
@@ -2248,8 +2302,9 @@ if (axiam_ciba_initiate(c, &p, &started, &err) == AXIAM_OK) {      /* never retr
 ```
 
 `axiam_ciba_await()` waits `interval` before the first poll, adds 5 s per `slow_down` for
-good, survives transport failures, `5xx` and `rate_limit_exceeded`, and stops at
-`received_at + expires_in` without a request past it. Pass an `axiam_ciba_clock_t` to drive
+good, survives transport failures, `5xx` — with or without an `error` member, so AXIAM's
+own `500 {"error":"server_error"}` included (contract 1.59, P8) — and
+`rate_limit_exceeded`, and stops at `received_at + expires_in` without a request past it. Pass an `axiam_ciba_clock_t` to drive
 it from your own clock. A successful initiate proves nothing about the user (§33.3 rule 4).
 
 **Ping mode:** register the client for `ping`, send a `client_notification_token`, and

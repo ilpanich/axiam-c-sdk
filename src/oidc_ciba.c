@@ -517,9 +517,13 @@ static axiam_error_kind_t ciba_poll_with(axiam_client_t *c, const axiam_oidc_con
         rc = oidc_post(c, url, FORM_CONTENT_TYPE, form.buf, 0, &resp);
         if (attempt == budget) break;
         /* A protocol answer (`authorization_pending`, `slow_down`, ...) is decisive --
-         * a 429 carrying `rate_limit_exceeded` included -- and so is any other 4xx. */
+         * a 429 carrying `rate_limit_exceeded` included -- and so is any other 4xx. A
+         * 5xx is not, whatever its body (contract 1.59 P8): AXIAM answers an internal
+         * failure `500 {"error":"server_error"}`, and §33.7 rule 5 prevails over §16.3's
+         * OAuthProtocolError row for this operation. */
         int retry = axiam_retry_should_retry(rc != 0, resp.status) &&
-                    !(rc == 0 && resp.status != 0 && has_oauth_error(&resp));
+                    !(rc == 0 && resp.status != 0 && resp.status < 500 &&
+                      has_oauth_error(&resp));
         if (!retry) break;
         long retry_after = axiam_retry_after_ms(axiam_kv_get(resp.headers, "Retry-After"));
         long delay = axiam_retry_delay_ms(attempt, retry_after, c->jitter_fn(c->jitter_ctx));
@@ -539,12 +543,20 @@ static axiam_error_kind_t ciba_poll_with(axiam_client_t *c, const axiam_oidc_con
          * and a body that does not parse is NOT retried -- a retry would only learn
          * invalid_grant. */
         kind = oidc_parse_token_set(c, resp.body, config, NULL, out, err);
+    } else if (resp.status >= 500) {
+        /* P8: a 5xx is a NetworkError and transient, with or without an `error` member --
+         * it never ends ciba_await. */
+        char msg[96];
+        snprintf(msg, sizeof msg, "ciba_poll failed: the server answered HTTP %ld", resp.status);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, resp.status, msg);
+        *transient = 1;
+        kind = AXIAM_ERR_NETWORK;
     } else {
         kind = oidc_map_grant_error(&resp, "ciba_poll failed", err);
         if (err && err->oauth_error[0]) {
             *transient = strcmp(err->oauth_error, "rate_limit_exceeded") == 0;
         } else {
-            *transient = resp.status >= 500 || resp.status == 408 || resp.status == 429;
+            *transient = resp.status == 408 || resp.status == 429;
         }
     }
     axiam_http_response_dispose(&resp);

@@ -17,6 +17,7 @@
 #include "cJSON.h"
 #include "test_util.h"
 #include "management_test_util.h"
+#include "internal.h"
 
 #define UUID "11111111-1111-4111-8111-111111111111"
 #define OTHER_ORG "22222222-2222-4222-8222-222222222222"
@@ -238,6 +239,56 @@ static void test_page_total_is_not_the_item_count(void) {
     TEST_ASSERT_EQUAL_INT(97, (int) page->total);
     TEST_ASSERT_EQUAL_INT(2, (int) page->count);
     axiam_mgmt_role_page_free(page);
+    axiam_client_free(c);
+}
+
+/* Contract 1.59 R-30 (C-3): §27.4 rule 4's auto-paging form. `_all` walks from the first
+ * page to the empty one that ends the walk, advancing `offset` by `limit`, and returns
+ * every item in one page whose `total` is the server's. */
+static void test_the_auto_pager_walks_to_exhaustion(void) {
+    char first[1024], second[1024];
+    snprintf(first, sizeof first, "{\"items\":[%s,%s],\"total\":3,\"offset\":0,\"limit\":50}", ROLE_JSON, ROLE_JSON);
+    snprintf(second, sizeof second, "{\"items\":[%s],\"total\":3,\"offset\":50,\"limit\":50}", ROLE_JSON);
+    mgmt_mount(200, first);
+    mgmt_mount_next(200, second);
+    mgmt_mount_next(200, "{\"items\":[],\"total\":3,\"offset\":100,\"limit\":50}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_page_t *all = NULL;
+
+    /* NULL: from the first page at the server's default size. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_roles_list_all(c, NULL, &all, &err));
+    TEST_ASSERT_EQUAL_INT(4, mgmt_request_count()); /* sign-in + three pages */
+    static const char *const offsets[] = {"offset=0", "offset=50", "offset=100"};
+    for (int i = 0; i < 3; i++) {
+        TEST_ASSERT_NOT_NULL(strstr(mgmt_url_at(1 + i), offsets[i]));
+        TEST_ASSERT_NOT_NULL(strstr(mgmt_url_at(1 + i), "limit=50"));
+        TEST_ASSERT_NULL_MESSAGE(strstr(mgmt_url_at(1 + i), "search="), "no term, no key");
+    }
+    TEST_ASSERT_NOT_NULL(all);
+    TEST_ASSERT_EQUAL_INT(3, (int) all->count);
+    TEST_ASSERT_EQUAL_INT(3, (int) all->total);
+    TEST_ASSERT_EQUAL_INT(0, (int) all->request.offset);
+    for (size_t i = 0; i < all->count; i++) TEST_ASSERT_NOT_NULL(all->items[i]);
+    axiam_mgmt_role_page_free(all);
+    axiam_client_free(c);
+}
+
+/* A failure mid-walk is the walk's answer: nothing partial comes back as though it were
+ * the whole set (§27.4 rule 4, "never silently truncate"). */
+static void test_the_auto_pager_never_returns_a_partial_walk(void) {
+    char first[1024];
+    snprintf(first, sizeof first, "{\"items\":[%s],\"total\":9,\"offset\":0,\"limit\":1}", ROLE_JSON);
+    mgmt_mount(200, first);
+    mgmt_mount_next(404, "{\"error\":\"not_found\",\"message\":\"gone\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_page_t *all = (axiam_mgmt_role_page_t *) &err; /* overwritten */
+    axiam_mgmt_page_req_t req = {0, 1, NULL};
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, axiam_roles_list_all(c, &req, &all, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_NOT_FOUND, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NULL(all);
+    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count());
     axiam_client_free(c);
 }
 
@@ -787,6 +838,90 @@ static void test_a_rejected_get_is_not_retried(void) {
     axiam_client_free(c);
 }
 
+/* Contract 1.59 R-30 (C-2): rule 8 says a management GET "MAY be retried per §16" --
+ * so it is retried the §16 way, not three immediate attempts on a 5xx alone. */
+static void test_a_get_retry_waits_the_section_16_backoff(void) {
+    mgmt_mount(503, NULL);
+    mgmt_mount_next(502, NULL);
+    mgmt_mount_next(200, ROLE_JSON);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_t *out = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(4, mgmt_request_count()); /* login + three GET attempts */
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, mgmt_sleep_count(), "a wait before each retry");
+    TEST_ASSERT_EQUAL_INT(200, (int) mgmt_sleep_ms(0)); /* base x 2^0, jitter at its top */
+    TEST_ASSERT_EQUAL_INT(400, (int) mgmt_sleep_ms(1)); /* base x 2^1 */
+    axiam_mgmt_role_free(out);
+    axiam_client_free(c);
+}
+
+static void test_a_get_is_retried_on_408_and_429_with_retry_after_as_a_floor(void) {
+    mgmt_mount(429, "{\"error\":\"rate_limited\"}");
+    mgmt_mount_retry_after("3");
+    mgmt_mount_next(408, NULL);
+    mgmt_mount_next(200, ROLE_JSON);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_t *out = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(4, mgmt_request_count());
+    TEST_ASSERT_EQUAL_INT(2, mgmt_sleep_count());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(3000, (int) mgmt_sleep_ms(0), "Retry-After floors the wait");
+    TEST_ASSERT_EQUAL_INT(400, (int) mgmt_sleep_ms(1));
+    axiam_mgmt_role_free(out);
+    axiam_client_free(c);
+
+    /* The budget is three attempts in all: a third 503 is the answer. */
+    mgmt_reset();
+    mgmt_mount(503, NULL);
+    mgmt_mount_next(503, NULL);
+    mgmt_mount_next(503, NULL);
+    mgmt_mount_next(200, ROLE_JSON);
+    c = mgmt_signed_in_client();
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(4, mgmt_request_count());
+    TEST_ASSERT_EQUAL_INT(2, mgmt_sleep_count());
+    axiam_client_free(c);
+}
+
+/* §16.1: the switch that disables retrying is honoured on this surface too. */
+static void test_a_get_is_not_retried_when_retry_is_disabled(void) {
+    mgmt_mount(503, NULL);
+    mgmt_mount_next(200, ROLE_JSON);
+    axiam_client_t *c = mgmt_signed_in_client();
+    c->retry_enabled = 0; /* what axiam_client_config_set_retry_enabled(cfg, 0) sets */
+    axiam_error_t err;
+    axiam_mgmt_role_t *out = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(2, mgmt_request_count()); /* login + exactly one attempt */
+    TEST_ASSERT_EQUAL_INT(0, mgmt_sleep_count());
+    axiam_client_free(c);
+}
+
+/* A 409 on a GET is the server telling the truth (rule 8), and a write is never retried,
+ * whatever the status. */
+static void test_a_conflict_and_a_rate_limited_write_are_not_retried(void) {
+    mgmt_mount(409, "{\"error\":\"conflict\",\"message\":\"x\"}");
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_role_t *out = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, axiam_roles_get(c, UUID, &out, &err));
+    TEST_ASSERT_EQUAL_INT(2, mgmt_request_count());
+    axiam_client_free(c);
+
+    mgmt_reset();
+    mgmt_mount(429, NULL);
+    mgmt_mount_retry_after("1");
+    c = mgmt_signed_in_client();
+    axiam_mgmt_update_role_t body;
+    memset(&body, 0, sizeof body);
+    axiam_roles_update(c, UUID, &body, &out, &err);
+    TEST_ASSERT_EQUAL_INT(2, mgmt_request_count());
+    TEST_ASSERT_EQUAL_INT(0, mgmt_sleep_count());
+    axiam_client_free(c);
+}
+
 /* ---- rule 10: nothing is cached ----------------------------------------- */
 
 static void test_the_same_read_twice_is_two_wire_calls(void) {
@@ -920,6 +1055,8 @@ int main(void) {
     RUN_TEST(test_a_scope_overrides_the_implicit_org_id);
     RUN_TEST(test_a_scope_does_not_leak_into_the_next_call);
     RUN_TEST(test_page_total_is_not_the_item_count);
+    RUN_TEST(test_the_auto_pager_walks_to_exhaustion);
+    RUN_TEST(test_the_auto_pager_never_returns_a_partial_walk);
     RUN_TEST(test_page_next_advances_by_the_limit);
     RUN_TEST(test_page_next_clamps_nonsense);
     RUN_TEST(test_paging_reaches_the_query_string);
@@ -947,6 +1084,10 @@ int main(void) {
     RUN_TEST(test_a_failed_get_is_retried);
     RUN_TEST(test_a_failed_write_is_not_retried);
     RUN_TEST(test_a_rejected_get_is_not_retried);
+    RUN_TEST(test_a_get_retry_waits_the_section_16_backoff);
+    RUN_TEST(test_a_get_is_retried_on_408_and_429_with_retry_after_as_a_floor);
+    RUN_TEST(test_a_get_is_not_retried_when_retry_is_disabled);
+    RUN_TEST(test_a_conflict_and_a_rate_limited_write_are_not_retried);
     RUN_TEST(test_the_same_read_twice_is_two_wire_calls);
     RUN_TEST(test_a_secret_reaches_the_wire_unredacted);
     RUN_TEST(test_the_same_secret_is_redacted_in_an_ordinary_rendering);

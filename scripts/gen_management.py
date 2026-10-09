@@ -176,8 +176,13 @@ CALL_SITE_NOTES: dict[str, str] = {
         "write is `409`: read the stream again."
     ),
     "scim_targets.create": (
-        "`credential` is required here (§31.3 rule 2). It is write-only: no response "
-        "ever carries it, and the SDK keeps no copy."
+        "**The credential is bound to its URL** (§31.3 rule 2): `credential` is required "
+        "here -- a create without it is refused `400`. A later update that changes "
+        "`base_url` of a bearer target, `auth.token_url` or `base_url` of a "
+        "client-credentials target, or `auth.type`, must carry `credential` again or is "
+        "refused `400`: a kept credential sent to a new host would be handed to that host. "
+        "It is write-only: no response ever carries it, and the SDK keeps no copy to "
+        "re-send."
     ),
     "scim_targets.update": (
         "**The credential is bound to its URL** (§31.3 rule 2): absent `credential` "
@@ -203,6 +208,21 @@ CALL_SITE_NOTES: dict[str, str] = {
 
 # Local checks a generated operation runs before any I/O, by name of a hand-written
 # function in src/management_helpers.c taking the request body and the error.
+# Notes a section requires "where it documents the field" -- appended to the member's
+# own doc, keyed (schema, wire name). Contract 1.59 R-29: §29.3 rule 2's ECDSA limit was
+# said on the operations only.
+FIELD_NOTES: dict[tuple[str, str], str] = {
+    ("SamlServiceProviderInput", "sp_signing_cert_pem"): (
+        "RSA (2048 bits or more) or ECDSA on P-256, P-384 or P-521; an **ECDSA certificate "
+        "verifies HTTP-POST requests only** -- the HTTP-Redirect binding is RSA-only "
+        "(§29.3 rule 2)."
+    ),
+    ("SamlServiceProvider", "sp_signing_cert_pem"): (
+        "An **ECDSA certificate verifies HTTP-POST requests only** -- the HTTP-Redirect "
+        "binding is RSA-only (§29.3 rule 2)."
+    ),
+}
+
 PRECHECKS: dict[str, str] = {
     "saml.parse_sp_metadata": "axiam_mgmt_check_parse_sp_metadata",
 }
@@ -810,18 +830,28 @@ def projection_map() -> dict[str, list[dict[str, Any]]]:
 PROJECTED: dict[str, list[dict[str, Any]]] = projection_map()
 
 
+def arm_members(payload: Any) -> list[str]:
+    """The members a union arm declares besides its discriminator, in the spec's order."""
+    if isinstance(payload, dict) and "$ref" in payload:
+        props, _required, _description = flatten(payload["$ref"].rsplit("/", 1)[-1])
+        return list(props)
+    return list(((payload or {}).get("properties") or {}).keys())
+
+
 def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]], str | None]:
     """Every member of ``schema_name``, in the spec's own order.
 
     A discriminated union gets two synthetic members instead: the discriminator as a
-    string, and the whole object as raw JSON. C has no sum type, and a hand-rolled tagged
-    union of five arms would hand the caller a `free()` maze for a shape this SDK only
-    ever forwards -- so the tag is what you branch on and the payload stays inspectable.
+    string, and the arm's declared members as raw JSON. C has no sum type, and a
+    hand-rolled tagged union of five arms would hand the caller a `free()` maze for a
+    shape this SDK only ever forwards -- so the tag is what you branch on and the payload
+    stays inspectable. Only DECLARED members are kept (contract 1.59 P12.1): an unknown
+    arm keeps its discriminator and nothing else.
     """
     schema = SCHEMAS.get(schema_name) or {}
     union = discriminated(schema)
     if union:
-        tag, _arms = union
+        tag, arms = union
         return ([
             {
                 "wire": tag, "name": cname(tag), "decl": "char *", "kind": "string",
@@ -831,9 +861,13 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
             {
                 "wire": "", "name": "raw", "decl": "char *", "kind": "union_raw",
                 "ref": "", "required": False, "schema": {}, "secret": False,
-                "description": "The whole object as the server sent it, to read the "
-                               "variant's own fields from once `"
-                               + tag + "` says which variant it is.",
+                "tag": tag, "arms": [(v, arm_members(payload)) for v, payload in arms],
+                "description": "The object as the server sent it, reduced to the members "
+                               "the spec declares for the variant `" + tag + "` names, to "
+                               "read the variant's own fields from. A variant this SDK "
+                               "does not know keeps `" + tag + "` and nothing else "
+                               "(CONTRACT.md \u00a734.2 P12.1): a member the spec does not "
+                               "declare is never kept, so never echoed back.",
             },
         ], schema.get("description"))
 
@@ -862,6 +896,7 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
             "schema": schema,
             "secret": wire in secrets,
             "description": schema.get("description") if isinstance(schema, dict) else None,
+            "note": FIELD_NOTES.get((schema_name, wire)),
             "explicit_null": (schema_name, wire) in EXPLICIT_NULL_FIELDS,
         })
     return out, description
@@ -870,7 +905,8 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
 def field_doc(f: dict[str, Any]) -> str:
     """The one-line description for a member."""
     if f["description"]:
-        return escape(f["description"])
+        text = escape(f["description"])
+        return text + "\n\n" + f["note"] if f.get("note") else text
     if f["secret"]:
         return f"The server's `{f['wire']}` field -- a ONE-TIME secret (27.5)."
     return f"The server's `{f['wire']}` field."
@@ -1074,8 +1110,9 @@ def emit_models_header() -> str:
                 f"1 when the `{tag}` this value WOULD put on the wire is one this SDK's copy "
                 f"of the spec lists ({known}); 0 otherwise, and for NULL.\n\n"
                 f"The `{tag}` set is OPEN (CONTRACT.md \u00a731.2): a value the server sends "
-                "that is not listed decodes without failing, and keeps its tag and raw "
-                "object so it can be inspected. It is never SENT: every operation whose "
+                "that is not listed decodes without failing, and keeps its tag (and only "
+                "its tag, CONTRACT.md \u00a734.2 P12.1) so it can be inspected. It is never "
+                "SENT: every operation whose "
                 "body carries one refuses it locally, before any request, with "
                 "AXIAM_ERR_NETWORK classified AXIAM_MGMT_ERR_VALIDATION. The tag read is "
                 f"`raw`'s own `{tag}` when `raw` is set -- `raw` is what goes on the wire -- "
@@ -1136,7 +1173,18 @@ def emit_parse_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
     w, n, kind = f["wire"], f["name"], f["kind"]
     o = []
     if kind == "union_raw":
-        o.append(f"{indent}out->{n} = cJSON_PrintUnformatted(src);")
+        # Contract 1.59 P12.1: only the members the arm's tag declares, never the server's
+        # whole object; an unknown tag keeps the tag alone.
+        o.append(f"{indent}{{")
+        for i, (_value, members) in enumerate(f["arms"]):
+            listed = "".join(f'"{m}", ' for m in members)
+            o.append(f"{indent}    static const char *const arm_{i}[] = {{{listed}NULL}};")
+        tags = "".join(f'"{v}", ' for v, _ in f["arms"])
+        o.append(f"{indent}    static const char *const arm_tags[] = {{{tags}NULL}};")
+        arms = ", ".join(f"arm_{i}" for i in range(len(f["arms"])))
+        o.append(f"{indent}    static const char *const *const arm_members[] = {{{arms}}};")
+        o.append(f'{indent}    out->{n} = axiam_mgmt_union_declared(src, "{f["tag"]}", arm_tags, arm_members);')
+        o.append(f"{indent}}}")
         return o
 
     o.append(f'{indent}item = cJSON_GetObjectItemCaseSensitive(src, "{w}");')
@@ -1512,9 +1560,9 @@ def emit_models_source() -> str:
         out.append("    if (!value) return NULL;")
         if any(f["kind"] == "union_raw" for f in fields):
             out.extend(comment(
-                "A union is forwarded EXACTLY as received. Re-encoding from the two "
-                "members this SDK models would drop every field belonging to the variant "
-                "it does not model -- and the server round-trips those.", "    "))
+                "A union is forwarded as `raw` holds it: the declared members of its arm. "
+                "Re-encoding from the two members this SDK models would drop every field "
+                "belonging to the variant -- and the server round-trips those.", "    "))
             out.append("    if (value->raw) return cJSON_Parse(value->raw);")
         out.append("    cJSON *obj = cJSON_CreateObject();")
         out.append("    if (!obj) return NULL;")
@@ -1721,6 +1769,107 @@ def op_doc(namespace: str, opname: str, op: dict[str, Any]) -> str:
     return lead
 
 
+# ---------------------------------------------------------------------------
+# The auto-paging form (§27.4 rule 4; contract 1.59 R-30)
+# ---------------------------------------------------------------------------
+
+
+def page_model(op: dict[str, Any]) -> str:
+    """The `snake` name of a paginated operation's item model."""
+    return snake(pascal(op["response"]["schema"].lstrip("[]")))
+
+
+def all_signature(namespace: str, opname: str, op: dict[str, Any]) -> str:
+    """`<op>_all`: the operation's own parameters, `page` naming where the walk starts."""
+    params = op_params(namespace, op)
+    args = ["axiam_client_t *c"] + [f"{p['decl']}{p['name']}" for p in params]
+    return f"axiam_error_kind_t {op_symbol(namespace, opname)}_all({', '.join(args)})"
+
+
+def all_doc(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
+    """The Doxygen block for one `_all` function."""
+    item = page_model(op)
+    lead = (
+        f"Every page of {op_symbol(namespace, opname)}(), walked to exhaustion -- the "
+        "auto-paging form of 27.4 rule 4.\n\n"
+        "Starts at `page` (NULL: the first page at the server's default size, "
+        "AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the "
+        "same `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until "
+        "the server answers an empty page. Each request is one call of the single-page "
+        "operation, so each is retried per 16 as that one is.\n\n"
+        "Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is "
+        "the server's count from the last page, and `request` is the first request. Any "
+        "failure ends the walk and is returned, with `*out` NULL: a walk that stopped "
+        "half-way is never handed back as though it were the whole set. The whole set is "
+        "held in memory; to process a large one page by page, call the single-page form "
+        "with axiam_mgmt_page_next()."
+    )
+    tags = ["@param c The client. Must have an active session (27.4 rule 1)."]
+    for p in op_params(namespace, op):
+        text = p["text"]
+        if p["kind"] == "page":
+            text = "Where the walk starts, or NULL for the first page at the default size."
+        elif p["kind"] == "out":
+            text = (f"Receives every item of the walk on success; free with "
+                    f"axiam_mgmt_{item}_page_free(). Set to NULL on failure.")
+        tags.append(f"@param {p['name']} {text}")
+    tags.append("@return AXIAM_OK once the walk reached an empty page, or the failing kind.")
+    block = doc(lead)
+    return block[:-1] + [" *"] + [f" * {t}" for t in tags] + [" */"]
+
+
+def emit_all_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
+    """One `_all` implementation: the single-page operation, called until a page is empty."""
+    item = page_model(op)
+    page_t = f"axiam_mgmt_{item}_page_t"
+    page_free = f"axiam_mgmt_{item}_page_free"
+    canonical = f"{namespace}.{opname}"
+    params = op_params(namespace, op)
+    call_args = ["c"] + [("&req" if p["kind"] == "page" else "&one" if p["kind"] == "out"
+                          else p["name"]) for p in params]
+    out = [all_signature(namespace, opname, op) + " {"]
+    out.append("    if (out) *out = NULL;")
+    out.append("    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };")
+    out.append("    if (page) req = *page;")
+    out.append(f"    {page_t} *all = ({page_t} *) calloc(1, sizeof(*all));")
+    out.append("    if (!all) {")
+    out.append(f'        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "{canonical}: out of memory");')
+    out.append("        return AXIAM_ERR_NETWORK;")
+    out.append("    }")
+    out.append("    all->request = req;")
+    out.append("    for (;;) {")
+    out.append(f"        {page_t} *one = NULL;")
+    out.append(f"        axiam_error_kind_t rc = {op_symbol(namespace, opname)}({', '.join(call_args)});")
+    out.append("        if (rc != AXIAM_OK) {")
+    out.append(f"            {page_free}(all);")
+    out.append("            return rc;")
+    out.append("        }")
+    out.append("        all->total = one->total;")
+    out.append("        if (one->count == 0) {")
+    out.append(f"            {page_free}(one);")
+    out.append("            break;")
+    out.append("        }")
+    out.append("        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));")
+    out.append("        if (!grown) {")
+    out.append(f"            {page_free}(one);")
+    out.append(f"            {page_free}(all);")
+    out.append(f'            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "{canonical}: out of memory");')
+    out.append("            return AXIAM_ERR_NETWORK;")
+    out.append("        }")
+    out.append("        all->items = grown;")
+    out.append("        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));")
+    out.append("        all->count += one->count;")
+    out.append("        one->count = 0; /* the items are all's now; free one's array only */")
+    out.append(f"        {page_free}(one);")
+    out.append("        req = axiam_mgmt_page_next(req);")
+    out.append("    }")
+    out.append("    if (out) *out = all;")
+    out.append(f"    else {page_free}(all);")
+    out.append("    return AXIAM_OK;")
+    out.append("}")
+    return out
+
+
 def emit_ops_header() -> str:
     """The flat operation declarations, one per registry operation."""
     out = [BANNER_C, ""]
@@ -1749,6 +1898,10 @@ def emit_ops_header() -> str:
             out.extend(block)
             out.append(op_signature(namespace, opname, op) + ";")
             out.append("")
+            if op["paginated"]:
+                out.extend(all_doc(namespace, opname, op))
+                out.append(all_signature(namespace, opname, op) + ";")
+                out.append("")
 
     out.append("#ifdef __cplusplus")
     out.append("}")
@@ -1791,6 +1944,9 @@ def emit_ops_source() -> str:
         for opname, op in nsdef["operations"].items():
             out.extend(emit_op_body(namespace, opname, op))
             out.append("")
+            if op["paginated"]:
+                out.extend(emit_all_body(namespace, opname, op))
+                out.append("")
 
     return "\n".join(out) + "\n"
 
@@ -1942,7 +2098,9 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
     out.append(f'        c, "{canonical}", "{op["method"]}", "{op["path"]}", path, body_json,')
     out.append("        &json, err);")
     out.append("    free(path);")
-    out.append("    free(body_json);")
+    # A body may carry a write-only secret (§27.5, §30.5, §31.5, §32.5): scrubbed before
+    # it is released, never a plain free() (contract 1.59 R-19).
+    out.append("    axiam_mgmt_body_free(body_json);")
     out.append("    if (rc != AXIAM_OK) return rc;")
 
     # ---- decode ----
@@ -2303,6 +2461,61 @@ def emit_test() -> str:
                 cases.append("\n".join(unscoped))
                 extra_cases.append(f"{fn}_refuses_without_a_scope")
 
+    # A sixth case for the paginated operations: the auto-paging form (§27.4 rule 4,
+    # contract 1.59 R-30) walks to the empty page, returns every item, frees cleanly when
+    # the result is discarded, and returns nothing partial when a page fails.
+    for namespace, nsdef in REGISTRY["namespaces"].items():
+        for opname, op in nsdef["operations"].items():
+            if not op["paginated"]:
+                continue
+            params = op_params(namespace, op)
+            body = example_response(op)
+            items = len(body.get("items") or []) if isinstance(body, dict) else 0
+            empty = {"items": [], "total": items, "offset": 50, "limit": 50}
+            m = page_model(op)
+            fn = f"test_{cname(namespace)}_{cname(opname)}_all_walks_to_the_empty_page"
+            blk = [f"static void {fn}(void) {{"]
+            for _ in range(2):
+                blk.append(f"    mgmt_mount_next(200, {c_string(json.dumps(body))});")
+                blk.append(f"    mgmt_mount_next(200, {c_string(json.dumps(empty))});")
+            blk.append('    mgmt_mount_next(404, "{\\"error\\":\\"not_found\\",\\"message\\":\\"gone\\"}");')
+            blk.append("    axiam_client_t *c = mgmt_signed_in_client();")
+            blk.append("    axiam_error_t err;")
+            blk.append(f"    axiam_mgmt_{m}_page_t *result = NULL;")
+
+            def all_args(out_arg: str) -> str:
+                a = ["c"]
+                for p in params:
+                    if p["kind"] in ("scope", "query", "page"):
+                        a.append("NULL")
+                    elif p["kind"] == "path":
+                        a.append(f'"{EXAMPLE_UUID}"')
+                    elif p["kind"] == "out":
+                        a.append(out_arg)
+                    elif p["kind"] == "err":
+                        a.append("&err")
+                return ", ".join(a)
+
+            sym = op_symbol(namespace, opname) + "_all"
+            blk.append(f"    axiam_error_kind_t rc = {sym}({all_args('&result')});")
+            blk.append("    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);")
+            blk.append("    TEST_ASSERT_EQUAL_INT(3, mgmt_request_count()); /* sign-in + two pages */")
+            blk.append(f"    TEST_ASSERT_EQUAL_STRING(\"{expected_path(op)}\", mgmt_last_path());")
+            blk.append('    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_url(), "offset=50"));')
+            blk.append(f"    TEST_ASSERT_EQUAL_INT({items}, (int) result->count);")
+            blk.append(f"    TEST_ASSERT_EQUAL_INT({items}, (int) result->total);")
+            blk.append(f"    axiam_mgmt_{m}_page_free(result);")
+            blk.append(f"    rc = {sym}({all_args('NULL')});")
+            blk.append("    TEST_ASSERT_EQUAL_INT(AXIAM_OK, rc);")
+            blk.append("    result = NULL;")
+            blk.append(f"    rc = {sym}({all_args('&result')});")
+            blk.append("    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, rc);")
+            blk.append("    TEST_ASSERT_NULL(result);")
+            blk.append("    axiam_client_free(c);")
+            blk.append("}")
+            cases.append("\n".join(blk))
+            extra_cases.append(fn)
+
     # A fifth case for the operations whose body has required members (REQUIRED_MEMBER_
     # CHECKS): a NULL body is refused locally, before any request.
     for namespace, nsdef in REGISTRY["namespaces"].items():
@@ -2631,6 +2844,10 @@ def emit_alloc_test() -> str:
         "generated operation allocates a path, optionally a query and a body, a result "
         "and its items -- comfortably inside this many."))
     out.append("#define ALLOC_DEPTH 24")
+    out.extend(comment(
+        "The auto-paging form walks two pages: twice the operation's allocations, plus "
+        "the collected page and its growing item array."))
+    out.append("#define ALLOC_DEPTH_WALK 64")
     out.append("")
 
     cases = []
@@ -2697,6 +2914,42 @@ def emit_alloc_test() -> str:
             block.append("    TEST_PASS();")
             block.append("}")
             cases.append("\n".join(block))
+
+            # The auto-paging form (contract 1.59 R-30): a two-page walk, deeper.
+            if op["paginated"]:
+                m = page_model(op)
+                items = len(body.get("items") or []) if isinstance(body, dict) else 0
+                empty = {"items": [], "total": items, "offset": 50, "limit": 50}
+                afn = f"test_{cname(namespace)}_{cname(opname)}_all_survives_oom"
+                names.append(afn)
+                ab = [f"static void {afn}(void) {{"]
+                ab.append("    for (long n = 1; n <= ALLOC_DEPTH_WALK; n++) {")
+                ab.append("        mgmt_reset();")
+                ab.append(f"        mgmt_mount(200, {c_string(json.dumps(body))});")
+                ab.append(f"        mgmt_mount(200, {c_string(json.dumps(empty))});")
+                ab.append("        axiam_client_t *c = mgmt_signed_in_client();")
+                ab.append("        if (!c) continue;")
+                ab.append("        axiam_error_t err;")
+                ab.append(f"        axiam_mgmt_{m}_page_t *result = NULL;")
+                aargs = ["c"]
+                for p in params:
+                    if p["kind"] in ("scope", "query", "page"):
+                        aargs.append("NULL")
+                    elif p["kind"] == "path":
+                        aargs.append(f'"{EXAMPLE_UUID}"')
+                    elif p["kind"] == "out":
+                        aargs.append("&result")
+                    elif p["kind"] == "err":
+                        aargs.append("&err")
+                ab.append("        arm(n);")
+                ab.append(f"        (void) {op_symbol(namespace, opname)}_all(" + ", ".join(aargs) + ");")
+                ab.append("        disarm();")
+                ab.append(f"        axiam_mgmt_{m}_page_free(result);")
+                ab.append("        axiam_client_free(c);")
+                ab.append("    }")
+                ab.append("    TEST_PASS();")
+                ab.append("}")
+                cases.append("\n".join(ab))
 
     out.append("\n\n".join(cases))
     out.append("")
