@@ -7,6 +7,67 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Contract 1.59 (F-59-10, ilpanich/axiam#585)
+
+Re-vendored `CONTRACT.md` at contract 1.59 (axiam `fe369eb`; `openapi.json` and
+`management-registry.json` unchanged). The README's Conformance Statement now reads
+"CONTRACT.md 1.59", with the same sections: §28.12, §29, §30, §31, §32 and §33, with §32.7
+and §33.2 signed.
+
+#### Added
+
+- **The auto-paging form (§27.4 rule 4; R-30)** — every paginated management operation
+  has an `_all` twin with the same parameters (`axiam_users_list_all()`,
+  `axiam_saml_list_service_providers_all()`, `axiam_scim_targets_list_all()`,
+  `axiam_ssf_list_streams_all()`, … 24 in all): it walks from `page` to the empty page,
+  the same `limit` and `search` on every request, and returns every item in one page of
+  the operation's page type. Any failure ends the walk with `*out` NULL.
+- `axiam_ssf_poll_result_t` gains `unjudged` / `unjudged_count` (appended; the struct
+  grew, so code that allocates it must be rebuilt).
+
+#### Fixed
+
+- **`axiam_ssf_poll()` lost the events of a batch aborted by a non-verdict failure
+  (§32.7 step 9; R-1, P1).** A JWKS fetch or replay-store failure on a later SET used to
+  abort the poll and discard the SETs already verified — and recorded — before it; re-offered,
+  they read `replayed`. **P1 form taken: the second** ("return what was judged"): the batch
+  stops at the failure, the SETs judged before it are returned with `AXIAM_OK`, and that SET
+  and the rest are listed in `unjudged`, unrecorded. A failure on the first SET judges
+  nothing and is raised, as before. The replay-store interface is an atomic
+  check-and-insert with no delete, so un-recording is not available to the helper; this
+  form holds for every store. The docs also carry P2 (acknowledge a `replayed` SET) and P7
+  (`poll` retries `408`/`429`).
+- **Rendered request bodies holding a write-only secret were freed unscrubbed (§30.5 –
+  §32.5; R-19).** Every generated management operation now releases its body through
+  `axiam_mgmt_body_free()` (zero, then free), and the renderer prints into a buffer it owns
+  and zeroes the cJSON tree's strings, so no outgrown or intermediate copy of
+  `bind_secret`, `credential` or `authorization_header` reaches the allocator intact.
+- **A union's `raw` kept the server's whole object (§31.2; R-20, P12.1).** `raw` now holds
+  the tag plus the members the spec declares for that arm; an unknown arm keeps its tag
+  alone. Applies to every generated union (`ScimTargetAuth`, `ScimTargetScope`,
+  `ProviderConfig`, `MdsRefreshOutcome`).
+- **Management reads retried without §16 (§27.4 rule 8; R-30).** A management `GET` is now
+  retried on a transport failure, `408`, `429` or a `5xx` with the full-jitter backoff and
+  `Retry-After` as a floor, and not at all when retrying is disabled. Writes are unchanged:
+  one attempt.
+- **A `5xx` with an `error` member ended `axiam_ciba_await()` (§33.4, §33.7 rule 5; P8).**
+  A `5xx` on `axiam_ciba_poll()` is now retried per §16 and transient whatever its body,
+  surfacing as `AXIAM_ERR_NETWORK` once §16 is spent; §33.8 test 8's `500` carries
+  `{"error":"server_error"}`.
+
+#### Documentation
+
+- `axiam_scim_targets_create()` states §31.3 rule 2's URL binding, as `update` does, and
+  `sp_signing_cert_pem` carries §29.3 rule 2's ECDSA / HTTP-Redirect note on the field
+  itself (R-29) — both from the generator.
+- The README's reason for declining §21.7.2 DPoP proof verification no longer claims a
+  missing JOSE implementation, which the §33.2 signer contradicts (R-41).
+- The README says the default replay store is bounded in time, not in count, and that a
+  store which cannot answer fails closed (P4). **P4 route:** none needed beyond that — the
+  store interface already reports failure (a negative return), refused as no verdict.
+- **P10 anchor:** `axiam_ciba_await()` keeps its deadline anchored at the instant the
+  initiate response was received (`received_at`), which P10 permits.
+
 ### Added
 
 - **Contract 1.58** — re-vendored `CONTRACT.md`, `openapi.json` and

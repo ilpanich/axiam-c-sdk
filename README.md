@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.58 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.59 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -21,6 +21,17 @@ framework-agnostic route guard and declarative authorization helpers.
 > contract makes retry policy and deterministic shutdown MUST-level and says
 > they are not named, because an SDK is either conformant on them or it is not.
 > This one is.
+>
+> **Contract 1.59** (§34, the cross-SDK review of the 1.53 – 1.58 ports; no wire
+> change). This SDK's follow-up, F-59-10: `axiam_ssf_poll()` never keeps a `jti` it does
+> not return — a non-verdict failure mid-batch returns the SETs already judged and lists
+> the rest in `unjudged` (§32.7, P1); a `replayed` SET on a later poll is acknowledged
+> (P2); a `5xx` on `axiam_ciba_poll()` is transient whatever its body (§33.7, P8); every
+> rendered management request body is scrubbed before it is released (§30.5 – §32.5);
+> a union keeps only its arm's declared members (§31.2, P12.1); every paginated
+> management operation has an auto-paging `_all` form, and management reads are retried
+> per §16 (§27.4 rules 4 and 8); the §31.3 rule 2 and §29.3 rule 2 call-site notes; and
+> the DPoP decline's stated reason (§21.9). The section list above is unchanged.
 >
 > **Contracts 1.53 – 1.58.** RFC 7592 client configuration
 > ([§28.12](#rfc-7592-client-configuration-2812)); four new management namespaces —
@@ -2240,7 +2251,10 @@ fetched is `AXIAM_ERR_NETWORK` with reason `NONE` — not a verdict on the SET.
 `invalid_request`, since they are not RFC 8935 codes.
 
 **A verified SET is recorded** in the replay store (in-memory by default, pluggable,
-seven days minimum — a shorter window is refused at construction). Verifying it again is
+seven days minimum — a shorter window is refused at construction). The default store is
+bounded in time, not in count: it holds every `jti` of the window and drops expired ones
+as it goes (§32.7 step 9, P4). A pluggable store that cannot answer returns a negative
+value, and the SET is not accepted — the store fails closed. Verifying it again is
 `replayed`, so acknowledge every polled SET you processed: one re-offered unacknowledged
 reads as a replay. `axiam_ssf_poll()` acknowledges nothing on its own, sends exactly the
 members you set (`{}` when none), uses the provider's bearer and never the client's
