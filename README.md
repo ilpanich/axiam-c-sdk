@@ -2288,8 +2288,9 @@ if (axiam_ciba_initiate(c, &p, &started, &err) == AXIAM_OK) {      /* never retr
 ```
 
 `axiam_ciba_await()` waits `interval` before the first poll, adds 5 s per `slow_down` for
-good, survives transport failures, `5xx` and `rate_limit_exceeded`, and stops at
-`received_at + expires_in` without a request past it. Pass an `axiam_ciba_clock_t` to drive
+good, survives transport failures, `5xx` — with or without an `error` member, so AXIAM's
+own `500 {"error":"server_error"}` included (contract 1.59, P8) — and
+`rate_limit_exceeded`, and stops at `received_at + expires_in` without a request past it. Pass an `axiam_ciba_clock_t` to drive
 it from your own clock. A successful initiate proves nothing about the user (§33.3 rule 4).
 
 **Ping mode:** register the client for `ping`, send a `client_notification_token`, and
