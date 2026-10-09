@@ -1307,10 +1307,10 @@ def emit_build_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
         o.append(f'{body}cJSON_AddStringToObject(obj, "{w}", {fn}(value->{n}));')
     elif kind == "model":
         o.append(f"{body}cJSON *sub = {model_prefix(f['ref'])}_build(value->{n});")
-        o.append(f'{body}if (sub) cJSON_AddItemToObject(obj, "{w}", sub);')
+        o.append(f'{body}if (sub && !cJSON_AddItemToObject(obj, "{w}", sub)) cJSON_Delete(sub);')
     elif kind == "json_text":
         o.append(f"{body}cJSON *sub = cJSON_Parse(value->{n});")
-        o.append(f'{body}if (sub) cJSON_AddItemToObject(obj, "{w}", sub);')
+        o.append(f'{body}if (sub && !cJSON_AddItemToObject(obj, "{w}", sub)) cJSON_Delete(sub);')
     elif kind == "string_array":
         o.append(f'{body}cJSON *arr = cJSON_AddArrayToObject(obj, "{w}");')
         o.append(f"{body}for (size_t i = 0; arr && i < value->{n}_count; i++)")
@@ -1319,7 +1319,7 @@ def emit_build_field(f: dict[str, Any], indent: str = "    ") -> list[str]:
         o.append(f'{body}cJSON *arr = cJSON_AddArrayToObject(obj, "{w}");')
         o.append(f"{body}for (size_t i = 0; arr && i < value->{n}_count; i++) {{")
         o.append(f"{body}    cJSON *sub = {model_prefix(f['ref'])}_build(value->{n}[i]);")
-        o.append(f"{body}    if (sub) cJSON_AddItemToArray(arr, sub);")
+        o.append(f"{body}    if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);")
         o.append(f"{body}}}")
     o.append(f"{indent}}}")
     return o

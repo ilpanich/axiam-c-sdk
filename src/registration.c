@@ -203,7 +203,7 @@ static int put_list(cJSON *body, const char *key, char *const *items, size_t cou
         cJSON_AddItemToArray(arr, s);
     }
     cJSON_DeleteItemFromObjectCaseSensitive(body, key);
-    cJSON_AddItemToObject(body, key, arr);
+    if (!cJSON_AddItemToObject(body, key, arr)) { cJSON_Delete(arr); return 0; }
     return 1;
 }
 
@@ -212,7 +212,7 @@ static int put_string(cJSON *body, const char *key, const char *value) {
     cJSON *s = cJSON_CreateString(value);
     if (!s) return 0;
     cJSON_DeleteItemFromObjectCaseSensitive(body, key);
-    cJSON_AddItemToObject(body, key, s);
+    if (!cJSON_AddItemToObject(body, key, s)) { cJSON_Delete(s); return 0; }
     return 1;
 }
 
@@ -239,7 +239,10 @@ static char *update_body(const axiam_client_registration_t *m) {
         cJSON *jwks = cJSON_Parse(m->jwks);
         if (jwks) {
             cJSON_DeleteItemFromObjectCaseSensitive(body, "jwks");
-            cJSON_AddItemToObject(body, "jwks", jwks);
+            if (!cJSON_AddItemToObject(body, "jwks", jwks)) {
+                cJSON_Delete(jwks);
+                ok = 0;
+            }
         } else {
             ok = 0;
         }

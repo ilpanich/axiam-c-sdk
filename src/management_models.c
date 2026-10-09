@@ -1951,7 +1951,7 @@ cJSON *axiam_mgmt_audit_log_entry_build(const axiam_mgmt_audit_log_entry_t *valu
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (1) {
         cJSON_AddStringToObject(obj, "outcome", axiam_mgmt_audit_outcome_to_wire(value->outcome));
@@ -2197,7 +2197,7 @@ cJSON *axiam_mgmt_certificate_build(const axiam_mgmt_certificate_t *value) {
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->not_after) {
         cJSON_AddStringToObject(obj, "not_after", value->not_after);
@@ -2609,7 +2609,7 @@ cJSON *axiam_mgmt_create_certificate_request_build(const axiam_mgmt_create_certi
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->subject) {
         cJSON_AddStringToObject(obj, "subject", value->subject);
@@ -2618,7 +2618,7 @@ cJSON *axiam_mgmt_create_certificate_request_build(const axiam_mgmt_create_certi
         cJSON *arr = cJSON_AddArrayToObject(obj, "subject_alt_names");
         for (size_t i = 0; arr && i < value->subject_alt_names_count; i++) {
             cJSON *sub = axiam_mgmt_subject_alt_name_build(value->subject_alt_names[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (1) {
@@ -2765,7 +2765,7 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     }
     if (value->attribute_map) {
         cJSON *sub = cJSON_Parse(value->attribute_map);
-        if (sub) cJSON_AddItemToObject(obj, "attribute_map", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "attribute_map", sub)) cJSON_Delete(sub);
     }
     if (value->authorization_endpoint) {
         cJSON_AddStringToObject(obj, "authorization_endpoint", value->authorization_endpoint);
@@ -2810,7 +2810,7 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     }
     if (value->token_exchange) {
         cJSON *sub = axiam_mgmt_token_exchange_trust_request_build(value->token_exchange);
-        if (sub) cJSON_AddItemToObject(obj, "token_exchange", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "token_exchange", sub)) cJSON_Delete(sub);
     }
     if (value->userinfo_endpoint) {
         cJSON_AddStringToObject(obj, "userinfo_endpoint", value->userinfo_endpoint);
@@ -2850,7 +2850,7 @@ cJSON *axiam_mgmt_create_group_request_build(const axiam_mgmt_create_group_reque
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -2951,7 +2951,7 @@ cJSON *axiam_mgmt_create_notification_rule_request_build(const axiam_mgmt_create
     }
     if (value->events) {
         cJSON *sub = cJSON_Parse(value->events);
-        if (sub) cJSON_AddItemToObject(obj, "events", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "events", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -3449,7 +3449,7 @@ cJSON *axiam_mgmt_create_registration_token_response_build(const axiam_mgmt_crea
     }
     if (value->token) {
         cJSON *sub = axiam_mgmt_registration_token_response_build(value->token);
-        if (sub) cJSON_AddItemToObject(obj, "token", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "token", sub)) cJSON_Delete(sub);
     }
     return obj;
 }
@@ -3486,7 +3486,7 @@ cJSON *axiam_mgmt_create_resource_request_build(const axiam_mgmt_create_resource
     if (!obj) return NULL;
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -3761,7 +3761,7 @@ cJSON *axiam_mgmt_create_tenant_request_build(const axiam_mgmt_create_tenant_req
     if (!obj) return NULL;
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -3810,11 +3810,11 @@ cJSON *axiam_mgmt_create_user_request_build(const axiam_mgmt_create_user_request
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->opaque) {
         cJSON *sub = axiam_mgmt_opaque_enrollment_build(value->opaque);
-        if (sub) cJSON_AddItemToObject(obj, "opaque", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "opaque", sub)) cJSON_Delete(sub);
     }
     if (value->password) {
         cJSON_AddStringToObject(obj, "password", axiam_sensitive_reveal(value->password));
@@ -3874,7 +3874,7 @@ cJSON *axiam_mgmt_create_webhook_request_build(const axiam_mgmt_create_webhook_r
     }
     if (value->retry_policy) {
         cJSON *sub = axiam_mgmt_retry_policy_build(value->retry_policy);
-        if (sub) cJSON_AddItemToObject(obj, "retry_policy", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "retry_policy", sub)) cJSON_Delete(sub);
     }
     if (value->secret) {
         cJSON_AddStringToObject(obj, "secret", axiam_sensitive_reveal(value->secret));
@@ -4010,7 +4010,7 @@ cJSON *axiam_mgmt_directory_config_build(const axiam_mgmt_directory_config_t *va
         cJSON *arr = cJSON_AddArrayToObject(obj, "group_mappings");
         for (size_t i = 0; arr && i < value->group_mappings_count; i++) {
             cJSON *sub = axiam_mgmt_group_mapping_build(value->group_mappings[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (value->group_member_attribute) {
@@ -4050,7 +4050,7 @@ cJSON *axiam_mgmt_directory_config_build(const axiam_mgmt_directory_config_t *va
     }
     if (value->user_attribute_map) {
         cJSON *sub = axiam_mgmt_user_attribute_map_build(value->user_attribute_map);
-        if (sub) cJSON_AddItemToObject(obj, "user_attribute_map", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "user_attribute_map", sub)) cJSON_Delete(sub);
     }
     if (value->user_filter) {
         cJSON_AddStringToObject(obj, "user_filter", value->user_filter);
@@ -4226,7 +4226,7 @@ cJSON *axiam_mgmt_email_config_build(const axiam_mgmt_email_config_t *value) {
     }
     if (value->provider) {
         cJSON *sub = axiam_mgmt_provider_config_build(value->provider);
-        if (sub) cJSON_AddItemToObject(obj, "provider", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "provider", sub)) cJSON_Delete(sub);
     }
     if (value->reply_to) {
         cJSON_AddStringToObject(obj, "reply_to", value->reply_to);
@@ -4287,7 +4287,7 @@ cJSON *axiam_mgmt_email_config_override_build(const axiam_mgmt_email_config_over
     }
     if (value->provider) {
         cJSON *sub = axiam_mgmt_provider_config_build(value->provider);
-        if (sub) cJSON_AddItemToObject(obj, "provider", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "provider", sub)) cJSON_Delete(sub);
     }
     if (value->reply_to) {
         cJSON_AddStringToObject(obj, "reply_to", value->reply_to);
@@ -4595,7 +4595,7 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     }
     if (value->attribute_map) {
         cJSON *sub = cJSON_Parse(value->attribute_map);
-        if (sub) cJSON_AddItemToObject(obj, "attribute_map", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "attribute_map", sub)) cJSON_Delete(sub);
     }
     if (value->authorization_endpoint) {
         cJSON_AddStringToObject(obj, "authorization_endpoint", value->authorization_endpoint);
@@ -4657,7 +4657,7 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     }
     if (value->token_exchange) {
         cJSON *sub = axiam_mgmt_token_exchange_trust_response_build(value->token_exchange);
-        if (sub) cJSON_AddItemToObject(obj, "token_exchange", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "token_exchange", sub)) cJSON_Delete(sub);
     }
     if (value->updated_at) {
         cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
@@ -4948,7 +4948,7 @@ cJSON *axiam_mgmt_generated_certificate_build(const axiam_mgmt_generated_certifi
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->not_after) {
         cJSON_AddStringToObject(obj, "not_after", value->not_after);
@@ -5251,7 +5251,7 @@ cJSON *axiam_mgmt_group_build(const axiam_mgmt_group_t *value) {
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -5858,7 +5858,7 @@ cJSON *axiam_mgmt_notification_rule_response_build(const axiam_mgmt_notification
     }
     if (value->events) {
         cJSON *sub = cJSON_Parse(value->events);
-        if (sub) cJSON_AddItemToObject(obj, "events", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "events", sub)) cJSON_Delete(sub);
     }
     if (value->id) {
         cJSON_AddStringToObject(obj, "id", value->id);
@@ -6528,7 +6528,7 @@ cJSON *axiam_mgmt_oidc_policy_build(const axiam_mgmt_oidc_policy_t *value) {
     if (!obj) return NULL;
     if (value->cimd) {
         cJSON *sub = axiam_mgmt_cimd_policy_build(value->cimd);
-        if (sub) cJSON_AddItemToObject(obj, "cimd", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "cimd", sub)) cJSON_Delete(sub);
     }
     if (value->dcr_allowed_redirect_hosts) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_redirect_hosts");
@@ -6688,7 +6688,7 @@ cJSON *axiam_mgmt_organization_build(const axiam_mgmt_organization_t *value) {
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -7457,7 +7457,7 @@ cJSON *axiam_mgmt_resolved_permission_grant_build(const axiam_mgmt_resolved_perm
     }
     if (value->permission) {
         cJSON *sub = axiam_mgmt_permission_build(value->permission);
-        if (sub) cJSON_AddItemToObject(obj, "permission", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "permission", sub)) cJSON_Delete(sub);
     }
     if (value->scope_ids) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "scope_ids");
@@ -7468,7 +7468,7 @@ cJSON *axiam_mgmt_resolved_permission_grant_build(const axiam_mgmt_resolved_perm
         cJSON *arr = cJSON_AddArrayToObject(obj, "scopes");
         for (size_t i = 0; arr && i < value->scopes_count; i++) {
             cJSON *sub = axiam_mgmt_granted_scope_build(value->scopes[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     return obj;
@@ -7527,7 +7527,7 @@ cJSON *axiam_mgmt_resource_build(const axiam_mgmt_resource_t *value) {
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -7702,7 +7702,7 @@ cJSON *axiam_mgmt_role_assignment_build(const axiam_mgmt_role_assignment_t *valu
     }
     if (value->role) {
         cJSON *sub = axiam_mgmt_role_build(value->role);
-        if (sub) cJSON_AddItemToObject(obj, "role", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "role", sub)) cJSON_Delete(sub);
     }
     if (value->tenant_scope && value->tenant_scope_count > 0) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
@@ -7755,7 +7755,7 @@ cJSON *axiam_mgmt_role_group_assignment_build(const axiam_mgmt_role_group_assign
     if (!obj) return NULL;
     if (value->group) {
         cJSON *sub = axiam_mgmt_group_build(value->group);
-        if (sub) cJSON_AddItemToObject(obj, "group", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "group", sub)) cJSON_Delete(sub);
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "inherit", value->inherit);
@@ -7820,7 +7820,7 @@ cJSON *axiam_mgmt_role_service_account_assignment_build(const axiam_mgmt_role_se
     }
     if (value->service_account) {
         cJSON *sub = axiam_mgmt_service_account_response_build(value->service_account);
-        if (sub) cJSON_AddItemToObject(obj, "service_account", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "service_account", sub)) cJSON_Delete(sub);
     }
     if (value->tenant_scope && value->tenant_scope_count > 0) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "tenant_scope");
@@ -7884,7 +7884,7 @@ cJSON *axiam_mgmt_role_user_assignment_build(const axiam_mgmt_role_user_assignme
     }
     if (value->user) {
         cJSON *sub = axiam_mgmt_user_response_build(value->user);
-        if (sub) cJSON_AddItemToObject(obj, "user", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "user", sub)) cJSON_Delete(sub);
     }
     return obj;
 }
@@ -8030,11 +8030,11 @@ cJSON *axiam_mgmt_saml_idp_credential_promotion_build(const axiam_mgmt_saml_idp_
     if (!obj) return NULL;
     if (value->active) {
         cJSON *sub = axiam_mgmt_saml_idp_credential_build(value->active);
-        if (sub) cJSON_AddItemToObject(obj, "active", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "active", sub)) cJSON_Delete(sub);
     }
     if (value->retired) {
         cJSON *sub = axiam_mgmt_saml_idp_credential_build(value->retired);
-        if (sub) cJSON_AddItemToObject(obj, "retired", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "retired", sub)) cJSON_Delete(sub);
     }
     return obj;
 }
@@ -8243,7 +8243,7 @@ cJSON *axiam_mgmt_saml_service_provider_build(const axiam_mgmt_saml_service_prov
         cJSON *arr = cJSON_AddArrayToObject(obj, "acs_urls");
         for (size_t i = 0; arr && i < value->acs_urls_count; i++) {
             cJSON *sub = axiam_mgmt_acs_endpoint_build(value->acs_urls[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (1) {
@@ -8258,7 +8258,7 @@ cJSON *axiam_mgmt_saml_service_provider_build(const axiam_mgmt_saml_service_prov
         cJSON *arr = cJSON_AddArrayToObject(obj, "attribute_mappings");
         for (size_t i = 0; arr && i < value->attribute_mappings_count; i++) {
             cJSON *sub = axiam_mgmt_attribute_mapping_build(value->attribute_mappings[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (value->created_at) {
@@ -8414,7 +8414,7 @@ cJSON *axiam_mgmt_saml_service_provider_input_build(const axiam_mgmt_saml_servic
         cJSON *arr = cJSON_AddArrayToObject(obj, "acs_urls");
         for (size_t i = 0; arr && i < value->acs_urls_count; i++) {
             cJSON *sub = axiam_mgmt_acs_endpoint_build(value->acs_urls[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (value->has_allow_idp_initiated) {
@@ -8429,7 +8429,7 @@ cJSON *axiam_mgmt_saml_service_provider_input_build(const axiam_mgmt_saml_servic
         cJSON *arr = cJSON_AddArrayToObject(obj, "attribute_mappings");
         for (size_t i = 0; arr && i < value->attribute_mappings_count; i++) {
             cJSON *sub = axiam_mgmt_attribute_mapping_build(value->attribute_mappings[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (value->display_name) {
@@ -8515,7 +8515,7 @@ cJSON *axiam_mgmt_saml_sp_metadata_draft_build(const axiam_mgmt_saml_sp_metadata
     }
     if (value->service_provider) {
         cJSON *sub = axiam_mgmt_saml_service_provider_input_build(value->service_provider);
-        if (sub) cJSON_AddItemToObject(obj, "service_provider", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "service_provider", sub)) cJSON_Delete(sub);
     }
     if (value->signing_certificate_fingerprint) {
         cJSON_AddStringToObject(obj, "signing_certificate_fingerprint", value->signing_certificate_fingerprint);
@@ -8720,7 +8720,7 @@ cJSON *axiam_mgmt_scim_target_input_build(const axiam_mgmt_scim_target_input_t *
     if (!obj) return NULL;
     if (value->auth) {
         cJSON *sub = axiam_mgmt_scim_target_auth_build(value->auth);
-        if (sub) cJSON_AddItemToObject(obj, "auth", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "auth", sub)) cJSON_Delete(sub);
     }
     if (value->base_url) {
         cJSON_AddStringToObject(obj, "base_url", value->base_url);
@@ -8742,7 +8742,7 @@ cJSON *axiam_mgmt_scim_target_input_build(const axiam_mgmt_scim_target_input_t *
     }
     if (value->scope) {
         cJSON *sub = axiam_mgmt_scim_target_scope_build(value->scope);
-        if (sub) cJSON_AddItemToObject(obj, "scope", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "scope", sub)) cJSON_Delete(sub);
     }
     if (value->has_user_name_from) {
         cJSON_AddStringToObject(obj, "user_name_from", axiam_mgmt_user_name_source_to_wire(value->user_name_from));
@@ -8811,7 +8811,7 @@ cJSON *axiam_mgmt_scim_target_response_build(const axiam_mgmt_scim_target_respon
     if (!obj) return NULL;
     if (value->auth) {
         cJSON *sub = axiam_mgmt_scim_target_auth_build(value->auth);
-        if (sub) cJSON_AddItemToObject(obj, "auth", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "auth", sub)) cJSON_Delete(sub);
     }
     if (value->base_url) {
         cJSON_AddStringToObject(obj, "base_url", value->base_url);
@@ -8836,11 +8836,11 @@ cJSON *axiam_mgmt_scim_target_response_build(const axiam_mgmt_scim_target_respon
     }
     if (value->scope) {
         cJSON *sub = axiam_mgmt_scim_target_scope_build(value->scope);
-        if (sub) cJSON_AddItemToObject(obj, "scope", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "scope", sub)) cJSON_Delete(sub);
     }
     if (value->state) {
         cJSON *sub = axiam_mgmt_scim_target_delivery_state_build(value->state);
-        if (sub) cJSON_AddItemToObject(obj, "state", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "state", sub)) cJSON_Delete(sub);
     }
     if (value->tenant_id) {
         cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);
@@ -9121,45 +9121,45 @@ cJSON *axiam_mgmt_security_settings_build(const axiam_mgmt_security_settings_t *
     if (!obj) return NULL;
     if (value->certificate) {
         cJSON *sub = axiam_mgmt_certificate_policy_build(value->certificate);
-        if (sub) cJSON_AddItemToObject(obj, "certificate", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "certificate", sub)) cJSON_Delete(sub);
     }
     if (value->created_at) {
         cJSON_AddStringToObject(obj, "created_at", value->created_at);
     }
     if (value->email) {
         cJSON *sub = axiam_mgmt_email_verification_policy_build(value->email);
-        if (sub) cJSON_AddItemToObject(obj, "email", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "email", sub)) cJSON_Delete(sub);
     }
     if (value->id) {
         cJSON_AddStringToObject(obj, "id", value->id);
     }
     if (value->lockout) {
         cJSON *sub = axiam_mgmt_lockout_policy_build(value->lockout);
-        if (sub) cJSON_AddItemToObject(obj, "lockout", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "lockout", sub)) cJSON_Delete(sub);
     }
     if (value->mfa) {
         cJSON *sub = axiam_mgmt_mfa_policy_build(value->mfa);
-        if (sub) cJSON_AddItemToObject(obj, "mfa", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "mfa", sub)) cJSON_Delete(sub);
     }
     if (value->notification) {
         cJSON *sub = axiam_mgmt_notification_policy_build(value->notification);
-        if (sub) cJSON_AddItemToObject(obj, "notification", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "notification", sub)) cJSON_Delete(sub);
     }
     if (value->oidc) {
         cJSON *sub = axiam_mgmt_oidc_policy_build(value->oidc);
-        if (sub) cJSON_AddItemToObject(obj, "oidc", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "oidc", sub)) cJSON_Delete(sub);
     }
     if (value->opaque) {
         cJSON *sub = axiam_mgmt_opaque_policy_build(value->opaque);
-        if (sub) cJSON_AddItemToObject(obj, "opaque", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "opaque", sub)) cJSON_Delete(sub);
     }
     if (value->password) {
         cJSON *sub = axiam_mgmt_password_policy_build(value->password);
-        if (sub) cJSON_AddItemToObject(obj, "password", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "password", sub)) cJSON_Delete(sub);
     }
     if (value->privacy) {
         cJSON *sub = axiam_mgmt_privacy_policy_build(value->privacy);
-        if (sub) cJSON_AddItemToObject(obj, "privacy", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "privacy", sub)) cJSON_Delete(sub);
     }
     if (1) {
         cJSON_AddStringToObject(obj, "scope", axiam_mgmt_settings_scope_to_wire(value->scope));
@@ -9169,14 +9169,14 @@ cJSON *axiam_mgmt_security_settings_build(const axiam_mgmt_security_settings_t *
     }
     if (value->token) {
         cJSON *sub = axiam_mgmt_token_policy_build(value->token);
-        if (sub) cJSON_AddItemToObject(obj, "token", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "token", sub)) cJSON_Delete(sub);
     }
     if (value->updated_at) {
         cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
     }
     if (value->webauthn) {
         cJSON *sub = axiam_mgmt_webauthn_policy_build(value->webauthn);
-        if (sub) cJSON_AddItemToObject(obj, "webauthn", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "webauthn", sub)) cJSON_Delete(sub);
     }
     return obj;
 }
@@ -9544,7 +9544,7 @@ cJSON *axiam_mgmt_set_directory_config_build(const axiam_mgmt_set_directory_conf
         cJSON *arr = cJSON_AddArrayToObject(obj, "group_mappings");
         for (size_t i = 0; arr && i < value->group_mappings_count; i++) {
             cJSON *sub = axiam_mgmt_group_mapping_build(value->group_mappings[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (value->group_member_attribute) {
@@ -9575,7 +9575,7 @@ cJSON *axiam_mgmt_set_directory_config_build(const axiam_mgmt_set_directory_conf
     }
     if (value->user_attribute_map) {
         cJSON *sub = axiam_mgmt_user_attribute_map_build(value->user_attribute_map);
-        if (sub) cJSON_AddItemToObject(obj, "user_attribute_map", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "user_attribute_map", sub)) cJSON_Delete(sub);
     }
     if (value->user_filter) {
         cJSON_AddStringToObject(obj, "user_filter", value->user_filter);
@@ -9654,7 +9654,7 @@ cJSON *axiam_mgmt_set_org_email_config_build(const axiam_mgmt_set_org_email_conf
     }
     if (value->provider) {
         cJSON *sub = axiam_mgmt_provider_config_build(value->provider);
-        if (sub) cJSON_AddItemToObject(obj, "provider", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "provider", sub)) cJSON_Delete(sub);
     }
     if (value->reply_to) {
         cJSON_AddStringToObject(obj, "reply_to", value->reply_to);
@@ -9847,7 +9847,7 @@ cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *va
     }
     if (value->cimd) {
         cJSON *sub = axiam_mgmt_cimd_policy_build(value->cimd);
-        if (sub) cJSON_AddItemToObject(obj, "cimd", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "cimd", sub)) cJSON_Delete(sub);
     }
     if (value->dcr_allowed_redirect_hosts) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_redirect_hosts");
@@ -10063,13 +10063,13 @@ cJSON *axiam_mgmt_sign_certificate_csr_request_build(const axiam_mgmt_sign_certi
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->subject_alt_names) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "subject_alt_names");
         for (size_t i = 0; arr && i < value->subject_alt_names_count; i++) {
             cJSON *sub = axiam_mgmt_subject_alt_name_build(value->subject_alt_names[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (1) {
@@ -10335,15 +10335,15 @@ cJSON *axiam_mgmt_ssf_stream_build(const axiam_mgmt_ssf_stream_t *value) {
     }
     if (value->events_allowed) {
         cJSON *sub = cJSON_Parse(value->events_allowed);
-        if (sub) cJSON_AddItemToObject(obj, "events_allowed", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "events_allowed", sub)) cJSON_Delete(sub);
     }
     if (value->events_delivered) {
         cJSON *sub = cJSON_Parse(value->events_delivered);
-        if (sub) cJSON_AddItemToObject(obj, "events_delivered", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "events_delivered", sub)) cJSON_Delete(sub);
     }
     if (value->events_requested) {
         cJSON *sub = cJSON_Parse(value->events_requested);
-        if (sub) cJSON_AddItemToObject(obj, "events_requested", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "events_requested", sub)) cJSON_Delete(sub);
     }
     if (value->id) {
         cJSON_AddStringToObject(obj, "id", value->id);
@@ -10458,11 +10458,11 @@ cJSON *axiam_mgmt_ssf_stream_input_build(const axiam_mgmt_ssf_stream_input_t *va
     }
     if (value->events_allowed) {
         cJSON *sub = cJSON_Parse(value->events_allowed);
-        if (sub) cJSON_AddItemToObject(obj, "events_allowed", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "events_allowed", sub)) cJSON_Delete(sub);
     }
     if (value->events_requested) {
         cJSON *sub = cJSON_Parse(value->events_requested);
-        if (sub) cJSON_AddItemToObject(obj, "events_requested", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "events_requested", sub)) cJSON_Delete(sub);
     }
     if (value->receiver_client_id) {
         cJSON_AddStringToObject(obj, "receiver_client_id", value->receiver_client_id);
@@ -10600,7 +10600,7 @@ cJSON *axiam_mgmt_tenant_build(const axiam_mgmt_tenant_t *value) {
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -10805,7 +10805,7 @@ cJSON *axiam_mgmt_tenant_settings_override_build(const axiam_mgmt_tenant_setting
     }
     if (value->cimd) {
         cJSON *sub = axiam_mgmt_cimd_policy_build(value->cimd);
-        if (sub) cJSON_AddItemToObject(obj, "cimd", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "cimd", sub)) cJSON_Delete(sub);
     }
     if (value->dcr_allowed_redirect_hosts) {
         cJSON *arr = cJSON_AddArrayToObject(obj, "dcr_allowed_redirect_hosts");
@@ -10984,7 +10984,7 @@ cJSON *axiam_mgmt_token_exchange_trust_request_build(const axiam_mgmt_token_exch
     }
     if (value->scope_map) {
         cJSON *sub = cJSON_Parse(value->scope_map);
-        if (sub) cJSON_AddItemToObject(obj, "scope_map", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "scope_map", sub)) cJSON_Delete(sub);
     }
     if (value->subject_mapping) {
         cJSON_AddStringToObject(obj, "subject_mapping", value->subject_mapping);
@@ -11056,7 +11056,7 @@ cJSON *axiam_mgmt_token_exchange_trust_response_build(const axiam_mgmt_token_exc
     }
     if (value->scope_map) {
         cJSON *sub = cJSON_Parse(value->scope_map);
-        if (sub) cJSON_AddItemToObject(obj, "scope_map", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "scope_map", sub)) cJSON_Delete(sub);
     }
     if (value->subject_mapping) {
         cJSON_AddStringToObject(obj, "subject_mapping", value->subject_mapping);
@@ -11219,7 +11219,7 @@ cJSON *axiam_mgmt_update_directory_config_build(const axiam_mgmt_update_director
         cJSON *arr = cJSON_AddArrayToObject(obj, "group_mappings");
         for (size_t i = 0; arr && i < value->group_mappings_count; i++) {
             cJSON *sub = axiam_mgmt_group_mapping_build(value->group_mappings[i]);
-            if (sub) cJSON_AddItemToArray(arr, sub);
+            if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
     }
     if (value->group_member_attribute) {
@@ -11250,7 +11250,7 @@ cJSON *axiam_mgmt_update_directory_config_build(const axiam_mgmt_update_director
     }
     if (value->user_attribute_map) {
         cJSON *sub = axiam_mgmt_user_attribute_map_build(value->user_attribute_map);
-        if (sub) cJSON_AddItemToObject(obj, "user_attribute_map", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "user_attribute_map", sub)) cJSON_Delete(sub);
     }
     if (value->user_filter) {
         cJSON_AddStringToObject(obj, "user_filter", value->user_filter);
@@ -11393,7 +11393,7 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->attribute_map) {
         cJSON *sub = cJSON_Parse(value->attribute_map);
-        if (sub) cJSON_AddItemToObject(obj, "attribute_map", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "attribute_map", sub)) cJSON_Delete(sub);
     }
     if (value->authorization_endpoint) {
         cJSON_AddStringToObject(obj, "authorization_endpoint", value->authorization_endpoint);
@@ -11435,7 +11435,7 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->token_exchange) {
         cJSON *sub = axiam_mgmt_token_exchange_trust_request_build(value->token_exchange);
-        if (sub) cJSON_AddItemToObject(obj, "token_exchange", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "token_exchange", sub)) cJSON_Delete(sub);
     }
     if (value->userinfo_endpoint) {
         cJSON_AddStringToObject(obj, "userinfo_endpoint", value->userinfo_endpoint);
@@ -11475,7 +11475,7 @@ cJSON *axiam_mgmt_update_group_build(const axiam_mgmt_update_group_t *value) {
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -11536,7 +11536,7 @@ cJSON *axiam_mgmt_update_notification_rule_request_build(const axiam_mgmt_update
     }
     if (value->events) {
         cJSON *sub = cJSON_Parse(value->events);
-        if (sub) cJSON_AddItemToObject(obj, "events", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "events", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -11836,7 +11836,7 @@ cJSON *axiam_mgmt_update_organization_request_build(const axiam_mgmt_update_orga
     if (!obj) return NULL;
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -11997,7 +11997,7 @@ cJSON *axiam_mgmt_update_resource_request_build(const axiam_mgmt_update_resource
     if (!obj) return NULL;
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -12156,7 +12156,7 @@ cJSON *axiam_mgmt_update_tenant_build(const axiam_mgmt_update_tenant_t *value) {
     if (!obj) return NULL;
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -12206,7 +12206,7 @@ cJSON *axiam_mgmt_update_user_request_build(const axiam_mgmt_update_user_request
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (value->has_status) {
         cJSON_AddStringToObject(obj, "status", axiam_mgmt_user_status_to_wire(value->status));
@@ -12272,7 +12272,7 @@ cJSON *axiam_mgmt_update_webhook_request_build(const axiam_mgmt_update_webhook_r
     }
     if (value->retry_policy) {
         cJSON *sub = axiam_mgmt_retry_policy_build(value->retry_policy);
-        if (sub) cJSON_AddItemToObject(obj, "retry_policy", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "retry_policy", sub)) cJSON_Delete(sub);
     }
     if (value->secret) {
         cJSON_AddStringToObject(obj, "secret", axiam_sensitive_reveal(value->secret));
@@ -12409,7 +12409,7 @@ cJSON *axiam_mgmt_user_response_build(const axiam_mgmt_user_response_t *value) {
     }
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
-        if (sub) cJSON_AddItemToObject(obj, "metadata", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "mfa_enabled", value->mfa_enabled);
@@ -12620,7 +12620,7 @@ cJSON *axiam_mgmt_webhook_response_build(const axiam_mgmt_webhook_response_t *va
     }
     if (value->retry_policy) {
         cJSON *sub = axiam_mgmt_retry_policy_build(value->retry_policy);
-        if (sub) cJSON_AddItemToObject(obj, "retry_policy", sub);
+        if (sub && !cJSON_AddItemToObject(obj, "retry_policy", sub)) cJSON_Delete(sub);
     }
     if (value->tenant_id) {
         cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);

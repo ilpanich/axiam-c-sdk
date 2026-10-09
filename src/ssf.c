@@ -630,8 +630,8 @@ static char *poll_body(const axiam_ssf_poll_options_t *o) {
             cJSON *entry = cJSON_CreateObject();
             ok = entry && cJSON_AddStringToObject(entry, "err", e->err ? e->err : "") &&
                  (!e->description || cJSON_AddStringToObject(entry, "description", e->description));
+            ok = ok && cJSON_AddItemToObject(errs, e->jti ? e->jti : "", entry);
             if (entry && !ok) cJSON_Delete(entry);
-            if (ok) cJSON_AddItemToObject(errs, e->jti ? e->jti : "", entry);
         }
     }
     char *json = ok ? cJSON_PrintUnformatted(body) : NULL;
