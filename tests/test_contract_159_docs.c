@@ -119,10 +119,37 @@ static void test_the_ecdsa_redirect_limit_is_documented_on_the_field(void) {
     free(models);
 }
 
+/* ---- R-41: §21.9, the README's DPoP-decline reason --------------------------------- */
+
+static void test_the_dpop_decline_reason_is_not_contradicted_by_the_ciba_signer(void) {
+    char *readme = slurp("README.md");
+    const char *start = strstr(readme, "### Sender-constrained tokens and DPoP");
+    TEST_ASSERT_NOT_NULL(start);
+    const char *end = strstr(start + 4, "\n### ");
+    TEST_ASSERT_NOT_NULL(end);
+    size_t n = (size_t) (end - start);
+    char *section = malloc(n + 1);
+    TEST_ASSERT_NOT_NULL(section);
+    memcpy(section, start, n);
+    section[n] = '\0';
+    /* Join wrapped lines so a phrase may wrap. */
+    for (char *p = section; *p; p++)
+        if (*p == '\n') *p = ' ';
+    /* The decline stands; the stated reason must be one the code does not contradict:
+     * src/oidc_ciba.c signs PS256, ES256 and EdDSA with OpenSSL (§33.2). */
+    assert_says(section, "deliberately declines §21.7.2 DPoP proof verification", "README");
+    TEST_ASSERT_NULL_MESSAGE(strstr(section, "no JOSE implementation"),
+                             "README still gives \"no JOSE implementation\" as the reason");
+    assert_says(section, "§33.2", "README");
+    free(section);
+    free(readme);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_the_credential_url_binding_is_documented_on_create_and_update);
     RUN_TEST(test_the_ecdsa_redirect_limit_is_documented_on_the_field);
+    RUN_TEST(test_the_dpop_decline_reason_is_not_contradicted_by_the_ciba_signer);
     return UNITY_END();
 }
 

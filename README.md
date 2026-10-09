@@ -1084,10 +1084,16 @@ does its own local verification with `axiam_jwt_verify_with_evidence()` /
 its authorization decision itself.
 
 **This SDK deliberately declines §21.7.2 DPoP proof verification** (recorded in
-the contract's §21.9 per-SDK table). Its role here is resource-server-side
-validation, and it ships no JOSE implementation covering PS256/ES256/EdDSA that
-could verify a proof without adding a dependency this contract does not
-otherwise require.
+the contract's §21.9 per-SDK table). The reason is not the cryptography: since
+contract 1.58 this SDK signs PS256, ES256 and EdDSA with OpenSSL for the §33.2
+CIBA signed request, and the same library verifies all three. It is that a
+proof is judged against the HTTP request it arrived with — `htm` and `htu`
+against the method and URL the resource server received, `ath` against the
+access token, `iat` within a window, and `jti` against a replay cache every
+instance shares — and this SDK's guards are framework-agnostic: they are handed
+a token, not a request, which is the same reason they cannot obtain certificate
+evidence (above). A signature check without those would be the stub this
+section refuses to ship.
 
 Declining is a supported answer, and §21.7.3 defines it as exactly three
 obligations — all three are met here:
