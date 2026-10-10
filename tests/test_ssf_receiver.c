@@ -1019,6 +1019,93 @@ static void test_a_failing_token_provider_stops_the_poll(void) {
     axiam_client_free(c);
 }
 
+/* ---- §32.8 helper test 6, the store-failure case (contract 1.60 B1; P4) ------------
+ *
+ * A replay store that cannot answer gives NO verdict. This store's answer is a bare int
+ * the SDK's interface already makes fallible (a negative return), so B1 is a *verify* row:
+ * the failure sets the failure channel (AXIAM_ERR_NETWORK, no reason code) and is never
+ * read as `replayed`; the SET is in neither `events` nor `refused`, is not recorded (the
+ * store, once it answers again, finds it fresh) and is not acknowledged. C's poll never
+ * acknowledges on its own; the observable is that the SET is listed `unjudged` and nowhere
+ * else, which is what keeps the caller from acknowledging or refusing it. */
+static char g_b1_down_jti[40];
+static int g_b1_down;
+static int g_b1_calls_for_down_jti;
+static int store_that_can_be_down(void *ctx, const char *jti, long window_s) {
+    (void) ctx;
+    (void) window_s;
+    if (g_b1_down && strcmp(jti, g_b1_down_jti) == 0) {
+        g_b1_calls_for_down_jti++;
+        return -1; /* cannot answer */
+    }
+    return 1; /* recorded */
+}
+
+static void test_6_a_store_that_cannot_answer_gives_no_verdict_B1(void) {
+    axiam_client_t *c = make_client();
+    axiam_ssf_receiver_config_t cfg;
+    memset(&cfg, 0, sizeof cfg);
+    cfg.issuer = ISSUER;
+    cfg.audience = AUDIENCE;
+    cfg.jwks_uri = JWKS_URI;
+    cfg.access_token_provider = token_provider;
+    cfg.replay_store = store_that_can_be_down;
+    axiam_error_t err;
+    axiam_ssf_receiver_t *r = axiam_ssf_receiver_new(c, &cfg, &err);
+    TEST_ASSERT_NOT_NULL(r);
+
+    char jti[2][33], body[1024], reply[8192];
+    char *sets[2];
+    for (int i = 0; i < 2; i++) {
+        random_jti(jti[i]);
+        payload(body, sizeof body, jti[i], "\"" AUDIENCE "\"", NULL);
+        sets[i] = sign_set(g_key, HEADER("k1"), body);
+    }
+    snprintf(g_b1_down_jti, sizeof g_b1_down_jti, "%s", jti[1]);
+
+    /* verify_set: the failure channel is set, and it is not a verdict. */
+    g_b1_down = 1;
+    g_b1_calls_for_down_jti = 0;
+    axiam_security_event_t ev;
+    axiam_ssf_reason_t reason = AXIAM_SSF_REASON_REPLAYED; /* must be reset, not left */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ssf_verify_set(r, sets[1], &ev, &reason, &err));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_SSF_REASON_NONE, reason,
+                                  "a store failure carries no reason code, least of all replayed");
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, err.kind);
+    TEST_ASSERT_NULL(ev.jti);
+    axiam_security_event_dispose(&ev);
+
+    /* poll, a batch of two whose SECOND the store cannot answer for: the first is judged,
+     * the second is in neither `events` nor `refused` -- it is `unjudged`. */
+    snprintf(reply, sizeof reply, "{\"sets\":{\"%s\":\"%s\",\"%s\":\"%s\"}}", jti[0], sets[0],
+             jti[1], sets[1]);
+    g.poll[0] = (answer_t){200, reply, 0};
+    g.poll_len = 1;
+    axiam_ssf_poll_result_t res;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
+    TEST_ASSERT_EQUAL_INT(1, (int) res.events_count);
+    TEST_ASSERT_EQUAL_STRING(jti[0], res.events[0].jti);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int) res.refused_count, "never refused, least of all replayed");
+    TEST_ASSERT_EQUAL_INT(1, (int) res.unjudged_count);
+    TEST_ASSERT_EQUAL_STRING(jti[1], res.unjudged[0]);
+    axiam_ssf_poll_result_dispose(&res);
+
+    /* Not recorded: once the store answers again the same SET is judged fresh (a recorded
+     * jti would read `replayed`), and the first SET -- recorded -- is the replay. */
+    g_b1_down = 0;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(r, sets[1], &reason));
+    axiam_ssf_receiver_free(r);
+
+    /* The same with the default in-memory store: it cannot fail, and records only a verdict. */
+    r = make_receiver(c, 0);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(r, sets[0], &reason));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, verify(r, sets[0], &reason));
+    TEST_ASSERT_EQUAL_INT(AXIAM_SSF_REASON_REPLAYED, reason);
+    axiam_ssf_receiver_free(r);
+    for (int i = 0; i < 2; i++) free(sets[i]);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_a_valid_set_verifies_and_every_field_is_the_claims);
@@ -1038,5 +1125,6 @@ int main(void) {
     RUN_TEST(test_reason_codes_and_their_rfc_8935_answers);
     RUN_TEST(test_a_pluggable_replay_store_decides);
     RUN_TEST(test_a_failing_token_provider_stops_the_poll);
+    RUN_TEST(test_6_a_store_that_cannot_answer_gives_no_verdict_B1);
     return UNITY_END();
 }
