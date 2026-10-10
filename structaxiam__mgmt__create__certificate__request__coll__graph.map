@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_create_certificate_request" name="axiam_mgmt_create_certificate_request">
+<area shape="rect" id="Node000001" title="The CreateCertificateRequest schema from the server&#39;s OpenAPI document." alt="" coords="5,108,235,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__subject__alt__name.html" title="A SubjectAltName: value is the string named under the wire key kind identifies." alt="" coords="39,5,201,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="123,59,123,108,117,108,117,59"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="axiam_federation_provider_list" name="axiam_federation_provider_list">
+<area shape="rect" id="Node000001" title="The providers listing." alt="" coords="5,93,231,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__federation__provider.html" title="One sign&#45;in button, from GET /api/v1/auth/federation/providers (§12.1)." alt="" coords="19,5,217,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="121,45,121,93,115,93,115,45"/>
+</map>

@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_user_response_page" name="axiam_mgmt_user_response_page">
+<area shape="rect" id="Node000001" title="One page of UserResponse objects (27.4 rule 4)." alt="" coords="94,93,343,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__user__response.html" title="Public&#45;safe user representation (no password_hash, no mfa_secret)." alt="" coords="5,5,216,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="138,37,206,91,202,95,134,41"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="240,5,416,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="304,41,235,95,232,91,301,37"/>
+</map>

@@ -1,0 +1,31 @@
+<map id="include/axiam/management_helpers.h" name="include/axiam/management_helpers.h">
+<area shape="rect" id="Node000001" title="Hand&#45;written conveniences around the generated §27 models for §29 – §32." alt="" coords="48,5,253,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="341,460,416,485"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="114,48,79,70,45,99,18,136,11,156,8,178,8,327,12,356,22,376,40,393,65,410,113,429,183,444,328,464,327,469,182,449,112,434,63,414,37,397,18,379,7,357,3,328,3,178,6,155,14,133,41,96,76,66,111,43"/>
+<area shape="rect" id="Node000003" href="$management__models_8h.html" title=" " alt="" coords="245,93,467,119"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="201,43,314,86,312,91,199,48"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="467,107,545,119,584,129,621,143,652,162,677,186,694,215,700,251,700,327,698,349,692,368,670,400,638,425,599,443,555,457,510,465,430,473,430,468,510,460,554,451,597,438,635,420,666,396,687,365,693,347,695,327,695,252,689,217,673,189,649,166,618,148,583,134,544,124,466,112"/>
+<area shape="rect" id="Node000004" href="$management_8h.html" title="CONTRACT.md §27 management API — shared core." alt="" coords="141,167,307,192"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="336,121,259,162,256,158,334,116"/>
+<area shape="rect" id="Node000010" href="$sensitive_8h.html" title=" " alt="" coords="521,313,660,339"/>
+<area shape="poly" id="edge19_Node000003_Node000010" title=" " alt="" coords="370,117,570,302,566,306,367,121"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="208,194,159,233,130,259,104,288,82,319,70,351,69,381,74,396,83,410,99,423,123,433,188,450,261,460,328,466,327,471,261,466,187,455,121,438,96,427,79,414,69,398,64,382,65,350,78,317,99,285,127,255,155,228,205,190"/>
+<area shape="rect" id="Node000005" href="$client_8h.html" title=" " alt="" coords="240,240,355,265"/>
+<area shape="poly" id="edge6_Node000004_Node000005" title=" " alt="" coords="238,190,277,228,274,232,234,194"/>
+<area shape="rect" id="Node000007" href="$error_8h.html" title=" " alt="" coords="93,387,203,412"/>
+<area shape="poly" id="edge18_Node000004_Node000007" title=" " alt="" coords="222,193,159,375,154,373,217,191"/>
+<area shape="poly" id="edge7_Node000005_Node000002" title=" " alt="" coords="350,263,399,279,454,303,505,338,527,360,545,385,551,403,547,419,536,432,520,443,476,458,430,468,429,463,475,453,517,438,533,428,543,416,546,403,540,388,523,364,501,342,451,308,397,284,348,268"/>
+<area shape="rect" id="Node000006" href="$config_8h.html" title=" " alt="" coords="238,313,357,339"/>
+<area shape="poly" id="edge8_Node000005_Node000006" title=" " alt="" coords="300,266,300,300,295,300,295,266"/>
+<area shape="poly" id="edge15_Node000005_Node000007" title=" " alt="" coords="284,268,227,315,168,378,164,374,223,311,280,264"/>
+<area shape="poly" id="edge16_Node000005_Node000010" title=" " alt="" coords="345,263,531,307,529,313,344,268"/>
+<area shape="poly" id="edge9_Node000006_Node000007" title=" " alt="" coords="274,341,186,383,184,378,272,336"/>
+<area shape="rect" id="Node000008" href="$telemetry_8h.html" title=" " alt="" coords="227,387,368,412"/>
+<area shape="poly" id="edge11_Node000006_Node000008" title=" " alt="" coords="300,339,300,373,295,373,295,339"/>
+<area shape="rect" id="Node000009" href="$transport_8h.html" title=" " alt="" coords="392,387,531,412"/>
+<area shape="poly" id="edge13_Node000006_Node000009" title=" " alt="" coords="325,336,423,379,421,384,323,341"/>
+<area shape="poly" id="edge10_Node000007_Node000002" title=" " alt="" coords="186,409,329,453,328,459,184,415"/>
+<area shape="poly" id="edge12_Node000008_Node000002" title=" " alt="" coords="312,410,357,449,353,453,309,414"/>
+<area shape="poly" id="edge14_Node000009_Node000002" title=" " alt="" coords="450,414,404,453,401,449,446,410"/>
+<area shape="poly" id="edge17_Node000010_Node000002" title=" " alt="" coords="597,339,601,374,598,395,589,414,563,431,522,446,430,466,429,461,521,441,560,427,585,410,593,393,596,374,591,340"/>
+</map>

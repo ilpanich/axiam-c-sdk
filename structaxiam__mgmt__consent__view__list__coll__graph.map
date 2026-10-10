@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_consent_view_list" name="axiam_mgmt_consent_view_list">
+<area shape="rect" id="Node000001" title="A plain list of ConsentView objects." alt="" coords="25,93,191,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__consent__view.html" title="One consent record, as the subject sees it." alt="" coords="5,5,211,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="111,44,111,93,105,93,105,44"/>
+</map>

@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_directory_config" name="axiam_mgmt_directory_config">
+<area shape="rect" id="Node000001" title="A tenant&#39;s directory configuration, as stored and as read back." alt="" coords="153,93,328,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__group__mapping.html" title="One row of the group&#45;mapping table (G&#45;3, T23.3.4, D&#45;30): a directory group, named by its distinguishe..." alt="" coords="5,5,223,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="142,37,216,91,213,95,139,41"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__user__attribute__map.html" title="Which directory attribute feeds each AXIAM user field." alt="" coords="247,5,490,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="344,41,302,71,269,95,266,91,299,67,340,37"/>
+</map>

@@ -1,0 +1,25 @@
+<map id="include/axiam/ssf.h" name="include/axiam/ssf.h">
+<area shape="rect" id="Node000001" title="CONTRACT.md §32.7 — the SSF receiver helper (contract 1.56)." alt="" coords="5,5,153,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="167,299,242,324"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="75,32,57,71,39,128,33,160,33,191,39,221,52,249,73,270,98,286,126,296,154,303,153,308,125,301,96,291,69,275,48,252,34,223,28,192,28,159,33,127,52,69,71,30"/>
+<area shape="rect" id="Node000003" href="$client_8h.html" title=" " alt="" coords="73,79,187,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="90,29,116,66,112,69,86,33"/>
+<area shape="rect" id="Node000005" href="$error_8h.html" title=" " alt="" coords="75,225,185,251"/>
+<area shape="poly" id="edge14_Node000001_Node000005" title=" " alt="" coords="76,32,64,64,62,84,63,103,73,134,87,164,116,212,111,215,82,166,68,136,58,105,56,84,59,63,71,30"/>
+<area shape="rect" id="Node000008" href="$sensitive_8h.html" title=" " alt="" coords="311,152,450,177"/>
+<area shape="poly" id="edge15_Node000001_Node000008" title=" " alt="" coords="105,28,346,144,343,148,102,33"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="120,106,95,133,70,170,61,190,57,211,58,231,66,249,83,268,105,283,154,300,153,305,103,288,80,273,61,252,52,232,51,210,56,189,66,167,91,130,116,102"/>
+<area shape="rect" id="Node000004" href="$config_8h.html" title=" " alt="" coords="168,152,287,177"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="147,102,202,141,199,146,144,106"/>
+<area shape="poly" id="edge11_Node000003_Node000005" title=" " alt="" coords="133,104,133,212,127,212,127,104"/>
+<area shape="poly" id="edge12_Node000003_Node000008" title=" " alt="" coords="171,101,328,146,326,151,170,107"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="213,180,159,219,156,215,210,175"/>
+<area shape="rect" id="Node000006" href="$telemetry_8h.html" title=" " alt="" coords="209,225,350,251"/>
+<area shape="poly" id="edge7_Node000004_Node000006" title=" " alt="" coords="238,176,265,213,261,216,234,179"/>
+<area shape="rect" id="Node000007" href="$transport_8h.html" title=" " alt="" coords="374,225,513,251"/>
+<area shape="poly" id="edge9_Node000004_Node000007" title=" " alt="" coords="263,175,396,218,395,223,261,180"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="144,249,184,287,181,291,140,253"/>
+<area shape="poly" id="edge8_Node000006_Node000002" title=" " alt="" coords="269,253,229,291,225,287,266,249"/>
+<area shape="poly" id="edge10_Node000007_Node000002" title=" " alt="" coords="406,253,256,298,255,292,404,248"/>
+<area shape="poly" id="edge13_Node000008_Node000002" title=" " alt="" coords="438,175,478,187,513,203,526,213,534,225,534,238,527,252,508,267,481,279,409,296,327,306,256,311,255,306,327,301,408,290,479,274,505,262,523,249,529,237,528,227,522,217,510,208,476,192,437,180"/>
+</map>

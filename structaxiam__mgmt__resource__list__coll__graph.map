@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_resource_list" name="axiam_mgmt_resource_list">
+<area shape="rect" id="Node000001" title="A plain list of Resource objects." alt="" coords="5,93,204,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__resource.html" title="The Resource schema from the server&#39;s OpenAPI document." alt="" coords="19,5,191,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="107,45,107,93,102,93,102,45"/>
+</map>
