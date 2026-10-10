@@ -7,6 +7,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Contract 1.60 (phase 1, ilpanich/axiam#588)
+
+Re-vendored `CONTRACT.md` at contract 1.60 (`openapi.json`, `management-registry.json` and
+`proto/` follow in the generated-surface phase; the README's conformance statement is not
+bumped yet).
+
+#### Fixed
+
+- **A write a server dropped unanswered could reach it twice (§34.2 P11, §34.4 A6; R-17).**
+  libcurl re-sends a request on its own when a *reused* connection turns out dead before any
+  byte of the reply, which no §16 switch controls. `axiam_curl_transport()` now puts every
+  request that is not a `GET` and that the SDK does not itself replay on a fresh connection
+  that nothing reuses afterwards (`CURLOPT_FRESH_CONNECT` plus `CURLOPT_FORBID_REUSE`), so a
+  server that reads a write and closes the connection receives it exactly once. A `GET`, and
+  the requests §16 retries (authorization checks, retried token-endpoint requests), keep the
+  connection pool. `axiam_http_request_t` gains a trailing `replayable` member (zero, the
+  default, means "never sent twice"); a custom transport compiled against the older struct is
+  unaffected. Test: `test_a_write_a_server_drops_unanswered_arrives_exactly_once_A6`.
+
+#### Documentation and tests
+
+- **§15.2 rule 9 (actor token).** `axiam_token_exchange_params_t.actor_token`, the README and
+  `examples/token_exchange.c` now say an actor token must have been issued to the exchanging
+  client and obtain it from that client's own `client_credentials` grant
+  (`AXIAM_DELEGATE=1` replaces the old `AXIAM_ACTOR_TOKEN` environment variable in the
+  example). New §15.6 test: an `actor_token` answered `400 invalid_request` (`actor_token was
+  not issued to the exchanging client`) is surfaced unchanged with exactly one request.
+- **B1, verified.** The replay store was already fallible (`axiam_ssf_replay_check_fn`
+  returns a negative value for "cannot answer"); a store failure is `AXIAM_ERR_NETWORK` with
+  no reason code, never `replayed`, and the SET is `unjudged`, unrecorded. Added §32.8 helper
+  test 6's store-failure case. No interface change.
+- **B5, verified.** A local refusal is the one category C has for the SDK's validation error
+  (`AXIAM_ERR_NETWORK`, cause 400, class `AXIAM_MGMT_ERR_VALIDATION`, "no request was sent";
+  `NULL` plus `axiam_error_t` from a constructor). Added a test across the surfaces.
+
 ### Contract 1.59 (F-59-10, ilpanich/axiam#585)
 
 Re-vendored `CONTRACT.md` at contract 1.59 (axiam `fe369eb`; `openapi.json` and
