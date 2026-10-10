@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-10
+
 The AXIAM C SDK at 1.0.0 is a C11 library (C11 through C23, gcc and clang) over the AXIAM
 REST API, with libcurl and OpenSSL as its only dependencies: authentication (password, MFA,
 OPAQUE through `libaxiam_opaque_ffi` bound at run time, WebAuthn's wire operations, §6.1
@@ -96,6 +98,16 @@ Since `v1.0.0-beta17`:
   walks to the empty page with the same `limit` and `search`, and returns one page holding
   every item; any failure ends the walk with `*out` NULL.
 
+- An auto-paging `_all` form for every paginated operation (R-30, C-3)
+
+- CIBA with the signed request, and the seventh mTLS alias (CONTRACT §33, §21.3.1)
+
+- Ssf management tests and the SET receiver helper (CONTRACT §32, §32.7)
+
+- Directory namespace semantics and generator infra (CONTRACT §30)
+
+- RFC 7592 client configuration operations (CONTRACT §28.12)
+
 ### Changed
 
 - **Management reads are retried per §16 (§27.4 rule 8).** A management `GET` is retried on
@@ -117,6 +129,42 @@ Since `v1.0.0-beta17`:
   store is documented as bounded in time, failing closed when a pluggable store cannot
   answer (P4), and `axiam_ciba_await()` anchors its deadline at `received_at` (P10).
 
+- re-vendor at axiam 8df0e11 (the R1W1 tls_client_auth note, the spec digest)
+
+- README at contract 1.60; the 1.0.0 changelog
+
+- A refresh's scope is the response's, and the four discovery members are optional (contract 1.60 §12.1, §21.5)
+
+- re-vendor contract 1.60, the spec and the registry (axiam 3ed6547)
+
+- re-vendor CONTRACT.md at 1.60 and changelog the port
+
+- The actor token is the exchanging client's own client_credentials token (contract 1.60 §15.2 rule 9)
+
+- store-failure case of §32.8 test 6 and the local-refusal category (contract 1.60 B1, B5)
+
+- Mark a released block defined before searching it under valgrind (R-19)
+
+- Conformance statement and changelog for contract 1.59
+
+- DPoP decline states a reason the CIBA signer does not contradict (R-41, C-12)
+
+- §31.3 rule 2 on scim_targets.create, §29.3 rule 2 on the field (R-29, C-8, C-9)
+
+- re-vendor CONTRACT.md at contract 1.59 (axiam fe369eb)
+
+- Conformance statement, sections and changelog for contract 1.58
+
+- Allocation sweep and generated enum and null-body cases for the 1.53-1.58 surface
+
+- scim_targets namespace required tests (CONTRACT §31)
+
+- Saml namespace required tests (CONTRACT §29)
+
+- re-vendor contract 1.58 artifacts and regenerate §27 surface
+
+- re-vendor openapi.json + management-registry.json after utoipa 6
+
 ### Fixed
 
 - **A write a server dropped unanswered could reach it twice (contract 1.60, P11; R-17).**
@@ -135,6 +183,24 @@ Since `v1.0.0-beta17`:
   SET left unjudged and unrecorded (B1, verified).
 - **A `5xx` with an `error` member ended `axiam_ciba_await()` (§33.4, §33.7 rule 5; P8).**
   A `5xx` on `axiam_ciba_poll()` is retried per §16 and transient whatever its body.
+
+- The key cache expires within 10 minutes and a failed fetch counts; emit ssf_unjudged (contract 1.60 P6, §19.1)
+
+- Refuse an _UNKNOWN enum value locally instead of sending "" (contract 1.60 R-22)
+
+- A never-retried write goes on a fresh connection and arrives once (contract 1.60 A6, P11)
+
+- A 5xx on ciba_poll is retried and transient whatever its body (§33.8 t8, P8)
+
+- GET retries follow §16 -- backoff, Retry-After, 408/429, the switch (R-30, C-2)
+
+- A union keeps only its arm's declared members (R-20, C-6)
+
+- Scrub rendered request bodies before release (R-19, C-5)
+
+- Poll returns the SETs it judged when a later SET of the batch cannot be judged (R-1, C-1)
+
+- Free a JSON member whose insertion fails under allocation failure
 
 ### Security
 
