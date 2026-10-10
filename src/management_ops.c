@@ -18,6 +18,7 @@
  */
 axiam_mgmt_acs_endpoint_t *axiam_mgmt_acs_endpoint_parse(const cJSON *src);
 cJSON *axiam_mgmt_acs_endpoint_build(const axiam_mgmt_acs_endpoint_t *value);
+const char *axiam_mgmt_acs_endpoint_unsendable(const axiam_mgmt_acs_endpoint_t *value);
 axiam_mgmt_add_member_request_t *axiam_mgmt_add_member_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_add_member_request_build(const axiam_mgmt_add_member_request_t *value);
 axiam_mgmt_add_service_account_member_request_t *axiam_mgmt_add_service_account_member_request_parse(const cJSON *src);
@@ -32,6 +33,7 @@ axiam_mgmt_assign_role_to_user_request_t *axiam_mgmt_assign_role_to_user_request
 cJSON *axiam_mgmt_assign_role_to_user_request_build(const axiam_mgmt_assign_role_to_user_request_t *value);
 axiam_mgmt_attribute_mapping_t *axiam_mgmt_attribute_mapping_parse(const cJSON *src);
 cJSON *axiam_mgmt_attribute_mapping_build(const axiam_mgmt_attribute_mapping_t *value);
+const char *axiam_mgmt_attribute_mapping_unsendable(const axiam_mgmt_attribute_mapping_t *value);
 axiam_mgmt_audit_log_entry_t *axiam_mgmt_audit_log_entry_parse(const cJSON *src);
 cJSON *axiam_mgmt_audit_log_entry_build(const axiam_mgmt_audit_log_entry_t *value);
 axiam_mgmt_bind_certificate_t *axiam_mgmt_bind_certificate_parse(const cJSON *src);
@@ -50,24 +52,30 @@ axiam_mgmt_consent_view_t *axiam_mgmt_consent_view_parse(const cJSON *src);
 cJSON *axiam_mgmt_consent_view_build(const axiam_mgmt_consent_view_t *value);
 axiam_mgmt_create_ca_certificate_request_t *axiam_mgmt_create_ca_certificate_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_ca_certificate_request_build(const axiam_mgmt_create_ca_certificate_request_t *value);
+const char *axiam_mgmt_create_ca_certificate_request_unsendable(const axiam_mgmt_create_ca_certificate_request_t *value);
 axiam_mgmt_create_certificate_request_t *axiam_mgmt_create_certificate_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_certificate_request_build(const axiam_mgmt_create_certificate_request_t *value);
+const char *axiam_mgmt_create_certificate_request_unsendable(const axiam_mgmt_create_certificate_request_t *value);
 axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_config_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create_federation_config_request_t *value);
 axiam_mgmt_create_group_request_t *axiam_mgmt_create_group_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_group_request_build(const axiam_mgmt_create_group_request_t *value);
 axiam_mgmt_create_intermediate_ca_request_t *axiam_mgmt_create_intermediate_ca_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_intermediate_ca_request_build(const axiam_mgmt_create_intermediate_ca_request_t *value);
+const char *axiam_mgmt_create_intermediate_ca_request_unsendable(const axiam_mgmt_create_intermediate_ca_request_t *value);
 axiam_mgmt_create_notification_rule_request_t *axiam_mgmt_create_notification_rule_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_notification_rule_request_build(const axiam_mgmt_create_notification_rule_request_t *value);
 axiam_mgmt_create_o_auth2_client_request_t *axiam_mgmt_create_o_auth2_client_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_o_auth2_client_request_build(const axiam_mgmt_create_o_auth2_client_request_t *value);
+const char *axiam_mgmt_create_o_auth2_client_request_unsendable(const axiam_mgmt_create_o_auth2_client_request_t *value);
 axiam_mgmt_create_permission_request_t *axiam_mgmt_create_permission_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_permission_request_build(const axiam_mgmt_create_permission_request_t *value);
 axiam_mgmt_create_pgp_key_request_t *axiam_mgmt_create_pgp_key_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_pgp_key_request_build(const axiam_mgmt_create_pgp_key_request_t *value);
+const char *axiam_mgmt_create_pgp_key_request_unsendable(const axiam_mgmt_create_pgp_key_request_t *value);
 axiam_mgmt_create_reactor_request_t *axiam_mgmt_create_reactor_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_reactor_request_build(const axiam_mgmt_create_reactor_request_t *value);
+const char *axiam_mgmt_create_reactor_request_unsendable(const axiam_mgmt_create_reactor_request_t *value);
 axiam_mgmt_create_registration_token_request_t *axiam_mgmt_create_registration_token_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_registration_token_request_build(const axiam_mgmt_create_registration_token_request_t *value);
 axiam_mgmt_create_registration_token_response_t *axiam_mgmt_create_registration_token_response_parse(const cJSON *src);
@@ -120,6 +128,7 @@ axiam_mgmt_generated_pgp_key_t *axiam_mgmt_generated_pgp_key_parse(const cJSON *
 cJSON *axiam_mgmt_generated_pgp_key_build(const axiam_mgmt_generated_pgp_key_t *value);
 axiam_mgmt_grant_permission_request_t *axiam_mgmt_grant_permission_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_grant_permission_request_build(const axiam_mgmt_grant_permission_request_t *value);
+const char *axiam_mgmt_grant_permission_request_unsendable(const axiam_mgmt_grant_permission_request_t *value);
 axiam_mgmt_grant_scope_consent_t *axiam_mgmt_grant_scope_consent_parse(const cJSON *src);
 cJSON *axiam_mgmt_grant_scope_consent_build(const axiam_mgmt_grant_scope_consent_t *value);
 axiam_mgmt_granted_scope_t *axiam_mgmt_granted_scope_parse(const cJSON *src);
@@ -134,6 +143,7 @@ axiam_mgmt_import_ca_certificate_request_t *axiam_mgmt_import_ca_certificate_req
 cJSON *axiam_mgmt_import_ca_certificate_request_build(const axiam_mgmt_import_ca_certificate_request_t *value);
 axiam_mgmt_issue_saml_idp_credential_t *axiam_mgmt_issue_saml_idp_credential_parse(const cJSON *src);
 cJSON *axiam_mgmt_issue_saml_idp_credential_build(const axiam_mgmt_issue_saml_idp_credential_t *value);
+const char *axiam_mgmt_issue_saml_idp_credential_unsendable(const axiam_mgmt_issue_saml_idp_credential_t *value);
 axiam_mgmt_link_directory_account_t *axiam_mgmt_link_directory_account_parse(const cJSON *src);
 cJSON *axiam_mgmt_link_directory_account_build(const axiam_mgmt_link_directory_account_t *value);
 axiam_mgmt_lockout_policy_t *axiam_mgmt_lockout_policy_parse(const cJSON *src);
@@ -224,6 +234,7 @@ axiam_mgmt_saml_service_provider_t *axiam_mgmt_saml_service_provider_parse(const
 cJSON *axiam_mgmt_saml_service_provider_build(const axiam_mgmt_saml_service_provider_t *value);
 axiam_mgmt_saml_service_provider_input_t *axiam_mgmt_saml_service_provider_input_parse(const cJSON *src);
 cJSON *axiam_mgmt_saml_service_provider_input_build(const axiam_mgmt_saml_service_provider_input_t *value);
+const char *axiam_mgmt_saml_service_provider_input_unsendable(const axiam_mgmt_saml_service_provider_input_t *value);
 axiam_mgmt_saml_sp_metadata_draft_t *axiam_mgmt_saml_sp_metadata_draft_parse(const cJSON *src);
 cJSON *axiam_mgmt_saml_sp_metadata_draft_build(const axiam_mgmt_saml_sp_metadata_draft_t *value);
 axiam_mgmt_scim_reconcile_accepted_t *axiam_mgmt_scim_reconcile_accepted_parse(const cJSON *src);
@@ -234,6 +245,7 @@ axiam_mgmt_scim_target_delivery_state_t *axiam_mgmt_scim_target_delivery_state_p
 cJSON *axiam_mgmt_scim_target_delivery_state_build(const axiam_mgmt_scim_target_delivery_state_t *value);
 axiam_mgmt_scim_target_input_t *axiam_mgmt_scim_target_input_parse(const cJSON *src);
 cJSON *axiam_mgmt_scim_target_input_build(const axiam_mgmt_scim_target_input_t *value);
+const char *axiam_mgmt_scim_target_input_unsendable(const axiam_mgmt_scim_target_input_t *value);
 axiam_mgmt_scim_target_response_t *axiam_mgmt_scim_target_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_scim_target_response_build(const axiam_mgmt_scim_target_response_t *value);
 axiam_mgmt_scim_target_scope_t *axiam_mgmt_scim_target_scope_parse(const cJSON *src);
@@ -252,6 +264,7 @@ axiam_mgmt_session_response_t *axiam_mgmt_session_response_parse(const cJSON *sr
 cJSON *axiam_mgmt_session_response_build(const axiam_mgmt_session_response_t *value);
 axiam_mgmt_set_directory_config_t *axiam_mgmt_set_directory_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_set_directory_config_build(const axiam_mgmt_set_directory_config_t *value);
+const char *axiam_mgmt_set_directory_config_unsendable(const axiam_mgmt_set_directory_config_t *value);
 axiam_mgmt_set_mtls_trust_anchor_t *axiam_mgmt_set_mtls_trust_anchor_parse(const cJSON *src);
 cJSON *axiam_mgmt_set_mtls_trust_anchor_build(const axiam_mgmt_set_mtls_trust_anchor_t *value);
 axiam_mgmt_set_org_email_config_t *axiam_mgmt_set_org_email_config_parse(const cJSON *src);
@@ -262,6 +275,7 @@ axiam_mgmt_sign_audit_batch_request_t *axiam_mgmt_sign_audit_batch_request_parse
 cJSON *axiam_mgmt_sign_audit_batch_request_build(const axiam_mgmt_sign_audit_batch_request_t *value);
 axiam_mgmt_sign_certificate_csr_request_t *axiam_mgmt_sign_certificate_csr_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_certificate_csr_request_build(const axiam_mgmt_sign_certificate_csr_request_t *value);
+const char *axiam_mgmt_sign_certificate_csr_request_unsendable(const axiam_mgmt_sign_certificate_csr_request_t *value);
 axiam_mgmt_sign_intermediate_csr_request_t *axiam_mgmt_sign_intermediate_csr_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_intermediate_csr_request_build(const axiam_mgmt_sign_intermediate_csr_request_t *value);
 axiam_mgmt_signed_audit_batch_t *axiam_mgmt_signed_audit_batch_parse(const cJSON *src);
@@ -272,6 +286,7 @@ axiam_mgmt_ssf_stream_t *axiam_mgmt_ssf_stream_parse(const cJSON *src);
 cJSON *axiam_mgmt_ssf_stream_build(const axiam_mgmt_ssf_stream_t *value);
 axiam_mgmt_ssf_stream_input_t *axiam_mgmt_ssf_stream_input_parse(const cJSON *src);
 cJSON *axiam_mgmt_ssf_stream_input_build(const axiam_mgmt_ssf_stream_input_t *value);
+const char *axiam_mgmt_ssf_stream_input_unsendable(const axiam_mgmt_ssf_stream_input_t *value);
 axiam_mgmt_subject_alt_name_t *axiam_mgmt_subject_alt_name_parse(const cJSON *src);
 cJSON *axiam_mgmt_subject_alt_name_build(const axiam_mgmt_subject_alt_name_t *value);
 int axiam_mgmt_subject_alt_name_valid(const axiam_mgmt_subject_alt_name_t *value);
@@ -287,6 +302,7 @@ axiam_mgmt_token_policy_t *axiam_mgmt_token_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_token_policy_build(const axiam_mgmt_token_policy_t *value);
 axiam_mgmt_update_directory_config_t *axiam_mgmt_update_directory_config_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_directory_config_build(const axiam_mgmt_update_directory_config_t *value);
+const char *axiam_mgmt_update_directory_config_unsendable(const axiam_mgmt_update_directory_config_t *value);
 axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_config_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update_federation_config_request_t *value);
 axiam_mgmt_update_group_t *axiam_mgmt_update_group_parse(const cJSON *src);
@@ -295,12 +311,14 @@ axiam_mgmt_update_notification_rule_request_t *axiam_mgmt_update_notification_ru
 cJSON *axiam_mgmt_update_notification_rule_request_build(const axiam_mgmt_update_notification_rule_request_t *value);
 axiam_mgmt_update_o_auth2_client_request_t *axiam_mgmt_update_o_auth2_client_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_o_auth2_client_request_build(const axiam_mgmt_update_o_auth2_client_request_t *value);
+const char *axiam_mgmt_update_o_auth2_client_request_unsendable(const axiam_mgmt_update_o_auth2_client_request_t *value);
 axiam_mgmt_update_organization_request_t *axiam_mgmt_update_organization_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_organization_request_build(const axiam_mgmt_update_organization_request_t *value);
 axiam_mgmt_update_permission_request_t *axiam_mgmt_update_permission_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_permission_request_build(const axiam_mgmt_update_permission_request_t *value);
 axiam_mgmt_update_reactor_request_t *axiam_mgmt_update_reactor_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_reactor_request_build(const axiam_mgmt_update_reactor_request_t *value);
+const char *axiam_mgmt_update_reactor_request_unsendable(const axiam_mgmt_update_reactor_request_t *value);
 axiam_mgmt_update_resource_request_t *axiam_mgmt_update_resource_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_resource_request_build(const axiam_mgmt_update_resource_request_t *value);
 axiam_mgmt_update_role_t *axiam_mgmt_update_role_parse(const cJSON *src);
@@ -309,10 +327,13 @@ axiam_mgmt_update_scope_request_t *axiam_mgmt_update_scope_request_parse(const c
 cJSON *axiam_mgmt_update_scope_request_build(const axiam_mgmt_update_scope_request_t *value);
 axiam_mgmt_update_service_account_t *axiam_mgmt_update_service_account_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_service_account_build(const axiam_mgmt_update_service_account_t *value);
+const char *axiam_mgmt_update_service_account_unsendable(const axiam_mgmt_update_service_account_t *value);
 axiam_mgmt_update_tenant_t *axiam_mgmt_update_tenant_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_tenant_build(const axiam_mgmt_update_tenant_t *value);
+const char *axiam_mgmt_update_tenant_unsendable(const axiam_mgmt_update_tenant_t *value);
 axiam_mgmt_update_user_request_t *axiam_mgmt_update_user_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_user_request_build(const axiam_mgmt_update_user_request_t *value);
+const char *axiam_mgmt_update_user_request_unsendable(const axiam_mgmt_update_user_request_t *value);
 axiam_mgmt_update_webhook_request_t *axiam_mgmt_update_webhook_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_update_webhook_request_build(const axiam_mgmt_update_webhook_request_t *value);
 axiam_mgmt_user_attribute_map_t *axiam_mgmt_user_attribute_map_parse(const cJSON *src);
@@ -321,6 +342,7 @@ axiam_mgmt_user_response_t *axiam_mgmt_user_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_user_response_build(const axiam_mgmt_user_response_t *value);
 axiam_mgmt_webauthn_attestation_policy_t *axiam_mgmt_webauthn_attestation_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_webauthn_attestation_policy_build(const axiam_mgmt_webauthn_attestation_policy_t *value);
+const char *axiam_mgmt_webauthn_attestation_policy_unsendable(const axiam_mgmt_webauthn_attestation_policy_t *value);
 axiam_mgmt_webauthn_policy_t *axiam_mgmt_webauthn_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_webauthn_policy_build(const axiam_mgmt_webauthn_policy_t *value);
 axiam_mgmt_webhook_response_t *axiam_mgmt_webhook_response_parse(const cJSON *src);
@@ -655,6 +677,12 @@ axiam_error_kind_t axiam_tenants_get(axiam_client_t *c, const axiam_mgmt_call_sc
 
 axiam_error_kind_t axiam_tenants_update(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_update_tenant_t *body, axiam_mgmt_tenant_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_update_tenant_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "tenants.update", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "org_id";
@@ -894,6 +922,12 @@ axiam_error_kind_t axiam_users_get(axiam_client_t *c, const char *user_id, axiam
 
 axiam_error_kind_t axiam_users_update(axiam_client_t *c, const char *user_id, const axiam_mgmt_update_user_request_t *body, axiam_mgmt_user_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_update_user_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "users.update", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "user_id";
@@ -2042,6 +2076,12 @@ axiam_error_kind_t axiam_roles_list_permissions(axiam_client_t *c, const char *r
 }
 
 axiam_error_kind_t axiam_roles_grant_permission(axiam_client_t *c, const char *role_id, const axiam_mgmt_grant_permission_request_t *body, axiam_error_t *err) {
+    const char *unsendable = body ? axiam_mgmt_grant_permission_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "roles.grant_permission", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "role_id";
@@ -2937,6 +2977,12 @@ axiam_error_kind_t axiam_service_accounts_get(axiam_client_t *c, const char *sa_
 
 axiam_error_kind_t axiam_service_accounts_update(axiam_client_t *c, const char *sa_id, const axiam_mgmt_update_service_account_t *body, axiam_mgmt_service_account_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_update_service_account_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "service_accounts.update", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "sa_id";
@@ -3207,6 +3253,12 @@ axiam_error_kind_t axiam_certificates_generate(axiam_client_t *c, const axiam_mg
             }
         }
     }
+    const char *unsendable = body ? axiam_mgmt_create_certificate_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "certificates.generate", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     char *path = axiam_mgmt_path("/api/v1/certificates", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "certificates.generate: could not build the request path");
@@ -3240,6 +3292,12 @@ axiam_error_kind_t axiam_certificates_sign_csr(axiam_client_t *c, const axiam_mg
                 return AXIAM_ERR_NETWORK;
             }
         }
+    }
+    const char *unsendable = body ? axiam_mgmt_sign_certificate_csr_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "certificates.sign_csr", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
     }
     char *path = axiam_mgmt_path("/api/v1/certificates/sign-csr", NULL, NULL, 0);
     if (!path) {
@@ -3416,6 +3474,12 @@ axiam_error_kind_t axiam_ca_certificates_list_all(axiam_client_t *c, const axiam
 
 axiam_error_kind_t axiam_ca_certificates_generate(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_create_ca_certificate_request_t *body, axiam_mgmt_generated_ca_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_create_ca_certificate_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "ca_certificates.generate", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "org_id";
@@ -3725,6 +3789,12 @@ axiam_error_kind_t axiam_ca_certificates_list_signing_cas_all(axiam_client_t *c,
 
 axiam_error_kind_t axiam_ca_certificates_generate_signing_ca(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *tenant_id, const axiam_mgmt_create_intermediate_ca_request_t *body, axiam_mgmt_generated_ca_certificate_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_create_intermediate_ca_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "ca_certificates.generate_signing_ca", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[2];
     const char *path_values[2];
     path_names[0] = "org_id";
@@ -3887,6 +3957,12 @@ axiam_error_kind_t axiam_pgp_keys_list_all(axiam_client_t *c, const axiam_mgmt_p
 
 axiam_error_kind_t axiam_pgp_keys_generate(axiam_client_t *c, const axiam_mgmt_create_pgp_key_request_t *body, axiam_mgmt_generated_pgp_key_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_create_pgp_key_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "pgp_keys.generate", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     char *path = axiam_mgmt_path("/api/v1/pgp-keys", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "pgp_keys.generate: could not build the request path");
@@ -4305,6 +4381,12 @@ axiam_error_kind_t axiam_oauth2_clients_list_all(axiam_client_t *c, const axiam_
 
 axiam_error_kind_t axiam_oauth2_clients_create(axiam_client_t *c, const axiam_mgmt_create_o_auth2_client_request_t *body, axiam_mgmt_o_auth2_client_created_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_create_o_auth2_client_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "oauth2_clients.create", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     char *path = axiam_mgmt_path("/api/v1/oauth2-clients", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oauth2_clients.create: could not build the request path");
@@ -4361,6 +4443,12 @@ axiam_error_kind_t axiam_oauth2_clients_get(axiam_client_t *c, const char *id, a
 
 axiam_error_kind_t axiam_oauth2_clients_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_o_auth2_client_request_t *body, axiam_mgmt_o_auth2_client_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_update_o_auth2_client_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "oauth2_clients.update", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -5270,6 +5358,12 @@ axiam_error_kind_t axiam_directory_get(axiam_client_t *c, const axiam_mgmt_call_
 
 axiam_error_kind_t axiam_directory_set(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_directory_config_t *body, axiam_mgmt_directory_config_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_set_directory_config_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "directory.set", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     if (!body) {
         axiam_local_refusal(err, "directory.set", "body", "a request body is required");
         return AXIAM_ERR_NETWORK;
@@ -5329,6 +5423,12 @@ axiam_error_kind_t axiam_directory_set(axiam_client_t *c, const axiam_mgmt_call_
 
 axiam_error_kind_t axiam_directory_update(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_update_directory_config_t *body, axiam_mgmt_directory_config_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_update_directory_config_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "directory.update", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";
@@ -5593,6 +5693,12 @@ axiam_error_kind_t axiam_saml_list_service_providers_all(axiam_client_t *c, cons
 
 axiam_error_kind_t axiam_saml_create_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_saml_service_provider_input_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "saml.create_service_provider", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     if (!body) {
         axiam_local_refusal(err, "saml.create_service_provider", "body", "a request body is required");
         return AXIAM_ERR_NETWORK;
@@ -5684,6 +5790,12 @@ axiam_error_kind_t axiam_saml_get_service_provider(axiam_client_t *c, const axia
 
 axiam_error_kind_t axiam_saml_update_service_provider(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *sp_id, const axiam_mgmt_saml_service_provider_input_t *body, axiam_mgmt_saml_service_provider_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_saml_service_provider_input_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "saml.update_service_provider", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     if (!body) {
         axiam_local_refusal(err, "saml.update_service_provider", "body", "a request body is required");
         return AXIAM_ERR_NETWORK;
@@ -5849,6 +5961,12 @@ axiam_error_kind_t axiam_saml_list_idp_credentials(axiam_client_t *c, const axia
 
 axiam_error_kind_t axiam_saml_issue_idp_credential(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_issue_saml_idp_credential_t *body, axiam_mgmt_saml_idp_credential_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_issue_saml_idp_credential_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "saml.issue_idp_credential", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";
@@ -6055,6 +6173,12 @@ axiam_error_kind_t axiam_ssf_list_streams_all(axiam_client_t *c, const axiam_mgm
 
 axiam_error_kind_t axiam_ssf_create_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_ssf_stream_input_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "ssf.create_stream", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     if (!body) {
         axiam_local_refusal(err, "ssf.create_stream", "body", "a request body is required");
         return AXIAM_ERR_NETWORK;
@@ -6146,6 +6270,12 @@ axiam_error_kind_t axiam_ssf_get_stream(axiam_client_t *c, const axiam_mgmt_call
 
 axiam_error_kind_t axiam_ssf_update_stream(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const char *stream_id, const axiam_mgmt_ssf_stream_input_t *body, axiam_mgmt_ssf_stream_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_ssf_stream_input_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "ssf.update_stream", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     if (!body) {
         axiam_local_refusal(err, "ssf.update_stream", "body", "a request body is required");
         return AXIAM_ERR_NETWORK;
@@ -6319,6 +6449,12 @@ axiam_error_kind_t axiam_scim_targets_list_all(axiam_client_t *c, const axiam_mg
 
 axiam_error_kind_t axiam_scim_targets_create(axiam_client_t *c, const axiam_mgmt_scim_target_input_t *body, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_scim_target_input_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "scim_targets.create", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     if (!body) {
         axiam_local_refusal(err, "scim_targets.create", "body", "a request body is required");
         return AXIAM_ERR_NETWORK;
@@ -6409,6 +6545,12 @@ axiam_error_kind_t axiam_scim_targets_get(axiam_client_t *c, const char *id, axi
 
 axiam_error_kind_t axiam_scim_targets_update(axiam_client_t *c, const char *id, const axiam_mgmt_scim_target_input_t *body, axiam_mgmt_scim_target_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_scim_target_input_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "scim_targets.update", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     if (!body) {
         axiam_local_refusal(err, "scim_targets.update", "body", "a request body is required");
         return AXIAM_ERR_NETWORK;
@@ -6911,6 +7053,12 @@ axiam_error_kind_t axiam_reactors_list_all(axiam_client_t *c, const axiam_mgmt_p
 
 axiam_error_kind_t axiam_reactors_create(axiam_client_t *c, const axiam_mgmt_create_reactor_request_t *body, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_create_reactor_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "reactors.create", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     char *path = axiam_mgmt_path("/api/v1/reactors", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "reactors.create: could not build the request path");
@@ -6967,6 +7115,12 @@ axiam_error_kind_t axiam_reactors_get(axiam_client_t *c, const char *id, axiam_m
 
 axiam_error_kind_t axiam_reactors_update(axiam_client_t *c, const char *id, const axiam_mgmt_update_reactor_request_t *body, axiam_mgmt_reactor_response_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_update_reactor_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "reactors.update", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "id";
@@ -7085,6 +7239,12 @@ axiam_error_kind_t axiam_webauthn_policy_get(axiam_client_t *c, const axiam_mgmt
 
 axiam_error_kind_t axiam_webauthn_policy_set(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_webauthn_attestation_policy_t *body, axiam_mgmt_webauthn_attestation_policy_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_webauthn_attestation_policy_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "webauthn_policy.set", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";

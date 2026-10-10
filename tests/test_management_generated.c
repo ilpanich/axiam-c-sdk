@@ -7217,6 +7217,388 @@ static void test_scim_targets_update_refuses_a_null_body(void) {
     axiam_client_free(c);
 }
 
+static void test_tenants_update_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_update_tenant_t body;
+    memset(&body, 0, sizeof(body));
+    body.status = AXIAM_MGMT_TENANT_STATUS_UNKNOWN;
+    body.has_status = 1;
+    axiam_error_kind_t rc = axiam_tenants_update(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "status"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_users_update_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_update_user_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.status = AXIAM_MGMT_USER_STATUS_UNKNOWN;
+    body.has_status = 1;
+    axiam_error_kind_t rc = axiam_users_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "status"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_roles_grant_permission_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_grant_permission_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.effect = AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN;
+    body.has_effect = 1;
+    axiam_error_kind_t rc = axiam_roles_grant_permission(c, "11111111-1111-4111-8111-111111111111", &body, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "effect"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_service_accounts_update_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_update_service_account_t body;
+    memset(&body, 0, sizeof(body));
+    body.status = AXIAM_MGMT_USER_STATUS_UNKNOWN;
+    body.has_status = 1;
+    axiam_error_kind_t rc = axiam_service_accounts_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "status"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_certificates_generate_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_create_certificate_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.cert_type = AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN;
+    axiam_error_kind_t rc = axiam_certificates_generate(c, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "cert_type"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_certificates_sign_csr_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_sign_certificate_csr_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.cert_type = AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN;
+    axiam_error_kind_t rc = axiam_certificates_sign_csr(c, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "cert_type"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_ca_certificates_generate_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_create_ca_certificate_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.key_algorithm = AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN;
+    axiam_error_kind_t rc = axiam_ca_certificates_generate(c, NULL, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "key_algorithm"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_ca_certificates_generate_signing_ca_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_create_intermediate_ca_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.key_algorithm = AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN;
+    axiam_error_kind_t rc = axiam_ca_certificates_generate_signing_ca(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "key_algorithm"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_pgp_keys_generate_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_create_pgp_key_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.algorithm = AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN;
+    axiam_error_kind_t rc = axiam_pgp_keys_generate(c, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "algorithm"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_oauth2_clients_create_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_create_o_auth2_client_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.authn_request_params = AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN;
+    body.has_authn_request_params = 1;
+    axiam_error_kind_t rc = axiam_oauth2_clients_create(c, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "authn_request_params"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_oauth2_clients_update_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_update_o_auth2_client_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.authn_request_params = AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN;
+    body.has_authn_request_params = 1;
+    axiam_error_kind_t rc = axiam_oauth2_clients_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "authn_request_params"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_directory_set_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_set_directory_config_t body;
+    memset(&body, 0, sizeof(body));
+    body.kind = AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN;
+    axiam_error_kind_t rc = axiam_directory_set(c, NULL, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "kind"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_directory_update_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_update_directory_config_t body;
+    memset(&body, 0, sizeof(body));
+    body.kind = AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN;
+    body.has_kind = 1;
+    axiam_error_kind_t rc = axiam_directory_update(c, NULL, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "kind"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_saml_create_service_provider_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_saml_service_provider_input_t body;
+    memset(&body, 0, sizeof(body));
+    body.name_id_format = AXIAM_MGMT_NAME_ID_FORMAT_UNKNOWN;
+    body.has_name_id_format = 1;
+    axiam_error_kind_t rc = axiam_saml_create_service_provider(c, NULL, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "name_id_format"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_saml_update_service_provider_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_saml_service_provider_input_t body;
+    memset(&body, 0, sizeof(body));
+    body.name_id_format = AXIAM_MGMT_NAME_ID_FORMAT_UNKNOWN;
+    body.has_name_id_format = 1;
+    axiam_error_kind_t rc = axiam_saml_update_service_provider(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "name_id_format"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_saml_issue_idp_credential_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_issue_saml_idp_credential_t body;
+    memset(&body, 0, sizeof(body));
+    body.slot = AXIAM_MGMT_SAML_IDP_SLOT_UNKNOWN;
+    axiam_error_kind_t rc = axiam_saml_issue_idp_credential(c, NULL, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "slot"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_ssf_create_stream_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_ssf_stream_input_t body;
+    memset(&body, 0, sizeof(body));
+    body.delivery_method = AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN;
+    axiam_error_kind_t rc = axiam_ssf_create_stream(c, NULL, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "delivery_method"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_ssf_update_stream_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_ssf_stream_input_t body;
+    memset(&body, 0, sizeof(body));
+    body.delivery_method = AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN;
+    axiam_error_kind_t rc = axiam_ssf_update_stream(c, NULL, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "delivery_method"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_scim_targets_create_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_scim_target_input_t body;
+    memset(&body, 0, sizeof(body));
+    body.deprovision = AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN;
+    body.has_deprovision = 1;
+    axiam_error_kind_t rc = axiam_scim_targets_create(c, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "deprovision"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_scim_targets_update_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_scim_target_input_t body;
+    memset(&body, 0, sizeof(body));
+    body.deprovision = AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN;
+    body.has_deprovision = 1;
+    axiam_error_kind_t rc = axiam_scim_targets_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "deprovision"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_reactors_create_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_create_reactor_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.failure_policy = AXIAM_MGMT_FAILURE_POLICY_UNKNOWN;
+    body.has_failure_policy = 1;
+    axiam_error_kind_t rc = axiam_reactors_create(c, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "failure_policy"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_reactors_update_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_update_reactor_request_t body;
+    memset(&body, 0, sizeof(body));
+    body.failure_policy = AXIAM_MGMT_FAILURE_POLICY_UNKNOWN;
+    body.has_failure_policy = 1;
+    axiam_error_kind_t rc = axiam_reactors_update(c, "11111111-1111-4111-8111-111111111111", &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "failure_policy"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
+static void test_webauthn_policy_set_refuses_an_unknown_enum_value(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    int before = mgmt_request_count();
+    axiam_mgmt_webauthn_attestation_policy_t body;
+    memset(&body, 0, sizeof(body));
+    body.min_certification = AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN;
+    body.has_min_certification = 1;
+    axiam_error_kind_t rc = axiam_webauthn_policy_set(c, NULL, &body, NULL, &err);
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "min_certification"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+    axiam_client_free(c);
+}
+
 void setUp(void) { mgmt_reset(); }
 void tearDown(void) {}
 
@@ -7750,6 +8132,29 @@ int main(void) {
     RUN_TEST(test_ssf_update_stream_refuses_a_null_body);
     RUN_TEST(test_scim_targets_create_refuses_a_null_body);
     RUN_TEST(test_scim_targets_update_refuses_a_null_body);
+    RUN_TEST(test_tenants_update_refuses_an_unknown_enum_value);
+    RUN_TEST(test_users_update_refuses_an_unknown_enum_value);
+    RUN_TEST(test_roles_grant_permission_refuses_an_unknown_enum_value);
+    RUN_TEST(test_service_accounts_update_refuses_an_unknown_enum_value);
+    RUN_TEST(test_certificates_generate_refuses_an_unknown_enum_value);
+    RUN_TEST(test_certificates_sign_csr_refuses_an_unknown_enum_value);
+    RUN_TEST(test_ca_certificates_generate_refuses_an_unknown_enum_value);
+    RUN_TEST(test_ca_certificates_generate_signing_ca_refuses_an_unknown_enum_value);
+    RUN_TEST(test_pgp_keys_generate_refuses_an_unknown_enum_value);
+    RUN_TEST(test_oauth2_clients_create_refuses_an_unknown_enum_value);
+    RUN_TEST(test_oauth2_clients_update_refuses_an_unknown_enum_value);
+    RUN_TEST(test_directory_set_refuses_an_unknown_enum_value);
+    RUN_TEST(test_directory_update_refuses_an_unknown_enum_value);
+    RUN_TEST(test_saml_create_service_provider_refuses_an_unknown_enum_value);
+    RUN_TEST(test_saml_update_service_provider_refuses_an_unknown_enum_value);
+    RUN_TEST(test_saml_issue_idp_credential_refuses_an_unknown_enum_value);
+    RUN_TEST(test_ssf_create_stream_refuses_an_unknown_enum_value);
+    RUN_TEST(test_ssf_update_stream_refuses_an_unknown_enum_value);
+    RUN_TEST(test_scim_targets_create_refuses_an_unknown_enum_value);
+    RUN_TEST(test_scim_targets_update_refuses_an_unknown_enum_value);
+    RUN_TEST(test_reactors_create_refuses_an_unknown_enum_value);
+    RUN_TEST(test_reactors_update_refuses_an_unknown_enum_value);
+    RUN_TEST(test_webauthn_policy_set_refuses_an_unknown_enum_value);
     RUN_TEST(test_every_registry_operation_has_a_case);
     return UNITY_END();
 }

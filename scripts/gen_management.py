@@ -925,6 +925,90 @@ def fields_of(schema_name: str, secrets: set[str]) -> tuple[list[dict[str, Any]]
     return out, description
 
 
+_UNSENDABLE: dict[str, list[dict[str, Any]]] | None = None
+
+
+def unsendable_models() -> dict[str, list[dict[str, Any]]]:
+    """Request-body models that can carry an enum value this SDK cannot send.
+
+    CONTRACT.md §34.2 P12.2 / R-22 (contract 1.60, C-12): an open enum decodes an
+    unrecognised value to `_UNKNOWN`, and `_to_wire()` spells that as `""`. Carried back
+    into a body -- a read-modify-write through `_to_input()` is exactly that -- it used to
+    be SENT as `""`. Every operation whose body can hold one now refuses it locally, with
+    the validation error and no request.
+
+    Maps each RENDERED model reachable from a request body that holds an enum member,
+    directly or through a nested model or model array, to its fields. A union carried as
+    tag plus raw JSON holds no C enum and is not walked.
+    """
+    global _UNSENDABLE
+    if _UNSENDABLE is not None:
+        return _UNSENDABLE
+    secrets = sensitive_map()
+    by_rendered: dict[str, list[dict[str, Any]]] = {}
+    for name in schema_closure():
+        rendered = pascal(name)
+        if rendered in ENUMS or rendered in EXTERNAL_TAG:
+            continue
+        fields, _ = fields_of(name, secrets.get(name, set()))
+        if fields and not any(f["kind"] == "union_raw" for f in fields):
+            by_rendered[rendered] = fields
+
+    reachable: set[str] = set()
+    frontier = [pascal(op["request_schema"].lstrip("[]"))
+                for ns in REGISTRY["namespaces"].values()
+                for op in ns["operations"].values() if op["request_schema"]]
+    while frontier:
+        rendered = frontier.pop()
+        if rendered in reachable or rendered not in by_rendered:
+            continue
+        reachable.add(rendered)
+        frontier.extend(f["ref"] for f in by_rendered[rendered]
+                        if f["kind"] in {"model", "model_array"})
+
+    bearing: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for rendered in sorted(reachable - bearing):
+            if any(f["kind"] == "enum" or
+                   (f["kind"] in {"model", "model_array"} and f["ref"] in bearing)
+                   for f in by_rendered[rendered]):
+                bearing.add(rendered)
+                changed = True
+    _UNSENDABLE = {r: by_rendered[r] for r in sorted(bearing)}
+    return _UNSENDABLE
+
+
+def emit_unsendable(rendered: str, fields: list[dict[str, Any]]) -> list[str]:
+    """`_unsendable()`: the wire name of the first member holding `_UNKNOWN`, else NULL."""
+    bearing = unsendable_models()
+    out = [f"const char *{model_prefix(rendered)}_unsendable(const {model_type(rendered)} *value) {{",
+           "    if (!value) return NULL;"]
+    for f in fields:
+        n, w = f["name"], f["wire"]
+        if f["kind"] == "enum":
+            # `>=` the UNKNOWN constant (appended last) also catches a value outside the
+            # enum altogether, which _to_wire() would otherwise send as the first value.
+            test = (f"(unsigned) value->{n} >= (unsigned) {enum_const(f['ref'], 'unknown')}")
+            if not f["required"]:
+                test = f"value->has_{n} && {test}"
+            out.append(f'    if ({test}) return "{w}";')
+        elif f["kind"] == "model" and f["ref"] in bearing:
+            out.append("    {")
+            out.append(f"        const char *bad = {model_prefix(f['ref'])}_unsendable(value->{n});")
+            out.append("        if (bad) return bad;")
+            out.append("    }")
+        elif f["kind"] == "model_array" and f["ref"] in bearing:
+            out.append(f"    for (size_t i = 0; value->{n} && i < value->{n}_count; i++) {{")
+            out.append(f"        const char *bad = {model_prefix(f['ref'])}_unsendable(value->{n}[i]);")
+            out.append("        if (bad) return bad;")
+            out.append("    }")
+    out.append("    return NULL;")
+    out.append("}")
+    return out
+
+
 def field_doc(f: dict[str, Any]) -> str:
     """The one-line description for a member."""
     if f["description"]:
@@ -1026,8 +1110,10 @@ def emit_models_header() -> str:
         out.extend(doc(
             f"The wire spelling of an {rendered}. Never NULL.\n\n"
             f"`{enum_const(rendered, 'unknown')}` spells as the empty string, which no "
-            "server value is: carrying an unrecognised value back into an update is refused "
-            "by the server rather than written as a spelling it never used."))
+            "server value is. It is never SENT: an operation whose body carries it -- a "
+            "read-modify-write of a record holding a value this SDK does not know -- refuses "
+            "it locally, before any request, with the validation error naming the member "
+            "(CONTRACT.md \u00a734.2 P12.2, contract 1.60)."))
         out.append(f"const char *axiam_mgmt_{snake(rendered)}_to_wire("
                    f"axiam_mgmt_{snake(rendered)}_t value);")
         out.append("")
@@ -1520,9 +1606,9 @@ def emit_models_source() -> str:
         for v in values:
             out.append(f'        case {enum_const(rendered, v)}: return "{v}";')
         out.extend(comment(
-            "The empty string, which no server value is: an unrecognised value carried "
-            "back into an update is refused by the server rather than written as a "
-            "spelling it never used.", "        "))
+            "The empty string, which no server value is. Never sent: every operation "
+            "whose body can carry it refuses it locally first (_unsendable(), R-22).",
+            "        "))
         out.append(f'        case {enum_const(rendered, "unknown")}: return "";')
         out.append("    }")
         out.append(f'    return "{values[0]}";')
@@ -1546,6 +1632,8 @@ def emit_models_source() -> str:
     for _, rendered, _ in modelled:
         out.append(f"{model_type(rendered)} *{model_prefix(rendered)}_parse(const cJSON *src);")
         out.append(f"cJSON *{model_prefix(rendered)}_build(const {model_type(rendered)} *value);")
+    for rendered in unsendable_models():
+        out.append(f"const char *{model_prefix(rendered)}_unsendable(const {model_type(rendered)} *value);")
     out.append("")
 
     for name, rendered, fields in modelled:
@@ -1614,6 +1702,17 @@ def emit_models_source() -> str:
             out.append("    return known;")
             out.append("}")
             out.append("")
+
+    # ---- the local refusal of an `_UNKNOWN` enum value (R-22, contract 1.60) ----
+    out.extend(comment(
+        "CONTRACT.md \u00a734.2 P12.2 / R-22 (contract 1.60): a value this SDK does not know "
+        "decodes to the `_UNKNOWN` constant and is never SENT -- `_to_wire()` spells it as "
+        "`\"\"`, a value the server never used. Each operation whose body can hold one asks "
+        "the body's `_unsendable()` first and refuses it locally, before any request. "
+        "Internal: declared by the operations, not in a public header."))
+    for rendered, fields in unsendable_models().items():
+        out.extend(emit_unsendable(rendered, fields))
+        out.append("")
 
     # ---- page / list frees ----
     for name in paginated_models():
@@ -1961,6 +2060,8 @@ def emit_ops_source() -> str:
         out.append(f"cJSON *{model_prefix(rendered)}_build(const {model_type(rendered)} *value);")
         if rendered in EXTERNAL_TAG:
             out.append(f"int {model_prefix(rendered)}_valid(const {model_type(rendered)} *value);")
+        if rendered in unsendable_models():
+            out.append(f"const char *{model_prefix(rendered)}_unsendable(const {model_type(rendered)} *value);")
     out.append("")
 
     for namespace, nsdef in REGISTRY["namespaces"].items():
@@ -2012,6 +2113,19 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
         out.append("                return AXIAM_ERR_NETWORK;")
         out.append("            }")
         out.append("        }")
+        out.append("    }")
+
+    # ---- refuse an `_UNKNOWN` enum value anywhere in the body (CONTRACT.md §34.2 P12.2,
+    # R-22, contract 1.60 C-12). Before the required-member checks, so a read-modify-write
+    # that carries one is told which member it is. ----
+    if body_param and pascal(op["request_schema"].lstrip("[]")) in unsendable_models():
+        bmodel = pascal(op["request_schema"].lstrip("[]"))
+        out.append(f"    const char *unsendable = body ? {model_prefix(bmodel)}_unsendable(body) : NULL;")
+        out.append("    if (unsendable) {")
+        out.append(f'        axiam_local_refusal(err, "{canonical}", unsendable,')
+        out.append('            "a value this SDK does not know (an _UNKNOWN constant) is never sent '
+                   '(CONTRACT.md \\xc2\\xa7" "34.2 P12.2)");')
+        out.append("        return AXIAM_ERR_NETWORK;")
         out.append("    }")
 
     # ---- refuse a replacement body missing a required member (REQUIRED_MEMBER_CHECKS) ----
@@ -2570,6 +2684,51 @@ def emit_test() -> str:
             nb.append("    axiam_client_free(c);")
             nb.append("}")
             cases.append("\n".join(nb))
+            extra_cases.append(fn)
+
+    # A sixth case for the operations whose body has a top-level enum member (R-22,
+    # contract 1.60 C-12): `_UNKNOWN` is refused locally, naming the member, before any
+    # request -- never sent as `""`.
+    for namespace, nsdef in REGISTRY["namespaces"].items():
+        for opname, op in nsdef["operations"].items():
+            params = op_params(namespace, op)
+            if not any(p["kind"] == "body" for p in params):
+                continue
+            bmodel = pascal(op["request_schema"].lstrip("[]"))
+            enum_field = next((f for f in unsendable_models().get(bmodel, [])
+                               if f["kind"] == "enum"), None)
+            if enum_field is None:
+                continue
+            fn = f"test_{cname(namespace)}_{cname(opname)}_refuses_an_unknown_enum_value"
+            ub = [f"static void {fn}(void) {{"]
+            ub.append("    axiam_client_t *c = mgmt_signed_in_client();")
+            ub.append("    axiam_error_t err;")
+            ub.append("    int before = mgmt_request_count();")
+            ub.append(f"    {model_type(bmodel)} body;")
+            ub.append("    memset(&body, 0, sizeof(body));")
+            ub.append(f"    body.{enum_field['name']} = {enum_const(enum_field['ref'], 'unknown')};")
+            if not enum_field["required"]:
+                ub.append(f"    body.has_{enum_field['name']} = 1;")
+            ub_args = []
+            for p in params:
+                if p["kind"] in ("scope", "query", "page", "out"):
+                    ub_args.append("NULL")
+                elif p["kind"] == "body":
+                    ub_args.append("&body")
+                elif p["kind"] == "path":
+                    ub_args.append(f'"{EXAMPLE_UUID}"')
+                elif p["kind"] == "err":
+                    ub_args.append("&err")
+            ub.append(f"    axiam_error_kind_t rc = {op_symbol(namespace, opname)}(c, "
+                      + ", ".join(ub_args) + ");")
+            ub.append("")
+            ub.append("    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);")
+            ub.append("    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));")
+            ub.append(f'    TEST_ASSERT_NOT_NULL(strstr(err.message, "{enum_field["wire"]}"));')
+            ub.append("    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());")
+            ub.append("    axiam_client_free(c);")
+            ub.append("}")
+            cases.append("\n".join(ub))
             extra_cases.append(fn)
 
     out.append("\n\n".join(cases))
