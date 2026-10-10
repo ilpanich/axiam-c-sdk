@@ -33,9 +33,8 @@ const char *axiam_mgmt_actor_type_to_wire(axiam_mgmt_actor_type_t value) {
         case AXIAM_MGMT_ACTOR_TYPE_SERVICE_ACCOUNT: return "ServiceAccount";
         case AXIAM_MGMT_ACTOR_TYPE_SYSTEM: return "System";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_ACTOR_TYPE_UNKNOWN: return "";
     }
@@ -63,9 +62,8 @@ const char *axiam_mgmt_attestation_mode_to_wire(axiam_mgmt_attestation_mode_t va
         case AXIAM_MGMT_ATTESTATION_MODE_INDIRECT: return "indirect";
         case AXIAM_MGMT_ATTESTATION_MODE_DIRECT_REQUIRED: return "direct_required";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_ATTESTATION_MODE_UNKNOWN: return "";
     }
@@ -101,9 +99,8 @@ const char *axiam_mgmt_attribute_source_to_wire(axiam_mgmt_attribute_source_t va
         case AXIAM_MGMT_ATTRIBUTE_SOURCE_GROUPS: return "groups";
         case AXIAM_MGMT_ATTRIBUTE_SOURCE_ROLES: return "roles";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_ATTRIBUTE_SOURCE_UNKNOWN: return "";
     }
@@ -131,9 +128,8 @@ const char *axiam_mgmt_audit_outcome_to_wire(axiam_mgmt_audit_outcome_t value) {
         case AXIAM_MGMT_AUDIT_OUTCOME_FAILURE: return "Failure";
         case AXIAM_MGMT_AUDIT_OUTCOME_DENIED: return "Denied";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_AUDIT_OUTCOME_UNKNOWN: return "";
     }
@@ -159,9 +155,8 @@ const char *axiam_mgmt_authn_request_params_mode_to_wire(axiam_mgmt_authn_reques
         case AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_IGNORE: return "ignore";
         case AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_HONOUR: return "honour";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN: return "";
     }
@@ -189,9 +184,8 @@ const char *axiam_mgmt_certificate_status_to_wire(axiam_mgmt_certificate_status_
         case AXIAM_MGMT_CERTIFICATE_STATUS_REVOKED: return "Revoked";
         case AXIAM_MGMT_CERTIFICATE_STATUS_EXPIRED: return "Expired";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_CERTIFICATE_STATUS_UNKNOWN: return "";
     }
@@ -221,9 +215,8 @@ const char *axiam_mgmt_certificate_type_to_wire(axiam_mgmt_certificate_type_t va
         case AXIAM_MGMT_CERTIFICATE_TYPE_DEVICE: return "Device";
         case AXIAM_MGMT_CERTIFICATE_TYPE_SERVER: return "Server";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN: return "";
     }
@@ -257,9 +250,8 @@ const char *axiam_mgmt_certification_level_to_wire(axiam_mgmt_certification_leve
         case AXIAM_MGMT_CERTIFICATION_LEVEL_L3: return "L3";
         case AXIAM_MGMT_CERTIFICATION_LEVEL_L3_PLUS: return "L3Plus";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN: return "";
     }
@@ -285,9 +277,8 @@ const char *axiam_mgmt_ciba_delivery_mode_to_wire(axiam_mgmt_ciba_delivery_mode_
         case AXIAM_MGMT_CIBA_DELIVERY_MODE_POLL: return "poll";
         case AXIAM_MGMT_CIBA_DELIVERY_MODE_PING: return "ping";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_CIBA_DELIVERY_MODE_UNKNOWN: return "";
     }
@@ -315,9 +306,8 @@ const char *axiam_mgmt_ciba_request_signing_alg_to_wire(axiam_mgmt_ciba_request_
         case AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_ES256: return "ES256";
         case AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_ED_DSA: return "EdDSA";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_CIBA_REQUEST_SIGNING_ALG_UNKNOWN: return "";
     }
@@ -351,9 +341,8 @@ const char *axiam_mgmt_client_auth_method_to_wire(axiam_mgmt_client_auth_method_
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_PRIVATE_KEY_JWT: return "private_key_jwt";
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_NONE: return "none";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN: return "";
     }
@@ -379,9 +368,8 @@ const char *axiam_mgmt_client_profile_to_wire(axiam_mgmt_client_profile_t value)
         case AXIAM_MGMT_CLIENT_PROFILE_STANDARD: return "standard";
         case AXIAM_MGMT_CLIENT_PROFILE_FAPI2: return "fapi2";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN: return "";
     }
@@ -407,9 +395,8 @@ const char *axiam_mgmt_deprovision_policy_to_wire(axiam_mgmt_deprovision_policy_
         case AXIAM_MGMT_DEPROVISION_POLICY_DEACTIVATE: return "deactivate";
         case AXIAM_MGMT_DEPROVISION_POLICY_DELETE: return "delete";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN: return "";
     }
@@ -435,9 +422,8 @@ const char *axiam_mgmt_directory_kind_to_wire(axiam_mgmt_directory_kind_t value)
         case AXIAM_MGMT_DIRECTORY_KIND_OPEN_LDAP: return "open_ldap";
         case AXIAM_MGMT_DIRECTORY_KIND_ACTIVE_DIRECTORY: return "active_directory";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN: return "";
     }
@@ -463,9 +449,8 @@ const char *axiam_mgmt_failure_policy_to_wire(axiam_mgmt_failure_policy_t value)
         case AXIAM_MGMT_FAILURE_POLICY_FAIL_CLOSED: return "fail_closed";
         case AXIAM_MGMT_FAILURE_POLICY_FAIL_OPEN: return "fail_open";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_FAILURE_POLICY_UNKNOWN: return "";
     }
@@ -491,9 +476,8 @@ const char *axiam_mgmt_key_algorithm_to_wire(axiam_mgmt_key_algorithm_t value) {
         case AXIAM_MGMT_KEY_ALGORITHM_RSA4096: return "Rsa4096";
         case AXIAM_MGMT_KEY_ALGORITHM_ED25519: return "Ed25519";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN: return "";
     }
@@ -521,9 +505,8 @@ const char *axiam_mgmt_managed_by_to_wire(axiam_mgmt_managed_by_t value) {
         case AXIAM_MGMT_MANAGED_BY_DCR: return "dcr";
         case AXIAM_MGMT_MANAGED_BY_CIMD: return "cimd";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_MANAGED_BY_UNKNOWN: return "";
     }
@@ -551,9 +534,8 @@ const char *axiam_mgmt_mfa_method_type_to_wire(axiam_mgmt_mfa_method_type_t valu
         case AXIAM_MGMT_MFA_METHOD_TYPE_PASSKEY: return "Passkey";
         case AXIAM_MGMT_MFA_METHOD_TYPE_SECURITY_KEY: return "SecurityKey";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_MFA_METHOD_TYPE_UNKNOWN: return "";
     }
@@ -579,9 +561,8 @@ const char *axiam_mgmt_name_id_format_to_wire(axiam_mgmt_name_id_format_t value)
         case AXIAM_MGMT_NAME_ID_FORMAT_PERSISTENT: return "persistent";
         case AXIAM_MGMT_NAME_ID_FORMAT_EMAIL_ADDRESS: return "email_address";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_NAME_ID_FORMAT_UNKNOWN: return "";
     }
@@ -639,9 +620,8 @@ const char *axiam_mgmt_notification_event_type_to_wire(axiam_mgmt_notification_e
         case AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SERVICE_ACCOUNT_DELETED: return "service_account_deleted";
         case AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_SCIM_DELIVERY_FAILED: return "scim_delivery_failed";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_UNKNOWN: return "";
     }
@@ -667,9 +647,8 @@ const char *axiam_mgmt_permission_effect_to_wire(axiam_mgmt_permission_effect_t 
         case AXIAM_MGMT_PERMISSION_EFFECT_ALLOW: return "allow";
         case AXIAM_MGMT_PERMISSION_EFFECT_DENY: return "deny";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN: return "";
     }
@@ -695,9 +674,8 @@ const char *axiam_mgmt_pgp_key_algorithm_to_wire(axiam_mgmt_pgp_key_algorithm_t 
         case AXIAM_MGMT_PGP_KEY_ALGORITHM_RSA4096: return "Rsa4096";
         case AXIAM_MGMT_PGP_KEY_ALGORITHM_ED25519: return "Ed25519";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN: return "";
     }
@@ -723,9 +701,8 @@ const char *axiam_mgmt_pgp_key_purpose_to_wire(axiam_mgmt_pgp_key_purpose_t valu
         case AXIAM_MGMT_PGP_KEY_PURPOSE_AUDIT_SIGNING: return "AuditSigning";
         case AXIAM_MGMT_PGP_KEY_PURPOSE_EXPORT: return "Export";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_PGP_KEY_PURPOSE_UNKNOWN: return "";
     }
@@ -751,9 +728,8 @@ const char *axiam_mgmt_pgp_key_status_to_wire(axiam_mgmt_pgp_key_status_t value)
         case AXIAM_MGMT_PGP_KEY_STATUS_ACTIVE: return "Active";
         case AXIAM_MGMT_PGP_KEY_STATUS_REVOKED: return "Revoked";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_PGP_KEY_STATUS_UNKNOWN: return "";
     }
@@ -779,9 +755,8 @@ const char *axiam_mgmt_reactor_mode_to_wire(axiam_mgmt_reactor_mode_t value) {
         case AXIAM_MGMT_REACTOR_MODE_INTERCEPT: return "intercept";
         case AXIAM_MGMT_REACTOR_MODE_LISTEN: return "listen";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_REACTOR_MODE_UNKNOWN: return "";
     }
@@ -807,9 +782,8 @@ const char *axiam_mgmt_saml_binding_to_wire(axiam_mgmt_saml_binding_t value) {
         case AXIAM_MGMT_SAML_BINDING_HTTP_POST: return "http_post";
         case AXIAM_MGMT_SAML_BINDING_HTTP_REDIRECT: return "http_redirect";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SAML_BINDING_UNKNOWN: return "";
     }
@@ -837,9 +811,8 @@ const char *axiam_mgmt_saml_idp_credential_status_to_wire(axiam_mgmt_saml_idp_cr
         case AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_NEXT: return "next";
         case AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_RETIRED: return "retired";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SAML_IDP_CREDENTIAL_STATUS_UNKNOWN: return "";
     }
@@ -865,9 +838,8 @@ const char *axiam_mgmt_saml_idp_slot_to_wire(axiam_mgmt_saml_idp_slot_t value) {
         case AXIAM_MGMT_SAML_IDP_SLOT_ACTIVE: return "active";
         case AXIAM_MGMT_SAML_IDP_SLOT_NEXT: return "next";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SAML_IDP_SLOT_UNKNOWN: return "";
     }
@@ -895,9 +867,8 @@ const char *axiam_mgmt_scim_token_status_to_wire(axiam_mgmt_scim_token_status_t 
         case AXIAM_MGMT_SCIM_TOKEN_STATUS_EXPIRED: return "expired";
         case AXIAM_MGMT_SCIM_TOKEN_STATUS_REVOKED: return "revoked";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SCIM_TOKEN_STATUS_UNKNOWN: return "";
     }
@@ -923,9 +894,8 @@ const char *axiam_mgmt_settings_scope_to_wire(axiam_mgmt_settings_scope_t value)
         case AXIAM_MGMT_SETTINGS_SCOPE_ORG: return "Org";
         case AXIAM_MGMT_SETTINGS_SCOPE_TENANT: return "Tenant";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SETTINGS_SCOPE_UNKNOWN: return "";
     }
@@ -951,9 +921,8 @@ const char *axiam_mgmt_ssf_delivery_method_to_wire(axiam_mgmt_ssf_delivery_metho
         case AXIAM_MGMT_SSF_DELIVERY_METHOD_PUSH: return "push";
         case AXIAM_MGMT_SSF_DELIVERY_METHOD_POLL: return "poll";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN: return "";
     }
@@ -987,9 +956,8 @@ const char *axiam_mgmt_ssf_event_type_to_wire(axiam_mgmt_ssf_event_type_t value)
         case AXIAM_MGMT_SSF_EVENT_TYPE_ACCOUNT_ENABLED: return "https://schemas.openid.net/secevent/risc/event-type/account-enabled";
         case AXIAM_MGMT_SSF_EVENT_TYPE_ACCOUNT_PURGED: return "https://schemas.openid.net/secevent/risc/event-type/account-purged";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SSF_EVENT_TYPE_UNKNOWN: return "";
     }
@@ -1015,9 +983,8 @@ const char *axiam_mgmt_ssf_status_actor_to_wire(axiam_mgmt_ssf_status_actor_t va
         case AXIAM_MGMT_SSF_STATUS_ACTOR_ADMIN: return "admin";
         case AXIAM_MGMT_SSF_STATUS_ACTOR_RECEIVER: return "receiver";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SSF_STATUS_ACTOR_UNKNOWN: return "";
     }
@@ -1045,9 +1012,8 @@ const char *axiam_mgmt_ssf_stream_status_to_wire(axiam_mgmt_ssf_stream_status_t 
         case AXIAM_MGMT_SSF_STREAM_STATUS_PAUSED: return "paused";
         case AXIAM_MGMT_SSF_STREAM_STATUS_DISABLED: return "disabled";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SSF_STREAM_STATUS_UNKNOWN: return "";
     }
@@ -1073,9 +1039,8 @@ const char *axiam_mgmt_ssf_subject_format_to_wire(axiam_mgmt_ssf_subject_format_
         case AXIAM_MGMT_SSF_SUBJECT_FORMAT_ISS_SUB: return "iss_sub";
         case AXIAM_MGMT_SSF_SUBJECT_FORMAT_EMAIL: return "email";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_SSF_SUBJECT_FORMAT_UNKNOWN: return "";
     }
@@ -1101,9 +1066,8 @@ const char *axiam_mgmt_tenant_kind_to_wire(axiam_mgmt_tenant_kind_t value) {
         case AXIAM_MGMT_TENANT_KIND_STANDARD: return "standard";
         case AXIAM_MGMT_TENANT_KIND_ORGANIZATION: return "organization";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_TENANT_KIND_UNKNOWN: return "";
     }
@@ -1129,9 +1093,8 @@ const char *axiam_mgmt_tenant_status_to_wire(axiam_mgmt_tenant_status_t value) {
         case AXIAM_MGMT_TENANT_STATUS_ACTIVE: return "Active";
         case AXIAM_MGMT_TENANT_STATUS_SUSPENDED: return "Suspended";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_TENANT_STATUS_UNKNOWN: return "";
     }
@@ -1157,9 +1120,8 @@ const char *axiam_mgmt_unknown_aaguid_action_to_wire(axiam_mgmt_unknown_aaguid_a
         case AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_ALLOW: return "allow";
         case AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_DENY: return "deny";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_UNKNOWN: return "";
     }
@@ -1185,9 +1147,8 @@ const char *axiam_mgmt_user_name_source_to_wire(axiam_mgmt_user_name_source_t va
         case AXIAM_MGMT_USER_NAME_SOURCE_USERNAME: return "username";
         case AXIAM_MGMT_USER_NAME_SOURCE_EMAIL: return "email";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_USER_NAME_SOURCE_UNKNOWN: return "";
     }
@@ -1221,9 +1182,8 @@ const char *axiam_mgmt_user_status_to_wire(axiam_mgmt_user_status_t value) {
         case AXIAM_MGMT_USER_STATUS_ANONYMIZED: return "Anonymized";
         case AXIAM_MGMT_USER_STATUS_DELETED: return "Deleted";
         /*
-         * The empty string, which no server value is: an unrecognised value carried back
-         * into an update is refused by the server rather than written as a spelling it
-         * never used.
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
          */
         case AXIAM_MGMT_USER_STATUS_UNKNOWN: return "";
     }
@@ -1539,6 +1499,28 @@ axiam_mgmt_webauthn_policy_t *axiam_mgmt_webauthn_policy_parse(const cJSON *src)
 cJSON *axiam_mgmt_webauthn_policy_build(const axiam_mgmt_webauthn_policy_t *value);
 axiam_mgmt_webhook_response_t *axiam_mgmt_webhook_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_webhook_response_build(const axiam_mgmt_webhook_response_t *value);
+const char *axiam_mgmt_acs_endpoint_unsendable(const axiam_mgmt_acs_endpoint_t *value);
+const char *axiam_mgmt_attribute_mapping_unsendable(const axiam_mgmt_attribute_mapping_t *value);
+const char *axiam_mgmt_create_ca_certificate_request_unsendable(const axiam_mgmt_create_ca_certificate_request_t *value);
+const char *axiam_mgmt_create_certificate_request_unsendable(const axiam_mgmt_create_certificate_request_t *value);
+const char *axiam_mgmt_create_intermediate_ca_request_unsendable(const axiam_mgmt_create_intermediate_ca_request_t *value);
+const char *axiam_mgmt_create_o_auth2_client_request_unsendable(const axiam_mgmt_create_o_auth2_client_request_t *value);
+const char *axiam_mgmt_create_pgp_key_request_unsendable(const axiam_mgmt_create_pgp_key_request_t *value);
+const char *axiam_mgmt_create_reactor_request_unsendable(const axiam_mgmt_create_reactor_request_t *value);
+const char *axiam_mgmt_grant_permission_request_unsendable(const axiam_mgmt_grant_permission_request_t *value);
+const char *axiam_mgmt_issue_saml_idp_credential_unsendable(const axiam_mgmt_issue_saml_idp_credential_t *value);
+const char *axiam_mgmt_saml_service_provider_input_unsendable(const axiam_mgmt_saml_service_provider_input_t *value);
+const char *axiam_mgmt_scim_target_input_unsendable(const axiam_mgmt_scim_target_input_t *value);
+const char *axiam_mgmt_set_directory_config_unsendable(const axiam_mgmt_set_directory_config_t *value);
+const char *axiam_mgmt_sign_certificate_csr_request_unsendable(const axiam_mgmt_sign_certificate_csr_request_t *value);
+const char *axiam_mgmt_ssf_stream_input_unsendable(const axiam_mgmt_ssf_stream_input_t *value);
+const char *axiam_mgmt_update_directory_config_unsendable(const axiam_mgmt_update_directory_config_t *value);
+const char *axiam_mgmt_update_o_auth2_client_request_unsendable(const axiam_mgmt_update_o_auth2_client_request_t *value);
+const char *axiam_mgmt_update_reactor_request_unsendable(const axiam_mgmt_update_reactor_request_t *value);
+const char *axiam_mgmt_update_service_account_unsendable(const axiam_mgmt_update_service_account_t *value);
+const char *axiam_mgmt_update_tenant_unsendable(const axiam_mgmt_update_tenant_t *value);
+const char *axiam_mgmt_update_user_request_unsendable(const axiam_mgmt_update_user_request_t *value);
+const char *axiam_mgmt_webauthn_attestation_policy_unsendable(const axiam_mgmt_webauthn_attestation_policy_t *value);
 
 void axiam_mgmt_acs_endpoint_free(axiam_mgmt_acs_endpoint_t *value) {
     if (!value) return;
@@ -2644,6 +2626,7 @@ void axiam_mgmt_create_federation_config_request_free(axiam_mgmt_create_federati
     free(value->button_icon);
     free(value->client_id);
     axiam_sensitive_free(value->client_secret);
+    free(value->idp_metadata_signing_cert_pem);
     free(value->idp_signing_cert_pem);
     free(value->metadata_url);
     free(value->protocol);
@@ -2666,6 +2649,9 @@ axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_conf
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_sha1_signatures");
+    if (cJSON_IsBool(item)) { out->allow_sha1_signatures = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_allow_sha1_signatures = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
     if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
         out->has_allow_tenant_inheritance = 1; }
@@ -2705,6 +2691,8 @@ axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_conf
     if (cJSON_IsString(item)) out->client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_secret");
     if (cJSON_IsString(item)) out->client_secret = axiam_sensitive_new(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "idp_metadata_signing_cert_pem");
+    if (cJSON_IsString(item)) out->idp_metadata_signing_cert_pem = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "idp_signing_cert_pem");
     if (cJSON_IsString(item)) out->idp_signing_cert_pem = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
@@ -2744,6 +2732,9 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_allow_sha1_signatures) {
+        cJSON_AddBoolToObject(obj, "allow_sha1_signatures", value->allow_sha1_signatures);
+    }
     if (value->has_allow_tenant_inheritance) {
         cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
     }
@@ -2778,6 +2769,9 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     }
     if (value->client_secret) {
         cJSON_AddStringToObject(obj, "client_secret", axiam_sensitive_reveal(value->client_secret));
+    }
+    if (value->idp_metadata_signing_cert_pem) {
+        cJSON_AddStringToObject(obj, "idp_metadata_signing_cert_pem", value->idp_metadata_signing_cert_pem);
     }
     if (value->idp_signing_cert_pem) {
         cJSON_AddStringToObject(obj, "idp_signing_cert_pem", value->idp_signing_cert_pem);
@@ -2939,6 +2933,9 @@ axiam_mgmt_create_notification_rule_request_t *axiam_mgmt_create_notification_ru
         }
         out->recipient_emails_count = n;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "window_minutes");
+    if (cJSON_IsNumber(item)) { out->window_minutes = (long) item->valuedouble;
+        out->has_window_minutes = 1; }
     return out;
 }
 
@@ -2960,6 +2957,9 @@ cJSON *axiam_mgmt_create_notification_rule_request_build(const axiam_mgmt_create
         cJSON *arr = cJSON_AddArrayToObject(obj, "recipient_emails");
         for (size_t i = 0; arr && i < value->recipient_emails_count; i++)
             cJSON_AddItemToArray(arr, cJSON_CreateString(value->recipient_emails[i]));
+    }
+    if (value->has_window_minutes) {
+        cJSON_AddNumberToObject(obj, "window_minutes", (double) value->window_minutes);
     }
     return obj;
 }
@@ -4449,6 +4449,7 @@ void axiam_mgmt_federation_config_response_free(axiam_mgmt_federation_config_res
         free(value->effective_scopes);
     }
     free(value->id);
+    free(value->idp_metadata_signing_cert_pem);
     free(value->metadata_url);
     free(value->protocol);
     free(value->provider);
@@ -4472,6 +4473,9 @@ axiam_mgmt_federation_config_response_t *axiam_mgmt_federation_config_response_p
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_sha1_signatures");
+    if (cJSON_IsBool(item)) { out->allow_sha1_signatures = cJSON_IsTrue(item) ? 1 : 0;
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
     if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
     }
@@ -4530,6 +4534,8 @@ axiam_mgmt_federation_config_response_t *axiam_mgmt_federation_config_response_p
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "id");
     if (cJSON_IsString(item)) out->id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "idp_metadata_signing_cert_pem");
+    if (cJSON_IsString(item)) out->idp_metadata_signing_cert_pem = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
     if (cJSON_IsString(item)) out->metadata_url = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "mints_client_secret");
@@ -4574,6 +4580,9 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (1) {
+        cJSON_AddBoolToObject(obj, "allow_sha1_signatures", value->allow_sha1_signatures);
+    }
     if (1) {
         cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
     }
@@ -4622,6 +4631,9 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     }
     if (value->id) {
         cJSON_AddStringToObject(obj, "id", value->id);
+    }
+    if (value->idp_metadata_signing_cert_pem) {
+        cJSON_AddStringToObject(obj, "idp_metadata_signing_cert_pem", value->idp_metadata_signing_cert_pem);
     }
     if (value->metadata_url) {
         cJSON_AddStringToObject(obj, "metadata_url", value->metadata_url);
@@ -5848,6 +5860,9 @@ axiam_mgmt_notification_rule_response_t *axiam_mgmt_notification_rule_response_p
     if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "updated_at");
     if (cJSON_IsString(item)) out->updated_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "window_minutes");
+    if (cJSON_IsNumber(item)) { out->window_minutes = (long) item->valuedouble;
+    }
     return out;
 }
 
@@ -5884,6 +5899,9 @@ cJSON *axiam_mgmt_notification_rule_response_build(const axiam_mgmt_notification
     }
     if (value->updated_at) {
         cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "window_minutes", (double) value->window_minutes);
     }
     return obj;
 }
@@ -8699,6 +8717,7 @@ void axiam_mgmt_scim_target_input_free(axiam_mgmt_scim_target_input_t *value) {
     axiam_mgmt_scim_target_auth_free(value->auth);
     free(value->base_url);
     axiam_sensitive_free(value->credential);
+    free(value->expected_updated_at);
     free(value->name);
     axiam_mgmt_scim_target_scope_free(value->scope);
     free(value);
@@ -8723,6 +8742,8 @@ axiam_mgmt_scim_target_input_t *axiam_mgmt_scim_target_input_parse(const cJSON *
     item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
     if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "expected_updated_at");
+    if (cJSON_IsString(item)) out->expected_updated_at = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "name");
     if (cJSON_IsString(item)) out->name = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "push_groups");
@@ -8756,6 +8777,9 @@ cJSON *axiam_mgmt_scim_target_input_build(const axiam_mgmt_scim_target_input_t *
     }
     if (value->has_enabled) {
         cJSON_AddBoolToObject(obj, "enabled", value->enabled);
+    }
+    if (value->expected_updated_at) {
+        cJSON_AddStringToObject(obj, "expected_updated_at", value->expected_updated_at);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -11304,6 +11328,7 @@ void axiam_mgmt_update_federation_config_request_free(axiam_mgmt_update_federati
     free(value->button_icon);
     free(value->client_id);
     axiam_sensitive_free(value->client_secret);
+    free(value->idp_metadata_signing_cert_pem);
     free(value->idp_signing_cert_pem);
     free(value->metadata_url);
     free(value->provider);
@@ -11324,6 +11349,9 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_sha1_signatures");
+    if (cJSON_IsBool(item)) { out->allow_sha1_signatures = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_allow_sha1_signatures = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
     if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
         out->has_allow_tenant_inheritance = 1; }
@@ -11350,15 +11378,19 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
         out->allowed_issuer_tenants_count = n;
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "apple_key_id");
-    if (cJSON_IsString(item)) out->apple_key_id = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->apple_key_id = axiam_strdup0(item->valuestring); out->has_apple_key_id = 1; }
+    else if (cJSON_IsNull(item)) out->has_apple_key_id = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "apple_team_id");
-    if (cJSON_IsString(item)) out->apple_team_id = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->apple_team_id = axiam_strdup0(item->valuestring); out->has_apple_team_id = 1; }
+    else if (cJSON_IsNull(item)) out->has_apple_team_id = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "attribute_map");
     if (item) out->attribute_map = cJSON_PrintUnformatted(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "authorization_endpoint");
-    if (cJSON_IsString(item)) out->authorization_endpoint = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->authorization_endpoint = axiam_strdup0(item->valuestring); out->has_authorization_endpoint = 1; }
+    else if (cJSON_IsNull(item)) out->has_authorization_endpoint = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "button_icon");
-    if (cJSON_IsString(item)) out->button_icon = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->button_icon = axiam_strdup0(item->valuestring); out->has_button_icon = 1; }
+    else if (cJSON_IsNull(item)) out->has_button_icon = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "client_id");
     if (cJSON_IsString(item)) out->client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_secret");
@@ -11366,14 +11398,20 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
     item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
     if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "idp_metadata_signing_cert_pem");
+    if (cJSON_IsString(item)) { out->idp_metadata_signing_cert_pem = axiam_strdup0(item->valuestring); out->has_idp_metadata_signing_cert_pem = 1; }
+    else if (cJSON_IsNull(item)) out->has_idp_metadata_signing_cert_pem = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "idp_signing_cert_pem");
-    if (cJSON_IsString(item)) out->idp_signing_cert_pem = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->idp_signing_cert_pem = axiam_strdup0(item->valuestring); out->has_idp_signing_cert_pem = 1; }
+    else if (cJSON_IsNull(item)) out->has_idp_signing_cert_pem = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
-    if (cJSON_IsString(item)) out->metadata_url = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->metadata_url = axiam_strdup0(item->valuestring); out->has_metadata_url = 1; }
+    else if (cJSON_IsNull(item)) out->has_metadata_url = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "provider");
     if (cJSON_IsString(item)) out->provider = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "provider_slug");
-    if (cJSON_IsString(item)) out->provider_slug = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->provider_slug = axiam_strdup0(item->valuestring); out->has_provider_slug = 1; }
+    else if (cJSON_IsNull(item)) out->has_provider_slug = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "require_pkce");
     if (cJSON_IsBool(item)) { out->require_pkce = cJSON_IsTrue(item) ? 1 : 0;
         out->has_require_pkce = 1; }
@@ -11389,11 +11427,13 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
         out->scopes_count = n;
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "token_endpoint");
-    if (cJSON_IsString(item)) out->token_endpoint = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->token_endpoint = axiam_strdup0(item->valuestring); out->has_token_endpoint = 1; }
+    else if (cJSON_IsNull(item)) out->has_token_endpoint = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "token_exchange");
     if (cJSON_IsObject(item)) out->token_exchange = axiam_mgmt_token_exchange_trust_request_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "userinfo_endpoint");
-    if (cJSON_IsString(item)) out->userinfo_endpoint = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->userinfo_endpoint = axiam_strdup0(item->valuestring); out->has_userinfo_endpoint = 1; }
+    else if (cJSON_IsNull(item)) out->has_userinfo_endpoint = 1;
     return out;
 }
 
@@ -11401,6 +11441,9 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_allow_sha1_signatures) {
+        cJSON_AddBoolToObject(obj, "allow_sha1_signatures", value->allow_sha1_signatures);
+    }
     if (value->has_allow_tenant_inheritance) {
         cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
     }
@@ -11416,9 +11459,13 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->apple_key_id) {
         cJSON_AddStringToObject(obj, "apple_key_id", value->apple_key_id);
+    } else if (value->has_apple_key_id) {
+        cJSON_AddNullToObject(obj, "apple_key_id");
     }
     if (value->apple_team_id) {
         cJSON_AddStringToObject(obj, "apple_team_id", value->apple_team_id);
+    } else if (value->has_apple_team_id) {
+        cJSON_AddNullToObject(obj, "apple_team_id");
     }
     if (value->attribute_map) {
         cJSON *sub = cJSON_Parse(value->attribute_map);
@@ -11426,9 +11473,13 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->authorization_endpoint) {
         cJSON_AddStringToObject(obj, "authorization_endpoint", value->authorization_endpoint);
+    } else if (value->has_authorization_endpoint) {
+        cJSON_AddNullToObject(obj, "authorization_endpoint");
     }
     if (value->button_icon) {
         cJSON_AddStringToObject(obj, "button_icon", value->button_icon);
+    } else if (value->has_button_icon) {
+        cJSON_AddNullToObject(obj, "button_icon");
     }
     if (value->client_id) {
         cJSON_AddStringToObject(obj, "client_id", value->client_id);
@@ -11439,17 +11490,28 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     if (value->has_enabled) {
         cJSON_AddBoolToObject(obj, "enabled", value->enabled);
     }
+    if (value->idp_metadata_signing_cert_pem) {
+        cJSON_AddStringToObject(obj, "idp_metadata_signing_cert_pem", value->idp_metadata_signing_cert_pem);
+    } else if (value->has_idp_metadata_signing_cert_pem) {
+        cJSON_AddNullToObject(obj, "idp_metadata_signing_cert_pem");
+    }
     if (value->idp_signing_cert_pem) {
         cJSON_AddStringToObject(obj, "idp_signing_cert_pem", value->idp_signing_cert_pem);
+    } else if (value->has_idp_signing_cert_pem) {
+        cJSON_AddNullToObject(obj, "idp_signing_cert_pem");
     }
     if (value->metadata_url) {
         cJSON_AddStringToObject(obj, "metadata_url", value->metadata_url);
+    } else if (value->has_metadata_url) {
+        cJSON_AddNullToObject(obj, "metadata_url");
     }
     if (value->provider) {
         cJSON_AddStringToObject(obj, "provider", value->provider);
     }
     if (value->provider_slug) {
         cJSON_AddStringToObject(obj, "provider_slug", value->provider_slug);
+    } else if (value->has_provider_slug) {
+        cJSON_AddNullToObject(obj, "provider_slug");
     }
     if (value->has_require_pkce) {
         cJSON_AddBoolToObject(obj, "require_pkce", value->require_pkce);
@@ -11461,6 +11523,8 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->token_endpoint) {
         cJSON_AddStringToObject(obj, "token_endpoint", value->token_endpoint);
+    } else if (value->has_token_endpoint) {
+        cJSON_AddNullToObject(obj, "token_endpoint");
     }
     if (value->token_exchange) {
         cJSON *sub = axiam_mgmt_token_exchange_trust_request_build(value->token_exchange);
@@ -11468,6 +11532,8 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->userinfo_endpoint) {
         cJSON_AddStringToObject(obj, "userinfo_endpoint", value->userinfo_endpoint);
+    } else if (value->has_userinfo_endpoint) {
+        cJSON_AddNullToObject(obj, "userinfo_endpoint");
     }
     return obj;
 }
@@ -11550,6 +11616,9 @@ axiam_mgmt_update_notification_rule_request_t *axiam_mgmt_update_notification_ru
         }
         out->recipient_emails_count = n;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "window_minutes");
+    if (cJSON_IsNumber(item)) { out->window_minutes = (long) item->valuedouble;
+        out->has_window_minutes = 1; }
     return out;
 }
 
@@ -11574,6 +11643,9 @@ cJSON *axiam_mgmt_update_notification_rule_request_build(const axiam_mgmt_update
         cJSON *arr = cJSON_AddArrayToObject(obj, "recipient_emails");
         for (size_t i = 0; arr && i < value->recipient_emails_count; i++)
             cJSON_AddItemToArray(arr, cJSON_CreateString(value->recipient_emails[i]));
+    }
+    if (value->has_window_minutes) {
+        cJSON_AddNumberToObject(obj, "window_minutes", (double) value->window_minutes);
     }
     return obj;
 }
@@ -12661,6 +12733,167 @@ cJSON *axiam_mgmt_webhook_response_build(const axiam_mgmt_webhook_response_t *va
         cJSON_AddStringToObject(obj, "url", value->url);
     }
     return obj;
+}
+
+/*
+ * CONTRACT.md §34.2 P12.2 / R-22 (contract 1.60): a value this SDK does not know decodes to
+ * the `_UNKNOWN` constant and is never SENT -- `_to_wire()` spells it as `""`, a value the
+ * server never used. Each operation whose body can hold one asks the body's `_unsendable()`
+ * first and refuses it locally, before any request. Internal: declared by the operations,
+ * not in a public header.
+ */
+const char *axiam_mgmt_acs_endpoint_unsendable(const axiam_mgmt_acs_endpoint_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->binding >= (unsigned) AXIAM_MGMT_SAML_BINDING_UNKNOWN) return "binding";
+    return NULL;
+}
+
+const char *axiam_mgmt_attribute_mapping_unsendable(const axiam_mgmt_attribute_mapping_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->source >= (unsigned) AXIAM_MGMT_ATTRIBUTE_SOURCE_UNKNOWN) return "source";
+    return NULL;
+}
+
+const char *axiam_mgmt_create_ca_certificate_request_unsendable(const axiam_mgmt_create_ca_certificate_request_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->key_algorithm >= (unsigned) AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN) return "key_algorithm";
+    return NULL;
+}
+
+const char *axiam_mgmt_create_certificate_request_unsendable(const axiam_mgmt_create_certificate_request_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->cert_type >= (unsigned) AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN) return "cert_type";
+    if ((unsigned) value->key_algorithm >= (unsigned) AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN) return "key_algorithm";
+    return NULL;
+}
+
+const char *axiam_mgmt_create_intermediate_ca_request_unsendable(const axiam_mgmt_create_intermediate_ca_request_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->key_algorithm >= (unsigned) AXIAM_MGMT_KEY_ALGORITHM_UNKNOWN) return "key_algorithm";
+    return NULL;
+}
+
+const char *axiam_mgmt_create_o_auth2_client_request_unsendable(const axiam_mgmt_create_o_auth2_client_request_t *value) {
+    if (!value) return NULL;
+    if (value->has_authn_request_params && (unsigned) value->authn_request_params >= (unsigned) AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN) return "authn_request_params";
+    if (value->has_profile && (unsigned) value->profile >= (unsigned) AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN) return "profile";
+    if (value->has_token_endpoint_auth_method && (unsigned) value->token_endpoint_auth_method >= (unsigned) AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN) return "token_endpoint_auth_method";
+    return NULL;
+}
+
+const char *axiam_mgmt_create_pgp_key_request_unsendable(const axiam_mgmt_create_pgp_key_request_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->algorithm >= (unsigned) AXIAM_MGMT_PGP_KEY_ALGORITHM_UNKNOWN) return "algorithm";
+    if ((unsigned) value->purpose >= (unsigned) AXIAM_MGMT_PGP_KEY_PURPOSE_UNKNOWN) return "purpose";
+    return NULL;
+}
+
+const char *axiam_mgmt_create_reactor_request_unsendable(const axiam_mgmt_create_reactor_request_t *value) {
+    if (!value) return NULL;
+    if (value->has_failure_policy && (unsigned) value->failure_policy >= (unsigned) AXIAM_MGMT_FAILURE_POLICY_UNKNOWN) return "failure_policy";
+    if ((unsigned) value->mode >= (unsigned) AXIAM_MGMT_REACTOR_MODE_UNKNOWN) return "mode";
+    return NULL;
+}
+
+const char *axiam_mgmt_grant_permission_request_unsendable(const axiam_mgmt_grant_permission_request_t *value) {
+    if (!value) return NULL;
+    if (value->has_effect && (unsigned) value->effect >= (unsigned) AXIAM_MGMT_PERMISSION_EFFECT_UNKNOWN) return "effect";
+    return NULL;
+}
+
+const char *axiam_mgmt_issue_saml_idp_credential_unsendable(const axiam_mgmt_issue_saml_idp_credential_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->slot >= (unsigned) AXIAM_MGMT_SAML_IDP_SLOT_UNKNOWN) return "slot";
+    return NULL;
+}
+
+const char *axiam_mgmt_saml_service_provider_input_unsendable(const axiam_mgmt_saml_service_provider_input_t *value) {
+    if (!value) return NULL;
+    for (size_t i = 0; value->acs_urls && i < value->acs_urls_count; i++) {
+        const char *bad = axiam_mgmt_acs_endpoint_unsendable(value->acs_urls[i]);
+        if (bad) return bad;
+    }
+    for (size_t i = 0; value->attribute_mappings && i < value->attribute_mappings_count; i++) {
+        const char *bad = axiam_mgmt_attribute_mapping_unsendable(value->attribute_mappings[i]);
+        if (bad) return bad;
+    }
+    if (value->has_name_id_format && (unsigned) value->name_id_format >= (unsigned) AXIAM_MGMT_NAME_ID_FORMAT_UNKNOWN) return "name_id_format";
+    if (value->has_slo_binding && (unsigned) value->slo_binding >= (unsigned) AXIAM_MGMT_SAML_BINDING_UNKNOWN) return "slo_binding";
+    return NULL;
+}
+
+const char *axiam_mgmt_scim_target_input_unsendable(const axiam_mgmt_scim_target_input_t *value) {
+    if (!value) return NULL;
+    if (value->has_deprovision && (unsigned) value->deprovision >= (unsigned) AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN) return "deprovision";
+    if (value->has_user_name_from && (unsigned) value->user_name_from >= (unsigned) AXIAM_MGMT_USER_NAME_SOURCE_UNKNOWN) return "user_name_from";
+    return NULL;
+}
+
+const char *axiam_mgmt_set_directory_config_unsendable(const axiam_mgmt_set_directory_config_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->kind >= (unsigned) AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN) return "kind";
+    return NULL;
+}
+
+const char *axiam_mgmt_sign_certificate_csr_request_unsendable(const axiam_mgmt_sign_certificate_csr_request_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->cert_type >= (unsigned) AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN) return "cert_type";
+    return NULL;
+}
+
+const char *axiam_mgmt_ssf_stream_input_unsendable(const axiam_mgmt_ssf_stream_input_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->delivery_method >= (unsigned) AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN) return "delivery_method";
+    if (value->has_status && (unsigned) value->status >= (unsigned) AXIAM_MGMT_SSF_STREAM_STATUS_UNKNOWN) return "status";
+    if (value->has_subject_format && (unsigned) value->subject_format >= (unsigned) AXIAM_MGMT_SSF_SUBJECT_FORMAT_UNKNOWN) return "subject_format";
+    return NULL;
+}
+
+const char *axiam_mgmt_update_directory_config_unsendable(const axiam_mgmt_update_directory_config_t *value) {
+    if (!value) return NULL;
+    if (value->has_kind && (unsigned) value->kind >= (unsigned) AXIAM_MGMT_DIRECTORY_KIND_UNKNOWN) return "kind";
+    return NULL;
+}
+
+const char *axiam_mgmt_update_o_auth2_client_request_unsendable(const axiam_mgmt_update_o_auth2_client_request_t *value) {
+    if (!value) return NULL;
+    if (value->has_authn_request_params && (unsigned) value->authn_request_params >= (unsigned) AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN) return "authn_request_params";
+    if (value->has_profile && (unsigned) value->profile >= (unsigned) AXIAM_MGMT_CLIENT_PROFILE_UNKNOWN) return "profile";
+    if (value->has_token_endpoint_auth_method && (unsigned) value->token_endpoint_auth_method >= (unsigned) AXIAM_MGMT_CLIENT_AUTH_METHOD_UNKNOWN) return "token_endpoint_auth_method";
+    return NULL;
+}
+
+const char *axiam_mgmt_update_reactor_request_unsendable(const axiam_mgmt_update_reactor_request_t *value) {
+    if (!value) return NULL;
+    if (value->has_failure_policy && (unsigned) value->failure_policy >= (unsigned) AXIAM_MGMT_FAILURE_POLICY_UNKNOWN) return "failure_policy";
+    if (value->has_mode && (unsigned) value->mode >= (unsigned) AXIAM_MGMT_REACTOR_MODE_UNKNOWN) return "mode";
+    return NULL;
+}
+
+const char *axiam_mgmt_update_service_account_unsendable(const axiam_mgmt_update_service_account_t *value) {
+    if (!value) return NULL;
+    if (value->has_status && (unsigned) value->status >= (unsigned) AXIAM_MGMT_USER_STATUS_UNKNOWN) return "status";
+    return NULL;
+}
+
+const char *axiam_mgmt_update_tenant_unsendable(const axiam_mgmt_update_tenant_t *value) {
+    if (!value) return NULL;
+    if (value->has_status && (unsigned) value->status >= (unsigned) AXIAM_MGMT_TENANT_STATUS_UNKNOWN) return "status";
+    return NULL;
+}
+
+const char *axiam_mgmt_update_user_request_unsendable(const axiam_mgmt_update_user_request_t *value) {
+    if (!value) return NULL;
+    if (value->has_status && (unsigned) value->status >= (unsigned) AXIAM_MGMT_USER_STATUS_UNKNOWN) return "status";
+    return NULL;
+}
+
+const char *axiam_mgmt_webauthn_attestation_policy_unsendable(const axiam_mgmt_webauthn_attestation_policy_t *value) {
+    if (!value) return NULL;
+    if (value->has_min_certification && (unsigned) value->min_certification >= (unsigned) AXIAM_MGMT_CERTIFICATION_LEVEL_UNKNOWN) return "min_certification";
+    if ((unsigned) value->mode >= (unsigned) AXIAM_MGMT_ATTESTATION_MODE_UNKNOWN) return "mode";
+    if (value->has_unknown_aaguid && (unsigned) value->unknown_aaguid >= (unsigned) AXIAM_MGMT_UNKNOWN_AAGUID_ACTION_UNKNOWN) return "unknown_aaguid";
+    return NULL;
 }
 
 void axiam_mgmt_audit_log_entry_page_free(axiam_mgmt_audit_log_entry_page_t *page) {

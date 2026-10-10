@@ -2,115 +2,151 @@
 
 All notable changes to the AXIAM C SDK are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
-adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
-(pre-release qualifier `-alpha9`).
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Contract 1.59 (F-59-10, ilpanich/axiam#585)
+The AXIAM C SDK at 1.0.0 is a C11 library (C11 through C23, gcc and clang) over the AXIAM
+REST API, with libcurl and OpenSSL as its only dependencies: authentication (password, MFA,
+OPAQUE through `libaxiam_opaque_ffi` bound at run time, WebAuthn's wire operations, §6.1
+mTLS device login), token refresh with a single-flight guard, authorization checks with a
+route guard, the OIDC relying party and the OAuth2 grants around it (device, token
+exchange, PAR, CIBA with signed requests, RFC 7592 client configuration), the generated §27
+management surface (190 operations across 28 namespaces, with declarative manifests), the
+SSF receiver helper, webhook verification and the §22 reactor protocol over a transport
+you supply. It has no gRPC transport and ships no AMQP client. It conforms to **CONTRACT.md
+1.60** §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28,
+§28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (§16 and §18 are
+MUST-level and not named). From 1.0.0 the SDK is stable and follows Semantic Versioning.
+This release re-vendors `CONTRACT.md`, `openapi.json` and `management-registry.json` from
+ilpanich/axiam `8df0e11` (contract 1.60; this SDK vendors no `proto/`).
 
-Re-vendored `CONTRACT.md` at contract 1.59 (axiam `fe369eb`; `openapi.json` and
-`management-registry.json` unchanged). The README's Conformance Statement now reads
-"CONTRACT.md 1.59", with the same sections: §28.12, §29, §30, §31, §32 and §33, with §32.7
-and §33.2 signed.
+### Breaking changes
 
-#### Added
+Since `v1.0.0-beta17`:
 
-- **The auto-paging form (§27.4 rule 4; R-30)** — every paginated management operation
-  has an `_all` twin with the same parameters (`axiam_users_list_all()`,
-  `axiam_saml_list_service_providers_all()`, `axiam_scim_targets_list_all()`,
-  `axiam_ssf_list_streams_all()`, … 24 in all): it walks from `page` to the empty page,
-  the same `limit` and `search` on every request, and returns every item in one page of
-  the operation's page type. Any failure ends the walk with `*out` NULL.
-- `axiam_ssf_poll_result_t` gains `unjudged` / `unjudged_count` (appended; the struct
-  grew, so code that allocates it must be rebuilt).
-
-#### Fixed
-
-- **`axiam_ssf_poll()` lost the events of a batch aborted by a non-verdict failure
-  (§32.7 step 9; R-1, P1).** A JWKS fetch or replay-store failure on a later SET used to
-  abort the poll and discard the SETs already verified — and recorded — before it; re-offered,
-  they read `replayed`. **P1 form taken: the second** ("return what was judged"): the batch
-  stops at the failure, the SETs judged before it are returned with `AXIAM_OK`, and that SET
-  and the rest are listed in `unjudged`, unrecorded. A failure on the first SET judges
-  nothing and is raised, as before. The replay-store interface is an atomic
-  check-and-insert with no delete, so un-recording is not available to the helper; this
-  form holds for every store. The docs also carry P2 (acknowledge a `replayed` SET) and P7
-  (`poll` retries `408`/`429`).
-- **Rendered request bodies holding a write-only secret were freed unscrubbed (§30.5 –
-  §32.5; R-19).** Every generated management operation now releases its body through
-  `axiam_mgmt_body_free()` (zero, then free), and the renderer prints into a buffer it owns
-  and zeroes the cJSON tree's strings, so no outgrown or intermediate copy of
-  `bind_secret`, `credential` or `authorization_header` reaches the allocator intact.
-- **A union's `raw` kept the server's whole object (§31.2; R-20, P12.1).** `raw` now holds
-  the tag plus the members the spec declares for that arm; an unknown arm keeps its tag
-  alone. Applies to every generated union (`ScimTargetAuth`, `ScimTargetScope`,
-  `ProviderConfig`, `MdsRefreshOutcome`).
-- **Management reads retried without §16 (§27.4 rule 8; R-30).** A management `GET` is now
-  retried on a transport failure, `408`, `429` or a `5xx` with the full-jitter backoff and
-  `Retry-After` as a floor, and not at all when retrying is disabled. Writes are unchanged:
-  one attempt.
-- **A `5xx` with an `error` member ended `axiam_ciba_await()` (§33.4, §33.7 rule 5; P8).**
-  A `5xx` on `axiam_ciba_poll()` is now retried per §16 and transient whatever its body,
-  surfacing as `AXIAM_ERR_NETWORK` once §16 is spent; §33.8 test 8's `500` carries
-  `{"error":"server_error"}`.
-
-#### Documentation
-
-- `axiam_scim_targets_create()` states §31.3 rule 2's URL binding, as `update` does, and
-  `sp_signing_cert_pem` carries §29.3 rule 2's ECDSA / HTTP-Redirect note on the field
-  itself (R-29) — both from the generator.
-- The README's reason for declining §21.7.2 DPoP proof verification no longer claims a
-  missing JOSE implementation, which the §33.2 signer contradicts (R-41).
-- The README says the default replay store is bounded in time, not in count, and that a
-  store which cannot answer fails closed (P4). **P4 route:** none needed beyond that — the
-  store interface already reports failure (a negative return), refused as no verdict.
-- **P10 anchor:** `axiam_ciba_await()` keeps its deadline anchored at the instant the
-  initiate response was received (`received_at`), which P10 permits.
+- **Rebuild against the new headers: five public structs grew.** `axiam_oidc_config_t`
+  (the four CIBA discovery members), `axiam_mtls_endpoint_aliases_t`
+  (`backchannel_authentication_endpoint`), `axiam_ssf_poll_result_t` (`unjudged`),
+  `axiam_http_request_t` (`replayable`) and `axiam_telemetry_event_t` (`unjudged_count`,
+  `failure_category`). Every member was appended, so existing members keep their offsets,
+  but code that allocates one of these structs, or embeds it, must be recompiled. A custom
+  transport or a telemetry hook built against the older header keeps working: the SDK
+  allocates those two.
+- **`axiam_ssf_poll()` returns what it judged when a later SET cannot be judged (contract
+  1.59, P1).** A JWKS fetch or replay-store failure mid-batch used to fail the whole poll,
+  losing SETs it had already recorded. Now the poll returns `AXIAM_OK` with the judged SETs
+  in `events` / `refused` and the rest in `unjudged`; only a failure on the first SET is
+  raised. *Migration:* read `r.unjudged` — neither acknowledge nor refuse those `jti`s; the
+  transmitter offers them again.
+- **The SSF key cache expires, and a failed key fetch is rate-limited (contract 1.60, P6).**
+  Keys are cached for at most ten minutes (`AXIAM_SSF_JWKS_CACHE_TTL_S`) after the fetch
+  that filled them, and an expired copy is never used. Within a minute of a failed fetch no
+  fetch is made: a SET that needs the keys gets `AXIAM_ERR_NETWORK` (reason `NONE`) at once.
+  *Migration:* none for a caller that already treats `AXIAM_ERR_NETWORK` from
+  `axiam_ssf_verify_set()` as "try again later"; a test that restores a JWKS and verifies
+  again immediately must advance its clock by `AXIAM_SSF_JWKS_REFETCH_INTERVAL_S`.
+- **Management bodies the SDK cannot honestly send are refused locally, with no request.**
+  An `_UNKNOWN` enum constant (or a value outside the enum) anywhere in a request body —
+  the case a read-modify-write of a record holding a value this SDK does not know produces —
+  was sent as `""`; it is now refused (contract 1.60, R-22). The four replacement bodies of
+  §29 – §32 are refused when a required pointer member is NULL. Both are `AXIAM_ERR_NETWORK`
+  with `transport_cause` 400, `axiam_mgmt_error_class()` answering
+  `AXIAM_MGMT_ERR_VALIDATION`, and a message naming the member and ending "no request was
+  sent". *Migration:* set the member to a known constant (or leave an optional one unset)
+  and send again; a caller already handling the server's `400` handles this the same way.
+- **A union's `raw` keeps only its arm's declared members (contract 1.59, P12.1).**
+  `ScimTargetAuth`, `ScimTargetScope`, `ProviderConfig` and `MdsRefreshOutcome` no longer
+  echo members the spec does not declare, and an unknown arm keeps its tag alone.
+  *Migration:* read only the members the spec declares for the arm.
+- **`examples/token_exchange.c`:** `AXIAM_DELEGATE=1` replaces the `AXIAM_ACTOR_TOKEN`
+  environment variable — the actor token is obtained from the client's own
+  `client_credentials` grant (§15.2 rule 9).
 
 ### Added
 
-- **Contract 1.58** — re-vendored `CONTRACT.md`, `openapi.json` and
-  `management-registry.json` (contracts 1.53 – 1.58) and regenerated the §27 surface:
-  **190 operations across 28 namespaces**. The README's Conformance Statement now reads
-  "§28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed".
-- **RFC 7592 client configuration (§28.12)** — `axiam_read_client_registration()`,
-  `axiam_update_client_registration()`, `axiam_delete_client_registration()` and
-  `axiam_client_registration_t` (`axiam/registration.h`). Same-origin only, refused
-  locally otherwise; bearer only, never the SDK's session; writes never retried; tolerant
-  decoding that round-trips unknown members through `extra`.
-- **Directory (§30), SAML service providers (§29), outbound SCIM targets (§31) and SSF
-  streams (§32)** — the generated `axiam_directory_*`, `axiam_saml_*`,
-  `axiam_scim_targets_*` and `axiam_ssf_*_stream(s)` operations, with the contract's
-  call-site warnings in their documentation; explicit `null` through a `has_` flag on
-  `UpdateDirectoryConfig.group_base_dn` / `group_filter` and
-  `SamlIdpInfo.active_credential_id` / `next_credential_id`; `axiam/management_helpers.h`
-  with the read-modify-write conversions, `ParseSamlSpMetadata` constructors and the
-  §31.2 union constructors.
-- **The SSF receiver helper (§32.7)** — `axiam/ssf.h`: `axiam_ssf_verify_set()` (the
-  nine steps, Ed25519 from the configured JWKS only, rate-limited forced refetch, a
-  pluggable replay store with a seven-day floor) and `axiam_ssf_poll()`.
-- **CIBA (§33)** — `axiam/ciba.h`: `axiam_ciba_initiate()` (never retried),
-  `axiam_ciba_poll()`, `axiam_ciba_await()` (injectable clock) and the I/O-free
-  `axiam_ciba_handle_ping()` (constant-time bearer check); `axiam_error_is_access_denied()`
-  / `axiam_error_is_expired_token()`; the §33.2 signed request in PS256, ES256 and EdDSA
-  (`axiam_ciba_request_signer_new()`), all with the OpenSSL already linked.
-- `axiam_oidc_config_t` gains the four CIBA discovery members, and
-  `axiam_mtls_endpoint_aliases_t` its seventh, `backchannel_authentication_endpoint`
-  (CONTRACT.md §21.3.1 vector A as amended). Both are appended at the END of their
-  structs, so existing members keep their offsets — but the structs grew, so code that
-  allocates them must be rebuilt against the new header.
+- **Contract 1.60 models (§27.15, §31).** `expected_updated_at` on `ScimTargetInput`: sent
+  on `axiam_scim_targets_update()` exactly as you set it, it makes the replacement
+  conditional, and a target changed since is a `409` (the conflict class). `window_minutes`
+  on the notification-rule create and update requests and the response, passed through as
+  given and never clamped (1 – 1440 is the server's to judge). `allow_sha1_signatures`
+  (SAML only; a response without it reads `0`) and `idp_metadata_signing_cert_pem` on the
+  three federation configuration models, sent only when set.
+- **`axiam_federation_update_config()` can clear (§27.15 note 8).** Each of the ten nullable
+  members of `UpdateFederationConfigRequest` gains a `has_` flag: NULL with the flag 1 is
+  sent as `null` and clears the value, NULL with the flag 0 is omitted and leaves it.
+- **The §19.1 `ssf_unjudged` telemetry event** (`AXIAM_TELEMETRY_SSF_UNJUDGED`): a poll
+  that returns leaving SETs unjudged reports how many and why (`key_fetch` or
+  `replay_store`) — never a `jti`.
+- **Contracts 1.53 – 1.58.** RFC 7592 client configuration (§28.12:
+  `axiam_read_client_registration()`, `axiam_update_client_registration()`,
+  `axiam_delete_client_registration()`; same-origin only, bearer only, writes never
+  retried, unknown members round-tripped through `extra`). Four management namespaces —
+  directory (§30), SAML service providers (§29), outbound SCIM targets (§31) and SSF streams
+  (§32) — with the contract's call-site warnings, explicit `null` through `has_` flags on
+  `UpdateDirectoryConfig` and `SamlIdpInfo`, and `axiam/management_helpers.h` (the
+  read-modify-write conversions, the `ParseSamlSpMetadata` constructors, the §31.2 union
+  constructors). The SSF receiver helper (§32.7, `axiam/ssf.h`): §32.7's nine steps with
+  Ed25519 from the configured JWKS only, a pluggable replay store with a seven-day floor, and
+  `axiam_ssf_poll()`. CIBA (§33, `axiam/ciba.h`): initiate (never retried), poll, an `await`
+  loop with an injectable clock, the I/O-free constant-time ping check, and the §33.2 signed
+  request in PS256, ES256 and EdDSA with the OpenSSL already linked.
+- **The auto-paging form (§27.4 rule 4).** Every paginated management operation has an
+  `_all` twin (`axiam_users_list_all()`, `axiam_scim_targets_list_all()`, … 24 in all) that
+  walks to the empty page with the same `limit` and `search`, and returns one page holding
+  every item; any failure ends the walk with `*out` NULL.
 
 ### Changed
 
-- A management `400`/`422` error's message now carries the server's `message` (§29.4,
+- **Management reads are retried per §16 (§27.4 rule 8).** A management `GET` is retried on
+  a transport failure, `408`, `429` or a `5xx`, with full-jitter backoff and `Retry-After`
+  as a floor, and not at all when retrying is disabled. Writes stay one attempt.
+- **A management `400` / `422` error's message carries the server's `message`** (§29.4,
   §30.4, §31.4).
-- The four replacement bodies of §29 – §32 (`SetDirectoryConfig`,
-  `SamlServiceProviderInput`, `ScimTargetInput`, `SsfStreamInput`) are refused locally
-  when a required pointer member is NULL — C has no compile-time check, so the operation
-  is the builder that refuses. Local refusals of this kind, the §28.12 origin rule and the
-  CIBA argument checks are `AXIAM_ERR_NETWORK` with `transport_cause` 400 (class
-  `AXIAM_MGMT_ERR_VALIDATION`) and a message ending "no request was sent".
+- **A refresh's `scope` is the response's (contract 1.60, §12.1).** Verified: the token set
+  `axiam_oidc_refresh()` returns is built from the response alone, so a scope the server
+  narrowed — and no ID token once `openid` is gone — is what you get. Discovery documents
+  carrying the four 1.60 revocation and introspection members decode unchanged; this SDK
+  does not model them and keeps authenticating with the configured method.
+- **Documentation.** `axiam_token_exchange_params_t.actor_token`, the README and the example
+  say the actor token must have been issued to the exchanging client (§15.2 rule 9).
+  `axiam_scim_targets_create()` states §31.3 rule 2's URL binding and `sp_signing_cert_pem`
+  §29.3 rule 2's ECDSA / HTTP-Redirect note. The README's reason for declining §21.7.2 DPoP
+  proof verification is that verifying a proof needs the HTTP request, which the guards do
+  not see (§21.9); it no longer cites a missing JOSE implementation. The default replay
+  store is documented as bounded in time, failing closed when a pluggable store cannot
+  answer (P4), and `axiam_ciba_await()` anchors its deadline at `received_at` (P10).
+
+### Fixed
+
+- **A write a server dropped unanswered could reach it twice (contract 1.60, P11; R-17).**
+  libcurl re-sends a request on its own when a reused connection proves dead before any
+  byte of the reply. Every request that is not a `GET` and that the SDK does not itself
+  replay now goes on a fresh connection nothing reuses (`CURLOPT_FRESH_CONNECT` plus
+  `CURLOPT_FORBID_REUSE`), so it arrives exactly once; `GET`s and the requests §16 retries
+  keep the pool.
+- **An `_UNKNOWN` enum value was sent as `""`** (contract 1.60, R-22) — see Breaking
+  changes.
+- **The SSF key cache never expired, and a failed fill was retried on every SET**
+  (contract 1.60, P6) — see Breaking changes.
+- **`axiam_ssf_poll()` lost the events of a batch aborted by a non-verdict failure**
+  (contract 1.59, P1) — see Breaking changes. A replay store that cannot answer (a negative
+  return) gives no verdict: `AXIAM_ERR_NETWORK` with no reason code, never `replayed`, the
+  SET left unjudged and unrecorded (B1, verified).
+- **A `5xx` with an `error` member ended `axiam_ciba_await()` (§33.4, §33.7 rule 5; P8).**
+  A `5xx` on `axiam_ciba_poll()` is retried per §16 and transient whatever its body.
+
+### Security
+
+- **Request bodies holding a write-only secret are scrubbed before release (§30.5 – §32.5;
+  R-19).** Every generated management operation releases its body through
+  `axiam_mgmt_body_free()` (zero, then free), and the renderer zeroes the cJSON tree's
+  strings, so no copy of `bind_secret`, `credential` or `authorization_header` reaches the
+  allocator intact.
+- **A key the SSF transmitter removed stops verifying within ten minutes** (P6): the cache
+  that held it expires and is never read past its lifetime.
+- **A write is never delivered twice by a transport-level re-send** (P11), so a
+  non-idempotent management call a server dropped cannot take effect twice.
 
 ## [1.0.0-beta17] - 2026-09-25
 

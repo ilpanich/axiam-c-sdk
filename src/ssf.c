@@ -11,7 +11,9 @@
  *    are never read, so a SET cannot nominate the key that verifies it.
  *  - An unknown `kid` forces one refetch, and forced refetches happen at most once a
  *    minute: an attacker presenting made-up kids must not be able to drive one JWKS fetch
- *    per SET. The initial fetch is not a forced one and does not start that window.
+ *    per SET. A successful fill is not a forced one and does not start that window; a
+ *    failed fetch does, so a JWKS outage is not one fetch per SET either. The cache
+ *    expires AXIAM_SSF_JWKS_CACHE_TTL_S after the fetch that filled it (contract 1.60, P6).
  */
 
 #include <pthread.h>
@@ -99,7 +101,8 @@ struct axiam_ssf_receiver {
     pthread_mutex_t keys_mtx; /* held across a fetch: single-flight */
     struct ssf_key *keys;
     int keys_loaded;
-    time_t last_forced_refetch; /* 0 = never */
+    time_t keys_fetched_at;    /* when the successful fetch that filled the cache ran */
+    time_t last_counted_fetch; /* 0 = never: a forced refetch, or any failed fetch (P6) */
 
     pthread_mutex_t seen_mtx;
     struct ssf_seen *seen;
@@ -307,23 +310,45 @@ static int find_key(const axiam_ssf_receiver_t *r, const char *kid, unsigned cha
     return 0;
 }
 
-/* Step 4: the key for `kid`, fetching on first use and refetching ONCE on a miss, at
- * most once per AXIAM_SSF_JWKS_REFETCH_INTERVAL_S. Returns AXIAM_OK with *found set, or
- * AXIAM_ERR_NETWORK when a fetch failed. */
+/* Whether a counted fetch (P6) ran less than AXIAM_SSF_JWKS_REFETCH_INTERVAL_S ago. */
+static int fetch_limited(const axiam_ssf_receiver_t *r, time_t now) {
+    return r->last_counted_fetch != 0 &&
+           now - r->last_counted_fetch < AXIAM_SSF_JWKS_REFETCH_INTERVAL_S;
+}
+
+/* Step 4: the key for `kid`, filling an empty or expired cache and refetching ONCE on a
+ * miss (§34.2 P6). A successful fill or refresh is not counted toward the once-a-minute
+ * limit; a failed one is, and so is the refetch whatever its outcome. Within the minute
+ * after a counted fetch nothing is fetched: a cache that cannot be (re)filled answers
+ * AXIAM_ERR_NETWORK -- no verdict -- and a miss is a miss. Returns AXIAM_OK with *found
+ * set, or AXIAM_ERR_NETWORK when the keys could not be had. */
 static axiam_error_kind_t key_for_kid(axiam_ssf_receiver_t *r, const char *kid,
                                       unsigned char out[32], int *found, axiam_error_t *err) {
     *found = 0;
     pthread_mutex_lock(&r->keys_mtx);
     axiam_error_kind_t kind = AXIAM_OK;
-    if (!r->keys_loaded) kind = fetch_keys(r, err);
-    if (kind == AXIAM_OK) *found = find_key(r, kid, out);
-    if (kind == AXIAM_OK && !*found) {
-        time_t now = receiver_now(r);
-        if (r->last_forced_refetch == 0 ||
-            now - r->last_forced_refetch >= AXIAM_SSF_JWKS_REFETCH_INTERVAL_S) {
-            r->last_forced_refetch = now;
+    time_t now = receiver_now(r);
+    if (!r->keys_loaded || now - r->keys_fetched_at >= AXIAM_SSF_JWKS_CACHE_TTL_S) {
+        /* An expired cache is not read: a key the transmitter removed must stop
+         * verifying, so a failed refresh is a failure, not a fallback to stale keys. */
+        if (fetch_limited(r, now)) {
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                            "JWKS unavailable: a fetch failed less than a minute ago and no "
+                            "fetch is made until the minute has passed");
+            kind = AXIAM_ERR_NETWORK;
+        } else {
             kind = fetch_keys(r, err);
-            if (kind == AXIAM_OK) *found = find_key(r, kid, out);
+            if (kind == AXIAM_OK) r->keys_fetched_at = now;
+            else r->last_counted_fetch = now;
+        }
+    }
+    if (kind == AXIAM_OK) *found = find_key(r, kid, out);
+    if (kind == AXIAM_OK && !*found && !fetch_limited(r, now)) {
+        r->last_counted_fetch = now;
+        kind = fetch_keys(r, err);
+        if (kind == AXIAM_OK) {
+            r->keys_fetched_at = now;
+            *found = find_key(r, kid, out);
         }
     }
     pthread_mutex_unlock(&r->keys_mtx);
@@ -426,9 +451,13 @@ static axiam_error_kind_t oom(axiam_error_t *err) {
     return AXIAM_ERR_NETWORK;
 }
 
+/* `failure`, when given, receives the §19.1 `ssf_unjudged` category of a failure that is
+ * not a verdict: "key_fetch" or "replay_store" (NULL for anything else). */
 static axiam_error_kind_t verify_inner(axiam_ssf_receiver_t *r, const char *set,
                                        const char *expected_jti, axiam_security_event_t *out,
-                                       axiam_ssf_reason_t *out_reason, axiam_error_t *err) {
+                                       axiam_ssf_reason_t *out_reason, const char **failure,
+                                       axiam_error_t *err) {
+    if (failure) *failure = NULL;
     /* 1. Three base64url parts, a JSON object header and payload. */
     const char *dot1 = set ? strchr(set, '.') : NULL;
     const char *dot2 = dot1 ? strchr(dot1 + 1, '.') : NULL;
@@ -474,7 +503,10 @@ static axiam_error_kind_t verify_inner(axiam_ssf_receiver_t *r, const char *set,
         }
         int found = 0;
         kind = key_for_kid(r, kid->valuestring, pub, &found, err);
-        if (kind != AXIAM_OK) goto done; /* a fetch failure: not a verdict on the SET */
+        if (kind != AXIAM_OK) { /* a fetch failure: not a verdict on the SET */
+            if (failure) *failure = "key_fetch";
+            goto done;
+        }
         if (!found) {
             kind = refuse(AXIAM_SSF_REASON_INVALID_KEY, "no key for kid in the JWKS", out_reason, err);
             goto done;
@@ -564,6 +596,7 @@ static axiam_error_kind_t verify_inner(axiam_ssf_receiver_t *r, const char *set,
             axiam_security_event_dispose(out);
             if (fresh < 0) {
                 axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "the SSF replay store failed");
+                if (failure) *failure = "replay_store";
                 kind = AXIAM_ERR_NETWORK;
             } else {
                 kind = refuse(AXIAM_SSF_REASON_REPLAYED, "jti already seen", out_reason, err);
@@ -589,7 +622,7 @@ axiam_error_kind_t axiam_ssf_verify_set(axiam_ssf_receiver_t *receiver, const ch
         return AXIAM_ERR_NETWORK;
     }
     memset(out, 0, sizeof(*out));
-    return verify_inner(receiver, set, NULL, out, out_reason, err);
+    return verify_inner(receiver, set, NULL, out, out_reason, NULL, err);
 }
 
 /* ------------------------------------------------------------------ */
@@ -700,10 +733,11 @@ static axiam_error_kind_t collect(axiam_ssf_receiver_t *r, const char *reply,
         axiam_error_t one;
         axiam_error_reset(&one);
         axiam_error_kind_t k = AXIAM_OK;
+        const char *failure = NULL;
         if (cJSON_IsString(s)) {
             axiam_security_event_t *slot = &out->events[out->events_count];
             reason = AXIAM_SSF_REASON_NONE;
-            k = verify_inner(r, s->valuestring, s->string, slot, &reason, &one);
+            k = verify_inner(r, s->valuestring, s->string, slot, &reason, &failure, &one);
             if (k == AXIAM_OK) {
                 out->events_count++;
                 continue;
@@ -727,6 +761,11 @@ static axiam_error_kind_t collect(axiam_ssf_receiver_t *r, const char *reply,
             kind = k;
         } else {
             list_unjudged(s, out);
+            /* §19.1 `ssf_unjudged` (contract 1.60, SHOULD): the count and the category,
+             * never a jti. An allocation failure has no category and is not reported. */
+            size_t left = 0;
+            for (const cJSON *u = s; u; u = u->next) left++;
+            if (failure) axiam_telemetry_ssf_unjudged(&r->client->telemetry, left, failure);
         }
         break;
     }

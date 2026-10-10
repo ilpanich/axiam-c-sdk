@@ -414,7 +414,7 @@ int oidc_endpoint_names_tenant(const char *endpoint) {
  * X-Tenant-ID goes out here even on the /oauth2/ paths where the server reads
  * the tenant only from the query parameter and the header is inert. */
 static int oidc_transport_once(axiam_client_t *c, const char *method, const char *url,
-                               const char *content_type, const char *body,
+                               const char *content_type, const char *body, int replayable,
                                axiam_http_response_t *resp) {
     memset(resp, 0, sizeof(*resp));
     axiam_kv_t *headers = NULL;
@@ -433,6 +433,7 @@ static int oidc_transport_once(axiam_client_t *c, const char *method, const char
     req.headers = headers;
     req.body = body;
     req.body_len = body ? strlen(body) : 0;
+    req.replayable = replayable; /* §34.2 P11: 0 = a write never sent twice */
 
     int rc = c->transport(c->transport_ctx, &req, resp);
     axiam_kv_free(headers);
@@ -451,7 +452,7 @@ int oidc_post(axiam_client_t *c, const char *url, const char *content_type,
      */
     int rc = -1;
     for (int attempt = 1; attempt <= budget; attempt++) {
-        rc = oidc_transport_once(c, "POST", url, content_type, body, resp);
+        rc = oidc_transport_once(c, "POST", url, content_type, body, budget > 1, resp);
         if (attempt == budget) break;
         if (!axiam_retry_should_retry(rc != 0, resp->status)) break;
 
@@ -472,7 +473,7 @@ int oidc_post(axiam_client_t *c, const char *url, const char *content_type,
  * would spend the login rate-limit budget that bounds slug guessing.
  */
 static int oidc_get(axiam_client_t *c, const char *url, axiam_http_response_t *resp) {
-    return oidc_transport_once(c, "GET", url, NULL, NULL, resp);
+    return oidc_transport_once(c, "GET", url, NULL, NULL, 1, resp);
 }
 
 axiam_error_kind_t oidc_map_grant_error(const axiam_http_response_t *resp,

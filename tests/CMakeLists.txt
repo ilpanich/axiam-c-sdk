@@ -445,3 +445,6 @@ add_test(NAME test_secret_bodies_scrubbed COMMAND test_secret_bodies_scrubbed)
 # headers and the README a consumer reads.
 axiam_add_test(test_contract_159_docs test_contract_159_docs.c)
 target_compile_definitions(test_contract_159_docs PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+# Contract 1.60 (§27.15 notes 1, 6, 7 and 8): window_minutes, the two federation members
+# and the federation update's explicit-null rule, on the §27 rig.
+axiam_add_test(test_contract_160 test_contract_160.c management_test_util.c)

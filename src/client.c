@@ -309,9 +309,9 @@ static void capture_csrf(axiam_client_t *c, const axiam_http_response_t *resp) {
 }
 
 /* Perform one transport round-trip for a path. state_changing controls CSRF. */
-static int transport_once(axiam_client_t *c, const char *method, const char *path,
-                          const char *body, int state_changing,
-                          axiam_http_response_t *resp) {
+static int transport_once_ex(axiam_client_t *c, const char *method, const char *path,
+                             const char *body, int state_changing, int replayable,
+                             axiam_http_response_t *resp) {
     memset(resp, 0, sizeof(*resp));
     char *url = build_url(c, path);
     if (!url) return -1;
@@ -323,6 +323,7 @@ static int transport_once(axiam_client_t *c, const char *method, const char *pat
     req.headers = headers;
     req.body = body;
     req.body_len = body ? strlen(body) : 0;
+    req.replayable = replayable;
 
     int rc = c->transport(c->transport_ctx, &req, resp);
     capture_csrf(c, resp);
@@ -330,6 +331,14 @@ static int transport_once(axiam_client_t *c, const char *method, const char *pat
     axiam_kv_free(headers);
     free(url);
     return rc;
+}
+
+/* The default: a request this SDK never sends twice (§34.2 P11). Only the §16 retry loop
+ * below says otherwise. */
+static int transport_once(axiam_client_t *c, const char *method, const char *path,
+                          const char *body, int state_changing,
+                          axiam_http_response_t *resp) {
+    return transport_once_ex(c, method, path, body, state_changing, 0, resp);
 }
 
 int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *path,
@@ -1597,7 +1606,8 @@ static int transport_retrying(axiam_client_t *c, const char *op, const char *pat
         axiam_telemetry_request_start(&c->telemetry, op, "POST", path, attempt);
         double started = axiam_telemetry_installed(&c->telemetry) ? axiam_now_ms() : 0.0;
 
-        rc = transport_once(c, "POST", path, body, 1, resp);
+        /* replayable: this loop is the §16 retry, and the request is an authorization check. */
+        rc = transport_once_ex(c, "POST", path, body, 1, 1, resp);
 
         int transport_failed = (rc != 0);
         long status = resp->status;

@@ -2210,6 +2210,16 @@ axiam_error_kind_t axiam_federation_get_config(axiam_client_t *c, const char *id
  *
  * `PUT /api/v1/federation-configs/{id}`.
  *
+ * **A sparse update where `null` clears** (§27.15 note 8, contract 1.60). A member left
+ * NULL (or with its `has_` flag 0) is not sent and stays as stored. Each of the ten
+ * nullable members -- `metadata_url`, `idp_signing_cert_pem`,
+ * `idp_metadata_signing_cert_pem`, `provider_slug`, `authorization_endpoint`,
+ * `token_endpoint`, `userinfo_endpoint`, `apple_team_id`, `apple_key_id`, `button_icon` --
+ * left NULL with its `has_` flag set to 1 is sent as `null` and clears the stored value. An
+ * `OAuth2` configuration's three endpoints cannot be cleared (`400`), and `apple_team_id` /
+ * `apple_key_id` clear only together. `allow_sha1_signatures` and
+ * `idp_metadata_signing_cert_pem` apply to SAML configurations only (`400` on any other).
+ *
  * @param c The client. Must have an active session (27.4 rule 1).
  * @param id The `{id}` path parameter.
  * @param body The request body.

@@ -103,3 +103,15 @@ void axiam_telemetry_config_clamped(const axiam_telemetry_t *t, const char *sett
     ev.contract_reference = contract_reference;
     axiam_telemetry_emit(t, &ev);
 }
+
+void axiam_telemetry_ssf_unjudged(const axiam_telemetry_t *t, size_t unjudged_count,
+                                  const char *failure_category) {
+    if (!axiam_telemetry_installed(t)) return;
+    axiam_telemetry_event_t ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.kind = AXIAM_TELEMETRY_SSF_UNJUDGED;
+    ev.operation = "ssf.poll";
+    ev.unjudged_count = unjudged_count;
+    ev.failure_category = failure_category;
+    axiam_telemetry_emit(t, &ev);
+}

@@ -832,8 +832,10 @@ static void test_a_jwks_fetch_failure_is_a_network_error_not_a_verdict(void) {
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
     TEST_ASSERT_EQUAL_INT(0, (int) res.events_count);
 
-    /* The SET was never recorded: once the keys are back it verifies. */
+    /* The SET was never recorded: once the keys are back it verifies -- after the
+     * minute a failed fetch starts (P6, contract 1.60), inside which nothing is fetched. */
     g.jwks_status = 0;
+    g.now += AXIAM_SSF_JWKS_REFETCH_INTERVAL_S;
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(r, set, &reason));
     g.jwks_status = 200;
     free(g.jwks);
@@ -1019,6 +1021,300 @@ static void test_a_failing_token_provider_stops_the_poll(void) {
     axiam_client_free(c);
 }
 
+/* ---- §32.8 helper test 6, the store-failure case (contract 1.60 B1; P4) ------------
+ *
+ * A replay store that cannot answer gives NO verdict. This store's answer is a bare int
+ * the SDK's interface already makes fallible (a negative return), so B1 is a *verify* row:
+ * the failure sets the failure channel (AXIAM_ERR_NETWORK, no reason code) and is never
+ * read as `replayed`; the SET is in neither `events` nor `refused`, is not recorded (the
+ * store, once it answers again, finds it fresh) and is not acknowledged. C's poll never
+ * acknowledges on its own; the observable is that the SET is listed `unjudged` and nowhere
+ * else, which is what keeps the caller from acknowledging or refusing it. */
+static char g_b1_down_jti[40];
+static int g_b1_down;
+static int g_b1_calls_for_down_jti;
+static int store_that_can_be_down(void *ctx, const char *jti, long window_s) {
+    (void) ctx;
+    (void) window_s;
+    if (g_b1_down && strcmp(jti, g_b1_down_jti) == 0) {
+        g_b1_calls_for_down_jti++;
+        return -1; /* cannot answer */
+    }
+    return 1; /* recorded */
+}
+
+static void test_6_a_store_that_cannot_answer_gives_no_verdict_B1(void) {
+    axiam_client_t *c = make_client();
+    axiam_ssf_receiver_config_t cfg;
+    memset(&cfg, 0, sizeof cfg);
+    cfg.issuer = ISSUER;
+    cfg.audience = AUDIENCE;
+    cfg.jwks_uri = JWKS_URI;
+    cfg.access_token_provider = token_provider;
+    cfg.replay_store = store_that_can_be_down;
+    axiam_error_t err;
+    axiam_ssf_receiver_t *r = axiam_ssf_receiver_new(c, &cfg, &err);
+    TEST_ASSERT_NOT_NULL(r);
+
+    char jti[2][33], body[1024], reply[8192];
+    char *sets[2];
+    for (int i = 0; i < 2; i++) {
+        random_jti(jti[i]);
+        payload(body, sizeof body, jti[i], "\"" AUDIENCE "\"", NULL);
+        sets[i] = sign_set(g_key, HEADER("k1"), body);
+    }
+    snprintf(g_b1_down_jti, sizeof g_b1_down_jti, "%s", jti[1]);
+
+    /* verify_set: the failure channel is set, and it is not a verdict. */
+    g_b1_down = 1;
+    g_b1_calls_for_down_jti = 0;
+    axiam_security_event_t ev;
+    axiam_ssf_reason_t reason = AXIAM_SSF_REASON_REPLAYED; /* must be reset, not left */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ssf_verify_set(r, sets[1], &ev, &reason, &err));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_SSF_REASON_NONE, reason,
+                                  "a store failure carries no reason code, least of all replayed");
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, err.kind);
+    TEST_ASSERT_NULL(ev.jti);
+    axiam_security_event_dispose(&ev);
+
+    /* poll, a batch of two whose SECOND the store cannot answer for: the first is judged,
+     * the second is in neither `events` nor `refused` -- it is `unjudged`. */
+    snprintf(reply, sizeof reply, "{\"sets\":{\"%s\":\"%s\",\"%s\":\"%s\"}}", jti[0], sets[0],
+             jti[1], sets[1]);
+    g.poll[0] = (answer_t){200, reply, 0};
+    g.poll_len = 1;
+    axiam_ssf_poll_result_t res;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
+    TEST_ASSERT_EQUAL_INT(1, (int) res.events_count);
+    TEST_ASSERT_EQUAL_STRING(jti[0], res.events[0].jti);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, (int) res.refused_count, "never refused, least of all replayed");
+    TEST_ASSERT_EQUAL_INT(1, (int) res.unjudged_count);
+    TEST_ASSERT_EQUAL_STRING(jti[1], res.unjudged[0]);
+    axiam_ssf_poll_result_dispose(&res);
+
+    /* Not recorded: once the store answers again the same SET is judged fresh (a recorded
+     * jti would read `replayed`), and the first SET -- recorded -- is the replay. */
+    g_b1_down = 0;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(r, sets[1], &reason));
+    axiam_ssf_receiver_free(r);
+
+    /* The same with the default in-memory store: it cannot fail, and records only a verdict. */
+    r = make_receiver(c, 0);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(r, sets[0], &reason));
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, verify(r, sets[0], &reason));
+    TEST_ASSERT_EQUAL_INT(AXIAM_SSF_REASON_REPLAYED, reason);
+    axiam_ssf_receiver_free(r);
+    for (int i = 0; i < 2; i++) free(sets[i]);
+    axiam_client_free(c);
+}
+
+/* ---- §34.2 P6 (contract 1.60): the key cache's lifetime and the counted fetches ---- */
+
+/* A fresh SET signed with k1, for the cases below. */
+static char *fresh_k1_set(void) {
+    char jti[33], body[1024];
+    random_jti(jti);
+    payload(body, sizeof body, jti, "\"" AUDIENCE "\"", NULL);
+    return sign_set(g_key, HEADER("k1"), body);
+}
+
+static axiam_error_kind_t verify_fresh(axiam_ssf_receiver_t *r, axiam_ssf_reason_t *reason) {
+    char *set = fresh_k1_set();
+    axiam_error_kind_t k = verify(r, set, reason);
+    free(set);
+    return k;
+}
+
+static void test_p6_the_key_cache_expires_within_ten_minutes(void) {
+    axiam_client_t *c = make_client();
+    axiam_ssf_receiver_t *r = make_receiver(c, 0);
+    axiam_ssf_reason_t reason;
+    TEST_ASSERT_TRUE(AXIAM_SSF_JWKS_CACHE_TTL_S <= 600);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT(1, g.jwks_fetches);
+
+    g.now += AXIAM_SSF_JWKS_CACHE_TTL_S - 1;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, g.jwks_fetches, "served from the cache while it lives");
+
+    /* Expired: the next SET fetches again, and a key the transmitter removed stops
+     * verifying -- the expired copy is not read. */
+    g.now += 1;
+    EVP_PKEY *replacement = new_key();
+    const char *kids[] = {"k2"};
+    free(g.jwks);
+    g.jwks = jwks_of(&replacement, kids, 1);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT(AXIAM_SSF_REASON_INVALID_KEY, reason);
+    /* The refresh, then the one unknown-kid refetch (a successful refresh is not counted). */
+    TEST_ASSERT_EQUAL_INT(3, g.jwks_fetches);
+    EVP_PKEY_free(replacement);
+    axiam_ssf_receiver_free(r);
+    axiam_client_free(c);
+}
+
+static void test_p6_a_failed_fill_counts_and_a_set_inside_the_minute_makes_no_fetch(void) {
+    axiam_client_t *c = make_client();
+    axiam_ssf_receiver_t *r = make_receiver(c, 1);
+    axiam_ssf_reason_t reason;
+    g.jwks_status = 503;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT(AXIAM_SSF_REASON_NONE, reason);
+    TEST_ASSERT_EQUAL_INT(1, g.jwks_fetches);
+
+    /* Inside the minute: no fetch, the same no-verdict failure -- even with the JWKS back. */
+    g.jwks_status = 0;
+    g.now += AXIAM_SSF_JWKS_REFETCH_INTERVAL_S - 1;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT(AXIAM_SSF_REASON_NONE, reason);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, g.jwks_fetches, "no fetch within the minute of a failed one");
+
+    /* ... and in `poll` the SET is unjudged, never refused: the first SET failing, the
+     * failure is raised with nothing recorded. */
+    char *set = fresh_k1_set();
+    char jti[33], reply[4096];
+    random_jti(jti);
+    snprintf(reply, sizeof reply, "{\"sets\":{\"%s\":\"%s\"}}", jti, set);
+    g.poll[0] = (answer_t){200, reply, 0};
+    g.poll_len = 1;
+    axiam_ssf_poll_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
+    TEST_ASSERT_EQUAL_INT(0, (int) res.refused_count);
+    TEST_ASSERT_EQUAL_INT(1, g.jwks_fetches);
+    free(set);
+
+    /* After the minute the fill runs, succeeds, and is not counted: an unknown kid right
+     * after it is refetched once. */
+    g.now += 1;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_fetches);
+    char body[1024];
+    random_jti(jti);
+    payload(body, sizeof body, jti, "\"" AUDIENCE "\"", NULL);
+    set = sign_set(g_key, HEADER("k-unknown"), body);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, verify(r, set, &reason));
+    TEST_ASSERT_EQUAL_INT(3, g.jwks_fetches);
+    free(set);
+    axiam_ssf_receiver_free(r);
+    axiam_client_free(c);
+}
+
+static void test_p6_a_failed_refresh_of_an_expired_cache_counts(void) {
+    axiam_client_t *c = make_client();
+    axiam_ssf_receiver_t *r = make_receiver(c, 0);
+    axiam_ssf_reason_t reason;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT(1, g.jwks_fetches);
+
+    g.now += AXIAM_SSF_JWKS_CACHE_TTL_S;
+    g.jwks_status = 503;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_ERR_NETWORK, verify_fresh(r, &reason),
+                                  "an expired cache is not a fallback");
+    TEST_ASSERT_EQUAL_INT(AXIAM_SSF_REASON_NONE, reason);
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_fetches);
+
+    g.jwks_status = 0;
+    g.now += 30;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, g.jwks_fetches, "the failed refresh started the minute");
+
+    g.now += 30;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify_fresh(r, &reason));
+    TEST_ASSERT_EQUAL_INT(3, g.jwks_fetches);
+    axiam_ssf_receiver_free(r);
+    axiam_client_free(c);
+}
+
+/* ---- §19.1 `ssf_unjudged` (contract 1.60, SHOULD) ----------------------------------- */
+
+static int g_unjudged_events;
+static size_t g_unjudged_count;
+static char g_unjudged_category[32];
+static char g_unjudged_operation[32];
+
+static void record_unjudged(void *ctx, const axiam_telemetry_event_t *ev) {
+    (void) ctx;
+    if (ev->kind != AXIAM_TELEMETRY_SSF_UNJUDGED) return;
+    g_unjudged_events++;
+    g_unjudged_count = ev->unjudged_count;
+    snprintf(g_unjudged_category, sizeof g_unjudged_category, "%s",
+             ev->failure_category ? ev->failure_category : "");
+    snprintf(g_unjudged_operation, sizeof g_unjudged_operation, "%s",
+             ev->operation ? ev->operation : "");
+}
+
+static void test_a_poll_leaving_sets_unjudged_emits_ssf_unjudged(void) {
+    axiam_client_t *c = make_client();
+    c->telemetry.fn = record_unjudged;
+    c->telemetry.ctx = NULL;
+    g_unjudged_events = 0;
+
+    /* key_fetch: the second SET names a kid the cache lacks and the refetch fails. */
+    axiam_ssf_receiver_t *r = make_receiver(c, 1);
+    char jti[3][33], body[1024], reply[12288];
+    char *sets[3];
+    EVP_PKEY *rotated = new_key();
+    for (int i = 0; i < 3; i++) {
+        random_jti(jti[i]);
+        payload(body, sizeof body, jti[i], "\"" AUDIENCE "\"", NULL);
+        sets[i] = i == 0 ? sign_set(g_key, HEADER("k1"), body) : sign_set(rotated, HEADER("k9"), body);
+    }
+    snprintf(reply, sizeof reply, "{\"sets\":{\"%s\":\"%s\",\"%s\":\"%s\",\"%s\":\"%s\"}}",
+             jti[0], sets[0], jti[1], sets[1], jti[2], sets[2]);
+    g.poll[0] = (answer_t){200, reply, 0};
+    g.poll_len = 1;
+    g.jwks_fail_from = 2;
+    axiam_ssf_poll_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
+    TEST_ASSERT_EQUAL_INT(2, (int) res.unjudged_count);
+    TEST_ASSERT_EQUAL_INT(1, g_unjudged_events);
+    TEST_ASSERT_EQUAL_STRING("ssf.poll", g_unjudged_operation);
+    TEST_ASSERT_EQUAL_INT(2, (int) g_unjudged_count);
+    TEST_ASSERT_EQUAL_STRING("key_fetch", g_unjudged_category);
+    axiam_ssf_poll_result_dispose(&res);
+    axiam_ssf_receiver_free(r);
+    g.jwks_fail_from = 0;
+
+    /* replay_store: the store cannot answer on the second SET. */
+    axiam_ssf_receiver_config_t cfg;
+    memset(&cfg, 0, sizeof cfg);
+    cfg.issuer = ISSUER;
+    cfg.audience = AUDIENCE;
+    cfg.jwks_uri = JWKS_URI;
+    cfg.access_token_provider = token_provider;
+    cfg.replay_store = store_failing_on_second;
+    r = axiam_ssf_receiver_new(c, &cfg, &err);
+    TEST_ASSERT_NOT_NULL(r);
+    for (int i = 0; i < 3; i++) {
+        free(sets[i]);
+        random_jti(jti[i]);
+        payload(body, sizeof body, jti[i], "\"" AUDIENCE "\"", NULL);
+        sets[i] = sign_set(g_key, HEADER("k1"), body);
+    }
+    snprintf(reply, sizeof reply, "{\"sets\":{\"%s\":\"%s\",\"%s\":\"%s\",\"%s\":\"%s\"}}",
+             jti[0], sets[0], jti[1], sets[1], jti[2], sets[2]);
+    g.poll[0] = (answer_t){200, reply, 0};
+    g_failing_second_calls = 0;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
+    TEST_ASSERT_EQUAL_INT(2, g_unjudged_events);
+    TEST_ASSERT_EQUAL_INT(2, (int) g_unjudged_count);
+    TEST_ASSERT_EQUAL_STRING("replay_store", g_unjudged_category);
+    axiam_ssf_poll_result_dispose(&res);
+
+    /* A poll that judges every SET, or raises, emits nothing. */
+    g.poll[0] = (answer_t){200, "{\"sets\":{},\"moreAvailable\":false}", 0};
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_poll(r, "s1", NULL, &res, &err));
+    axiam_ssf_poll_result_dispose(&res);
+    TEST_ASSERT_EQUAL_INT(2, g_unjudged_events);
+
+    for (int i = 0; i < 3; i++) free(sets[i]);
+    EVP_PKEY_free(rotated);
+    axiam_ssf_receiver_free(r);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_a_valid_set_verifies_and_every_field_is_the_claims);
@@ -1038,5 +1334,10 @@ int main(void) {
     RUN_TEST(test_reason_codes_and_their_rfc_8935_answers);
     RUN_TEST(test_a_pluggable_replay_store_decides);
     RUN_TEST(test_a_failing_token_provider_stops_the_poll);
+    RUN_TEST(test_6_a_store_that_cannot_answer_gives_no_verdict_B1);
+    RUN_TEST(test_p6_the_key_cache_expires_within_ten_minutes);
+    RUN_TEST(test_p6_a_failed_fill_counts_and_a_set_inside_the_minute_makes_no_fetch);
+    RUN_TEST(test_p6_a_failed_refresh_of_an_expired_cache_counts);
+    RUN_TEST(test_a_poll_leaving_sets_unjudged_emits_ssf_unjudged);
     return UNITY_END();
 }

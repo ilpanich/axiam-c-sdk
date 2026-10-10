@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.59 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.60 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -21,6 +21,24 @@ framework-agnostic route guard and declarative authorization helpers.
 > contract makes retry policy and deterministic shutdown MUST-level and says
 > they are not named, because an SDK is either conformant on them or it is not.
 > This one is.
+>
+> **Stable since 1.0.0.** From 1.0.0 this SDK follows [Semantic Versioning](https://semver.org/):
+> a public header, a symbol or a documented behaviour changes incompatibly only in a new
+> major version, and every change is in [CHANGELOG.md](CHANGELOG.md).
+>
+> **Contract 1.60** (§34.4, the answers to the 1.59 ports' questions, and the release
+> wave's server changes; the section list above is unchanged — §35, the certificate
+> revocation list, is informative and has no SDK surface). In this SDK: an `_UNKNOWN`
+> enum value is refused locally and never sent as `""` (R-22, see
+> [§27 Management API](#§27-management-api)); `expected_updated_at` on `ScimTargetInput`
+> (§31); `window_minutes` on notification rules, passed through unclamped (§27.15 note 1);
+> `allow_sha1_signatures` and `idp_metadata_signing_cert_pem` on federation configurations,
+> and an explicit `null` that clears each nullable member of the federation update
+> (§27.15 notes 6 – 8); the SSF key cache expires within ten minutes and a failed fetch
+> counts toward the once-a-minute limit (P6), and a poll leaving SETs unjudged emits the
+> `ssf_unjudged` telemetry event (§19.1); every never-retried write goes on a fresh
+> connection (P11); a refresh's `scope` is the response's (§12.1); the actor token of a
+> delegation is the exchanging client's own `client_credentials` token (§15.2 rule 9).
 >
 > **Contract 1.59** (§34, the cross-SDK review of the 1.53 – 1.58 ports; no wire
 > change). This SDK's follow-up, F-59-10: `axiam_ssf_poll()` never keeps a `jti` it does
@@ -1123,6 +1141,33 @@ your deployment issues DPoP-bound tokens, guard those endpoints with an SDK
 whose §21.9 row says it verifies proofs (Rust, Go, Python, TypeScript, …), or
 verify the proof ahead of this SDK and pass only the certificate half here.
 
+### §15.2 rule 9 — the actor token is this client's own
+
+An `actor_token` must have been **issued to the client that authenticates the
+exchange** (contract 1.60). The usual actor is that same client's own
+`client_credentials` token, so obtain it from the client doing the exchange
+with `axiam_login_client_credentials()` and pass it; its `sub` — and so the
+issued token's `act.sub` — is the client's `client_id`. The SDK supplies no
+default actor token (rule 1).
+
+```c
+axiam_oidc_token_set_t actor_set;
+axiam_login_client_credentials(client, NULL, NULL, &actor_set, &err); /* same client */
+
+axiam_token_exchange_params_t p = {0};
+p.subject_token      = user_access_token;
+p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
+p.actor_token        = actor_set.access_token;   /* delegation */
+axiam_token_exchange(client, &p, &t, &err);
+axiam_oidc_token_set_dispose(&actor_set);
+```
+
+Any other actor token — one issued to another client, a console sign-in, a
+service account's token — is answered `400 invalid_request` with
+`actor_token was not issued to the exchanging client`. The SDK surfaces it
+unchanged: one request, no retry, no downgrade to an impersonation, no
+substitution of a token of its own.
+
 ### §15.7 — external-IdP subject tokens
 
 The same call exchanges a token minted by a **trusted external IdP** — a
@@ -1706,9 +1751,17 @@ It is never read as one of the **known** constants: reading a new value as which
 constant happens to be first turns a new server state into a wrong one, and on this
 surface these values gate access. `_UNKNOWN` is appended **last**, so it is not the zero
 value a `calloc`'d struct starts at either, and `_to_wire()` spells it as the empty string
-— which no server value is, so carrying an unrecognised value back into an update is
-refused by the server rather than written as a spelling it never used. `_from_wire()`
-still returns `-1` for a NULL argument, which is a caller error rather than a server one.
+— which no server value is. `_from_wire()` still returns `-1` for a NULL argument, which
+is a caller error rather than a server one.
+
+**An `_UNKNOWN` value is never sent (contract 1.60, R-22).** A read-modify-write of a
+record holding a value this SDK does not know — `axiam_mgmt_scim_target_response_to_input()`
+on a target whose `deprovision` a newer server added, say — carries `_UNKNOWN` into the
+body. Every operation whose body can hold an enum, directly or in a nested model, checks
+it first and refuses an `_UNKNOWN` constant (or a value outside the enum) **locally**:
+`AXIAM_ERR_NETWORK` with cause `400`, `axiam_mgmt_error_class()` answering
+`AXIAM_MGMT_ERR_VALIDATION`, the member named in the message, and no request. Set the
+member to a known constant, or leave an optional one unset (`has_` 0), and send again.
 
 `axiam_mgmt_certificate_t::bound_service_account_id` is a **projection**, not a member of
 the certificate: the server resolves it for a whole page in one query, so
@@ -2127,6 +2180,23 @@ call-site warnings the contract requires are on each operation's documentation i
 `axiam/management_ops.h`. The hand-written conveniences are in
 `axiam/management_helpers.h`.
 
+**Federation — explicit null clears (contract 1.60, §27.15 note 8).**
+`axiam_federation_update_config()` is a sparse update in which each of the ten nullable
+members of `UpdateFederationConfigRequest` (`metadata_url`, `idp_signing_cert_pem`,
+`idp_metadata_signing_cert_pem`, `provider_slug`, `authorization_endpoint`,
+`token_endpoint`, `userinfo_endpoint`, `apple_team_id`, `apple_key_id`, `button_icon`)
+has a `has_` flag: NULL with the flag 0 is omitted and left unchanged, NULL with the flag 1
+is sent as `null` and clears it. `allow_sha1_signatures` (SAML only; a response from an
+older server that lacks it reads `0`) and `idp_metadata_signing_cert_pem` are sent only
+when you set them.
+
+```c
+axiam_mgmt_update_federation_config_request_t u;
+memset(&u, 0, sizeof u);
+u.has_idp_metadata_signing_cert_pem = 1;   /* -> {"idp_metadata_signing_cert_pem":null} */
+axiam_federation_update_config(c, config_id, &u, NULL, &err);
+```
+
 **Directory — explicit null, and the secret on a move.** `UpdateDirectoryConfig` is a
 sparse body; `group_base_dn` and `group_filter` are tri-state through a `has_` flag:
 
@@ -2178,6 +2248,7 @@ axiam_mgmt_scim_target_response_t *t = NULL;
 axiam_scim_targets_get(c, target_id, &t, &err);
 axiam_mgmt_scim_target_input_t *in = axiam_mgmt_scim_target_response_to_input(t);
 in->push_groups = 1;  in->has_push_groups = 1;     /* credential absent: kept */
+in->expected_updated_at = strdup(t->updated_at);  /* optional: 409 if it changed since */
 axiam_scim_targets_update(c, target_id, in, NULL, &err);
 axiam_mgmt_scim_target_input_free(in);
 axiam_mgmt_scim_target_response_free(t);
@@ -2190,6 +2261,11 @@ n.scope = axiam_mgmt_scim_target_scope_all_users();
 n.credential = axiam_sensitive_new(client_secret);
 axiam_scim_targets_create(c, &n, NULL, &err);
 ```
+
+`expected_updated_at` (contract 1.60, update only) is sent exactly as you set it — pass
+the `updated_at` you read, unformatted — and makes the replacement conditional: a target
+changed since is answered `409`, the conflict class. Unset, the server compares the version
+it read during the request, as before.
 
 `axiam_mgmt_ssf_stream_to_input()` is the same for an `SsfStream` (header absent). An
 unknown `auth.type` / `scope.type` decodes (tag and raw object kept,
@@ -2247,6 +2323,15 @@ with `AXIAM_ERR_AUTH` and a typed reason (`malformed`, `invalid_type`, `invalid_
 accepted, and only with a key from the configured JWKS — a `jwk`/`x5c` header is never
 read; an unknown `kid` forces one refetch, at most once a minute. A JWKS that cannot be
 fetched is `AXIAM_ERR_NETWORK` with reason `NONE` — not a verdict on the SET.
+
+**The key cache (contract 1.60, P6).** The keys are cached for at most ten minutes
+(`AXIAM_SSF_JWKS_CACHE_TTL_S`) after the fetch that filled them; the next SET after that
+fetches again, and an expired copy is never used, so a key the transmitter removed stops
+verifying. The once-a-minute limit (`AXIAM_SSF_JWKS_REFETCH_INTERVAL_S`) counts the
+unknown-`kid` refetch and every **failed** fetch — a failed fill, a failed refresh of an
+expired cache — but not a successful fill or refresh. Within the minute after a counted
+fetch nothing is fetched, and a SET that needs the keys gets the same `AXIAM_ERR_NETWORK`:
+a JWKS outage is one fetch a minute, not one per SET.
 `axiam_ssf_push_error_code()` maps `malformed`, `invalid_type` and `replayed` to
 `invalid_request`, since they are not RFC 8935 codes.
 
@@ -2267,7 +2352,10 @@ replay store that fails mid-batch is not a verdict: that SET and the ones after 
 left unrecorded and listed in `r.unjudged` (neither acknowledge nor refuse them — the
 transmitter offers them again), and the SETs judged before it are returned with
 `AXIAM_OK`. Only when the first SET of the batch cannot be judged does the poll raise the
-failure, having recorded nothing.
+failure, having recorded nothing. A poll that returns `AXIAM_OK` leaving SETs unjudged emits
+the §19.1 `ssf_unjudged` telemetry event (`AXIAM_TELEMETRY_SSF_UNJUDGED`, contract 1.60):
+the number of unjudged SETs and the category that left them so, `key_fetch` or
+`replay_store` — never a `jti`.
 
 ## CIBA (§33)
 

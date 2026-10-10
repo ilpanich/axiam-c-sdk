@@ -221,6 +221,85 @@ static void test_update_omits_an_absent_credential_and_the_variants_have_exact_k
     axiam_client_free(c);
 }
 
+/* §31.8 test 3's contract 1.60 assertion: `expected_updated_at` is sent on `update` exactly
+ * as given (the caller's string, not re-formatted) and absent when unset; the `409` a stale
+ * version earns surfaces as the conflict class. */
+static void test_update_passes_expected_updated_at_through_and_a_409_surfaces(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    char body[2048];
+    target_body(body, sizeof body, "{\"type\":\"bearer\"}", NULL);
+
+    axiam_mgmt_scim_target_input_t in;
+    fill_input(&in);
+    mgmt_mount(200, body);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_update(c, TARGET_ID, &in, NULL, &err));
+    TEST_ASSERT_NULL_MESSAGE(strstr(mgmt_last_body(), "expected_updated_at"), "absent when unset");
+
+    /* An unusual but valid spelling: fractional seconds and an offset. Re-formatting it
+     * (to `Z`, or dropping the fraction) would change the version the server compares. */
+    in.expected_updated_at = (char *) "2026-10-05T02:00:00.123456+02:00";
+    mgmt_mount(200, body);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_update(c, TARGET_ID, &in, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_body(),
+                                "\"expected_updated_at\":\"2026-10-05T02:00:00.123456+02:00\""));
+
+    int before = mgmt_request_count();
+    mgmt_mount(409, "{\"error\":\"conflict\",\"message\":\"the target changed since it was read\"}");
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, axiam_scim_targets_update(c, TARGET_ID, &in, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_CONFLICT, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(409, err.transport_cause);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(before + 1, mgmt_request_count(), "a 409 is not retried");
+
+    in.expected_updated_at = NULL;
+    dispose_input(&in);
+    axiam_client_free(c);
+}
+
+/* R-22 (contract 1.60 C-12): an unknown `deprovision` or `user_name_from` read from the
+ * server decodes to `_UNKNOWN`; carried back through the read-modify-write helper it is
+ * refused locally, naming the member, and never sent as "". */
+static void test_an_unknown_enum_value_is_refused_not_sent_as_empty(void) {
+    char body[2048];
+    target_body(body, sizeof body, "{\"type\":\"bearer\"}", NULL);
+    char *at = strstr(body, "\"deactivate\"");
+    TEST_ASSERT_NOT_NULL(at);
+    char unknown[2048];
+    snprintf(unknown, sizeof unknown, "%.*s\"archive_forever\"%s",
+             (int) (at - body), body, at + strlen("\"deactivate\""));
+    mgmt_mount(200, unknown);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_scim_target_response_t *t = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_get(c, TARGET_ID, &t, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_DEPROVISION_POLICY_UNKNOWN, t->deprovision);
+
+    axiam_mgmt_scim_target_input_t *in = axiam_mgmt_scim_target_response_to_input(t);
+    TEST_ASSERT_NOT_NULL(in);
+    int before = mgmt_request_count();
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_scim_targets_update(c, TARGET_ID, in, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(400, err.transport_cause);
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "deprovision"));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(before, mgmt_request_count(), "refused before any request");
+
+    /* A known value sends; a value outside the enum altogether is refused as well. */
+    in->deprovision = AXIAM_MGMT_DEPROVISION_POLICY_DEACTIVATE;
+    mgmt_mount(200, body);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_update(c, TARGET_ID, in, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_body(), "\"deprovision\":\"deactivate\""));
+    in->user_name_from = (axiam_mgmt_user_name_source_t) 0x7fff;
+    in->has_user_name_from = 1;
+    before = mgmt_request_count();
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_scim_targets_create(c, in, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "user_name_from"));
+    TEST_ASSERT_EQUAL_INT(before, mgmt_request_count());
+
+    axiam_mgmt_scim_target_input_free(in);
+    axiam_mgmt_scim_target_response_free(t);
+    axiam_client_free(c);
+}
+
 /* ---- 4. Open decoding and pagination ---------------------------------------------- */
 
 static void test_unknown_arms_and_values_decode_and_the_pager_carries_search(void) {
@@ -491,6 +570,8 @@ int main(void) {
     RUN_TEST(test_the_credential_reaches_the_wire_and_no_rendering);
     RUN_TEST(test_a_credential_in_a_response_is_dropped);
     RUN_TEST(test_update_omits_an_absent_credential_and_the_variants_have_exact_keys);
+    RUN_TEST(test_update_passes_expected_updated_at_through_and_a_409_surfaces);
+    RUN_TEST(test_an_unknown_enum_value_is_refused_not_sent_as_empty);
     RUN_TEST(test_unknown_arms_and_values_decode_and_the_pager_carries_search);
     RUN_TEST(test_an_unknown_arm_is_never_sent);
     RUN_TEST(test_only_declared_union_members_are_kept);

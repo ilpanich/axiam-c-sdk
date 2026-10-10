@@ -62,8 +62,16 @@ extern "C" {
  *  re-send, so a configuration asking for one is refused. */
 #define AXIAM_SSF_MIN_REPLAY_WINDOW_S (7L * 24L * 60L * 60L)
 
-/** The forced-refetch rate limit for an unknown `kid`, seconds (§32.7 step 4). */
+/** The fetch rate limit, seconds (§32.7 step 4; §34.2 P6). Counted: the refetch an
+ *  unknown `kid` forces, whether or not it succeeds, and every FAILED fetch -- a failed
+ *  fill of the empty cache, a failed refresh of an expired one. Not counted: a successful
+ *  fill or refresh. Within this interval of a counted fetch no fetch is made. */
 #define AXIAM_SSF_JWKS_REFETCH_INTERVAL_S 60L
+
+/** The key cache's lifetime, seconds (§34.2 P6, contract 1.60: no later than 10 minutes
+ *  after the successful fetch that filled it). The next SET after it fetches again; a key
+ *  the transmitter has removed is not used past it. */
+#define AXIAM_SSF_JWKS_CACHE_TTL_S 600L
 
 /**
  * Why a SET was refused (§32.7). The typed accessor C offers in place of an exception
@@ -192,7 +200,10 @@ void axiam_security_event_dispose(axiam_security_event_t *event);
  * SET you processed must therefore be acknowledged on the next poll.
  *
  * A JWKS (or configuration document) that cannot be fetched is AXIAM_ERR_NETWORK with
- * `*out_reason` NONE — not a verdict on the SET.
+ * `*out_reason` NONE — not a verdict on the SET. The keys are cached for
+ * AXIAM_SSF_JWKS_CACHE_TTL_S; within AXIAM_SSF_JWKS_REFETCH_INTERVAL_S of a failed fetch
+ * no fetch is made and the SET gets the same AXIAM_ERR_NETWORK (contract 1.60, P6), so a
+ * JWKS outage is not one fetch per SET.
  *
  * @param out        Receives the event on AXIAM_OK; zeroed otherwise. Dispose with
  *                   axiam_security_event_dispose().
@@ -282,6 +293,10 @@ void axiam_ssf_poll_result_dispose(axiam_ssf_poll_result_t *result);
  * before it were judged, the call returns AXIAM_OK with them in `events` and `refused`, so
  * every `jti` this poll recorded is returned to you; when the failure is on the first SET,
  * nothing was judged and the call raises it (AXIAM_ERR_NETWORK, no reason code).
+ *
+ * A poll that returns AXIAM_OK leaving SETs unjudged emits the §19.1 `ssf_unjudged`
+ * telemetry event (AXIAM_TELEMETRY_SSF_UNJUDGED, contract 1.60): their number and the
+ * failure category, `key_fetch` or `replay_store` -- never a `jti`.
  */
 axiam_error_kind_t axiam_ssf_poll(axiam_ssf_receiver_t *receiver, const char *stream_id,
                                   const axiam_ssf_poll_options_t *options,

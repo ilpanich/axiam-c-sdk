@@ -316,6 +316,47 @@ static void test_a_read_converts_into_the_replacement_body_without_the_header(vo
     axiam_client_free(c);
 }
 
+/* ---- B5 (contract 1.60; P12.2 (a)) ---------------------------------------------------
+ *
+ * Every local refusal is ONE category. C's row of §28.7 is `NULL` with `axiam_error_t` for a
+ * constructor and the same `axiam_error_t` on the kind-returning operations: the SDK's
+ * local ValidationError, which here is AXIAM_ERR_NETWORK with cause 400 -- the class
+ * AXIAM_MGMT_ERR_VALIDATION, as the server's own 400 -- and a message that says no request
+ * was sent. Not a different kind per refusal, and never an unclassified failure. */
+static void test_B5_every_local_refusal_is_the_one_validation_category(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_ssf_stream_input_t in;
+    int before = mgmt_request_count();
+
+    /* A missing required member. */
+    fill_input(&in);
+    in.audience = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ssf_create_stream(c, NULL, &in, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(400, err.transport_cause);
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "no request was sent"));
+
+    /* The same on the other write, and with no body at all. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ssf_update_stream(c, NULL, STREAM_ID, NULL, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(400, err.transport_cause);
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "no request was sent"));
+    fill_input(&in);
+    in.events_allowed = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ssf_update_stream(c, NULL, STREAM_ID, &in, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_VALIDATION, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "no request was sent"));
+
+    TEST_ASSERT_EQUAL_INT_MESSAGE(before, mgmt_request_count(), "a refusal sends nothing");
+    axiam_client_free(c);
+
+    /* The constructor's row: NULL, and the error out-parameter filled. */
+    axiam_client_t *none = axiam_client_new(NULL, &err);
+    TEST_ASSERT_NULL(none);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, err.kind);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_update_stream_puts_every_member_it_models);
@@ -325,5 +366,6 @@ int main(void) {
     RUN_TEST(test_no_write_is_retried_on_503);
     RUN_TEST(test_errors_map_per_section_2);
     RUN_TEST(test_a_read_converts_into_the_replacement_body_without_the_header);
+    RUN_TEST(test_B5_every_local_refusal_is_the_one_validation_category);
     return UNITY_END();
 }

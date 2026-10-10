@@ -40,6 +40,17 @@ typedef struct axiam_http_request {
     const axiam_kv_t *headers; /**< Request headers (owned by caller). */
     const char *body;        /**< Request body (may be NULL). */
     size_t body_len;         /**< Length of body; 0 when body is NULL. */
+    /**
+     * Nonzero when the SDK itself may send this request again after a transport failure
+     * (CONTRACT.md §16: a management `GET`, an authorization check, a retried token-endpoint
+     * request). Zero -- the value an unset field has -- means the request is a write that is
+     * never sent twice, and a transport MUST NOT send it twice behind the SDK's back either
+     * (§34.2 P11): the bundled libcurl transport puts such a request on a fresh connection
+     * (`CURLOPT_FRESH_CONNECT`) that is not reused afterwards (`CURLOPT_FORBID_REUSE`), so
+     * libcurl has no dead pooled connection to re-send it over. Appended last, so a
+     * transport compiled against the older struct is unaffected.
+     */
+    int replayable;
 } axiam_http_request_t;
 
 /** Response produced by a transport implementation. All owned/heap fields. */
