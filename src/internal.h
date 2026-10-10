@@ -114,6 +114,10 @@ void axiam_telemetry_refresh(const axiam_telemetry_t *t, axiam_refresh_role_t ro
 void axiam_telemetry_config_clamped(const axiam_telemetry_t *t, const char *setting,
                                     const char *requested, const char *effective,
                                     const char *contract_reference);
+/** Emit a §19.1 ssf_unjudged event (contract 1.60): `failure_category` is "key_fetch"
+ *  or "replay_store". */
+void axiam_telemetry_ssf_unjudged(const axiam_telemetry_t *t, size_t unjudged_count,
+                                  const char *failure_category);
 /** Monotonic milliseconds, for event durations. */
 double axiam_now_ms(void);
 

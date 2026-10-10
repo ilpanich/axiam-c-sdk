@@ -29,6 +29,8 @@
 #ifndef AXIAM_TELEMETRY_H
 #define AXIAM_TELEMETRY_H
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,7 +46,13 @@ typedef enum axiam_telemetry_kind {
     /** Around a §9 single-flight refresh. */
     AXIAM_TELEMETRY_REFRESH = 4,
     /** At construction, once per clamped setting (§19.2 rule 6). */
-    AXIAM_TELEMETRY_CONFIG_CLAMPED = 5
+    AXIAM_TELEMETRY_CONFIG_CLAMPED = 5,
+    /**
+     * When axiam_ssf_poll() returns AXIAM_OK leaving at least one SET unjudged
+     * (§19.1 `ssf_unjudged`, contract 1.60; §34.2 P1). A hook's `switch` over
+     * this enum should keep a `default:` arm: §19.1 may add kinds.
+     */
+    AXIAM_TELEMETRY_SSF_UNJUDGED = 6
 } axiam_telemetry_kind_t;
 
 /** Why a request finished. */
@@ -62,7 +70,7 @@ typedef enum axiam_refresh_role {
 /**
  * One §19.1 event.
  *
- * A single tagged struct rather than a union of five: C has no sealed
+ * A single tagged struct rather than a union of six: C has no sealed
  * hierarchy, and a discriminated struct is the closest thing that keeps the
  * "fixed field set, nowhere to hide a secret" guarantee checkable by reading
  * one declaration.
@@ -120,6 +128,14 @@ typedef struct axiam_telemetry_event {
     const char *effective;
     /** The §-reference for the limit, e.g. "§17.1 rule 2". */
     const char *contract_reference;
+
+    /* --- ssf_unjudged (`operation` is "ssf.poll") --- */
+
+    /** How many SETs the poll left unjudged. Never a `jti`, never a SET. */
+    size_t unjudged_count;
+    /** What left them unjudged: "key_fetch" (the JWKS or the SSF configuration could
+     *  not be fetched) or "replay_store" (the store could not answer). */
+    const char *failure_category;
 } axiam_telemetry_event_t;
 
 /**
