@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -222,6 +223,184 @@ static void test_closed_port_failure_with_tls_material_configured(void) {
     axiam_client_free(c);
 }
 
+/* ---- §34.2 P11 / §34.4 A6 (contract 1.60; R-17): a write is delivered exactly once -----
+ *
+ * libcurl re-sends a request by itself when it was put on a REUSED connection and that
+ * connection died before any byte of the reply. The server below keeps the first connection
+ * alive after answering a GET, and then READS a write and closes without answering. Without
+ * CURLOPT_FRESH_CONNECT + CURLOPT_FORBID_REUSE the write rides the kept-alive connection,
+ * is read, dropped, and libcurl sends it again on a new one: the server counts two. With
+ * them it counts one, whatever the library does. */
+typedef struct {
+    int listen_fd;
+    volatile int stop;
+    int gets;
+    int writes;       /* requests whose method line is not GET */
+    int connections;
+} drop_srv_t;
+
+static void *drop_writes_server(void *arg) {
+    drop_srv_t *s = arg;
+    int fds[16];
+    int nfds = 0;
+    while (!s->stop) {
+        fd_set rd;
+        FD_ZERO(&rd);
+        FD_SET(s->listen_fd, &rd);
+        int maxfd = s->listen_fd;
+        for (int i = 0; i < nfds; i++) {
+            FD_SET(fds[i], &rd);
+            if (fds[i] > maxfd) maxfd = fds[i];
+        }
+        struct timeval tv = {0, 50 * 1000};
+        if (select(maxfd + 1, &rd, NULL, NULL, &tv) <= 0) continue;
+        if (FD_ISSET(s->listen_fd, &rd) && nfds < 16) {
+            int cfd = accept(s->listen_fd, NULL, NULL);
+            if (cfd >= 0) {
+                fds[nfds++] = cfd;
+                s->connections++;
+            }
+        }
+        for (int i = 0; i < nfds; i++) {
+            if (!FD_ISSET(fds[i], &rd)) continue;
+            char buf[4096];
+            ssize_t r = recv(fds[i], buf, sizeof(buf) - 1, 0);
+            if (r <= 0) { /* the client closed it */
+                close(fds[i]);
+                fds[i] = fds[--nfds];
+                i--;
+                continue;
+            }
+            buf[r] = '\0';
+            if (strncmp(buf, "GET ", 4) == 0) {
+                s->gets++;
+                static const char ok[] =
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                    "Content-Length: 11\r\nConnection: keep-alive\r\n\r\n{\"keys\":[]}";
+                if (write(fds[i], ok, sizeof(ok) - 1) < 0) {}
+            } else {
+                /* A write: read it, count it, drop the connection with no answer. */
+                s->writes++;
+                close(fds[i]);
+                fds[i] = fds[--nfds];
+                i--;
+            }
+        }
+    }
+    for (int i = 0; i < nfds; i++) close(fds[i]);
+    return NULL;
+}
+
+static void test_a_write_a_server_drops_unanswered_arrives_exactly_once_A6(void) {
+    int port;
+    int fd = bind_ephemeral(&port);
+    TEST_ASSERT_TRUE(fd >= 0);
+    TEST_ASSERT_EQUAL_INT(0, listen(fd, 8));
+    drop_srv_t srv;
+    memset(&srv, 0, sizeof srv);
+    srv.listen_fd = fd;
+    pthread_t th;
+    pthread_create(&th, NULL, drop_writes_server, &srv);
+
+    char base[64];
+    snprintf(base, sizeof(base), "http://127.0.0.1:%d", port);
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, base);
+    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_client_config_set_timeout_ms(cfg, 5000);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    TEST_ASSERT_NOT_NULL(c);
+
+    /* A GET first: it leaves a kept-alive connection in libcurl's pool. */
+    char *body = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_raw_get(c, "/oauth2/jwks", &body, &err));
+    free(body);
+
+    /* Every verb a never-retried write uses; each is read and dropped by the server. */
+    static const char *const verbs[] = {"POST", "PUT", "DELETE", "PATCH"};
+    int expected_writes = 0;
+    for (size_t i = 0; i < sizeof verbs / sizeof verbs[0]; i++) {
+        /* Re-prime the pool so the next write meets a reusable connection. */
+        body = NULL;
+        TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_raw_get(c, "/oauth2/jwks", &body, &err));
+        free(body);
+
+        char url[128];
+        snprintf(url, sizeof(url), "%s/api/v1/things", base);
+        const char *payload = "{\"a\":1}";
+        axiam_http_request_t req = {0}; /* replayable = 0: a write the SDK never retries */
+        req.method = verbs[i];
+        req.url = url;
+        req.body = payload;
+        req.body_len = strlen(payload);
+        axiam_http_response_t resp;
+        memset(&resp, 0, sizeof(resp));
+        int rc = c->transport(c->transport_ctx, &req, &resp);
+        TEST_ASSERT_NOT_EQUAL_INT_MESSAGE(0, rc, "the dropped write is a transport failure");
+        TEST_ASSERT_EQUAL_INT(0, (int)resp.status);
+        axiam_http_response_dispose(&resp);
+        expected_writes++;
+
+        /* Give a (wrongly) re-sent copy time to arrive before counting. */
+        usleep(150 * 1000);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes, srv.writes,
+                                      "the write must reach the server exactly once");
+    }
+
+    /* And through a public write -- login is one the SDK never retries by itself. */
+    body = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_raw_get(c, "/oauth2/jwks", &body, &err));
+    free(body);
+    axiam_login_result_t lr;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_login(c, "alice", "pw", &lr, &err));
+    usleep(150 * 1000);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes + 1, srv.writes,
+                                  "a login the server drops arrives exactly once");
+
+    srv.stop = 1;
+    pthread_join(th, NULL);
+    close(fd);
+    axiam_client_free(c);
+}
+
+/* The converse: a request the SDK itself replays (req.replayable) and a GET keep the pool,
+ * so the connection of the first GET serves the second. */
+static void test_a_get_keeps_the_connection_pool(void) {
+    int port;
+    int fd = bind_ephemeral(&port);
+    TEST_ASSERT_TRUE(fd >= 0);
+    TEST_ASSERT_EQUAL_INT(0, listen(fd, 8));
+    drop_srv_t srv;
+    memset(&srv, 0, sizeof srv);
+    srv.listen_fd = fd;
+    pthread_t th;
+    pthread_create(&th, NULL, drop_writes_server, &srv);
+
+    char base[64];
+    snprintf(base, sizeof(base), "http://127.0.0.1:%d", port);
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, base);
+    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_client_config_set_timeout_ms(cfg, 5000);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    TEST_ASSERT_NOT_NULL(c);
+    for (int i = 0; i < 2; i++) {
+        char *body = NULL;
+        TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_raw_get(c, "/oauth2/jwks", &body, &err));
+        free(body);
+    }
+    srv.stop = 1;
+    pthread_join(th, NULL);
+    close(fd);
+    TEST_ASSERT_EQUAL_INT(2, srv.gets);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, srv.connections, "reads share one connection");
+    axiam_client_free(c);
+}
+
 int main(int argc, char **argv) {
     if (argc > 1) snprintf(g_pki_dir, sizeof(g_pki_dir), "%s", argv[1]);
     else snprintf(g_pki_dir, sizeof(g_pki_dir), ".");
@@ -229,5 +408,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_get_request_via_real_transport);
     RUN_TEST(test_custom_method_with_body_via_real_transport);
     RUN_TEST(test_closed_port_failure_with_tls_material_configured);
+    RUN_TEST(test_a_write_a_server_drops_unanswered_arrives_exactly_once_A6);
+    RUN_TEST(test_a_get_keeps_the_connection_pool);
     return UNITY_END();
 }

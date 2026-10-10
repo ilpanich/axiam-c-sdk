@@ -160,6 +160,24 @@ int axiam_curl_transport(void *vctx, const axiam_http_request_t *req,
         curl_easy_setopt(c, CURLOPT_SSLKEY_BLOB, &key_blob);
     }
 
+    /*
+     * §34.2 P11 (contract 1.60, A6; R-17): a write the SDK never retries must reach the
+     * server exactly once. libcurl re-sends a request by itself when a REUSED connection
+     * turns out dead before any byte of the reply (the server closed an idle keep-alive
+     * connection, or read the write and dropped it) -- a second delivery of a write that may
+     * already have been applied, which no §16 switch controls. The remedy where the library
+     * has no switch is a fresh connection that nothing reuses afterwards: FRESH_CONNECT
+     * forbids picking up a pooled connection (so there is no stale one to fail on and be
+     * re-sent over), FORBID_REUSE closes this one when the transfer ends (so the next write
+     * does not inherit it either). A GET, and a request the SDK itself replays
+     * (req->replayable), keep the pool.
+     */
+    int is_get = req->method && strcasecmp(req->method, "GET") == 0;
+    if (!is_get && !req->replayable) {
+        curl_easy_setopt(c, CURLOPT_FRESH_CONNECT, 1L);
+        curl_easy_setopt(c, CURLOPT_FORBID_REUSE, 1L);
+    }
+
     /* Method + body. */
     if (req->method && strcasecmp(req->method, "GET") == 0) {
         curl_easy_setopt(c, CURLOPT_HTTPGET, 1L);
