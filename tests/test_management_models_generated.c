@@ -1578,7 +1578,7 @@ static void test_create_certificate_request_rejects_a_non_object(void) {
 
 /* `CreateFederationConfigRequest`: a full wire object parses, builds back and frees. */
 static void test_create_federation_config_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_create_federation_config_request_t *model = axiam_mgmt_create_federation_config_request_parse(src);
@@ -1784,7 +1784,7 @@ static void test_create_intermediate_ca_request_rejects_a_non_object(void) {
 
 /* `CreateNotificationRuleRequest`: a full wire object parses, builds back and frees. */
 static void test_create_notification_rule_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}");
+    cJSON *src = cJSON_Parse("{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_create_notification_rule_request_t *model = axiam_mgmt_create_notification_rule_request_parse(src);
@@ -1801,6 +1801,31 @@ static void test_create_notification_rule_request_round_trips(void) {
         TEST_ASSERT_NOT_NULL_MESSAGE(
             cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
     }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_create_notification_rule_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `CreateNotificationRuleRequest`: the server omitting every OPTIONAL field is not an
+ * error.
+ */
+static void test_create_notification_rule_request_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"description\": \"example\", \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_create_notification_rule_request_t *model = axiam_mgmt_create_notification_rule_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_create_notification_rule_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
 
     cJSON_Delete(rebuilt);
     axiam_mgmt_create_notification_rule_request_free(model);
@@ -3442,7 +3467,7 @@ static void test_encrypted_export_rejects_a_non_object(void) {
 
 /* `FederationConfigResponse`: a full wire object parses, builds back and frees. */
 static void test_federation_config_response_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_federation_config_response_t *model = axiam_mgmt_federation_config_response_parse(src);
@@ -3467,7 +3492,7 @@ static void test_federation_config_response_round_trips(void) {
 
 /* `FederationConfigResponse`: the server omitting every OPTIONAL field is not an error. */
 static void test_federation_config_response_parses_without_optionals(void) {
-    cJSON *src = cJSON_Parse("{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_federation_config_response_t *model = axiam_mgmt_federation_config_response_parse(src);
@@ -4841,7 +4866,7 @@ static void test_notification_policy_rejects_a_non_object(void) {
 
 /* `NotificationRuleResponse`: a full wire object parses, builds back and frees. */
 static void test_notification_rule_response_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"example\", \"recipient_emails\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"window_minutes\": 1}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_notification_rule_response_t *model = axiam_mgmt_notification_rule_response_parse(src);
@@ -7273,7 +7298,7 @@ static void test_scim_target_delivery_state_rejects_a_non_object(void) {
 
 /* `ScimTargetInput`: a full wire object parses, builds back and frees. */
 static void test_scim_target_input_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"auth\": {}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"name\": \"example\", \"push_groups\": true, \"scope\": {}, \"user_name_from\": \"username\"}");
+    cJSON *src = cJSON_Parse("{\"auth\": {}, \"base_url\": \"example\", \"credential\": \"example\", \"deprovision\": \"deactivate\", \"enabled\": true, \"expected_updated_at\": \"2026-08-26T00:00:00Z\", \"name\": \"example\", \"push_groups\": true, \"scope\": {}, \"user_name_from\": \"username\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_scim_target_input_t *model = axiam_mgmt_scim_target_input_parse(src);
@@ -8975,7 +9000,7 @@ static void test_update_directory_config_rejects_a_non_object(void) {
 
 /* `UpdateFederationConfigRequest`: a full wire object parses, builds back and frees. */
 static void test_update_federation_config_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_update_federation_config_request_t *model = axiam_mgmt_update_federation_config_request_parse(src);
@@ -9128,7 +9153,7 @@ static void test_update_group_rejects_a_non_object(void) {
 
 /* `UpdateNotificationRuleRequest`: a full wire object parses, builds back and frees. */
 static void test_update_notification_rule_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"]}");
+    cJSON *src = cJSON_Parse("{\"description\": \"example\", \"enabled\": true, \"events\": [\"login_failure\"], \"name\": \"example\", \"recipient_emails\": [\"example\"], \"window_minutes\": 1}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_update_notification_rule_request_t *model = axiam_mgmt_update_notification_rule_request_parse(src);
@@ -11837,6 +11862,7 @@ int main(void) {
     RUN_TEST(test_create_intermediate_ca_request_parses_an_empty_object);
     RUN_TEST(test_create_intermediate_ca_request_rejects_a_non_object);
     RUN_TEST(test_create_notification_rule_request_round_trips);
+    RUN_TEST(test_create_notification_rule_request_parses_without_optionals);
     RUN_TEST(test_create_notification_rule_request_parses_an_empty_object);
     RUN_TEST(test_create_notification_rule_request_rejects_a_non_object);
     RUN_TEST(test_create_o_auth2_client_request_round_trips);

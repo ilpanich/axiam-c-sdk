@@ -2525,6 +2525,14 @@ void axiam_mgmt_create_certificate_request_free(axiam_mgmt_create_certificate_re
  */
 struct axiam_mgmt_create_federation_config_request {
     /**
+     * SAML only: accept IdP responses signed with SHA-1 (`rsa-sha1`). Default `false` —
+     * since 1.0.0 the SP verifier accepts only SHA-2 signatures. The escape hatch for an
+     * IdP that cannot sign with SHA-2 yet; refused on a non-SAML config, and audited
+     * (`federation.sha1_signatures_allowed`) when set to `true`. Optional.
+     */
+    int allow_sha1_signatures;
+    int has_allow_sha1_signatures; /**< 1 when `allow_sha1_signatures` is set. */
+    /**
      * Whether tenants of this organization may inherit this provider. Only meaningful on a
      * config in the organization-scope tenant. Optional.
      */
@@ -2576,6 +2584,13 @@ struct axiam_mgmt_create_federation_config_request {
      * OAuth2 client secret registered with the external IdP.
      */
     axiam_sensitive_t *client_secret;
+    /**
+     * SAML only: the PEM certificate the IdP signs its metadata document with (#530). When
+     * set, the metadata must carry one SHA-2 signature on its `EntityDescriptor` root that
+     * verifies against it, or no sign-in starts. Omitted: the metadata is not
+     * signature-checked. Optional.
+     */
+    char *idp_metadata_signing_cert_pem;
     /**
      * PEM-encoded X.509 certificate for verifying SAML assertions or OIDC signatures
      * (CQ-B40/REQ-14 AC-5). Required for SAML configs. Optional.
@@ -2717,6 +2732,13 @@ struct axiam_mgmt_create_notification_rule_request {
      */
     char **recipient_emails;
     size_t recipient_emails_count; /**< Entries in `recipient_emails`. */
+    /**
+     * Minutes in which one event type mails each recipient at most once: the first event of
+     * a window is mailed, the rest are counted and the next mail says how many were not
+     * sent (#551). 1 … 1440; 15 when omitted. Optional.
+     */
+    long window_minutes;
+    int has_window_minutes; /**< 1 when `window_minutes` is set. */
 };
 
 /**
@@ -3710,6 +3732,11 @@ void axiam_mgmt_encrypted_export_free(axiam_mgmt_encrypted_export_t *value);
  */
 struct axiam_mgmt_federation_config_response {
     /**
+     * SAML only: whether IdP responses signed with SHA-1 are accepted (default `false`;
+     * #531).
+     */
+    int allow_sha1_signatures;
+    /**
      * Whether tenants of this organization may inherit this provider.
      */
     int allow_tenant_inheritance;
@@ -3772,6 +3799,11 @@ struct axiam_mgmt_federation_config_response {
      * The server's `id` field.
      */
     char *id;
+    /**
+     * SAML only: the certificate the IdP's metadata must be signed with (#530); `null` when
+     * the metadata is not signature-checked. Optional.
+     */
+    char *idp_metadata_signing_cert_pem;
     /**
      * The server's `metadata_url` field. Optional.
      */
@@ -4683,6 +4715,11 @@ struct axiam_mgmt_notification_rule_response {
      * The server's `updated_at` field.
      */
     char *updated_at;
+    /**
+     * Minutes in which one event type mails each recipient at most once; further events are
+     * counted and reported by the next mail (#551).
+     */
+    long window_minutes;
 };
 
 /**
@@ -6597,6 +6634,15 @@ struct axiam_mgmt_scim_target_input {
     int enabled;
     int has_enabled; /**< 1 when `enabled` is set. */
     /**
+     * The `updated_at` of the target as the client read it (P23W5-09, T-416). **Update
+     * only; create ignores it.** When present, the replacement lands only if the target
+     * still has that version, else `409` (reload and retry): two administrators who opened
+     * the form at the same version cannot silently overwrite each other. When absent the
+     * replacement is conditional on the version the server reads during the request —
+     * last-writer-wins between administrators, as before. Optional.
+     */
+    char *expected_updated_at;
+    /**
      * 1–128 bytes.
      */
     char *name;
@@ -8248,6 +8294,12 @@ void axiam_mgmt_update_directory_config_free(axiam_mgmt_update_directory_config_
  */
 struct axiam_mgmt_update_federation_config_request {
     /**
+     * SAML only: accept IdP responses signed with SHA-1. Refused on a non-SAML config;
+     * turning it on is audited (`federation.sha1_signatures_allowed`). Optional.
+     */
+    int allow_sha1_signatures;
+    int has_allow_sha1_signatures; /**< 1 when `allow_sha1_signatures` is set. */
+    /**
      * Whether tenants may inherit this organization-level provider. Optional.
      */
     int allow_tenant_inheritance;
@@ -8263,25 +8315,50 @@ struct axiam_mgmt_update_federation_config_request {
     char **allowed_issuer_tenants;
     size_t allowed_issuer_tenants_count; /**< Entries in `allowed_issuer_tenants`. */
     /**
-     * Apple Key ID. `Some(None)` clears it. Optional.
+     * Apple Key ID. Explicit `null` clears it. Optional.
      */
     char *apple_key_id;
     /**
-     * Apple Team ID. `Some(None)` clears it. Optional.
+     * Presence of `apple_key_id`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `apple_key_id` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_apple_key_id;
+    /**
+     * Apple Team ID. Explicit `null` clears it. Optional.
      */
     char *apple_team_id;
+    /**
+     * Presence of `apple_team_id`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `apple_team_id` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_apple_team_id;
     /**
      * The server's `attribute_map` field. Optional.
      */
     char *attribute_map;
     /**
-     * OAuth2-variant authorization endpoint. `Some(None)` clears it. Optional.
+     * OAuth2-variant authorization endpoint. Explicit `null` clears it. Optional.
      */
     char *authorization_endpoint;
     /**
-     * Sign-in-button icon for a generic provider. `Some(None)` clears it. Optional.
+     * Presence of `authorization_endpoint`, so an explicit `null` stays distinct from an
+     * absent member (CONTRACT.md §27.4 rule 5). `authorization_endpoint` NULL with this 0
+     * is ABSENT; NULL with this 1 is JSON `null`; a non-NULL value is itself, whatever this
+     * says.
+     */
+    int has_authorization_endpoint;
+    /**
+     * Sign-in-button icon for a generic provider. Explicit `null` clears it. Optional.
      */
     char *button_icon;
+    /**
+     * Presence of `button_icon`, so an explicit `null` stays distinct from an absent member
+     * (CONTRACT.md §27.4 rule 5). `button_icon` NULL with this 0 is ABSENT; NULL with this
+     * 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_button_icon;
     /**
      * The server's `client_id` field. Optional.
      */
@@ -8296,22 +8373,57 @@ struct axiam_mgmt_update_federation_config_request {
     int enabled;
     int has_enabled; /**< 1 when `enabled` is set. */
     /**
+     * SAML only: the IdP metadata signing certificate (#530). Explicit `null` clears it;
+     * omitted leaves it. Clearing it is audited
+     * (`federation.metadata_signing_cert_cleared`), and so is replacing it with a different
+     * certificate (`federation.metadata_signing_cert_changed`). Optional.
+     */
+    char *idp_metadata_signing_cert_pem;
+    /**
+     * Presence of `idp_metadata_signing_cert_pem`, so an explicit `null` stays distinct
+     * from an absent member (CONTRACT.md §27.4 rule 5). `idp_metadata_signing_cert_pem`
+     * NULL with this 0 is ABSENT; NULL with this 1 is JSON `null`; a non-NULL value is
+     * itself, whatever this says.
+     */
+    int has_idp_metadata_signing_cert_pem;
+    /**
      * PEM-encoded X.509 certificate for verifying SAML assertions (CQ-B40/REQ-14 AC-5).
-     * `Some(None)` clears the stored cert. Optional.
+     * Explicit `null` clears the stored cert; omitted leaves it. Optional.
      */
     char *idp_signing_cert_pem;
     /**
-     * The server's `metadata_url` field. Optional.
+     * Presence of `idp_signing_cert_pem`, so an explicit `null` stays distinct from an
+     * absent member (CONTRACT.md §27.4 rule 5). `idp_signing_cert_pem` NULL with this 0 is
+     * ABSENT; NULL with this 1 is JSON `null`; a non-NULL value is itself, whatever this
+     * says.
+     */
+    int has_idp_signing_cert_pem;
+    /**
+     * OIDC discovery or SAML metadata URL. Explicit `null` clears it; omitted leaves it.
+     * Optional.
      */
     char *metadata_url;
+    /**
+     * Presence of `metadata_url`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `metadata_url` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_metadata_url;
     /**
      * The server's `provider` field. Optional.
      */
     char *provider;
     /**
-     * Operator-chosen identifier for a `generic_*` kind. `Some(None)` clears it. Optional.
+     * Operator-chosen identifier for a `generic_*` kind. Explicit `null` clears it.
+     * Optional.
      */
     char *provider_slug;
+    /**
+     * Presence of `provider_slug`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `provider_slug` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_provider_slug;
     /**
      * Send PKCE on the authorization request. Optional.
      */
@@ -8323,17 +8435,29 @@ struct axiam_mgmt_update_federation_config_request {
     char **scopes;
     size_t scopes_count; /**< Entries in `scopes`. */
     /**
-     * OAuth2-variant token endpoint. `Some(None)` clears it. Optional.
+     * OAuth2-variant token endpoint. Explicit `null` clears it. Optional.
      */
     char *token_endpoint;
+    /**
+     * Presence of `token_endpoint`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `token_endpoint` NULL with this 0 is ABSENT; NULL
+     * with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_token_endpoint;
     /**
      * The server's `token_exchange` field. Optional.
      */
     axiam_mgmt_token_exchange_trust_request_t *token_exchange;
     /**
-     * OAuth2-variant userinfo endpoint. `Some(None)` clears it. Optional.
+     * OAuth2-variant userinfo endpoint. Explicit `null` clears it. Optional.
      */
     char *userinfo_endpoint;
+    /**
+     * Presence of `userinfo_endpoint`, so an explicit `null` stays distinct from an absent
+     * member (CONTRACT.md §27.4 rule 5). `userinfo_endpoint` NULL with this 0 is ABSENT;
+     * NULL with this 1 is JSON `null`; a non-NULL value is itself, whatever this says.
+     */
+    int has_userinfo_endpoint;
 };
 
 /**
@@ -8406,6 +8530,11 @@ struct axiam_mgmt_update_notification_rule_request {
      */
     char **recipient_emails;
     size_t recipient_emails_count; /**< Entries in `recipient_emails`. */
+    /**
+     * The rule's notification window in minutes, 1 … 1440 (#551). Optional.
+     */
+    long window_minutes;
+    int has_window_minutes; /**< 1 when `window_minutes` is set. */
 };
 
 /**

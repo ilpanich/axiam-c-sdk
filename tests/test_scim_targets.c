@@ -221,6 +221,41 @@ static void test_update_omits_an_absent_credential_and_the_variants_have_exact_k
     axiam_client_free(c);
 }
 
+/* §31.8 test 3's contract 1.60 assertion: `expected_updated_at` is sent on `update` exactly
+ * as given (the caller's string, not re-formatted) and absent when unset; the `409` a stale
+ * version earns surfaces as the conflict class. */
+static void test_update_passes_expected_updated_at_through_and_a_409_surfaces(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    char body[2048];
+    target_body(body, sizeof body, "{\"type\":\"bearer\"}", NULL);
+
+    axiam_mgmt_scim_target_input_t in;
+    fill_input(&in);
+    mgmt_mount(200, body);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_update(c, TARGET_ID, &in, NULL, &err));
+    TEST_ASSERT_NULL_MESSAGE(strstr(mgmt_last_body(), "expected_updated_at"), "absent when unset");
+
+    /* An unusual but valid spelling: fractional seconds and an offset. Re-formatting it
+     * (to `Z`, or dropping the fraction) would change the version the server compares. */
+    in.expected_updated_at = (char *) "2026-10-05T02:00:00.123456+02:00";
+    mgmt_mount(200, body);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_update(c, TARGET_ID, &in, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_body(),
+                                "\"expected_updated_at\":\"2026-10-05T02:00:00.123456+02:00\""));
+
+    int before = mgmt_request_count();
+    mgmt_mount(409, "{\"error\":\"conflict\",\"message\":\"the target changed since it was read\"}");
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, axiam_scim_targets_update(c, TARGET_ID, &in, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_CONFLICT, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT(409, err.transport_cause);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(before + 1, mgmt_request_count(), "a 409 is not retried");
+
+    in.expected_updated_at = NULL;
+    dispose_input(&in);
+    axiam_client_free(c);
+}
+
 /* ---- 4. Open decoding and pagination ---------------------------------------------- */
 
 static void test_unknown_arms_and_values_decode_and_the_pager_carries_search(void) {
@@ -491,6 +526,7 @@ int main(void) {
     RUN_TEST(test_the_credential_reaches_the_wire_and_no_rendering);
     RUN_TEST(test_a_credential_in_a_response_is_dropped);
     RUN_TEST(test_update_omits_an_absent_credential_and_the_variants_have_exact_keys);
+    RUN_TEST(test_update_passes_expected_updated_at_through_and_a_409_surfaces);
     RUN_TEST(test_unknown_arms_and_values_decode_and_the_pager_carries_search);
     RUN_TEST(test_an_unknown_arm_is_never_sent);
     RUN_TEST(test_only_declared_union_members_are_kept);

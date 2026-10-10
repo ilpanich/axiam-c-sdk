@@ -2644,6 +2644,7 @@ void axiam_mgmt_create_federation_config_request_free(axiam_mgmt_create_federati
     free(value->button_icon);
     free(value->client_id);
     axiam_sensitive_free(value->client_secret);
+    free(value->idp_metadata_signing_cert_pem);
     free(value->idp_signing_cert_pem);
     free(value->metadata_url);
     free(value->protocol);
@@ -2666,6 +2667,9 @@ axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_conf
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_sha1_signatures");
+    if (cJSON_IsBool(item)) { out->allow_sha1_signatures = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_allow_sha1_signatures = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
     if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
         out->has_allow_tenant_inheritance = 1; }
@@ -2705,6 +2709,8 @@ axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_conf
     if (cJSON_IsString(item)) out->client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_secret");
     if (cJSON_IsString(item)) out->client_secret = axiam_sensitive_new(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "idp_metadata_signing_cert_pem");
+    if (cJSON_IsString(item)) out->idp_metadata_signing_cert_pem = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "idp_signing_cert_pem");
     if (cJSON_IsString(item)) out->idp_signing_cert_pem = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
@@ -2744,6 +2750,9 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_allow_sha1_signatures) {
+        cJSON_AddBoolToObject(obj, "allow_sha1_signatures", value->allow_sha1_signatures);
+    }
     if (value->has_allow_tenant_inheritance) {
         cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
     }
@@ -2778,6 +2787,9 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     }
     if (value->client_secret) {
         cJSON_AddStringToObject(obj, "client_secret", axiam_sensitive_reveal(value->client_secret));
+    }
+    if (value->idp_metadata_signing_cert_pem) {
+        cJSON_AddStringToObject(obj, "idp_metadata_signing_cert_pem", value->idp_metadata_signing_cert_pem);
     }
     if (value->idp_signing_cert_pem) {
         cJSON_AddStringToObject(obj, "idp_signing_cert_pem", value->idp_signing_cert_pem);
@@ -2939,6 +2951,9 @@ axiam_mgmt_create_notification_rule_request_t *axiam_mgmt_create_notification_ru
         }
         out->recipient_emails_count = n;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "window_minutes");
+    if (cJSON_IsNumber(item)) { out->window_minutes = (long) item->valuedouble;
+        out->has_window_minutes = 1; }
     return out;
 }
 
@@ -2960,6 +2975,9 @@ cJSON *axiam_mgmt_create_notification_rule_request_build(const axiam_mgmt_create
         cJSON *arr = cJSON_AddArrayToObject(obj, "recipient_emails");
         for (size_t i = 0; arr && i < value->recipient_emails_count; i++)
             cJSON_AddItemToArray(arr, cJSON_CreateString(value->recipient_emails[i]));
+    }
+    if (value->has_window_minutes) {
+        cJSON_AddNumberToObject(obj, "window_minutes", (double) value->window_minutes);
     }
     return obj;
 }
@@ -4449,6 +4467,7 @@ void axiam_mgmt_federation_config_response_free(axiam_mgmt_federation_config_res
         free(value->effective_scopes);
     }
     free(value->id);
+    free(value->idp_metadata_signing_cert_pem);
     free(value->metadata_url);
     free(value->protocol);
     free(value->provider);
@@ -4472,6 +4491,9 @@ axiam_mgmt_federation_config_response_t *axiam_mgmt_federation_config_response_p
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_sha1_signatures");
+    if (cJSON_IsBool(item)) { out->allow_sha1_signatures = cJSON_IsTrue(item) ? 1 : 0;
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
     if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
     }
@@ -4530,6 +4552,8 @@ axiam_mgmt_federation_config_response_t *axiam_mgmt_federation_config_response_p
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "id");
     if (cJSON_IsString(item)) out->id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "idp_metadata_signing_cert_pem");
+    if (cJSON_IsString(item)) out->idp_metadata_signing_cert_pem = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
     if (cJSON_IsString(item)) out->metadata_url = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "mints_client_secret");
@@ -4574,6 +4598,9 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (1) {
+        cJSON_AddBoolToObject(obj, "allow_sha1_signatures", value->allow_sha1_signatures);
+    }
     if (1) {
         cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
     }
@@ -4622,6 +4649,9 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     }
     if (value->id) {
         cJSON_AddStringToObject(obj, "id", value->id);
+    }
+    if (value->idp_metadata_signing_cert_pem) {
+        cJSON_AddStringToObject(obj, "idp_metadata_signing_cert_pem", value->idp_metadata_signing_cert_pem);
     }
     if (value->metadata_url) {
         cJSON_AddStringToObject(obj, "metadata_url", value->metadata_url);
@@ -5848,6 +5878,9 @@ axiam_mgmt_notification_rule_response_t *axiam_mgmt_notification_rule_response_p
     if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "updated_at");
     if (cJSON_IsString(item)) out->updated_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "window_minutes");
+    if (cJSON_IsNumber(item)) { out->window_minutes = (long) item->valuedouble;
+    }
     return out;
 }
 
@@ -5884,6 +5917,9 @@ cJSON *axiam_mgmt_notification_rule_response_build(const axiam_mgmt_notification
     }
     if (value->updated_at) {
         cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "window_minutes", (double) value->window_minutes);
     }
     return obj;
 }
@@ -8699,6 +8735,7 @@ void axiam_mgmt_scim_target_input_free(axiam_mgmt_scim_target_input_t *value) {
     axiam_mgmt_scim_target_auth_free(value->auth);
     free(value->base_url);
     axiam_sensitive_free(value->credential);
+    free(value->expected_updated_at);
     free(value->name);
     axiam_mgmt_scim_target_scope_free(value->scope);
     free(value);
@@ -8723,6 +8760,8 @@ axiam_mgmt_scim_target_input_t *axiam_mgmt_scim_target_input_parse(const cJSON *
     item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
     if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "expected_updated_at");
+    if (cJSON_IsString(item)) out->expected_updated_at = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "name");
     if (cJSON_IsString(item)) out->name = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "push_groups");
@@ -8756,6 +8795,9 @@ cJSON *axiam_mgmt_scim_target_input_build(const axiam_mgmt_scim_target_input_t *
     }
     if (value->has_enabled) {
         cJSON_AddBoolToObject(obj, "enabled", value->enabled);
+    }
+    if (value->expected_updated_at) {
+        cJSON_AddStringToObject(obj, "expected_updated_at", value->expected_updated_at);
     }
     if (value->name) {
         cJSON_AddStringToObject(obj, "name", value->name);
@@ -11304,6 +11346,7 @@ void axiam_mgmt_update_federation_config_request_free(axiam_mgmt_update_federati
     free(value->button_icon);
     free(value->client_id);
     axiam_sensitive_free(value->client_secret);
+    free(value->idp_metadata_signing_cert_pem);
     free(value->idp_signing_cert_pem);
     free(value->metadata_url);
     free(value->provider);
@@ -11324,6 +11367,9 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
     if (!out) return NULL;
     const cJSON *item;
     (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "allow_sha1_signatures");
+    if (cJSON_IsBool(item)) { out->allow_sha1_signatures = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_allow_sha1_signatures = 1; }
     item = cJSON_GetObjectItemCaseSensitive(src, "allow_tenant_inheritance");
     if (cJSON_IsBool(item)) { out->allow_tenant_inheritance = cJSON_IsTrue(item) ? 1 : 0;
         out->has_allow_tenant_inheritance = 1; }
@@ -11350,15 +11396,19 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
         out->allowed_issuer_tenants_count = n;
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "apple_key_id");
-    if (cJSON_IsString(item)) out->apple_key_id = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->apple_key_id = axiam_strdup0(item->valuestring); out->has_apple_key_id = 1; }
+    else if (cJSON_IsNull(item)) out->has_apple_key_id = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "apple_team_id");
-    if (cJSON_IsString(item)) out->apple_team_id = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->apple_team_id = axiam_strdup0(item->valuestring); out->has_apple_team_id = 1; }
+    else if (cJSON_IsNull(item)) out->has_apple_team_id = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "attribute_map");
     if (item) out->attribute_map = cJSON_PrintUnformatted(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "authorization_endpoint");
-    if (cJSON_IsString(item)) out->authorization_endpoint = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->authorization_endpoint = axiam_strdup0(item->valuestring); out->has_authorization_endpoint = 1; }
+    else if (cJSON_IsNull(item)) out->has_authorization_endpoint = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "button_icon");
-    if (cJSON_IsString(item)) out->button_icon = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->button_icon = axiam_strdup0(item->valuestring); out->has_button_icon = 1; }
+    else if (cJSON_IsNull(item)) out->has_button_icon = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "client_id");
     if (cJSON_IsString(item)) out->client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "client_secret");
@@ -11366,14 +11416,20 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
     item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
     if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
         out->has_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "idp_metadata_signing_cert_pem");
+    if (cJSON_IsString(item)) { out->idp_metadata_signing_cert_pem = axiam_strdup0(item->valuestring); out->has_idp_metadata_signing_cert_pem = 1; }
+    else if (cJSON_IsNull(item)) out->has_idp_metadata_signing_cert_pem = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "idp_signing_cert_pem");
-    if (cJSON_IsString(item)) out->idp_signing_cert_pem = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->idp_signing_cert_pem = axiam_strdup0(item->valuestring); out->has_idp_signing_cert_pem = 1; }
+    else if (cJSON_IsNull(item)) out->has_idp_signing_cert_pem = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
-    if (cJSON_IsString(item)) out->metadata_url = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->metadata_url = axiam_strdup0(item->valuestring); out->has_metadata_url = 1; }
+    else if (cJSON_IsNull(item)) out->has_metadata_url = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "provider");
     if (cJSON_IsString(item)) out->provider = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "provider_slug");
-    if (cJSON_IsString(item)) out->provider_slug = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->provider_slug = axiam_strdup0(item->valuestring); out->has_provider_slug = 1; }
+    else if (cJSON_IsNull(item)) out->has_provider_slug = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "require_pkce");
     if (cJSON_IsBool(item)) { out->require_pkce = cJSON_IsTrue(item) ? 1 : 0;
         out->has_require_pkce = 1; }
@@ -11389,11 +11445,13 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
         out->scopes_count = n;
     }
     item = cJSON_GetObjectItemCaseSensitive(src, "token_endpoint");
-    if (cJSON_IsString(item)) out->token_endpoint = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->token_endpoint = axiam_strdup0(item->valuestring); out->has_token_endpoint = 1; }
+    else if (cJSON_IsNull(item)) out->has_token_endpoint = 1;
     item = cJSON_GetObjectItemCaseSensitive(src, "token_exchange");
     if (cJSON_IsObject(item)) out->token_exchange = axiam_mgmt_token_exchange_trust_request_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "userinfo_endpoint");
-    if (cJSON_IsString(item)) out->userinfo_endpoint = axiam_strdup0(item->valuestring);
+    if (cJSON_IsString(item)) { out->userinfo_endpoint = axiam_strdup0(item->valuestring); out->has_userinfo_endpoint = 1; }
+    else if (cJSON_IsNull(item)) out->has_userinfo_endpoint = 1;
     return out;
 }
 
@@ -11401,6 +11459,9 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     if (!value) return NULL;
     cJSON *obj = cJSON_CreateObject();
     if (!obj) return NULL;
+    if (value->has_allow_sha1_signatures) {
+        cJSON_AddBoolToObject(obj, "allow_sha1_signatures", value->allow_sha1_signatures);
+    }
     if (value->has_allow_tenant_inheritance) {
         cJSON_AddBoolToObject(obj, "allow_tenant_inheritance", value->allow_tenant_inheritance);
     }
@@ -11416,9 +11477,13 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->apple_key_id) {
         cJSON_AddStringToObject(obj, "apple_key_id", value->apple_key_id);
+    } else if (value->has_apple_key_id) {
+        cJSON_AddNullToObject(obj, "apple_key_id");
     }
     if (value->apple_team_id) {
         cJSON_AddStringToObject(obj, "apple_team_id", value->apple_team_id);
+    } else if (value->has_apple_team_id) {
+        cJSON_AddNullToObject(obj, "apple_team_id");
     }
     if (value->attribute_map) {
         cJSON *sub = cJSON_Parse(value->attribute_map);
@@ -11426,9 +11491,13 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->authorization_endpoint) {
         cJSON_AddStringToObject(obj, "authorization_endpoint", value->authorization_endpoint);
+    } else if (value->has_authorization_endpoint) {
+        cJSON_AddNullToObject(obj, "authorization_endpoint");
     }
     if (value->button_icon) {
         cJSON_AddStringToObject(obj, "button_icon", value->button_icon);
+    } else if (value->has_button_icon) {
+        cJSON_AddNullToObject(obj, "button_icon");
     }
     if (value->client_id) {
         cJSON_AddStringToObject(obj, "client_id", value->client_id);
@@ -11439,17 +11508,28 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     if (value->has_enabled) {
         cJSON_AddBoolToObject(obj, "enabled", value->enabled);
     }
+    if (value->idp_metadata_signing_cert_pem) {
+        cJSON_AddStringToObject(obj, "idp_metadata_signing_cert_pem", value->idp_metadata_signing_cert_pem);
+    } else if (value->has_idp_metadata_signing_cert_pem) {
+        cJSON_AddNullToObject(obj, "idp_metadata_signing_cert_pem");
+    }
     if (value->idp_signing_cert_pem) {
         cJSON_AddStringToObject(obj, "idp_signing_cert_pem", value->idp_signing_cert_pem);
+    } else if (value->has_idp_signing_cert_pem) {
+        cJSON_AddNullToObject(obj, "idp_signing_cert_pem");
     }
     if (value->metadata_url) {
         cJSON_AddStringToObject(obj, "metadata_url", value->metadata_url);
+    } else if (value->has_metadata_url) {
+        cJSON_AddNullToObject(obj, "metadata_url");
     }
     if (value->provider) {
         cJSON_AddStringToObject(obj, "provider", value->provider);
     }
     if (value->provider_slug) {
         cJSON_AddStringToObject(obj, "provider_slug", value->provider_slug);
+    } else if (value->has_provider_slug) {
+        cJSON_AddNullToObject(obj, "provider_slug");
     }
     if (value->has_require_pkce) {
         cJSON_AddBoolToObject(obj, "require_pkce", value->require_pkce);
@@ -11461,6 +11541,8 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->token_endpoint) {
         cJSON_AddStringToObject(obj, "token_endpoint", value->token_endpoint);
+    } else if (value->has_token_endpoint) {
+        cJSON_AddNullToObject(obj, "token_endpoint");
     }
     if (value->token_exchange) {
         cJSON *sub = axiam_mgmt_token_exchange_trust_request_build(value->token_exchange);
@@ -11468,6 +11550,8 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
     }
     if (value->userinfo_endpoint) {
         cJSON_AddStringToObject(obj, "userinfo_endpoint", value->userinfo_endpoint);
+    } else if (value->has_userinfo_endpoint) {
+        cJSON_AddNullToObject(obj, "userinfo_endpoint");
     }
     return obj;
 }
@@ -11550,6 +11634,9 @@ axiam_mgmt_update_notification_rule_request_t *axiam_mgmt_update_notification_ru
         }
         out->recipient_emails_count = n;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "window_minutes");
+    if (cJSON_IsNumber(item)) { out->window_minutes = (long) item->valuedouble;
+        out->has_window_minutes = 1; }
     return out;
 }
 
@@ -11574,6 +11661,9 @@ cJSON *axiam_mgmt_update_notification_rule_request_build(const axiam_mgmt_update
         cJSON *arr = cJSON_AddArrayToObject(obj, "recipient_emails");
         for (size_t i = 0; arr && i < value->recipient_emails_count; i++)
             cJSON_AddItemToArray(arr, cJSON_CreateString(value->recipient_emails[i]));
+    }
+    if (value->has_window_minutes) {
+        cJSON_AddNumberToObject(obj, "window_minutes", (double) value->window_minutes);
     }
     return obj;
 }

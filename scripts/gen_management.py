@@ -79,17 +79,40 @@ RENAMED_SCHEMAS: dict[str, str] = {}
 # server), NULL with `has_` 1 is an explicit JSON `null`, and a non-NULL pointer is a
 # value. A name list rather than a schema rule, because the export spells every optional
 # member `["string", "null"]` and cannot say which ones `null` clears.
+#
+# Contract 1.60 (§27.15 note 8) adds the ten nullable members of
+# `UpdateFederationConfigRequest`: each is cleared by an explicit `null` and left unchanged
+# when omitted. The body's other members (`provider`, `client_id`, the booleans, the
+# lists, ...) cannot be cleared -- the server reads `null` there as absent -- so they stay
+# plain optionals.
 EXPLICIT_NULL_FIELDS = {
     ("UpdateDirectoryConfig", "group_base_dn"),
     ("UpdateDirectoryConfig", "group_filter"),
     ("SamlIdpInfo", "active_credential_id"),
     ("SamlIdpInfo", "next_credential_id"),
+    *(("UpdateFederationConfigRequest", wire) for wire in (
+        "metadata_url", "idp_signing_cert_pem", "idp_metadata_signing_cert_pem",
+        "provider_slug", "authorization_endpoint", "token_endpoint", "userinfo_endpoint",
+        "apple_team_id", "apple_key_id", "button_icon",
+    )),
 }
 
 # Call-site documentation the contract makes an SDK repeat (§29.3, §30.3, §31.3, §32.2).
 # Generated rather than hand-written because the operations are generated; keyed by the
 # registry's namespace-qualified operation name, worded for this SDK's C shapes.
 CALL_SITE_NOTES: dict[str, str] = {
+    "federation.update_config": (
+        "**A sparse update where `null` clears** (§27.15 note 8, contract 1.60). A member "
+        "left NULL (or with its `has_` flag 0) is not sent and stays as stored. Each of the "
+        "ten nullable members -- `metadata_url`, `idp_signing_cert_pem`, "
+        "`idp_metadata_signing_cert_pem`, `provider_slug`, `authorization_endpoint`, "
+        "`token_endpoint`, `userinfo_endpoint`, `apple_team_id`, `apple_key_id`, "
+        "`button_icon` -- left NULL with its `has_` flag set to 1 is sent as `null` and "
+        "clears the stored value. An `OAuth2` configuration's three endpoints cannot be "
+        "cleared (`400`), and `apple_team_id` / `apple_key_id` clear only together. "
+        "`allow_sha1_signatures` and `idp_metadata_signing_cert_pem` apply to SAML "
+        "configurations only (`400` on any other)."
+    ),
     "directory.set": (
         "**Moving the connection requires the secret again** (§30.3 rule 2): a `set` "
         "that changes `url`, `start_tls`, `bind_dn` or `trust_anchors_pem` without "
