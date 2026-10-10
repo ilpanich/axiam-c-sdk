@@ -1093,6 +1093,15 @@ typedef struct axiam_token_exchange_params {
      * papering over the difference: this SDK supplies no default actor token and
      * never substitutes the client's own session for one. Passing NULL asks for
      * impersonation, and the server refuses unless this client holds that grant.
+     *
+     * IT MUST HAVE BEEN ISSUED TO THIS CLIENT (§15.2 rule 9, contract 1.60). The
+     * usual actor is this same client's own `client_credentials` token -- obtain it
+     * with axiam_login_client_credentials() on the client doing the exchange; its
+     * `sub`, and so the issued token's `act.sub`, is the `client_id`. A token issued
+     * to another client, a console sign-in or a service account's token is answered
+     * `400 invalid_request` ("actor_token was not issued to the exchanging client"),
+     * which is surfaced unchanged: not retried, not turned into an impersonation and
+     * not replaced by a token of this SDK's own.
      */
     const axiam_sensitive_t *actor_token;
     /** Scope names. NULL/0 inherits the subject's, bounded by this client's

@@ -72,7 +72,7 @@ Connection details are read from the environment (with the defaults shown):
 | `AXIAM_OIDC_CLIENT_ID` / `AXIAM_OIDC_CLIENT_SECRET` | the relying party's registration (the secret is omitted for a public client, which is what `device_login` runs as) |
 | `AXIAM_REDIRECT_URI` | `https://app.example.com/callback` (oidc_login only) |
 | `AXIAM_AUTH_CODE` / `AXIAM_RETURNED_STATE` | what your callback received; `oidc_login` stops before the exchange without them |
-| `AXIAM_SUBJECT_TOKEN` / `AXIAM_ACTOR_TOKEN` | token_exchange only — **the actor token's presence is what selects delegation over impersonation** |
+| `AXIAM_SUBJECT_TOKEN` / `AXIAM_DELEGATE` | token_exchange only — `AXIAM_DELEGATE=1` obtains **this same client's own `client_credentials` token** as the actor token (§15.2 rule 9: an actor token must have been issued to the exchanging client); **the actor token's presence is what selects delegation over impersonation** |
 
 ```sh
 export AXIAM_BASE_URL=https://iam.example.com

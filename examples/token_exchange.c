@@ -72,9 +72,28 @@ int main(void) {
 
     axiam_sensitive_t *subject = axiam_sensitive_new(subject_raw);
     /* Present → delegation. Absent → impersonation. Nothing in between, and no
-     * default. */
-    const char *actor_raw = getenv("AXIAM_ACTOR_TOKEN");
-    axiam_sensitive_t *actor = (actor_raw && *actor_raw) ? axiam_sensitive_new(actor_raw) : NULL;
+     * default: the SDK never picks an actor token for you.
+     *
+     * §15.2 rule 9: an actor token must have been issued to THE CLIENT THAT
+     * AUTHENTICATES THE EXCHANGE. The usual actor is therefore this same client's own
+     * client_credentials token (its `sub`, and so the issued token's `act.sub`, is the
+     * client_id) -- not a token you were handed, which names someone else and is
+     * answered 400 invalid_request ("actor_token was not issued to the exchanging
+     * client"). Set AXIAM_DELEGATE=1 to ask for a delegation; leave it unset to ask for
+     * an impersonation. */
+    axiam_oidc_token_set_t actor_set;
+    memset(&actor_set, 0, sizeof(actor_set));
+    axiam_sensitive_t *actor = NULL;
+    const char *delegate = getenv("AXIAM_DELEGATE");
+    if (delegate && strcmp(delegate, "1") == 0) {
+        if (axiam_login_client_credentials(client, NULL, NULL, &actor_set, &err) != AXIAM_OK) {
+            fprintf(stderr, "could not obtain this client's own actor token: %s\n", err.message);
+            axiam_sensitive_free(subject);
+            axiam_client_free(client);
+            return 1;
+        }
+        actor = actor_set.access_token; /* owned by actor_set; freed with it below */
+    }
 
     const char *scopes[] = {"invoices:read"};
     axiam_token_exchange_params_t params = {0};
@@ -117,8 +136,8 @@ int main(void) {
         } else {
             fprintf(stderr, "\nexchange failed: %s\n", err.message);
         }
+        axiam_oidc_token_set_dispose(&actor_set);
         axiam_sensitive_free(subject);
-        axiam_sensitive_free(actor);
         axiam_client_free(client);
         return 1;
     }
@@ -136,8 +155,8 @@ int main(void) {
            "exchange when it expires.\n");
 
     axiam_exchanged_token_dispose(&exchanged);
+    axiam_oidc_token_set_dispose(&actor_set);
     axiam_sensitive_free(subject);
-    axiam_sensitive_free(actor);
     axiam_client_free(client);
     return 0;
 }

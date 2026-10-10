@@ -702,6 +702,39 @@ void test_token_exchange_refuses_a_public_client_with_no_wire_call(void) {
     axiam_client_free(c);
 }
 
+/* §15.6 (contract 1.60; §15.2 rule 9): an actor_token the server says was not issued to
+ * the exchanging client is surfaced unchanged -- one request, no rewriting. */
+void test_s15_6_an_actor_token_not_issued_to_the_exchanging_client_is_surfaced_unchanged(void) {
+    g_oidc.token_script[0] = (oidc_answer_t){400,
+        "{\"error\":\"invalid_request\",\"error_description\":"
+        "\"actor_token was not issued to the exchanging client\"}", 0};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_sensitive_t *subject = axiam_sensitive_new("subject-token");
+    axiam_sensitive_t *actor = axiam_sensitive_new("another-clients-actor-token");
+    axiam_exchanged_token_t t;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, exchange(c, subject, actor, NULL, 0, &t, &err));
+
+    /* The error is the server's, unchanged: code and description both. */
+    TEST_ASSERT_EQUAL_STRING("invalid_request", err.oauth_error);
+    TEST_ASSERT_NOT_NULL(strstr(err.message, "actor_token was not issued to the exchanging client"));
+    /* Exactly one request, still carrying the actor token the caller passed: not retried,
+     * not rewritten into an impersonation (rule 1), not repaired by substituting a token
+     * of the SDK's own (rule 9). */
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+    int i = oidc_last_call("/oauth2/token");
+    TEST_ASSERT_TRUE(oidc_body_has_field("/oauth2/token", "actor_token"));
+    TEST_ASSERT_NOT_NULL(strstr(g_oidc.bodies[i], "actor_token=another-clients-actor-token"));
+    TEST_ASSERT_NULL(strstr(g_oidc.bodies[i], "actor_token=subject-token"));
+    TEST_ASSERT_EQUAL_INT(0, c->authenticated);
+
+    axiam_sensitive_free(actor);
+    axiam_sensitive_free(subject);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_device_authorize_sends_no_secret_and_works_without_one);
@@ -729,5 +762,6 @@ int main(void) {
     RUN_TEST(test_a_refused_subject_token_type_is_never_retried_as_another);
     RUN_TEST(test_the_issuer_not_configured_description_reaches_the_caller_intact);
     RUN_TEST(test_no_helper_re_exchanges_an_externally_exchanged_token);
+    RUN_TEST(test_s15_6_an_actor_token_not_issued_to_the_exchanging_client_is_surfaced_unchanged);
     return UNITY_END();
 }

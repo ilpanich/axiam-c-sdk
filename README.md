@@ -1123,6 +1123,33 @@ your deployment issues DPoP-bound tokens, guard those endpoints with an SDK
 whose §21.9 row says it verifies proofs (Rust, Go, Python, TypeScript, …), or
 verify the proof ahead of this SDK and pass only the certificate half here.
 
+### §15.2 rule 9 — the actor token is this client's own
+
+An `actor_token` must have been **issued to the client that authenticates the
+exchange** (contract 1.60). The usual actor is that same client's own
+`client_credentials` token, so obtain it from the client doing the exchange
+with `axiam_login_client_credentials()` and pass it; its `sub` — and so the
+issued token's `act.sub` — is the client's `client_id`. The SDK supplies no
+default actor token (rule 1).
+
+```c
+axiam_oidc_token_set_t actor_set;
+axiam_login_client_credentials(client, NULL, NULL, &actor_set, &err); /* same client */
+
+axiam_token_exchange_params_t p = {0};
+p.subject_token      = user_access_token;
+p.subject_token_type = AXIAM_TOKEN_TYPE_ACCESS_TOKEN;
+p.actor_token        = actor_set.access_token;   /* delegation */
+axiam_token_exchange(client, &p, &t, &err);
+axiam_oidc_token_set_dispose(&actor_set);
+```
+
+Any other actor token — one issued to another client, a console sign-in, a
+service account's token — is answered `400 invalid_request` with
+`actor_token was not issued to the exchanging client`. The SDK surfaces it
+unchanged: one request, no retry, no downgrade to an impersonation, no
+substitution of a token of its own.
+
 ### §15.7 — external-IdP subject tokens
 
 The same call exchanges a token minted by a **trusted external IdP** — a
