@@ -735,6 +735,86 @@ void test_s15_6_an_actor_token_not_issued_to_the_exchanging_client_is_surfaced_u
     axiam_client_free(c);
 }
 
+/* ------------------------------------------------------------------ */
+/* Contract 1.60 verify rows: §12.1 refresh `scope`, §21.5 discovery   */
+/* ------------------------------------------------------------------ */
+
+/* §12.1 (contract 1.60): the server intersects a grant's scopes with the client's
+ * registration at every refresh, so the response may carry a narrower `scope` -- and no
+ * ID token once `openid` is gone. The token set's scope is the RESPONSE's, never the
+ * requested or the original grant's; a response without one leaves it NULL rather than
+ * filled from the request. */
+void test_s12_1_a_refresh_takes_the_responses_scope_as_authoritative(void) {
+    g_oidc.token_script[0] = (oidc_answer_t){200,
+        "{\"access_token\":\"narrowed\",\"token_type\":\"Bearer\",\"expires_in\":900,"
+        "\"refresh_token\":\"rotated\",\"scope\":\"profile\"}", 0};
+    g_oidc.token_script[1] = (oidc_answer_t){200,
+        "{\"access_token\":\"silent\",\"token_type\":\"Bearer\",\"expires_in\":900}", 0};
+    g_oidc.token_script_len = 2;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_sensitive_t *rt = axiam_sensitive_new("a-refresh-token");
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_refresh(c, rt, "openid profile email", NULL, &set, &err));
+    TEST_ASSERT_EQUAL_STRING("profile", set.scope);
+    TEST_ASSERT_NULL_MESSAGE(set.id_token, "no ID token once openid is gone");
+    TEST_ASSERT_NULL(set.id_claims);
+    axiam_oidc_token_set_dispose(&set);
+
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_refresh(c, rt, "openid profile", NULL, &set, &err));
+    TEST_ASSERT_NULL_MESSAGE(set.scope, "never filled in from the request");
+    axiam_oidc_token_set_dispose(&set);
+    TEST_ASSERT_EQUAL_INT(2, g_oidc.token_calls);
+
+    axiam_sensitive_free(rt);
+    axiam_client_free(c);
+}
+
+/* §21.5 / §12.1 (contract 1.60): the four revocation and introspection members are
+ * optional to an SDK. This one does not model them (a MAY), so a document carrying them
+ * decodes exactly as one without them does -- the default fixture and vector A, which
+ * test_mtls_endpoint_aliases decodes -- and they change no method: revocation still sends
+ * `client_id` and the secret in the body, never Basic (§12.1 rules 3 and 4). */
+void test_s21_5_the_four_discovery_members_are_optional_and_change_no_method(void) {
+    g_oidc.discovery_body =
+        "{\"issuer\":\"" OIDC_ISSUER "\","
+        "\"authorization_endpoint\":\"" OIDC_BASE "/oauth2/authorize\","
+        "\"token_endpoint\":\"" OIDC_BASE "/oauth2/token\","
+        "\"jwks_uri\":\"" OIDC_BASE "/oauth2/jwks\","
+        "\"introspection_endpoint\":\"" OIDC_BASE "/oauth2/introspect\","
+        "\"revocation_endpoint\":\"" OIDC_BASE "/oauth2/revoke\","
+        "\"revocation_endpoint_auth_methods_supported\":[\"client_secret_basic\",\"none\"],"
+        "\"introspection_endpoint_auth_methods_supported\":[\"client_secret_basic\"],"
+        "\"revocation_endpoint_auth_signing_alg_values_supported\":[\"EdDSA\"],"
+        "\"introspection_endpoint_auth_signing_alg_values_supported\":[\"EdDSA\"]}";
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_config_t cfg;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL_STRING(OIDC_BASE "/oauth2/revoke", cfg.revocation_endpoint);
+    TEST_ASSERT_EQUAL_STRING(OIDC_BASE "/oauth2/introspect", cfg.introspection_endpoint);
+    axiam_oidc_config_dispose(&cfg);
+
+    axiam_sensitive_t *token = axiam_sensitive_new("a-token-to-revoke");
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_revoke(c, token, NULL, NULL, &err));
+    int i = oidc_last_call("/oauth2/revoke");
+    TEST_ASSERT_TRUE(i >= 0);
+    TEST_ASSERT_NOT_NULL(strstr(g_oidc.bodies[i], "client_id=" OIDC_CLIENT_ID));
+    TEST_ASSERT_TRUE(oidc_body_has_field("/oauth2/revoke", "client_secret"));
+    TEST_ASSERT_NULL(strstr(g_oidc.authorizations[i], "Basic"));
+    axiam_sensitive_free(token);
+    axiam_client_free(c);
+
+    /* ... and a document without them (a server before 1.0.0) still decodes. */
+    oidc_reset();
+    c = oidc_make_client();
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL_STRING(OIDC_BASE "/oauth2/revoke", cfg.revocation_endpoint);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_device_authorize_sends_no_secret_and_works_without_one);
@@ -763,5 +843,8 @@ int main(void) {
     RUN_TEST(test_the_issuer_not_configured_description_reaches_the_caller_intact);
     RUN_TEST(test_no_helper_re_exchanges_an_externally_exchanged_token);
     RUN_TEST(test_s15_6_an_actor_token_not_issued_to_the_exchanging_client_is_surfaced_unchanged);
+    /* Contract 1.60 verify rows. */
+    RUN_TEST(test_s12_1_a_refresh_takes_the_responses_scope_as_authoritative);
+    RUN_TEST(test_s21_5_the_four_discovery_members_are_optional_and_change_no_method);
     return UNITY_END();
 }
