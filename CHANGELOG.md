@@ -19,7 +19,7 @@ you supply. It has no gRPC transport and ships no AMQP client. It conforms to **
 §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (§16 and §18 are
 MUST-level and not named). From 1.0.0 the SDK is stable and follows Semantic Versioning.
 This release re-vendors `CONTRACT.md`, `openapi.json` and `management-registry.json` from
-ilpanich/axiam `3ed6547` (contract 1.60; this SDK vendors no `proto/`).
+ilpanich/axiam `8df0e11` (contract 1.60; this SDK vendors no `proto/`).
 
 ### Breaking changes
 
