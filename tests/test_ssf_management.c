@@ -32,6 +32,18 @@ cJSON *axiam_mgmt_ssf_stream_build(const axiam_mgmt_ssf_stream_t *value);
     "\"events_delivered\":[\"" AXIAM_SSF_EVENT_SESSION_REVOKED "\"],"                       \
     "\"last_verification_at\":null,\"created_at\":\"2026-10-04T00:00:00Z\","                \
     "\"updated_at\":\"2026-10-04T00:00:00Z\""
+/* The same stream with `events_requested` and `updated_at` taken out, for the cases that
+ * choose them. */
+#define STREAM_BASE_NO_EVENTS_REQUESTED                                                     \
+    "\"id\":\"" STREAM_ID "\",\"tenant_id\":\"" TENANT "\",\"receiver_client_id\":\"rp\","  \
+    "\"audience\":\"https://rp.example\",\"description\":null,"                             \
+    "\"endpoint_url\":\"https://rp.example/ssf/push\",\"authorization_header_set\":true,"   \
+    "\"events_delivered\":[],\"last_verification_at\":null,"                                \
+    "\"created_at\":\"2026-10-04T00:00:00Z\",\"updated_at\":\"2026-10-04T00:00:00.5Z\""
+#define STREAM_TAIL                                                                         \
+    "\"events_allowed\":[\"" AXIAM_SSF_EVENT_SESSION_REVOKED "\"],"                          \
+    "\"delivery_method\":\"push\",\"subject_format\":\"iss_sub\",\"status\":\"enabled\","  \
+    "\"status_reason\":null,\"status_actor\":\"admin\",\"transmitter_active\":true"
 #define STREAM_FIELDS STREAM_BASE ",\"events_allowed\":[\"" AXIAM_SSF_EVENT_SESSION_REVOKED "\"]"
 #define STREAM_BODY                                                                         \
     "{" STREAM_FIELDS ",\"delivery_method\":\"push\",\"subject_format\":\"iss_sub\","        \
@@ -101,6 +113,13 @@ static void test_update_stream_puts_every_member_it_models(void) {
     };
     for (size_t i = 0; i < sizeof members / sizeof members[0]; i++)
         TEST_ASSERT_NOT_NULL_MESSAGE(cJSON_GetObjectItemCaseSensitive(sent, members[i]), members[i]);
+    /* Contract 1.61 (§32.8 test 1): an `events_requested` of [] is sent as [] ... */
+    const cJSON *er = cJSON_GetObjectItemCaseSensitive(sent, "events_requested");
+    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsArray(er) && cJSON_GetArraySize(er) == 0,
+                             "events_requested [] is sent as []");
+    /* ... and `expected_updated_at`, unset, is absent from the body (never null). */
+    TEST_ASSERT_NULL_MESSAGE(cJSON_GetObjectItemCaseSensitive(sent, "expected_updated_at"),
+                             "expected_updated_at is omitted when unset");
     cJSON_Delete(sent);
     TEST_ASSERT_EQUAL_STRING("https://rp.example", stream->audience);
     TEST_ASSERT_TRUE(stream->authorization_header_set);
@@ -316,6 +335,83 @@ static void test_a_read_converts_into_the_replacement_body_without_the_header(vo
     axiam_client_free(c);
 }
 
+/* ---- Contract 1.61 (§32.2, §32.3 rule 4, §32.8 test 1) -------------------------------- */
+
+static void test_expected_updated_at_is_sent_as_given_and_an_unset_events_requested_is_absent(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_ssf_stream_input_t in;
+    fill_input(&in);
+    /* Fewer fractional digits than a server would store: sent verbatim, not re-formatted. */
+    in.expected_updated_at = (char *) "2026-10-04T00:00:00.123456789+02:00";
+    mgmt_mount(200, STREAM_BODY);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_update_stream(c, NULL, STREAM_ID, &in, NULL, &err));
+    cJSON *sent = cJSON_Parse(mgmt_last_body());
+    const cJSON *ea = cJSON_GetObjectItemCaseSensitive(sent, "expected_updated_at");
+    TEST_ASSERT_TRUE(cJSON_IsString(ea));
+    TEST_ASSERT_EQUAL_STRING("2026-10-04T00:00:00.123456789+02:00", ea->valuestring);
+    TEST_ASSERT_NULL_MESSAGE(cJSON_GetObjectItemCaseSensitive(sent, "events_requested"),
+                             "an unset events_requested is absent, not [] and not null");
+    cJSON_Delete(sent);
+
+    /* Unset: no key at all, and never null. */
+    fill_input(&in);
+    mgmt_mount(200, STREAM_BODY);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_update_stream(c, NULL, STREAM_ID, &in, NULL, &err));
+    TEST_ASSERT_NULL(strstr(mgmt_last_body(), "expected_updated_at"));
+    TEST_ASSERT_NULL(strstr(mgmt_last_body(), "null"));
+    axiam_client_free(c);
+}
+
+static void test_a_409_on_update_is_the_conflict_class_and_is_not_retried(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_ssf_stream_input_t in;
+    fill_input(&in);
+    in.expected_updated_at = (char *) "2026-10-04T00:00:00Z";
+    int before = mgmt_request_count();
+    mgmt_mount(409, "{\"error\":\"conflict\",\"message\":\"the stream changed\"}");
+    mgmt_mount_next(200, STREAM_BODY);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTHZ, axiam_ssf_update_stream(c, NULL, STREAM_ID, &in, NULL, &err));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_ERR_CONFLICT, axiam_mgmt_error_class(&err));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(before + 1, mgmt_request_count(), "a 409 is not retried");
+    axiam_client_free(c);
+}
+
+/* The read-modify-write form sends back what it read: the stream's `updated_at` as the
+ * string the response carried, and `events_requested` -- a [] as [], a list as the list. */
+static void test_the_read_modify_write_sends_back_events_requested_and_expected_updated_at(void) {
+    static const char *const bodies[] = {
+        "{" STREAM_BASE_NO_EVENTS_REQUESTED ",\"events_requested\":[]," STREAM_TAIL "}",
+        "{" STREAM_BASE_NO_EVENTS_REQUESTED ",\"events_requested\":[\"" AXIAM_SSF_EVENT_SESSION_REVOKED "\"]," STREAM_TAIL "}",
+    };
+    for (int k = 0; k < 2; k++) {
+        axiam_client_t *c = mgmt_signed_in_client();
+        axiam_error_t err;
+        axiam_mgmt_ssf_stream_t *stream = NULL;
+        mgmt_mount(200, bodies[k]);
+        TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_get_stream(c, NULL, STREAM_ID, &stream, &err));
+        axiam_mgmt_ssf_stream_input_t *in = axiam_mgmt_ssf_stream_to_input(stream);
+        TEST_ASSERT_NOT_NULL(in);
+        TEST_ASSERT_EQUAL_STRING("2026-10-04T00:00:00.5Z", in->expected_updated_at);
+        mgmt_mount(200, STREAM_BODY);
+        TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_update_stream(c, NULL, STREAM_ID, in, NULL, &err));
+        cJSON *sent = cJSON_Parse(mgmt_last_body());
+        const cJSON *ea = cJSON_GetObjectItemCaseSensitive(sent, "expected_updated_at");
+        TEST_ASSERT_TRUE(cJSON_IsString(ea));
+        TEST_ASSERT_EQUAL_STRING_MESSAGE("2026-10-04T00:00:00.5Z", ea->valuestring,
+                                         "the updated_at it read, verbatim");
+        const cJSON *er = cJSON_GetObjectItemCaseSensitive(sent, "events_requested");
+        TEST_ASSERT_TRUE_MESSAGE(cJSON_IsArray(er), "events_requested is sent back, never omitted");
+        TEST_ASSERT_EQUAL_INT(k == 0 ? 0 : 1, cJSON_GetArraySize(er));
+        cJSON_Delete(sent);
+        axiam_mgmt_ssf_stream_input_free(in);
+        axiam_mgmt_ssf_stream_free(stream);
+        axiam_client_free(c);
+        mgmt_reset();
+    }
+}
+
 /* ---- B5 (contract 1.60; P12.2 (a)) ---------------------------------------------------
  *
  * Every local refusal is ONE category. C's row of §28.7 is `NULL` with `axiam_error_t` for a
@@ -366,6 +462,9 @@ int main(void) {
     RUN_TEST(test_no_write_is_retried_on_503);
     RUN_TEST(test_errors_map_per_section_2);
     RUN_TEST(test_a_read_converts_into_the_replacement_body_without_the_header);
+    RUN_TEST(test_expected_updated_at_is_sent_as_given_and_an_unset_events_requested_is_absent);
+    RUN_TEST(test_a_409_on_update_is_the_conflict_class_and_is_not_retried);
+    RUN_TEST(test_the_read_modify_write_sends_back_events_requested_and_expected_updated_at);
     RUN_TEST(test_B5_every_local_refusal_is_the_one_validation_category);
     return UNITY_END();
 }

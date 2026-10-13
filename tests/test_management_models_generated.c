@@ -1097,7 +1097,7 @@ static void test_ca_certificate_rejects_a_non_object(void) {
 
 /* `Certificate`: a full wire object parses, builds back and frees. */
 static void test_certificate_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_certificate_t *model = axiam_mgmt_certificate_parse(src);
@@ -1114,6 +1114,28 @@ static void test_certificate_round_trips(void) {
         TEST_ASSERT_NOT_NULL_MESSAGE(
             cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
     }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_certificate_free(model);
+    cJSON_Delete(src);
+}
+
+/* `Certificate`: the server omitting every OPTIONAL field is not an error. */
+static void test_certificate_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_certificate_t *model = axiam_mgmt_certificate_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_certificate_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
 
     cJSON_Delete(rebuilt);
     axiam_mgmt_certificate_free(model);
@@ -1503,7 +1525,7 @@ static void test_create_ca_certificate_request_rejects_a_non_object(void) {
 
 /* `CreateCertificateRequest`: a full wire object parses, builds back and frees. */
 static void test_create_certificate_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{}], \"validity_days\": 1}");
+    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"subject\": \"example\", \"subject_alt_names\": [{}], \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_create_certificate_request_t *model = axiam_mgmt_create_certificate_request_parse(src);
@@ -3692,7 +3714,7 @@ static void test_generated_ca_certificate_rejects_a_non_object(void) {
 
 /* `GeneratedCertificate`: a full wire object parses, builds back and frees. */
 static void test_generated_certificate_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"chain_pem\": \"example\", \"private_key_pem\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"created_at\": \"2026-08-26T00:00:00Z\", \"fingerprint\": \"example\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"key_algorithm\": \"Rsa4096\", \"metadata\": {}, \"not_after\": \"2026-08-26T00:00:00Z\", \"not_before\": \"2026-08-26T00:00:00Z\", \"public_cert_pem\": \"example\", \"status\": \"Active\", \"subject\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"chain_pem\": \"example\", \"private_key_pem\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_generated_certificate_t *model = axiam_mgmt_generated_certificate_parse(src);
@@ -8188,7 +8210,7 @@ static void test_sign_audit_batch_request_rejects_a_non_object(void) {
 
 /* `SignCertificateCsrRequest`: a full wire object parses, builds back and frees. */
 static void test_sign_certificate_csr_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{}], \"validity_days\": 1}");
+    cJSON *src = cJSON_Parse("{\"cert_type\": \"User\", \"csr_pem\": \"example\", \"issuer_ca_id\": \"11111111-1111-4111-8111-111111111111\", \"metadata\": {}, \"subject_alt_names\": [{}], \"user_id\": \"11111111-1111-4111-8111-111111111111\", \"validity_days\": 1}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_sign_certificate_csr_request_t *model = axiam_mgmt_sign_certificate_csr_request_parse(src);
@@ -8497,7 +8519,7 @@ static void test_ssf_stream_rejects_a_non_object(void) {
 
 /* `SsfStreamInput`: a full wire object parses, builds back and frees. */
 static void test_ssf_stream_input_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}");
+    cJSON *src = cJSON_Parse("{\"audience\": \"example\", \"authorization_header\": \"example\", \"clear_authorization_header\": true, \"delivery_method\": \"push\", \"description\": \"example\", \"endpoint_url\": \"example\", \"events_allowed\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"events_requested\": [\"https://schemas.openid.net/secevent/caep/event-type/session-revoked\"], \"expected_updated_at\": \"2026-08-26T00:00:00Z\", \"receiver_client_id\": \"example\", \"status\": \"enabled\", \"status_reason\": \"example\", \"subject_format\": \"iss_sub\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_ssf_stream_input_t *model = axiam_mgmt_ssf_stream_input_parse(src);
@@ -11825,6 +11847,7 @@ int main(void) {
     RUN_TEST(test_ca_certificate_parses_an_empty_object);
     RUN_TEST(test_ca_certificate_rejects_a_non_object);
     RUN_TEST(test_certificate_round_trips);
+    RUN_TEST(test_certificate_parses_without_optionals);
     RUN_TEST(test_certificate_parses_an_empty_object);
     RUN_TEST(test_certificate_rejects_a_non_object);
     RUN_TEST(test_certificate_policy_round_trips);

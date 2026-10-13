@@ -38,7 +38,12 @@ axiam_mgmt_saml_service_provider_input_t *
 axiam_mgmt_saml_service_provider_to_input(const axiam_mgmt_saml_service_provider_t *sp);
 
 /** An `SsfStream` read as the `update_stream` replacement body; `authorization_header`
- *  absent (keeps the stored header unless the endpoint moves — §32.3 rule 5). */
+ *  absent (keeps the stored header unless the endpoint moves — §32.3 rule 5).
+ *  Contract 1.61 (§32.2): `expected_updated_at` is the stream's `updated_at`, verbatim, so
+ *  the update is a `409` if the stream was written since, and `events_requested` is the one
+ *  read -- `[]` stays `[]` (the receiver's "none"), never omitted (omitting it would widen
+ *  the stream to every allowed event). When you lower `events_allowed`, cut
+ *  `events_requested` to the new ceiling yourself before sending. */
 axiam_mgmt_ssf_stream_input_t *axiam_mgmt_ssf_stream_to_input(const axiam_mgmt_ssf_stream_t *stream);
 
 /** A `ScimTargetResponse` read as the `update` replacement body; `credential` absent
