@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_set_org_email_config" name="axiam_mgmt_set_org_email_config">
+<area shape="rect" id="Node000001" title="Input for setting organization&#45;level email config." alt="" coords="9,108,173,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__provider__config.html" title="Provider&#45;specific connection details." alt="" coords="5,5,176,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="93,59,93,108,88,108,88,59"/>
+</map>

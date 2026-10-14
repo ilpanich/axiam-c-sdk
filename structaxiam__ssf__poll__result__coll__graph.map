@@ -1,0 +1,7 @@
+<map id="axiam_ssf_poll_result" name="axiam_ssf_poll_result">
+<area shape="rect" id="Node000001" title="What axiam_ssf_poll() returns." alt="" coords="103,93,267,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__security__event.html" title="A verified Security Event Token (§32.7&#39;s result)." alt="" coords="5,5,172,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="113,38,173,91,170,95,110,42"/>
+<area shape="rect" id="Node000003" href="$structaxiam__ssf__refused__set.html" title="A SET a poll returned and the helper refused." alt="" coords="196,5,368,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="260,42,200,95,196,91,257,38"/>
+</map>

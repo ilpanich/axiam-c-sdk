@@ -1,0 +1,11 @@
+<map id="axiam_mgmt_saml_service_provider_page" name="axiam_mgmt_saml_service_provider_page">
+<area shape="rect" id="Node000001" title="One page of SamlServiceProvider objects (27.4 rule 4)." alt="" coords="217,211,420,251"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__saml__service__provider.html" title="A registered service provider, as stored." alt="" coords="111,108,313,148"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="244,156,301,209,297,213,240,160"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__acs__endpoint.html" title="One AssertionConsumerService endpoint of a service provider." alt="" coords="5,13,208,38"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="131,46,194,106,190,110,127,50"/>
+<area shape="rect" id="Node000004" href="$structaxiam__mgmt__attribute__mapping.html" title="One entry of an SP&#39;s attribute mapping table." alt="" coords="233,5,405,45"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="290,57,234,110,230,106,287,53"/>
+<area shape="rect" id="Node000005" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="337,115,513,141"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="405,152,341,212,337,209,401,148"/>
+</map>
