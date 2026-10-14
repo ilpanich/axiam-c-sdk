@@ -448,3 +448,5 @@ target_compile_definitions(test_contract_159_docs PRIVATE AXIAM_REPO_ROOT="${CMA
 # Contract 1.60 (§27.15 notes 1, 6, 7 and 8): window_minutes, the two federation members
 # and the federation update's explicit-null rule, on the §27 rig.
 axiam_add_test(test_contract_160 test_contract_160.c management_test_util.c)
+# Contract 1.61 (§27.11 rule 5): Certificate.user_id on both requests and every read.
+axiam_add_test(test_contract_161 test_contract_161.c management_test_util.c)

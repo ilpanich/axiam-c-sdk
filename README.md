@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.60 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.61 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -25,6 +25,15 @@ framework-agnostic route guard and declarative authorization helpers.
 > **Stable since 1.0.0.** From 1.0.0 this SDK follows [Semantic Versioning](https://semver.org/):
 > a public header, a symbol or a documented behaviour changes incompatibly only in a new
 > major version, and every change is in [CHANGELOG.md](CHANGELOG.md).
+>
+> **Contract 1.61** (§34.5, the 1.0.1 fields; additive, the section list above is unchanged).
+> In this SDK: `user_id` on `Certificate` and `GeneratedCertificate` — optional and nullable,
+> `NULL` for a `null` and for an absent member (a server before 1.0.1) alike — and on
+> `CreateCertificateRequest` and `SignCertificateCsrRequest`, sent as given and absent when
+> `NULL` (§27.11 rule 5); `expected_updated_at` on `SsfStreamInput`, with
+> `axiam_mgmt_ssf_stream_to_input()` sending back the `updated_at` and the `events_requested`
+> it read, `[]` as `[]` (§32.2). `CibaPendingList` (§33.3 rule 16) belongs to the console and
+> no operation of this SDK returns it, so it is not modelled.
 >
 > **Contract 1.60** (§34.4, the answers to the 1.59 ports' questions, and the release
 > wave's server changes; the section list above is unchanged — §35, the certificate
@@ -2267,7 +2276,14 @@ the `updated_at` you read, unformatted — and makes the replacement conditional
 changed since is answered `409`, the conflict class. Unset, the server compares the version
 it read during the request, as before.
 
-`axiam_mgmt_ssf_stream_to_input()` is the same for an `SsfStream` (header absent). An
+`axiam_mgmt_ssf_stream_to_input()` is the same for an `SsfStream` (header absent). Since
+contract 1.61 (§32.2) it also fills `expected_updated_at` with the stream's `updated_at`,
+verbatim, so the update is a `409` (the conflict class, never retried) if the receiver or
+another administrator wrote the stream after you read it, and it carries the
+`events_requested` it read: `[]` stays `[]` (the receiver's "none"), and an `events_requested`
+you leave `NULL` on a hand-built input is *absent*, which resets the stream to every event of
+`events_allowed` — so a stream you edit is always converted, never rebuilt. If you lower
+`events_allowed`, cut `events_requested` to the new ceiling before sending. An
 unknown `auth.type` / `scope.type` decodes (tag and raw object kept,
 `axiam_mgmt_scim_target_auth_is_known()` answers 0) and is refused locally if you try to
 send it back. Event-type URIs are the `AXIAM_SSF_EVENT_*` macros of `axiam/ssf.h`.

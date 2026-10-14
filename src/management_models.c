@@ -2108,6 +2108,7 @@ void axiam_mgmt_certificate_free(axiam_mgmt_certificate_t *value) {
     free(value->public_cert_pem);
     free(value->subject);
     free(value->tenant_id);
+    free(value->user_id);
     free(value->bound_service_account_id);
     free(value);
 }
@@ -2150,6 +2151,8 @@ axiam_mgmt_certificate_t *axiam_mgmt_certificate_parse(const cJSON *src) {
     if (cJSON_IsString(item)) out->subject = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "tenant_id");
     if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "user_id");
+    if (cJSON_IsString(item)) out->user_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "bound_service_account_id");
     if (cJSON_IsString(item)) out->bound_service_account_id = axiam_strdup0(item->valuestring);
     return out;
@@ -2198,6 +2201,9 @@ cJSON *axiam_mgmt_certificate_build(const axiam_mgmt_certificate_t *value) {
     }
     if (value->tenant_id) {
         cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);
+    }
+    if (value->user_id) {
+        cJSON_AddStringToObject(obj, "user_id", value->user_id);
     }
     if (value->bound_service_account_id) {
         cJSON_AddStringToObject(obj, "bound_service_account_id", value->bound_service_account_id);
@@ -2536,6 +2542,7 @@ void axiam_mgmt_create_certificate_request_free(axiam_mgmt_create_certificate_re
         for (size_t i = 0; i < value->subject_alt_names_count; i++) axiam_mgmt_subject_alt_name_free(value->subject_alt_names[i]);
         free(value->subject_alt_names);
     }
+    free(value->user_id);
     free(value);
 }
 
@@ -2570,6 +2577,8 @@ axiam_mgmt_create_certificate_request_t *axiam_mgmt_create_certificate_request_p
         }
         out->subject_alt_names_count = n;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "user_id");
+    if (cJSON_IsString(item)) out->user_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "validity_days");
     if (cJSON_IsNumber(item)) { out->validity_days = (long) item->valuedouble;
     }
@@ -2602,6 +2611,9 @@ cJSON *axiam_mgmt_create_certificate_request_build(const axiam_mgmt_create_certi
             cJSON *sub = axiam_mgmt_subject_alt_name_build(value->subject_alt_names[i]);
             if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
+    }
+    if (value->user_id) {
+        cJSON_AddStringToObject(obj, "user_id", value->user_id);
     }
     if (1) {
         cJSON_AddNumberToObject(obj, "validity_days", (double) value->validity_days);
@@ -4886,6 +4898,7 @@ void axiam_mgmt_generated_certificate_free(axiam_mgmt_generated_certificate_t *v
     free(value->public_cert_pem);
     free(value->subject);
     free(value->tenant_id);
+    free(value->user_id);
     free(value->chain_pem);
     axiam_sensitive_free(value->private_key_pem);
     free(value);
@@ -4929,6 +4942,8 @@ axiam_mgmt_generated_certificate_t *axiam_mgmt_generated_certificate_parse(const
     if (cJSON_IsString(item)) out->subject = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "tenant_id");
     if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "user_id");
+    if (cJSON_IsString(item)) out->user_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "chain_pem");
     if (cJSON_IsString(item)) out->chain_pem = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "private_key_pem");
@@ -4979,6 +4994,9 @@ cJSON *axiam_mgmt_generated_certificate_build(const axiam_mgmt_generated_certifi
     }
     if (value->tenant_id) {
         cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);
+    }
+    if (value->user_id) {
+        cJSON_AddStringToObject(obj, "user_id", value->user_id);
     }
     if (value->chain_pem) {
         cJSON_AddStringToObject(obj, "chain_pem", value->chain_pem);
@@ -10065,6 +10083,7 @@ void axiam_mgmt_sign_certificate_csr_request_free(axiam_mgmt_sign_certificate_cs
         for (size_t i = 0; i < value->subject_alt_names_count; i++) axiam_mgmt_subject_alt_name_free(value->subject_alt_names[i]);
         free(value->subject_alt_names);
     }
+    free(value->user_id);
     free(value);
 }
 
@@ -10095,6 +10114,8 @@ axiam_mgmt_sign_certificate_csr_request_t *axiam_mgmt_sign_certificate_csr_reque
         }
         out->subject_alt_names_count = n;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "user_id");
+    if (cJSON_IsString(item)) out->user_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "validity_days");
     if (cJSON_IsNumber(item)) { out->validity_days = (long) item->valuedouble;
     }
@@ -10124,6 +10145,9 @@ cJSON *axiam_mgmt_sign_certificate_csr_request_build(const axiam_mgmt_sign_certi
             cJSON *sub = axiam_mgmt_subject_alt_name_build(value->subject_alt_names[i]);
             if (sub && !cJSON_AddItemToArray(arr, sub)) cJSON_Delete(sub);
         }
+    }
+    if (value->user_id) {
+        cJSON_AddStringToObject(obj, "user_id", value->user_id);
     }
     if (1) {
         cJSON_AddNumberToObject(obj, "validity_days", (double) value->validity_days);
@@ -10442,6 +10466,7 @@ void axiam_mgmt_ssf_stream_input_free(axiam_mgmt_ssf_stream_input_t *value) {
     free(value->endpoint_url);
     free(value->events_allowed);
     free(value->events_requested);
+    free(value->expected_updated_at);
     free(value->receiver_client_id);
     free(value->status_reason);
     free(value);
@@ -10472,6 +10497,8 @@ axiam_mgmt_ssf_stream_input_t *axiam_mgmt_ssf_stream_input_parse(const cJSON *sr
     if (item) out->events_allowed = cJSON_PrintUnformatted(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "events_requested");
     if (item) out->events_requested = cJSON_PrintUnformatted(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "expected_updated_at");
+    if (cJSON_IsString(item)) out->expected_updated_at = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "receiver_client_id");
     if (cJSON_IsString(item)) out->receiver_client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "status");
@@ -10516,6 +10543,9 @@ cJSON *axiam_mgmt_ssf_stream_input_build(const axiam_mgmt_ssf_stream_input_t *va
     if (value->events_requested) {
         cJSON *sub = cJSON_Parse(value->events_requested);
         if (sub && !cJSON_AddItemToObject(obj, "events_requested", sub)) cJSON_Delete(sub);
+    }
+    if (value->expected_updated_at) {
+        cJSON_AddStringToObject(obj, "expected_updated_at", value->expected_updated_at);
     }
     if (value->receiver_client_id) {
         cJSON_AddStringToObject(obj, "receiver_client_id", value->receiver_client_id);

@@ -45,6 +45,18 @@ axiam_mgmt_ssf_stream_input_t *axiam_mgmt_ssf_stream_to_input(const axiam_mgmt_s
     cJSON *wire = stream ? axiam_mgmt_ssf_stream_build(stream) : NULL;
     axiam_mgmt_ssf_stream_input_t *out = wire ? axiam_mgmt_ssf_stream_input_parse(wire) : NULL;
     cJSON_Delete(wire);
+    /* Contract 1.61, §32.2: the edit is conditional on the version it read. `updated_at` is
+     * not a member of the replacement body, so the wire shape cannot carry it; it is sent
+     * back as the very string the response held (never re-formatted). `events_requested` --
+     * an absent one, a `[]` and a list alike -- does cross the wire shape above, so `[]`
+     * stays `[]` and an unset one stays absent. */
+    if (out && stream->updated_at) {
+        out->expected_updated_at = axiam_strdup0(stream->updated_at);
+        if (!out->expected_updated_at) {
+            axiam_mgmt_ssf_stream_input_free(out);
+            return NULL;
+        }
+    }
     return out;
 }
 

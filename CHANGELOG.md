@@ -6,6 +6,42 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-13
+
+Contract 1.61 (§34.5, the 1.0.1 fields): additive, with no new operation, no changed
+status code and no breaking change. `CONTRACT.md`, `openapi.json` and
+`management-registry.json` are re-vendored from ilpanich/axiam `058d8e0` (branch
+`claude/release-1.0.1`; this SDK vendors no `proto/`) and the §27 surface regenerated with
+`scripts/gen_management.py`. The README states conformance at contract 1.61.
+
+### Added
+
+- `user_id` on `axiam_mgmt_certificate_t` and `axiam_mgmt_generated_certificate_t`
+  (optional and nullable: a UUID, `null` and an absent member — a server before 1.0.1 —
+  decode as `NULL`, "no account named", never coalesced or synthesised) and on
+  `axiam_mgmt_create_certificate_request_t` and `axiam_mgmt_sign_certificate_csr_request_t`
+  (sent exactly as given, the key omitted when `NULL`, never `null`). Contract 1.61,
+  §27.11 rule 5.
+- `expected_updated_at` on `axiam_mgmt_ssf_stream_input_t` (update only; sent as the string
+  given, omitted when `NULL`). Contract 1.61, §32.2.
+
+### Changed
+
+- `axiam_mgmt_ssf_stream_to_input()` sets `expected_updated_at` to the stream's `updated_at`,
+  verbatim, and carries the `events_requested` it read (`[]` as `[]`, never omitted), so
+  an edit built from a read can neither silently overwrite a write that landed since (a
+  `409`, not retried) nor widen what the receiver narrowed. Contract 1.61, §32.2, §32.3
+  rule 4, §32.8 test 1.
+- `CibaPendingList.total_pending` and `truncated` (§33.3 rule 16) are not modelled: this SDK
+  generates the models that a registry operation reaches, and none returns the console's
+  pending-request list.
+
+### Tests
+
+- `test_contract_161` (§27.11 rule 5's required test) and three cases in
+  `test_ssf_management` (§32.8 test 1's contract 1.61 assertions, the `409` that is not
+  retried, and the read-modify-write form).
+
 ## [1.0.0] - 2026-10-10
 
 The AXIAM C SDK at 1.0.0 is a C11 library (C11 through C23, gcc and clang) over the AXIAM
