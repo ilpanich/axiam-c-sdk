@@ -456,3 +456,5 @@ axiam_add_test(test_contract_161 test_contract_161.c management_test_util.c)
 axiam_add_test(test_contract_162_network test_contract_162_network.c management_test_util.c)
 target_compile_definitions(test_contract_162_network
     PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+# Contract 1.62 (§27.6.2, §27.9 "Manifest, network"): the network namespace in a manifest.
+axiam_add_test(test_manifest_network test_manifest_network.c management_test_util.c)

@@ -52,7 +52,10 @@ void axiam_mgmt_classify(axiam_error_t *err, long status, const char *operation,
     cJSON *parsed = NULL;
     if ((status == 400 || status == 422 || status == 409 || status == 403) && body)
         parsed = cJSON_Parse(body);
-    if ((status == 400 || status == 422) && parsed) {
+    /* §27.6.2 item 3 / §27.9: a refusal the manifest reports "as given" carries the server's
+     * own `message` -- a 403's (the cap, the missing permission) and a 409's as well as a
+     * 400's. It is for a human; nothing here, and no caller, branches on it. */
+    if ((status == 400 || status == 422 || status == 403 || status == 409) && parsed) {
         const cJSON *m = cJSON_GetObjectItemCaseSensitive(parsed, "message");
         if (cJSON_IsString(m) && m->valuestring[0]) detail = m->valuestring;
     }
