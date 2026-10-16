@@ -400,6 +400,9 @@ axiam_add_test(test_directory test_directory.c management_test_util.c)
 axiam_add_test(test_saml test_saml.c management_test_util.c)
 axiam_add_test(test_scim_targets test_scim_targets.c management_test_util.c)
 axiam_add_test(test_ssf_management test_ssf_management.c management_test_util.c)
+# §32.8 test 7's documentation check reads the generated header.
+target_compile_definitions(test_ssf_management
+    PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
 # §32.7 the SSF receiver helper: signs its SETs with an Ed25519 key it generates, so it
 # links the JWT fixture for the base64url encoder.
 add_executable(test_ssf_receiver test_ssf_receiver.c)
