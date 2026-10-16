@@ -5,6 +5,7 @@
  */
 
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -63,6 +64,12 @@ cJSON *axiam_mgmt_create_group_request_build(const axiam_mgmt_create_group_reque
 axiam_mgmt_create_intermediate_ca_request_t *axiam_mgmt_create_intermediate_ca_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_intermediate_ca_request_build(const axiam_mgmt_create_intermediate_ca_request_t *value);
 const char *axiam_mgmt_create_intermediate_ca_request_unsendable(const axiam_mgmt_create_intermediate_ca_request_t *value);
+axiam_mgmt_create_network_reply_profile_request_t *axiam_mgmt_create_network_reply_profile_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_create_network_reply_profile_request_build(const axiam_mgmt_create_network_reply_profile_request_t *value);
+const char *axiam_mgmt_create_network_reply_profile_request_unsendable(const axiam_mgmt_create_network_reply_profile_request_t *value);
+axiam_mgmt_create_network_segment_request_t *axiam_mgmt_create_network_segment_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_create_network_segment_request_build(const axiam_mgmt_create_network_segment_request_t *value);
+const char *axiam_mgmt_create_network_segment_request_unsendable(const axiam_mgmt_create_network_segment_request_t *value);
 axiam_mgmt_create_notification_rule_request_t *axiam_mgmt_create_notification_rule_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_notification_rule_request_build(const axiam_mgmt_create_notification_rule_request_t *value);
 axiam_mgmt_create_o_auth2_client_request_t *axiam_mgmt_create_o_auth2_client_request_parse(const cJSON *src);
@@ -160,6 +167,15 @@ axiam_mgmt_migrate_custody_response_t *axiam_mgmt_migrate_custody_response_parse
 cJSON *axiam_mgmt_migrate_custody_response_build(const axiam_mgmt_migrate_custody_response_t *value);
 axiam_mgmt_mtls_trust_anchor_response_t *axiam_mgmt_mtls_trust_anchor_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_anchor_response_t *value);
+axiam_mgmt_network_policy_response_t *axiam_mgmt_network_policy_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_policy_response_build(const axiam_mgmt_network_policy_response_t *value);
+axiam_mgmt_network_reply_profile_t *axiam_mgmt_network_reply_profile_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_reply_profile_build(const axiam_mgmt_network_reply_profile_t *value);
+axiam_mgmt_network_reply_profile_input_t *axiam_mgmt_network_reply_profile_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_reply_profile_input_build(const axiam_mgmt_network_reply_profile_input_t *value);
+const char *axiam_mgmt_network_reply_profile_input_unsendable(const axiam_mgmt_network_reply_profile_input_t *value);
+axiam_mgmt_network_segment_response_t *axiam_mgmt_network_segment_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_segment_response_build(const axiam_mgmt_network_segment_response_t *value);
 axiam_mgmt_notification_policy_t *axiam_mgmt_notification_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_notification_policy_build(const axiam_mgmt_notification_policy_t *value);
 axiam_mgmt_notification_rule_response_t *axiam_mgmt_notification_rule_response_parse(const cJSON *src);
@@ -206,6 +222,13 @@ axiam_mgmt_ready_response_t *axiam_mgmt_ready_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_ready_response_build(const axiam_mgmt_ready_response_t *value);
 axiam_mgmt_registration_token_response_t *axiam_mgmt_registration_token_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_registration_token_response_build(const axiam_mgmt_registration_token_response_t *value);
+axiam_mgmt_replace_network_policy_request_t *axiam_mgmt_replace_network_policy_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_policy_request_build(const axiam_mgmt_replace_network_policy_request_t *value);
+axiam_mgmt_replace_network_reply_profile_request_t *axiam_mgmt_replace_network_reply_profile_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_reply_profile_request_build(const axiam_mgmt_replace_network_reply_profile_request_t *value);
+const char *axiam_mgmt_replace_network_reply_profile_request_unsendable(const axiam_mgmt_replace_network_reply_profile_request_t *value);
+axiam_mgmt_replace_network_segment_request_t *axiam_mgmt_replace_network_segment_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_segment_request_build(const axiam_mgmt_replace_network_segment_request_t *value);
 axiam_mgmt_resolved_permission_grant_t *axiam_mgmt_resolved_permission_grant_parse(const cJSON *src);
 cJSON *axiam_mgmt_resolved_permission_grant_build(const axiam_mgmt_resolved_permission_grant_t *value);
 axiam_mgmt_resource_t *axiam_mgmt_resource_parse(const cJSON *src);
@@ -6662,6 +6685,507 @@ axiam_error_kind_t axiam_scim_targets_reconcile(axiam_client_t *c, const char *i
     }
     if (out) *out = result;
     else axiam_mgmt_scim_reconcile_accepted_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_list_segments(axiam_client_t *c, const char *site, const axiam_mgmt_page_req_t *page, axiam_mgmt_network_segment_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/network/segments", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.list_segments: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[4];
+    const char *q_values[4];
+    char offset_buf[24], limit_buf[24];
+    axiam_mgmt_page_query(page, offset_buf, limit_buf);
+    q_names[0] = "offset"; q_values[0] = offset_buf;
+    q_names[1] = "limit"; q_values[1] = limit_buf;
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    q_names[3] = "site"; q_values[3] = site;
+    path = axiam_mgmt_query(path, q_names, q_values, 4);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.list_segments: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.list_segments", "GET", "/api/v1/network/segments", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_segment_response_page_t *result = (axiam_mgmt_network_segment_response_page_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    const cJSON *items = axiam_mgmt_page_items(json);
+    size_t n = items ? (size_t) cJSON_GetArraySize(items) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_network_segment_response_t **) calloc(n, sizeof(axiam_mgmt_network_segment_response_t *));
+        if (!result->items) { axiam_mgmt_network_segment_response_page_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_network_segment_response_parse(cJSON_GetArrayItem((cJSON *) items, (int) i));
+        result->count = n;
+    }
+    result->total = axiam_mgmt_page_total(json, (long) n);
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_network_segment_response_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_list_segments_all(axiam_client_t *c, const char *site, const axiam_mgmt_page_req_t *page, axiam_mgmt_network_segment_response_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_network_segment_response_page_t *all = (axiam_mgmt_network_segment_response_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.list_segments: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_network_segment_response_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_network_list_segments(c, site, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_network_segment_response_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_network_segment_response_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_network_segment_response_page_free(one);
+            axiam_mgmt_network_segment_response_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.list_segments: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_network_segment_response_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_network_segment_response_page_free(all);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_create_segment(axiam_client_t *c, const axiam_mgmt_create_network_segment_request_t *body, axiam_mgmt_network_segment_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_create_network_segment_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "network.create_segment", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *path = axiam_mgmt_path("/api/v1/network/segments", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.create_segment: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_create_network_segment_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.create_segment", "POST", "/api/v1/network/segments", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_segment_response_t *result = axiam_mgmt_network_segment_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.create_segment: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_network_segment_response_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_get_segment(axiam_client_t *c, const char *id, axiam_mgmt_network_segment_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "id";
+    path_values[0] = id;
+    char *path = axiam_mgmt_path("/api/v1/network/segments/{id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.get_segment: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.get_segment", "GET", "/api/v1/network/segments/{id}", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_segment_response_t *result = axiam_mgmt_network_segment_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.get_segment: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_network_segment_response_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_replace_segment(axiam_client_t *c, const char *id, const axiam_mgmt_replace_network_segment_request_t *body, axiam_mgmt_network_segment_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    if (!body) {
+        axiam_local_refusal(err, "network.replace_segment", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->filter_ids) {
+        axiam_local_refusal(err, "network.replace_segment", "filter_ids",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "id";
+    path_values[0] = id;
+    char *path = axiam_mgmt_path("/api/v1/network/segments/{id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.replace_segment: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_replace_network_segment_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.replace_segment", "PUT", "/api/v1/network/segments/{id}", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_segment_response_t *result = axiam_mgmt_network_segment_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.replace_segment: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_network_segment_response_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_delete_segment(axiam_client_t *c, const char *id, long version, axiam_error_t *err) {
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "id";
+    path_values[0] = id;
+    char *path = axiam_mgmt_path("/api/v1/network/segments/{id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.delete_segment: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[1];
+    const char *q_values[1];
+    char version_buf[24];
+    snprintf(version_buf, sizeof version_buf, "%ld", version);
+    q_names[0] = "version"; q_values[0] = version_buf;
+    path = axiam_mgmt_query(path, q_names, q_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.delete_segment: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.delete_segment", "DELETE", "/api/v1/network/segments/{id}", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_list_profiles(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_network_reply_profile_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/network/profiles", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.list_profiles: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[3];
+    const char *q_values[3];
+    char offset_buf[24], limit_buf[24];
+    axiam_mgmt_page_query(page, offset_buf, limit_buf);
+    q_names[0] = "offset"; q_values[0] = offset_buf;
+    q_names[1] = "limit"; q_values[1] = limit_buf;
+    q_names[2] = "search";
+    q_values[2] = page ? axiam_mgmt_page_search(page->search) : NULL;
+    path = axiam_mgmt_query(path, q_names, q_values, 3);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.list_profiles: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.list_profiles", "GET", "/api/v1/network/profiles", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_reply_profile_page_t *result = (axiam_mgmt_network_reply_profile_page_t *) calloc(1, sizeof(*result));
+    if (!result) { cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+    const cJSON *items = axiam_mgmt_page_items(json);
+    size_t n = items ? (size_t) cJSON_GetArraySize(items) : 0;
+    if (n > 0) {
+        result->items = (axiam_mgmt_network_reply_profile_t **) calloc(n, sizeof(axiam_mgmt_network_reply_profile_t *));
+        if (!result->items) { axiam_mgmt_network_reply_profile_page_free(result); cJSON_Delete(json); return AXIAM_ERR_NETWORK; }
+        for (size_t i = 0; i < n; i++)
+            result->items[i] = axiam_mgmt_network_reply_profile_parse(cJSON_GetArrayItem((cJSON *) items, (int) i));
+        result->count = n;
+    }
+    result->total = axiam_mgmt_page_total(json, (long) n);
+    result->request = page ? *page : (axiam_mgmt_page_req_t) { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    cJSON_Delete(json);
+    if (out) *out = result;
+    else axiam_mgmt_network_reply_profile_page_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_list_profiles_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_network_reply_profile_page_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    axiam_mgmt_page_req_t req = { 0, AXIAM_MGMT_DEFAULT_LIMIT, NULL };
+    if (page) req = *page;
+    axiam_mgmt_network_reply_profile_page_t *all = (axiam_mgmt_network_reply_profile_page_t *) calloc(1, sizeof(*all));
+    if (!all) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.list_profiles: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    all->request = req;
+    for (;;) {
+        axiam_mgmt_network_reply_profile_page_t *one = NULL;
+        axiam_error_kind_t rc = axiam_network_list_profiles(c, &req, &one, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_network_reply_profile_page_free(all);
+            return rc;
+        }
+        all->total = one->total;
+        if (one->count == 0) {
+            axiam_mgmt_network_reply_profile_page_free(one);
+            break;
+        }
+        void *grown = realloc(all->items, (all->count + one->count) * sizeof(*all->items));
+        if (!grown) {
+            axiam_mgmt_network_reply_profile_page_free(one);
+            axiam_mgmt_network_reply_profile_page_free(all);
+            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.list_profiles: out of memory");
+            return AXIAM_ERR_NETWORK;
+        }
+        all->items = grown;
+        memcpy(all->items + all->count, one->items, one->count * sizeof(*all->items));
+        all->count += one->count;
+        one->count = 0; /* the items are all's now; free one's array only */
+        axiam_mgmt_network_reply_profile_page_free(one);
+        req = axiam_mgmt_page_next(req);
+    }
+    if (out) *out = all;
+    else axiam_mgmt_network_reply_profile_page_free(all);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_create_profile(axiam_client_t *c, const axiam_mgmt_create_network_reply_profile_request_t *body, axiam_mgmt_network_reply_profile_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_create_network_reply_profile_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "network.create_profile", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *path = axiam_mgmt_path("/api/v1/network/profiles", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.create_profile: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_create_network_reply_profile_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.create_profile", "POST", "/api/v1/network/profiles", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_reply_profile_t *result = axiam_mgmt_network_reply_profile_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.create_profile: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_network_reply_profile_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_get_profile(axiam_client_t *c, const char *segment_id, axiam_mgmt_network_reply_profile_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "segment_id";
+    path_values[0] = segment_id;
+    char *path = axiam_mgmt_path("/api/v1/network/profiles/{segment_id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.get_profile: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.get_profile", "GET", "/api/v1/network/profiles/{segment_id}", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_reply_profile_t *result = axiam_mgmt_network_reply_profile_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.get_profile: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_network_reply_profile_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_replace_profile(axiam_client_t *c, const char *segment_id, const axiam_mgmt_replace_network_reply_profile_request_t *body, axiam_mgmt_network_reply_profile_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_replace_network_reply_profile_request_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "network.replace_profile", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body) {
+        axiam_local_refusal(err, "network.replace_profile", "body", "a request body is required");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (!body->profile) {
+        axiam_local_refusal(err, "network.replace_profile", "profile",
+            "a required member is missing; the replacement cannot be sent without it");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "segment_id";
+    path_values[0] = segment_id;
+    char *path = axiam_mgmt_path("/api/v1/network/profiles/{segment_id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.replace_profile: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_replace_network_reply_profile_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.replace_profile", "PUT", "/api/v1/network/profiles/{segment_id}", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_reply_profile_t *result = axiam_mgmt_network_reply_profile_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.replace_profile: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_network_reply_profile_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_delete_profile(axiam_client_t *c, const char *segment_id, long version, axiam_error_t *err) {
+    const char *path_names[1];
+    const char *path_values[1];
+    path_names[0] = "segment_id";
+    path_values[0] = segment_id;
+    char *path = axiam_mgmt_path("/api/v1/network/profiles/{segment_id}", path_names, path_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.delete_profile: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    const char *q_names[1];
+    const char *q_values[1];
+    char version_buf[24];
+    snprintf(version_buf, sizeof version_buf, "%ld", version);
+    q_names[0] = "version"; q_values[0] = version_buf;
+    path = axiam_mgmt_query(path, q_names, q_values, 1);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.delete_profile: out of memory");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.delete_profile", "DELETE", "/api/v1/network/profiles/{segment_id}", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    cJSON_Delete(json);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_get_policy(axiam_client_t *c, axiam_mgmt_network_policy_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/network/policy", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.get_policy: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = NULL;
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.get_policy", "GET", "/api/v1/network/policy", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_policy_response_t *result = axiam_mgmt_network_policy_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.get_policy: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_network_policy_response_free(result);
+    return AXIAM_OK;
+}
+
+axiam_error_kind_t axiam_network_replace_policy(axiam_client_t *c, const axiam_mgmt_replace_network_policy_request_t *body, axiam_mgmt_network_policy_response_t **out, axiam_error_t *err) {
+    if (out) *out = NULL;
+    char *path = axiam_mgmt_path("/api/v1/network/policy", NULL, NULL, 0);
+    if (!path) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.replace_policy: could not build the request path");
+        return AXIAM_ERR_NETWORK;
+    }
+    char *body_json = axiam_mgmt_render(axiam_mgmt_replace_network_policy_request_build(body));
+    cJSON *json = NULL;
+    axiam_error_kind_t rc = axiam_mgmt_send(
+        c, "network.replace_policy", "PUT", "/api/v1/network/policy", path, body_json,
+        &json, err);
+    free(path);
+    axiam_mgmt_body_free(body_json);
+    if (rc != AXIAM_OK) return rc;
+    axiam_mgmt_network_policy_response_t *result = axiam_mgmt_network_policy_response_parse(json);
+    cJSON_Delete(json);
+    if (!result) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "network.replace_policy: the response body was not the expected object");
+        return AXIAM_ERR_NETWORK;
+    }
+    if (out) *out = result;
+    else axiam_mgmt_network_policy_response_free(result);
     return AXIAM_OK;
 }
 

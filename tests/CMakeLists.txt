@@ -376,7 +376,7 @@ axiam_add_test(test_management_models_generated test_management_models_generated
 axiam_add_test(test_contract_151_models test_contract_151_models.c)
 # The §27 allocation-failure sweep. Same --wrap technique as test_alloc_failures above:
 # every generated operation's OOM guard is one-sided by construction, so this drives each
-# of the 190 call graphs with each of the first N allocations failed in turn.
+# of the 202 call graphs with each of the first N allocations failed in turn.
 add_executable(test_management_alloc_generated
     test_management_alloc_generated.c management_test_util.c)
 target_include_directories(test_management_alloc_generated PRIVATE ${AXIAM_TEST_INCLUDES})
@@ -450,3 +450,9 @@ target_compile_definitions(test_contract_159_docs PRIVATE AXIAM_REPO_ROOT="${CMA
 axiam_add_test(test_contract_160 test_contract_160.c management_test_util.c)
 # Contract 1.61 (§27.11 rule 5): Certificate.user_id on both requests and every read.
 axiam_add_test(test_contract_161 test_contract_161.c management_test_util.c)
+# Contract 1.62 (§36.8, the `network` namespace): the five required assertions, and §36.4's
+# `reason_code` / SDK-Q02's `action` and `resource_id` on the error. Reads
+# management-registry.json and the generated sources, so it needs the repository root.
+axiam_add_test(test_contract_162_network test_contract_162_network.c management_test_util.c)
+target_compile_definitions(test_contract_162_network
+    PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")

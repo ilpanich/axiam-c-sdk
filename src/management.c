@@ -50,9 +50,10 @@ void axiam_mgmt_classify(axiam_error_t *err, long status, const char *operation,
      * buffer is bounded either way. */
     const char *detail = NULL;
     cJSON *parsed = NULL;
-    if ((status == 400 || status == 422) && body) {
+    if ((status == 400 || status == 422 || status == 409 || status == 403) && body)
         parsed = cJSON_Parse(body);
-        const cJSON *m = parsed ? cJSON_GetObjectItemCaseSensitive(parsed, "message") : NULL;
+    if ((status == 400 || status == 422) && parsed) {
+        const cJSON *m = cJSON_GetObjectItemCaseSensitive(parsed, "message");
         if (cJSON_IsString(m) && m->valuestring[0]) detail = m->valuestring;
     }
     char msg[256];
@@ -63,8 +64,24 @@ void axiam_mgmt_classify(axiam_error_t *err, long status, const char *operation,
         snprintf(msg, sizeof msg, "%s: %s (HTTP %ld)",
                  operation ? operation : "management", what, status);
     }
-    cJSON_Delete(parsed);
     axiam_error_set(err, kind, status, msg);
+    /* §36.4: a `409`'s `reason_code`, and §2's SDK-Q02 `action` / `resource_id` on a
+     * `403`, are surfaced as members -- never recovered from `message`, which this SDK
+     * does not parse. A member that is absent, or not a string, leaves "" (a server that
+     * predates it). The vocabulary is open (§27.13): an unknown value is copied
+     * verbatim, truncated only by the buffer. axiam_error_set() has just cleared them. */
+    if (err && parsed) {
+        const cJSON *rc = cJSON_GetObjectItemCaseSensitive(parsed, "reason_code");
+        const cJSON *ac = cJSON_GetObjectItemCaseSensitive(parsed, "action");
+        const cJSON *ri = cJSON_GetObjectItemCaseSensitive(parsed, "resource_id");
+        if (status == 409 && cJSON_IsString(rc))
+            snprintf(err->reason_code, sizeof err->reason_code, "%s", rc->valuestring);
+        if (status == 403 && cJSON_IsString(ac))
+            snprintf(err->action, sizeof err->action, "%s", ac->valuestring);
+        if (status == 403 && cJSON_IsString(ri))
+            snprintf(err->resource_id, sizeof err->resource_id, "%s", ri->valuestring);
+    }
+    cJSON_Delete(parsed);
 }
 
 /* ---------------------------------------------------------------- */

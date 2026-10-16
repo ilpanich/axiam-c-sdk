@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Generate the CONTRACT §27 management surface for the C SDK.
 
-Reads ``management-registry.json`` (the 190 operations across 28 namespaces,
+Reads ``management-registry.json`` (the 202 operations across 29 namespaces,
 maintained in ``ilpanich/axiam`` and vendored here) plus ``openapi.json``, and writes:
 
 - ``include/axiam/management_models.h`` — one struct or enum per request and response
   type, plus a ``_free`` for every owning struct;
-- ``include/axiam/management_ops.h`` — the 190 flat operation declarations (§27.3);
+- ``include/axiam/management_ops.h`` — the 202 flat operation declarations (§27.3);
 - ``src/management_models.c`` — parse and free for every model;
-- ``src/management_ops.c`` — the 190 operation bodies;
+- ``src/management_ops.c`` — the 202 operation bodies;
 - ``tests/test_management_generated.c`` — one conformance case per operation.
 
 Run with ``--check`` to verify the committed output is current; that is what CI runs.
@@ -257,11 +257,14 @@ PRECHECKS: dict[str, str] = {
 # local ValidationError naming the member. A required SCALAR (`enabled`, `kind`, ...) has
 # no "unset" state in C to refuse; its zero is a value.
 #
-# Deliberately these four types and not every body: these are the sections whose tests
-# ask for it, and refusing a body every earlier namespace accepts would be a behaviour
-# change nobody asked for.
+# Deliberately these types and not every body: these are the sections whose tests ask
+# for it, and refusing a body every earlier namespace accepts would be a behaviour change
+# nobody asked for. Contract 1.62 (§36.8 test 3: "the replace types cannot be built without
+# their required members") adds the two network replacements that have a pointer member;
+# ReplaceNetworkPolicyRequest has only scalars, whose zero is a value.
 REQUIRED_MEMBER_CHECKS = {
     "SetDirectoryConfig", "SamlServiceProviderInput", "ScimTargetInput", "SsfStreamInput",
+    "ReplaceNetworkSegmentRequest", "ReplaceNetworkReplyProfileRequest",
 }
 
 # Lines the generated tests run after zeroing the body of an operation with a PRECHECK or
@@ -286,7 +289,18 @@ _SCIM_TARGET_BODY = [
     "body.auth = &pc_auth;",
     "body.scope = &pc_scope;",
 ]
+_NETWORK_PROFILE_BODY = [
+    "axiam_mgmt_network_reply_profile_input_t pc_profile;",
+    "memset(&pc_profile, 0, sizeof pc_profile);",
+    "body.profile = &pc_profile;",
+]
+_NETWORK_SEGMENT_BODY = [
+    "char *pc_filter_ids[1] = {NULL};",
+    "body.filter_ids = pc_filter_ids;",
+]
 PRECHECK_TEST_BODIES: dict[str, list[str]] = {
+    "network.replace_profile": _NETWORK_PROFILE_BODY,
+    "network.replace_segment": _NETWORK_SEGMENT_BODY,
     "saml.parse_sp_metadata": ['body.metadata_url = (char *) "https://sp.example/metadata";'],
     "directory.set": [
         'body.url = (char *) "ldaps://dc.example";',
@@ -1778,6 +1792,12 @@ def implicit_of(namespace: str, op: dict[str, Any]) -> set[str]:
     return implicit
 
 
+def null_arg(p: dict[str, Any]) -> str:
+    """The placeholder a generated test passes for a parameter it does not exercise: NULL
+    for a pointer, and 0 for the `long` of a required integer query parameter."""
+    return "0L" if p.get("long") else "NULL"
+
+
 def op_params(namespace: str, op: dict[str, Any]) -> list[dict[str, str]]:
     """The C parameter list for one operation, in declaration order."""
     implicit = implicit_of(namespace, op)
@@ -1804,6 +1824,19 @@ def op_params(namespace: str, op: dict[str, Any]) -> list[dict[str, str]]:
         # not as a separate argument -- otherwise axiam_mgmt_page_next() has no way to
         # carry it past the first request of a walk.
         if op["paginated"] and q["name"] in {"offset", "limit", "search"}:
+            continue
+        if q["required"] and q["type"] == "integer":
+            # Contract 1.62 (\u00a736.3 rule 2, \u00a736.8 test 2): the `version` of a network
+            # delete is REQUIRED and is sent exactly as given, so the call "cannot be made
+            # without one". A `const char *` could be NULL -- and a NULL query value is
+            # omitted, which would put a version-less DELETE on the wire for the server to
+            # refuse. A `long` cannot be absent: the requirement is structural, not a check.
+            params.append({
+                "name": cname(q["name"]), "decl": "long ", "kind": "query", "long": True,
+                "wire": q["name"],
+                "text": f"The `{q['name']}` query parameter: the version the caller read, "
+                        f"sent exactly as given (required, so there is no way to omit it).",
+            })
             continue
         params.append({
             "name": cname(q["name"]), "decl": "const char *", "kind": "query",
@@ -2036,6 +2069,7 @@ def emit_ops_header() -> str:
 def emit_ops_source() -> str:
     """The operation bodies. Every one funnels through axiam_mgmt_send() (27.8)."""
     out = [BANNER_C, ""]
+    out.append("#include <stdio.h>")
     out.append("#include <stdlib.h>")
     out.append("#include <string.h>")
     out.append("")
@@ -2213,7 +2247,12 @@ def emit_op_body(namespace: str, opname: str, op: dict[str, Any]) -> list[str]:
             out.append(f'    q_values[{idx}] = page ? axiam_mgmt_page_search(page->search) : NULL;')
             idx += 1
         for p in queries:
-            out.append(f'    q_names[{idx}] = "{p["wire"]}"; q_values[{idx}] = {p["name"]};')
+            if p.get("long"):
+                out.append(f'    char {p["name"]}_buf[24];')
+                out.append(f'    snprintf({p["name"]}_buf, sizeof {p["name"]}_buf, "%ld", {p["name"]});')
+                out.append(f'    q_names[{idx}] = "{p["wire"]}"; q_values[{idx}] = {p["name"]}_buf;')
+            else:
+                out.append(f'    q_names[{idx}] = "{p["wire"]}"; q_values[{idx}] = {p["name"]};')
             idx += 1
         out.append(f"    path = axiam_mgmt_query(path, q_names, q_values, {count});")
         out.append("    if (!path) {")
@@ -2435,7 +2474,7 @@ def emit_test() -> str:
                 elif p["kind"] == "path":
                     args.append(f'"{EXAMPLE_UUID}"')
                 elif p["kind"] == "query":
-                    args.append("NULL")
+                    args.append(null_arg(p))
                 elif p["kind"] == "body":
                     bmodel = pascal(op["request_schema"].lstrip("[]"))
                     block.append(f"    {model_type(bmodel)} body;")
@@ -2491,7 +2530,7 @@ def emit_test() -> str:
                     elif p["kind"] == "path":
                         discard_args.append(f'"{EXAMPLE_UUID}"')
                     elif p["kind"] == "query":
-                        discard_args.append("NULL")
+                        discard_args.append(null_arg(p))
                     elif p["kind"] == "body":
                         bmodel = pascal(op["request_schema"].lstrip("[]"))
                         discard.append(f"    {model_type(bmodel)} body;")
@@ -2531,7 +2570,7 @@ def emit_test() -> str:
                     elif p["kind"] == "path":
                         shape_args.append(f'"{EXAMPLE_UUID}"')
                     elif p["kind"] == "query":
-                        shape_args.append("NULL")
+                        shape_args.append(null_arg(p))
                     elif p["kind"] == "body":
                         bmodel = pascal(op["request_schema"].lstrip("[]"))
                         shape.append(f"    {model_type(bmodel)} body;")
@@ -2571,7 +2610,7 @@ def emit_test() -> str:
                     elif p["kind"] == "path":
                         unscoped_args.append(f'"{EXAMPLE_UUID}"')
                     elif p["kind"] == "query":
-                        unscoped_args.append("NULL")
+                        unscoped_args.append(null_arg(p))
                     elif p["kind"] == "body":
                         bmodel = pascal(op["request_schema"].lstrip("[]"))
                         unscoped.append(f"    {model_type(bmodel)} body;")
@@ -2624,7 +2663,7 @@ def emit_test() -> str:
                 a = ["c"]
                 for p in params:
                     if p["kind"] in ("scope", "query", "page"):
-                        a.append("NULL")
+                        a.append(null_arg(p))
                     elif p["kind"] == "path":
                         a.append(f'"{EXAMPLE_UUID}"')
                     elif p["kind"] == "out":
@@ -2670,7 +2709,7 @@ def emit_test() -> str:
             nb_args = []
             for p in params:
                 if p["kind"] in ("scope", "query", "page", "out", "body"):
-                    nb_args.append("NULL")
+                    nb_args.append(null_arg(p))
                 elif p["kind"] == "path":
                     nb_args.append(f'"{EXAMPLE_UUID}"')
                 elif p["kind"] == "err":
@@ -2712,7 +2751,7 @@ def emit_test() -> str:
             ub_args = []
             for p in params:
                 if p["kind"] in ("scope", "query", "page", "out"):
-                    ub_args.append("NULL")
+                    ub_args.append(null_arg(p))
                 elif p["kind"] == "body":
                     ub_args.append("&body")
                 elif p["kind"] == "path":
@@ -3060,7 +3099,7 @@ def emit_alloc_test() -> str:
                 elif p["kind"] == "path":
                     args.append(f'"{EXAMPLE_UUID}"')
                 elif p["kind"] == "query":
-                    args.append("NULL")
+                    args.append(null_arg(p))
                 elif p["kind"] == "body":
                     bmodel = pascal(op["request_schema"].lstrip("[]"))
                     block.append(f"        {model_type(bmodel)} body;")
@@ -3116,7 +3155,7 @@ def emit_alloc_test() -> str:
                 aargs = ["c"]
                 for p in params:
                     if p["kind"] in ("scope", "query", "page"):
-                        aargs.append("NULL")
+                        aargs.append(null_arg(p))
                     elif p["kind"] == "path":
                         aargs.append(f'"{EXAMPLE_UUID}"')
                     elif p["kind"] == "out":
