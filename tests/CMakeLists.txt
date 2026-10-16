@@ -463,3 +463,12 @@ target_compile_definitions(test_contract_162_network
     PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
 # Contract 1.62 (§27.6.2, §27.9 "Manifest, network"): the network namespace in a manifest.
 axiam_add_test(test_manifest_network test_manifest_network.c management_test_util.c)
+# C162-01: the shared library's ABI version. Four caller-allocated structs grew in 1.1.0, so
+# the SONAME must be libaxiam.so.2 for the loader to refuse a binary built against 1.0.x.
+# Reads the dynamic section of the built library; ELF only.
+if(AXIAM_BUILD_SHARED AND UNIX AND NOT APPLE)
+    add_test(NAME abi_soname
+        COMMAND ${CMAKE_COMMAND}
+            -DLIB=$<TARGET_FILE:axiam> -DEXPECTED=libaxiam.so.2
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_soname.cmake)
+endif()

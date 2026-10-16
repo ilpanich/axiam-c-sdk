@@ -11,7 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Contract **1.62** (§34.6) on top of contract **1.61** (§34.5, the 1.0.1 fields). The 1.0.1 release
 was never tagged, so its section is merged here and **1.1.0 is the release that carries both**.
 `CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for byte
-from ilpanich/axiam `d76c5a80b` (this SDK vendors no `proto/`) and the §27 surface regenerated
+from ilpanich/axiam `d25413506` (this SDK vendors no `proto/`) and the §27 surface regenerated
 with `scripts/gen_management.py`: **202 operations across 29 namespaces**. The README states
 conformance at contract 1.62 and its Semantic Versioning promise is amended: a contract
 record may add a member or widen a type in a minor release, and a removal waits for 2.0.0.
@@ -23,8 +23,9 @@ Since `v1.0.0`. None is a removal, and none changes a function signature that ex
 
 - **Rebuild against the new headers: public structs grew.** Every member was appended, so the
   existing members keep their offsets, but code that allocates one of these structs on its
-  own stack or embeds it must be recompiled (the shared library's `SOVERSION` stays 1; a
-  binary built against 1.0.x and run against 1.1.0 without a rebuild is not supported):
+  own stack or embeds it must be recompiled (the shared library's ABI version is now **2**,
+  `libaxiam.so.2`: a binary built against 1.0.x keeps loading `libaxiam.so.1` and must be
+  rebuilt to use 1.1.0; the loader refuses the mismatch instead of running it):
   `axiam_error_t` (`reason_code`, `action`, `resource_id`), `axiam_mgmt_manifest_t`
   (`network_segments`, `network_profiles`, `network_policy`), `axiam_mgmt_plan_t`
   (`network`, `network_count`, `network_pending`) and `axiam_mgmt_apply_report_t`
@@ -104,6 +105,14 @@ Since `v1.0.0`. None is a removal, and none changes a function signature that ex
 
 ### Changed (contract 1.62)
 
+- **Contract 1.62 corrections (W7.14):** `CONTRACT.md`, `openapi.json` (version 1.1.0, digest
+  `sha256:cf0fc71c…59a7`) and `management-registry.json` are re-vendored from axiam
+  `d25413506`; the README names §36 in the conformance statement and states that manifest
+  pruning is not offered in any namespace (§27.10). **The shared library's SONAME is now
+  `libaxiam.so.2`** (C162-01): `SOVERSION` is decoupled from the package version
+  (`AXIAM_SOVERSION` in `CMakeLists.txt`, bumped whenever a caller-allocated public struct
+  changes size; `VERSION` stays 1.1.0, so the file is `libaxiam.so.1.1.0`), and the
+  `abi_soname` test fails on any other SONAME.
 - **The version is 1.1.0** in `CMakeLists.txt`, `conanfile.py`, `ports/axiam-c-sdk/vcpkg.json`,
   `AXIAM_VERSION` (and so the `axiam_version()` string and the `axiam-c-sdk/<version>`
   user-agent) and the README's install snippets.

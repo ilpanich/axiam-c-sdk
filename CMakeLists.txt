@@ -126,12 +126,19 @@ endif()
 
 set(AXIAM_INSTALL_TARGETS "")
 
+# The shared library's ABI version (SONAME libaxiam.so.<N>). It moves independently of the
+# package's Semantic Version and is bumped whenever a caller-allocated public struct changes
+# size (axiam_error_t, axiam_mgmt_manifest_t, ...): the loader then refuses a binary built
+# against the old headers instead of letting the library write past its objects.
+# 1 = 1.0.x; 2 = 1.1.0 (contract 1.62 grew four structs).
+set(AXIAM_SOVERSION 2)
+
 # Shared library — the canonical `axiam` target.
 if(AXIAM_BUILD_SHARED)
     add_library(axiam SHARED
         $<TARGET_OBJECTS:axiam_obj> $<TARGET_OBJECTS:axiam_cjson>)
     set_target_properties(axiam PROPERTIES
-        VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR}
+        VERSION ${PROJECT_VERSION} SOVERSION ${AXIAM_SOVERSION}
         OUTPUT_NAME axiam)
     target_include_directories(axiam PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

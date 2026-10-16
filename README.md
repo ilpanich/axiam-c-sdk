@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.62 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.62 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33 and §36, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -29,9 +29,16 @@ framework-agnostic route guard and declarative authorization helpers.
 > (rebuild against the new headers), an enum that gains a value, a request that gains an
 > optional member — **and a removal waits for 2.0.0.** 1.1.0 is such a release; its
 > [change log](CHANGELOG.md) names every struct that grew.
+> A struct that grows bumps the shared library's `SOVERSION` (its ABI version), which moves
+> independently of the package's Semantic Version: 1.1.0 is `libaxiam.so.1.1.0` with SONAME
+> `libaxiam.so.2`, so a binary built against 1.0.x keeps loading `libaxiam.so.1` and the
+> loader refuses to run it against 1.1.0 until it is rebuilt.
+>
+> **Manifest pruning: not offered in any namespace** (§27.10; §27.6 rule 4 makes it a MAY).
+> Omission from a manifest is never deletion.
 >
 > **Contract 1.62** (§34.6, released with 1.0.1's fields as **1.1.0**; the section list above
-> is unchanged — §36 is management REST and part of §27). In this SDK: the `network`
+> now also names §36, which is management REST and part of §27). In this SDK: the `network`
 > management namespace — twelve operations, `axiam_network_*`, 202 operations in 29
 > namespaces in all — with `reason_code` on a `409` and `action` / `resource_id` on a `403`
 > as members of `axiam_error_t` (§36.4); `network` in a declarative manifest (§27.6.2); the
