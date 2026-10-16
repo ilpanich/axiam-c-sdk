@@ -67,13 +67,28 @@ axiam_error_kind_t axiam_device_authorize(axiam_client_t *client, const char *sc
     oidc_form_t form;
     oidc_form_init(&form);
     /*
-     * ONLY client_id. §14.1 is explicit on both halves: a device that cannot
-     * show a browser also cannot hold a client secret, so an SDK MUST NOT send
-     * one here AND MUST NOT refuse to call this from a client constructed
-     * without one. Note that this deliberately does not route through
-     * form_add_client_auth(), which would attach a configured secret.
+     * Contract 1.62, §14.1 rules 1 and 2 (it replaces 1.60's "MUST NOT send
+     * client_secret here"): the endpoint authenticates the client by the method it
+     * is REGISTERED for, as /oauth2/token does. So:
+     *
+     *   - a PUBLIC client -- the usual device, which cannot hold a secret -- has no
+     *     secret configured and sends `client_id` and NO credential; the server
+     *     refuses a public client that sends one. Nothing here refuses to run from
+     *     such a client.
+     *   - a client configured with a secret sends it as `client_secret` in the FORM
+     *     BODY, exactly as its other token requests do (§12.1 rule 3), and never as
+     *     `Authorization: Basic` -- whichever of client_secret_post and
+     *     client_secret_basic it is registered for (maintainer, 2026-10-16).
+     *   - a client configured with a §6.1 certificate and no secret presents the
+     *     certificate on the connection (the mTLS alias is chosen above) and sends
+     *     `client_id` only.
+     *
+     * A credential goes out ONLY when the caller configured one: this never borrows
+     * a secret from another configuration and never invents one -- which is why the
+     * value is read from the client's own OIDC secret and from nowhere else.
      */
     oidc_form_add(&form, "client_id", client_id);
+    oidc_form_add(&form, "client_secret", axiam_sensitive_reveal(client->cfg->oidc_client_secret));
     oidc_form_add(&form, "scope", scope);
 
     char *url = oidc_endpoint_with_tenant(device_endpoint, tenant);
@@ -168,9 +183,14 @@ static axiam_error_kind_t device_poll_with(axiam_client_t *client,
     oidc_form_add(&form, "grant_type", AXIAM_DEVICE_CODE_GRANT_TYPE);
     oidc_form_add(&form, "device_code", device_code);
     oidc_form_add(&form, "client_id", client_id);
-    /* A device client is public by definition (see axiam_device_authorize), but
-     * a confidential one driving the same grant must still authenticate — the
-     * secret goes out only when one is configured. */
+    /* §14.1 rules 2 and 3 (contract 1.62): `client_id` on EVERY poll (the server
+     * reads the client before it looks at the device code), and the credential the
+     * client is configured with -- by the same rule as axiam_device_authorize() and
+     * every other token request: `client_secret` in the form body, never
+     * `Authorization: Basic`. A public client has none configured and sends none.
+     * This SDK generates no DPoP proof and has no private_key_jwt signer, so there
+     * is neither to attach (§14.2 rule 8, §21.7.3): a bound client's poll is refused
+     * `401 invalid_client`, surfaced as the §14.2 rule 5 OAuthProtocolError. */
     oidc_form_add(&form, "client_secret", axiam_sensitive_reveal(client->cfg->oidc_client_secret));
 
     char *body = NULL;

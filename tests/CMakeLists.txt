@@ -274,6 +274,8 @@ endif()
 add_test(NAME test_oidc_logout COMMAND test_oidc_logout)
 
 axiam_add_test(test_oidc_grants test_oidc_grants.c)
+# Contract 1.62 (§14.1, §14.6): the device grant authenticates its client at both endpoints.
+axiam_add_test(test_device_grant_client_auth test_device_grant_client_auth.c)
 
 # §12.1 / §9 rule 2: oidc_refresh coalesces concurrent redemptions of one
 # rotating refresh token. Asserted by counting wire calls under N threads.
