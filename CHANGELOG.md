@@ -6,15 +6,138 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.0.1] - 2026-10-13
+## [1.1.0] - 2026-10-16
 
-Contract 1.61 (§34.5, the 1.0.1 fields): additive, with no new operation, no changed
-status code and no breaking change. `CONTRACT.md`, `openapi.json` and
-`management-registry.json` are re-vendored from ilpanich/axiam `058d8e0` (branch
-`claude/release-1.0.1`; this SDK vendors no `proto/`) and the §27 surface regenerated with
-`scripts/gen_management.py`. The README states conformance at contract 1.61.
+Contract **1.62** (§34.6) on top of contract **1.61** (§34.5, the 1.0.1 fields). The 1.0.1 release
+was never tagged, so its section is merged here and **1.1.0 is the release that carries both**.
+`CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for byte
+from ilpanich/axiam `d76c5a80b` (this SDK vendors no `proto/`) and the §27 surface regenerated
+with `scripts/gen_management.py`: **202 operations across 29 namespaces**. The README states
+conformance at contract 1.62 and its Semantic Versioning promise is amended: a contract
+record may add a member or widen a type in a minor release, and a removal waits for 2.0.0.
 
-### Added
+### Breaking changes
+
+Since `v1.0.0`. None is a removal, and none changes a function signature that existed in
+1.0.0; these are the changes that need a **rebuild**, or that change what goes on the wire.
+
+- **Rebuild against the new headers: public structs grew.** Every member was appended, so the
+  existing members keep their offsets, but code that allocates one of these structs on its
+  own stack or embeds it must be recompiled (the shared library's `SOVERSION` stays 1; a
+  binary built against 1.0.x and run against 1.1.0 without a rebuild is not supported):
+  `axiam_error_t` (`reason_code`, `action`, `resource_id`), `axiam_mgmt_manifest_t`
+  (`network_segments`, `network_profiles`, `network_policy`), `axiam_mgmt_plan_t`
+  (`network`, `network_count`, `network_pending`) and `axiam_mgmt_apply_report_t`
+  (`network_applied`, `failed_network`, `network_remaining`, `network_reason_code`). A
+  zero-initialised or positionally initialised value of the last three behaves exactly as it
+  did before: a manifest with no `network` section plans and applies as it always did.
+- **`axiam_device_authorize()` now sends the client secret it is configured with (contract
+  1.62, §14.1 rule 2; it replaces 1.60's "MUST NOT send `client_secret` on it").** A client
+  configured with a secret sends it as `client_secret` in the form body at the authorization
+  request, as the poll and every other token request already did; never as
+  `Authorization: Basic`. A client configured with none (a public client) is unchanged: it
+  sends `client_id` and no credential. *Migration:* none for a public client; a confidential
+  client that holds the device grant was refused at the 1.1.0 server without it.
+- **A required integer query parameter is a `long`, not a `const char *`.** Only the two
+  new operations have one: `axiam_network_delete_segment()` and
+  `axiam_network_delete_profile()` take the `version` the caller read as a `long` and cannot
+  be called without one (contract 1.62, §36.3 rule 2).
+- **A `403` and a `409` from a management operation now carry the server's `message`** in
+  `axiam_error_t::message` (a `400` already did). It is for a person; nothing branches on it.
+- **Two network replacement bodies are refused locally when a required pointer member is
+  NULL** (`ReplaceNetworkSegmentRequest.filter_ids`, `ReplaceNetworkReplyProfileRequest.profile`),
+  with no request and the same local `AXIAM_ERR_NETWORK` / 400 / `AXIAM_MGMT_ERR_VALIDATION`
+  every other required-member refusal is.
+- **The request `user_id` stays an untyped string (contract 1.62, §27.11 rule 5, item i).**
+  Nothing changes in this SDK: `user_id` on `CreateCertificateRequest` and
+  `SignCertificateCsrRequest` has been a `char *` since 1.0.1 and is sent as given, so a
+  malformed value reaches the server and its `400` is surfaced. The response `user_id` stays
+  a string too. Of the SDKs that lose a UUID type here, C is not one.
+
+### Added (contract 1.62)
+
+- **The `network` management namespace (§36, §34.6 item l):** twelve operations, all flat
+  symbols — `axiam_network_list_segments()` / `_all`, `axiam_network_create_segment()`,
+  `axiam_network_get_segment()`, `axiam_network_replace_segment()`,
+  `axiam_network_delete_segment()`, `axiam_network_list_profiles()` / `_all`,
+  `axiam_network_create_profile()`, `axiam_network_get_profile()`,
+  `axiam_network_replace_profile()`, `axiam_network_delete_profile()`,
+  `axiam_network_get_policy()` and `axiam_network_replace_policy()` — and their models.
+  `POST /api/v1/network/decide` is not SDK work and has no symbol. Every write carries the
+  version it was given, exactly, and none is retried.
+- **`reason_code` on a `409`, `action` and `resource_id` on a `403`** as members of
+  `axiam_error_t` (§36.4, §2 SDK-Q02): a `409` of the network operations (`stale_version`,
+  `strands_profile`, `has_children`, `site_gone`, `duplicate_name`, `duplicate_vlan`,
+  `duplicate_rank`, `profile_exists`, `other`, or a value this SDK has never seen, verbatim)
+  and a `403`'s missing permission and the node it was checked on. Empty when the body names
+  none; never parsed out of `message`.
+- **`network` in a declarative manifest (§27.6.2, §34.6 items n, u, v, w).**
+  `axiam_mgmt_manifest_t` gains `network_segments` (natural key: site + kind + name, `kind`
+  the wire spelling `access` / `quarantine`), `network_profiles` (keyed by their segment) and
+  `network_policy` (a singleton). `plan` issues `GET`s only and judges every stated member on
+  the value as read (a clamped profile's effective timeout; `filter_ids` as a set, so a
+  reorder is `NoChange`); a Filter-Id listed twice, a repeated natural key and a profile
+  naming no segment are refused before any request. `apply` runs the policy, the segments,
+  then the profiles, last; each `replace_*` body is built from the read (stated members
+  replace, unstated are carried, a stated "none" is left out and `null` is never sent) with
+  the version `plan` read, and a profile's `segment_version` is the version of the segment
+  write's response; a `409` (its `reason_code` in the report) or a `403` (a timeout above the
+  cap) is that action's failure and stops the apply. Optional members have three states
+  (`AXIAM_MGMT_FIELD_UNSTATED`, `_SET`, `_NULL`) because C has no `null` to assign. Pruning
+  is not offered, for `network` as for every namespace of this port.
+- **`axiam_mgmt_ssf_stream_apply_changes()` — the change-taking read-modify-write form for
+  a stream (§32.2, item e).** `(stream, changes) → SsfStreamInput`: sends `events_requested`
+  and `expected_updated_at` as read (the response's own string, byte for byte; an `[]` stays
+  `[]`), cuts `events_requested` to the new `events_allowed` when the changes lower the
+  ceiling, and sends an `events_requested` of the caller's as given. `no_expected_updated_at`
+  states "none": the key is left out and `null` is never sent (§27.11 rule 5, item f).
+  `axiam_mgmt_ssf_stream_to_input()` remains, and its header now names the caller's duty to
+  cut `events_requested` to a lowered ceiling and refers to the three meanings and the `409`.
+- **The three meanings of `events_requested` at the call (§32.2, item h):** the documentation
+  of `axiam_ssf_update_stream()` states that absent resets to every event of `events_allowed`,
+  `[]` is none, a list is stored as given and refused (`400`) outside `events_allowed`, and the
+  defaults of the omitted members.
+- **The device grant authenticates its client (§14.1, §14.2, item m, t):** see Breaking
+  changes. A client configured with a certificate presents it at both endpoints; every poll
+  sends `client_id`; a `401 invalid_client` from either operation is terminal, one request, no
+  refresh. This SDK has no `private_key_jwt` signer and generates no DPoP proof.
+
+### Changed (contract 1.62)
+
+- **The version is 1.1.0** in `CMakeLists.txt`, `conanfile.py`, `ports/axiam-c-sdk/vcpkg.json`,
+  `AXIAM_VERSION` (and so the `axiam_version()` string and the `axiam-c-sdk/<version>`
+  user-agent) and the README's install snippets.
+- **The counts:** the generator's and the headers' "190 operations across 28 namespaces" is
+  202 across 29.
+
+### Verified, not changed (contract 1.62)
+
+- **Item (f), an assigned `null` is "none":** every optional string member of a request is a
+  `char *`, NULL is "not set", and the key is omitted — `user_id` on `certificates.generate` and
+  `sign_csr`, `expected_updated_at` on `ssf.update_stream` and `scim_targets.update` — so `null`
+  is never sent (`test_contract_161`, `test_ssf_management`, `test_scim_targets`).
+- **Item (g), `expected_updated_at` is the response's own string:** `SsfStream.updated_at` is
+  held as the server's string, and both helpers send it verbatim; no date model exists to
+  re-render it.
+- **§34.6 item (d), `CibaPendingList`:** not modelled, as in 1.0.1.
+
+### Tests (contract 1.62)
+
+- `test_contract_162_network` (§36.8's five assertions, 20 cases),
+  `test_manifest_network` (§27.9 "Manifest, network", 13 cases),
+  four cases in `test_ssf_management` (§32.8 test 7) and `test_device_grant_client_auth`
+  (§14.6, 11 cases). The generated suites cover the twelve operations (route, discarded
+  result, wrong-shaped body, an allocation failure at every point).
+
+### Contract 1.61 — the 1.0.1 fields, as written for the never-tagged 1.0.1
+
+Contract 1.61 (§34.5, the 1.0.1 fields): additive, with no new operation, no changed status
+code and no breaking change. `CONTRACT.md`, `openapi.json` and `management-registry.json` had
+been re-vendored from ilpanich/axiam `058d8e0` (branch `claude/release-1.0.1`; this SDK
+vendors no `proto/`) and the §27 surface regenerated with `scripts/gen_management.py`; the
+README stated conformance at contract 1.61. Its entries, unchanged:
+
+#### Added
 
 - `user_id` on `axiam_mgmt_certificate_t` and `axiam_mgmt_generated_certificate_t`
   (optional and nullable: a UUID, `null` and an absent member — a server before 1.0.1 —
@@ -25,7 +148,7 @@ status code and no breaking change. `CONTRACT.md`, `openapi.json` and
 - `expected_updated_at` on `axiam_mgmt_ssf_stream_input_t` (update only; sent as the string
   given, omitted when `NULL`). Contract 1.61, §32.2.
 
-### Changed
+#### Changed
 
 - `axiam_mgmt_ssf_stream_to_input()` sets `expected_updated_at` to the stream's `updated_at`,
   verbatim, and carries the `events_requested` it read (`[]` as `[]`, never omitted), so
@@ -36,7 +159,7 @@ status code and no breaking change. `CONTRACT.md`, `openapi.json` and
   generates the models that a registry operation reaches, and none returns the console's
   pending-request list.
 
-### Tests
+#### Tests
 
 - `test_contract_161` (§27.11 rule 5's required test) and three cases in
   `test_ssf_management` (§32.8 test 1's contract 1.61 assertions, the `409` that is not

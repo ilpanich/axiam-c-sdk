@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 
 # NOTE: CMake rejects pre-release semver suffixes, so the project version is the
-# plain 1.0.0 triple. The alpha spelling ("1.0.0") lives in vcpkg.json,
+# plain 1.1.0 triple. The alpha spelling ("1.1.0") lives in vcpkg.json,
 # conanfile.py, README and the AXIAM_VERSION macro.
 project(axiam_c_sdk
-    VERSION 1.0.0
+    VERSION 1.1.0
     DESCRIPTION "AXIAM C SDK — REST client conforming to CONTRACT.md §1–§7, §9–§11, §13, §23 (incl. §6.1 mTLS)"
     HOMEPAGE_URL "https://github.com/ilpanich/axiam-c-sdk"
     LANGUAGES C)
@@ -200,7 +200,7 @@ endif()
 # ---- CPack (.tar.gz) ----
 set(CPACK_PACKAGE_NAME "axiam-c-sdk")
 set(CPACK_PACKAGE_VENDOR "AXIAM")
-set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_PACKAGE_VERSION "1.1.0")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_GENERATOR "TGZ")
