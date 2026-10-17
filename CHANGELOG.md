@@ -11,7 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Contract **1.62** (§34.6) on top of contract **1.61** (§34.5, the 1.0.1 fields). The 1.0.1 release
 was never tagged, so its section is merged here and **1.1.0 is the release that carries both**.
 `CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for byte
-from ilpanich/axiam `d25413506` (this SDK vendors no `proto/`) and the §27 surface regenerated
+from ilpanich/axiam `e8722b668` (this SDK vendors no `proto/`) and the §27 surface regenerated
 with `scripts/gen_management.py`: **202 operations across 29 namespaces**. The README states
 conformance at contract 1.62 and its Semantic Versioning promise is amended: a contract
 record may add a member or widen a type in a minor release, and a removal waits for 2.0.0.
@@ -106,8 +106,8 @@ Since `v1.0.0`. None is a removal, and none changes a function signature that ex
 ### Changed (contract 1.62)
 
 - **Contract 1.62 corrections (W7.14):** `CONTRACT.md`, `openapi.json` (version 1.1.0, digest
-  `sha256:cf0fc71c…59a7`) and `management-registry.json` are re-vendored from axiam
-  `d25413506`; the README names §36 in the conformance statement and states that manifest
+  `sha256:7c3a5091…c8a1`) and `management-registry.json` are re-vendored from axiam
+  `e8722b668`; the README names §36 in the conformance statement and states that manifest
   pruning is not offered in any namespace (§27.10). **The shared library's SONAME is now
   `libaxiam.so.2`** (C162-01): `SOVERSION` is decoupled from the package version
   (`AXIAM_SOVERSION` in `CMakeLists.txt`, bumped whenever a caller-allocated public struct
