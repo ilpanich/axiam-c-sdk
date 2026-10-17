@@ -569,6 +569,33 @@ const char *axiam_mgmt_name_id_format_to_wire(axiam_mgmt_name_id_format_t value)
     return "persistent";
 }
 
+int axiam_mgmt_network_segment_kind_from_wire(const char *value, axiam_mgmt_network_segment_kind_t *out) {
+    if (!value || !out) return -1;
+    if (strcmp(value, "access") == 0) { *out = AXIAM_MGMT_NETWORK_SEGMENT_KIND_ACCESS; return 0; }
+    if (strcmp(value, "quarantine") == 0) { *out = AXIAM_MGMT_NETWORK_SEGMENT_KIND_QUARANTINE; return 0; }
+    /*
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
+     */
+    *out = AXIAM_MGMT_NETWORK_SEGMENT_KIND_UNKNOWN;
+    return 0;
+}
+
+const char *axiam_mgmt_network_segment_kind_to_wire(axiam_mgmt_network_segment_kind_t value) {
+    switch (value) {
+        case AXIAM_MGMT_NETWORK_SEGMENT_KIND_ACCESS: return "access";
+        case AXIAM_MGMT_NETWORK_SEGMENT_KIND_QUARANTINE: return "quarantine";
+        /*
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
+         */
+        case AXIAM_MGMT_NETWORK_SEGMENT_KIND_UNKNOWN: return "";
+    }
+    return "access";
+}
+
 int axiam_mgmt_notification_event_type_from_wire(const char *value, axiam_mgmt_notification_event_type_t *out) {
     if (!value || !out) return -1;
     if (strcmp(value, "login_failure") == 0) { *out = AXIAM_MGMT_NOTIFICATION_EVENT_TYPE_LOGIN_FAILURE; return 0; }
@@ -734,6 +761,58 @@ const char *axiam_mgmt_pgp_key_status_to_wire(axiam_mgmt_pgp_key_status_t value)
         case AXIAM_MGMT_PGP_KEY_STATUS_UNKNOWN: return "";
     }
     return "Active";
+}
+
+int axiam_mgmt_radius_service_type_from_wire(const char *value, axiam_mgmt_radius_service_type_t *out) {
+    if (!value || !out) return -1;
+    if (strcmp(value, "framed_user") == 0) { *out = AXIAM_MGMT_RADIUS_SERVICE_TYPE_FRAMED_USER; return 0; }
+    /*
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
+     */
+    *out = AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN;
+    return 0;
+}
+
+const char *axiam_mgmt_radius_service_type_to_wire(axiam_mgmt_radius_service_type_t value) {
+    switch (value) {
+        case AXIAM_MGMT_RADIUS_SERVICE_TYPE_FRAMED_USER: return "framed_user";
+        /*
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
+         */
+        case AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN: return "";
+    }
+    return "framed_user";
+}
+
+int axiam_mgmt_radius_termination_action_from_wire(const char *value, axiam_mgmt_radius_termination_action_t *out) {
+    if (!value || !out) return -1;
+    if (strcmp(value, "default") == 0) { *out = AXIAM_MGMT_RADIUS_TERMINATION_ACTION_DEFAULT; return 0; }
+    if (strcmp(value, "radius_request") == 0) { *out = AXIAM_MGMT_RADIUS_TERMINATION_ACTION_RADIUS_REQUEST; return 0; }
+    /*
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
+     */
+    *out = AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN;
+    return 0;
+}
+
+const char *axiam_mgmt_radius_termination_action_to_wire(axiam_mgmt_radius_termination_action_t value) {
+    switch (value) {
+        case AXIAM_MGMT_RADIUS_TERMINATION_ACTION_DEFAULT: return "default";
+        case AXIAM_MGMT_RADIUS_TERMINATION_ACTION_RADIUS_REQUEST: return "radius_request";
+        /*
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
+         */
+        case AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN: return "";
+    }
+    return "default";
 }
 
 int axiam_mgmt_reactor_mode_from_wire(const char *value, axiam_mgmt_reactor_mode_t *out) {
@@ -1233,6 +1312,10 @@ axiam_mgmt_create_group_request_t *axiam_mgmt_create_group_request_parse(const c
 cJSON *axiam_mgmt_create_group_request_build(const axiam_mgmt_create_group_request_t *value);
 axiam_mgmt_create_intermediate_ca_request_t *axiam_mgmt_create_intermediate_ca_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_intermediate_ca_request_build(const axiam_mgmt_create_intermediate_ca_request_t *value);
+axiam_mgmt_create_network_reply_profile_request_t *axiam_mgmt_create_network_reply_profile_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_create_network_reply_profile_request_build(const axiam_mgmt_create_network_reply_profile_request_t *value);
+axiam_mgmt_create_network_segment_request_t *axiam_mgmt_create_network_segment_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_create_network_segment_request_build(const axiam_mgmt_create_network_segment_request_t *value);
 axiam_mgmt_create_notification_rule_request_t *axiam_mgmt_create_notification_rule_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_notification_rule_request_build(const axiam_mgmt_create_notification_rule_request_t *value);
 axiam_mgmt_create_o_auth2_client_request_t *axiam_mgmt_create_o_auth2_client_request_parse(const cJSON *src);
@@ -1325,6 +1408,14 @@ axiam_mgmt_migrate_custody_response_t *axiam_mgmt_migrate_custody_response_parse
 cJSON *axiam_mgmt_migrate_custody_response_build(const axiam_mgmt_migrate_custody_response_t *value);
 axiam_mgmt_mtls_trust_anchor_response_t *axiam_mgmt_mtls_trust_anchor_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_anchor_response_t *value);
+axiam_mgmt_network_policy_response_t *axiam_mgmt_network_policy_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_policy_response_build(const axiam_mgmt_network_policy_response_t *value);
+axiam_mgmt_network_reply_profile_t *axiam_mgmt_network_reply_profile_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_reply_profile_build(const axiam_mgmt_network_reply_profile_t *value);
+axiam_mgmt_network_reply_profile_input_t *axiam_mgmt_network_reply_profile_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_reply_profile_input_build(const axiam_mgmt_network_reply_profile_input_t *value);
+axiam_mgmt_network_segment_response_t *axiam_mgmt_network_segment_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_segment_response_build(const axiam_mgmt_network_segment_response_t *value);
 axiam_mgmt_notification_policy_t *axiam_mgmt_notification_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_notification_policy_build(const axiam_mgmt_notification_policy_t *value);
 axiam_mgmt_notification_rule_response_t *axiam_mgmt_notification_rule_response_parse(const cJSON *src);
@@ -1371,6 +1462,12 @@ axiam_mgmt_ready_response_t *axiam_mgmt_ready_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_ready_response_build(const axiam_mgmt_ready_response_t *value);
 axiam_mgmt_registration_token_response_t *axiam_mgmt_registration_token_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_registration_token_response_build(const axiam_mgmt_registration_token_response_t *value);
+axiam_mgmt_replace_network_policy_request_t *axiam_mgmt_replace_network_policy_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_policy_request_build(const axiam_mgmt_replace_network_policy_request_t *value);
+axiam_mgmt_replace_network_reply_profile_request_t *axiam_mgmt_replace_network_reply_profile_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_reply_profile_request_build(const axiam_mgmt_replace_network_reply_profile_request_t *value);
+axiam_mgmt_replace_network_segment_request_t *axiam_mgmt_replace_network_segment_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_segment_request_build(const axiam_mgmt_replace_network_segment_request_t *value);
 axiam_mgmt_resolved_permission_grant_t *axiam_mgmt_resolved_permission_grant_parse(const cJSON *src);
 cJSON *axiam_mgmt_resolved_permission_grant_build(const axiam_mgmt_resolved_permission_grant_t *value);
 axiam_mgmt_resource_t *axiam_mgmt_resource_parse(const cJSON *src);
@@ -1504,11 +1601,15 @@ const char *axiam_mgmt_attribute_mapping_unsendable(const axiam_mgmt_attribute_m
 const char *axiam_mgmt_create_ca_certificate_request_unsendable(const axiam_mgmt_create_ca_certificate_request_t *value);
 const char *axiam_mgmt_create_certificate_request_unsendable(const axiam_mgmt_create_certificate_request_t *value);
 const char *axiam_mgmt_create_intermediate_ca_request_unsendable(const axiam_mgmt_create_intermediate_ca_request_t *value);
+const char *axiam_mgmt_create_network_reply_profile_request_unsendable(const axiam_mgmt_create_network_reply_profile_request_t *value);
+const char *axiam_mgmt_create_network_segment_request_unsendable(const axiam_mgmt_create_network_segment_request_t *value);
 const char *axiam_mgmt_create_o_auth2_client_request_unsendable(const axiam_mgmt_create_o_auth2_client_request_t *value);
 const char *axiam_mgmt_create_pgp_key_request_unsendable(const axiam_mgmt_create_pgp_key_request_t *value);
 const char *axiam_mgmt_create_reactor_request_unsendable(const axiam_mgmt_create_reactor_request_t *value);
 const char *axiam_mgmt_grant_permission_request_unsendable(const axiam_mgmt_grant_permission_request_t *value);
 const char *axiam_mgmt_issue_saml_idp_credential_unsendable(const axiam_mgmt_issue_saml_idp_credential_t *value);
+const char *axiam_mgmt_network_reply_profile_input_unsendable(const axiam_mgmt_network_reply_profile_input_t *value);
+const char *axiam_mgmt_replace_network_reply_profile_request_unsendable(const axiam_mgmt_replace_network_reply_profile_request_t *value);
 const char *axiam_mgmt_saml_service_provider_input_unsendable(const axiam_mgmt_saml_service_provider_input_t *value);
 const char *axiam_mgmt_scim_target_input_unsendable(const axiam_mgmt_scim_target_input_t *value);
 const char *axiam_mgmt_set_directory_config_unsendable(const axiam_mgmt_set_directory_config_t *value);
@@ -2906,6 +3007,124 @@ cJSON *axiam_mgmt_create_intermediate_ca_request_build(const axiam_mgmt_create_i
     }
     if (1) {
         cJSON_AddNumberToObject(obj, "validity_days", (double) value->validity_days);
+    }
+    return obj;
+}
+
+void axiam_mgmt_create_network_reply_profile_request_free(axiam_mgmt_create_network_reply_profile_request_t *value) {
+    if (!value) return;
+    axiam_mgmt_network_reply_profile_input_free(value->profile);
+    free(value->segment_id);
+    free(value);
+}
+
+axiam_mgmt_create_network_reply_profile_request_t *axiam_mgmt_create_network_reply_profile_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_create_network_reply_profile_request_t *out = (axiam_mgmt_create_network_reply_profile_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "profile");
+    if (cJSON_IsObject(item)) out->profile = axiam_mgmt_network_reply_profile_input_parse(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "segment_id");
+    if (cJSON_IsString(item)) out->segment_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "segment_version");
+    if (cJSON_IsNumber(item)) { out->segment_version = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_create_network_reply_profile_request_build(const axiam_mgmt_create_network_reply_profile_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->profile) {
+        cJSON *sub = axiam_mgmt_network_reply_profile_input_build(value->profile);
+        if (sub && !cJSON_AddItemToObject(obj, "profile", sub)) cJSON_Delete(sub);
+    }
+    if (value->segment_id) {
+        cJSON_AddStringToObject(obj, "segment_id", value->segment_id);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "segment_version", (double) value->segment_version);
+    }
+    return obj;
+}
+
+void axiam_mgmt_create_network_segment_request_free(axiam_mgmt_create_network_segment_request_t *value) {
+    if (!value) return;
+    if (value->filter_ids) {
+        for (size_t i = 0; i < value->filter_ids_count; i++) free(value->filter_ids[i]);
+        free(value->filter_ids);
+    }
+    free(value->name);
+    free(value->site_key);
+    free(value);
+}
+
+axiam_mgmt_create_network_segment_request_t *axiam_mgmt_create_network_segment_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_create_network_segment_request_t *out = (axiam_mgmt_create_network_segment_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
+    if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "filter_ids");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        out->filter_ids = (char **) calloc(n ? n : 1, sizeof(char *));
+        if (!out->filter_ids) { axiam_mgmt_create_network_segment_request_free(out); return NULL; }
+        for (size_t i = 0; i < n; i++) {
+            const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+            if (cJSON_IsString(e)) out->filter_ids[i] = axiam_strdup0(e->valuestring);
+        }
+        out->filter_ids_count = n;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "kind");
+    if (cJSON_IsString(item) && axiam_mgmt_network_segment_kind_from_wire(item->valuestring, &out->kind) == 0) {
+        (void) 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "name");
+    if (cJSON_IsString(item)) out->name = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "rank");
+    if (cJSON_IsNumber(item)) { out->rank = (long) item->valuedouble;
+        out->has_rank = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "site_key");
+    if (cJSON_IsString(item)) out->site_key = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "vlan_id");
+    if (cJSON_IsNumber(item)) { out->vlan_id = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_create_network_segment_request_build(const axiam_mgmt_create_network_segment_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->has_enabled) {
+        cJSON_AddBoolToObject(obj, "enabled", value->enabled);
+    }
+    if (value->filter_ids) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "filter_ids");
+        for (size_t i = 0; arr && i < value->filter_ids_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->filter_ids[i]));
+    }
+    if (1) {
+        cJSON_AddStringToObject(obj, "kind", axiam_mgmt_network_segment_kind_to_wire(value->kind));
+    }
+    if (value->name) {
+        cJSON_AddStringToObject(obj, "name", value->name);
+    }
+    if (value->has_rank) {
+        cJSON_AddNumberToObject(obj, "rank", (double) value->rank);
+    }
+    if (value->site_key) {
+        cJSON_AddStringToObject(obj, "site_key", value->site_key);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "vlan_id", (double) value->vlan_id);
     }
     return obj;
 }
@@ -5801,6 +6020,349 @@ cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_a
     return obj;
 }
 
+void axiam_mgmt_network_policy_response_free(axiam_mgmt_network_policy_response_t *value) {
+    if (!value) return;
+    free(value->tenant_id);
+    free(value->updated_at);
+    free(value->updated_by);
+    free(value);
+}
+
+axiam_mgmt_network_policy_response_t *axiam_mgmt_network_policy_response_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_network_policy_response_t *out = (axiam_mgmt_network_policy_response_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "session_timeout_max_secs");
+    if (cJSON_IsNumber(item)) { out->session_timeout_max_secs = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_id");
+    if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "updated_at");
+    if (cJSON_IsString(item)) out->updated_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "updated_by");
+    if (cJSON_IsString(item)) out->updated_by = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "version");
+    if (cJSON_IsNumber(item)) { out->version = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_network_policy_response_build(const axiam_mgmt_network_policy_response_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (1) {
+        cJSON_AddNumberToObject(obj, "session_timeout_max_secs", (double) value->session_timeout_max_secs);
+    }
+    if (value->tenant_id) {
+        cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);
+    }
+    if (value->updated_at) {
+        cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
+    }
+    if (value->updated_by) {
+        cJSON_AddStringToObject(obj, "updated_by", value->updated_by);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "version", (double) value->version);
+    }
+    return obj;
+}
+
+void axiam_mgmt_network_reply_profile_free(axiam_mgmt_network_reply_profile_t *value) {
+    if (!value) return;
+    free(value->created_at);
+    free(value->created_by);
+    free(value->dictionary);
+    free(value->filter_id);
+    free(value->segment_id);
+    free(value->tenant_id);
+    free(value->updated_at);
+    free(value->updated_by);
+    free(value);
+}
+
+axiam_mgmt_network_reply_profile_t *axiam_mgmt_network_reply_profile_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_network_reply_profile_t *out = (axiam_mgmt_network_reply_profile_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "created_at");
+    if (cJSON_IsString(item)) out->created_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "created_by");
+    if (cJSON_IsString(item)) out->created_by = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "dictionary");
+    if (cJSON_IsString(item)) out->dictionary = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "filter_id");
+    if (cJSON_IsString(item)) out->filter_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "idle_timeout_secs");
+    if (cJSON_IsNumber(item)) { out->idle_timeout_secs = (long) item->valuedouble;
+        out->has_idle_timeout_secs = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "segment_id");
+    if (cJSON_IsString(item)) out->segment_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "service_type");
+    if (cJSON_IsString(item) && axiam_mgmt_radius_service_type_from_wire(item->valuestring, &out->service_type) == 0) {
+        out->has_service_type = 1;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "session_timeout_clamped");
+    if (cJSON_IsBool(item)) { out->session_timeout_clamped = cJSON_IsTrue(item) ? 1 : 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "session_timeout_secs");
+    if (cJSON_IsNumber(item)) { out->session_timeout_secs = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_id");
+    if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "termination_action");
+    if (cJSON_IsString(item) && axiam_mgmt_radius_termination_action_from_wire(item->valuestring, &out->termination_action) == 0) {
+        (void) 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "updated_at");
+    if (cJSON_IsString(item)) out->updated_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "updated_by");
+    if (cJSON_IsString(item)) out->updated_by = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "version");
+    if (cJSON_IsNumber(item)) { out->version = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_network_reply_profile_build(const axiam_mgmt_network_reply_profile_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->created_at) {
+        cJSON_AddStringToObject(obj, "created_at", value->created_at);
+    }
+    if (value->created_by) {
+        cJSON_AddStringToObject(obj, "created_by", value->created_by);
+    }
+    if (value->dictionary) {
+        cJSON_AddStringToObject(obj, "dictionary", value->dictionary);
+    }
+    if (value->filter_id) {
+        cJSON_AddStringToObject(obj, "filter_id", value->filter_id);
+    }
+    if (value->has_idle_timeout_secs) {
+        cJSON_AddNumberToObject(obj, "idle_timeout_secs", (double) value->idle_timeout_secs);
+    }
+    if (value->segment_id) {
+        cJSON_AddStringToObject(obj, "segment_id", value->segment_id);
+    }
+    if (value->has_service_type) {
+        cJSON_AddStringToObject(obj, "service_type", axiam_mgmt_radius_service_type_to_wire(value->service_type));
+    }
+    if (1) {
+        cJSON_AddBoolToObject(obj, "session_timeout_clamped", value->session_timeout_clamped);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "session_timeout_secs", (double) value->session_timeout_secs);
+    }
+    if (value->tenant_id) {
+        cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);
+    }
+    if (1) {
+        cJSON_AddStringToObject(obj, "termination_action", axiam_mgmt_radius_termination_action_to_wire(value->termination_action));
+    }
+    if (value->updated_at) {
+        cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
+    }
+    if (value->updated_by) {
+        cJSON_AddStringToObject(obj, "updated_by", value->updated_by);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "version", (double) value->version);
+    }
+    return obj;
+}
+
+void axiam_mgmt_network_reply_profile_input_free(axiam_mgmt_network_reply_profile_input_t *value) {
+    if (!value) return;
+    free(value->dictionary);
+    free(value->filter_id);
+    free(value);
+}
+
+axiam_mgmt_network_reply_profile_input_t *axiam_mgmt_network_reply_profile_input_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_network_reply_profile_input_t *out = (axiam_mgmt_network_reply_profile_input_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "dictionary");
+    if (cJSON_IsString(item)) out->dictionary = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "filter_id");
+    if (cJSON_IsString(item)) out->filter_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "idle_timeout_secs");
+    if (cJSON_IsNumber(item)) { out->idle_timeout_secs = (long) item->valuedouble;
+        out->has_idle_timeout_secs = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "service_type");
+    if (cJSON_IsString(item) && axiam_mgmt_radius_service_type_from_wire(item->valuestring, &out->service_type) == 0) {
+        out->has_service_type = 1;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "session_timeout_secs");
+    if (cJSON_IsNumber(item)) { out->session_timeout_secs = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "termination_action");
+    if (cJSON_IsString(item) && axiam_mgmt_radius_termination_action_from_wire(item->valuestring, &out->termination_action) == 0) {
+        out->has_termination_action = 1;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_network_reply_profile_input_build(const axiam_mgmt_network_reply_profile_input_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->dictionary) {
+        cJSON_AddStringToObject(obj, "dictionary", value->dictionary);
+    }
+    if (value->filter_id) {
+        cJSON_AddStringToObject(obj, "filter_id", value->filter_id);
+    }
+    if (value->has_idle_timeout_secs) {
+        cJSON_AddNumberToObject(obj, "idle_timeout_secs", (double) value->idle_timeout_secs);
+    }
+    if (value->has_service_type) {
+        cJSON_AddStringToObject(obj, "service_type", axiam_mgmt_radius_service_type_to_wire(value->service_type));
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "session_timeout_secs", (double) value->session_timeout_secs);
+    }
+    if (value->has_termination_action) {
+        cJSON_AddStringToObject(obj, "termination_action", axiam_mgmt_radius_termination_action_to_wire(value->termination_action));
+    }
+    return obj;
+}
+
+void axiam_mgmt_network_segment_response_free(axiam_mgmt_network_segment_response_t *value) {
+    if (!value) return;
+    free(value->created_at);
+    free(value->created_by);
+    if (value->filter_ids) {
+        for (size_t i = 0; i < value->filter_ids_count; i++) free(value->filter_ids[i]);
+        free(value->filter_ids);
+    }
+    free(value->id);
+    free(value->name);
+    free(value->path);
+    free(value->site_key);
+    free(value->tenant_id);
+    free(value->updated_at);
+    free(value->updated_by);
+    free(value);
+}
+
+axiam_mgmt_network_segment_response_t *axiam_mgmt_network_segment_response_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_network_segment_response_t *out = (axiam_mgmt_network_segment_response_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "created_at");
+    if (cJSON_IsString(item)) out->created_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "created_by");
+    if (cJSON_IsString(item)) out->created_by = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
+    if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "filter_ids");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        out->filter_ids = (char **) calloc(n ? n : 1, sizeof(char *));
+        if (!out->filter_ids) { axiam_mgmt_network_segment_response_free(out); return NULL; }
+        for (size_t i = 0; i < n; i++) {
+            const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+            if (cJSON_IsString(e)) out->filter_ids[i] = axiam_strdup0(e->valuestring);
+        }
+        out->filter_ids_count = n;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "id");
+    if (cJSON_IsString(item)) out->id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "kind");
+    if (cJSON_IsString(item) && axiam_mgmt_network_segment_kind_from_wire(item->valuestring, &out->kind) == 0) {
+        (void) 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "name");
+    if (cJSON_IsString(item)) out->name = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "path");
+    if (cJSON_IsString(item)) out->path = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "rank");
+    if (cJSON_IsNumber(item)) { out->rank = (long) item->valuedouble;
+        out->has_rank = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "site_key");
+    if (cJSON_IsString(item)) out->site_key = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "tenant_id");
+    if (cJSON_IsString(item)) out->tenant_id = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "updated_at");
+    if (cJSON_IsString(item)) out->updated_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "updated_by");
+    if (cJSON_IsString(item)) out->updated_by = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "version");
+    if (cJSON_IsNumber(item)) { out->version = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "vlan_id");
+    if (cJSON_IsNumber(item)) { out->vlan_id = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_network_segment_response_build(const axiam_mgmt_network_segment_response_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->created_at) {
+        cJSON_AddStringToObject(obj, "created_at", value->created_at);
+    }
+    if (value->created_by) {
+        cJSON_AddStringToObject(obj, "created_by", value->created_by);
+    }
+    if (1) {
+        cJSON_AddBoolToObject(obj, "enabled", value->enabled);
+    }
+    if (value->filter_ids) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "filter_ids");
+        for (size_t i = 0; arr && i < value->filter_ids_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->filter_ids[i]));
+    }
+    if (value->id) {
+        cJSON_AddStringToObject(obj, "id", value->id);
+    }
+    if (1) {
+        cJSON_AddStringToObject(obj, "kind", axiam_mgmt_network_segment_kind_to_wire(value->kind));
+    }
+    if (value->name) {
+        cJSON_AddStringToObject(obj, "name", value->name);
+    }
+    if (value->path) {
+        cJSON_AddStringToObject(obj, "path", value->path);
+    }
+    if (value->has_rank) {
+        cJSON_AddNumberToObject(obj, "rank", (double) value->rank);
+    }
+    if (value->site_key) {
+        cJSON_AddStringToObject(obj, "site_key", value->site_key);
+    }
+    if (value->tenant_id) {
+        cJSON_AddStringToObject(obj, "tenant_id", value->tenant_id);
+    }
+    if (value->updated_at) {
+        cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
+    }
+    if (value->updated_by) {
+        cJSON_AddStringToObject(obj, "updated_by", value->updated_by);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "version", (double) value->version);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "vlan_id", (double) value->vlan_id);
+    }
+    return obj;
+}
+
 void axiam_mgmt_notification_policy_free(axiam_mgmt_notification_policy_t *value) {
     if (!value) return;
     free(value);
@@ -7446,6 +8008,144 @@ cJSON *axiam_mgmt_registration_token_response_build(const axiam_mgmt_registratio
     }
     if (value->used_by_client_id) {
         cJSON_AddStringToObject(obj, "used_by_client_id", value->used_by_client_id);
+    }
+    return obj;
+}
+
+void axiam_mgmt_replace_network_policy_request_free(axiam_mgmt_replace_network_policy_request_t *value) {
+    if (!value) return;
+    free(value);
+}
+
+axiam_mgmt_replace_network_policy_request_t *axiam_mgmt_replace_network_policy_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_replace_network_policy_request_t *out = (axiam_mgmt_replace_network_policy_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "session_timeout_max_secs");
+    if (cJSON_IsNumber(item)) { out->session_timeout_max_secs = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "version");
+    if (cJSON_IsNumber(item)) { out->version = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_replace_network_policy_request_build(const axiam_mgmt_replace_network_policy_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (1) {
+        cJSON_AddNumberToObject(obj, "session_timeout_max_secs", (double) value->session_timeout_max_secs);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "version", (double) value->version);
+    }
+    return obj;
+}
+
+void axiam_mgmt_replace_network_reply_profile_request_free(axiam_mgmt_replace_network_reply_profile_request_t *value) {
+    if (!value) return;
+    axiam_mgmt_network_reply_profile_input_free(value->profile);
+    free(value);
+}
+
+axiam_mgmt_replace_network_reply_profile_request_t *axiam_mgmt_replace_network_reply_profile_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_replace_network_reply_profile_request_t *out = (axiam_mgmt_replace_network_reply_profile_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "profile");
+    if (cJSON_IsObject(item)) out->profile = axiam_mgmt_network_reply_profile_input_parse(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "segment_version");
+    if (cJSON_IsNumber(item)) { out->segment_version = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "version");
+    if (cJSON_IsNumber(item)) { out->version = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_replace_network_reply_profile_request_build(const axiam_mgmt_replace_network_reply_profile_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->profile) {
+        cJSON *sub = axiam_mgmt_network_reply_profile_input_build(value->profile);
+        if (sub && !cJSON_AddItemToObject(obj, "profile", sub)) cJSON_Delete(sub);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "segment_version", (double) value->segment_version);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "version", (double) value->version);
+    }
+    return obj;
+}
+
+void axiam_mgmt_replace_network_segment_request_free(axiam_mgmt_replace_network_segment_request_t *value) {
+    if (!value) return;
+    if (value->filter_ids) {
+        for (size_t i = 0; i < value->filter_ids_count; i++) free(value->filter_ids[i]);
+        free(value->filter_ids);
+    }
+    free(value);
+}
+
+axiam_mgmt_replace_network_segment_request_t *axiam_mgmt_replace_network_segment_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_replace_network_segment_request_t *out = (axiam_mgmt_replace_network_segment_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
+    if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "filter_ids");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        out->filter_ids = (char **) calloc(n ? n : 1, sizeof(char *));
+        if (!out->filter_ids) { axiam_mgmt_replace_network_segment_request_free(out); return NULL; }
+        for (size_t i = 0; i < n; i++) {
+            const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+            if (cJSON_IsString(e)) out->filter_ids[i] = axiam_strdup0(e->valuestring);
+        }
+        out->filter_ids_count = n;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "rank");
+    if (cJSON_IsNumber(item)) { out->rank = (long) item->valuedouble;
+        out->has_rank = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "version");
+    if (cJSON_IsNumber(item)) { out->version = (long) item->valuedouble;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "vlan_id");
+    if (cJSON_IsNumber(item)) { out->vlan_id = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_replace_network_segment_request_build(const axiam_mgmt_replace_network_segment_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (1) {
+        cJSON_AddBoolToObject(obj, "enabled", value->enabled);
+    }
+    if (value->filter_ids) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "filter_ids");
+        for (size_t i = 0; arr && i < value->filter_ids_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->filter_ids[i]));
+    }
+    if (value->has_rank) {
+        cJSON_AddNumberToObject(obj, "rank", (double) value->rank);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "version", (double) value->version);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "vlan_id", (double) value->vlan_id);
     }
     return obj;
 }
@@ -12803,6 +13503,21 @@ const char *axiam_mgmt_create_intermediate_ca_request_unsendable(const axiam_mgm
     return NULL;
 }
 
+const char *axiam_mgmt_create_network_reply_profile_request_unsendable(const axiam_mgmt_create_network_reply_profile_request_t *value) {
+    if (!value) return NULL;
+    {
+        const char *bad = axiam_mgmt_network_reply_profile_input_unsendable(value->profile);
+        if (bad) return bad;
+    }
+    return NULL;
+}
+
+const char *axiam_mgmt_create_network_segment_request_unsendable(const axiam_mgmt_create_network_segment_request_t *value) {
+    if (!value) return NULL;
+    if ((unsigned) value->kind >= (unsigned) AXIAM_MGMT_NETWORK_SEGMENT_KIND_UNKNOWN) return "kind";
+    return NULL;
+}
+
 const char *axiam_mgmt_create_o_auth2_client_request_unsendable(const axiam_mgmt_create_o_auth2_client_request_t *value) {
     if (!value) return NULL;
     if (value->has_authn_request_params && (unsigned) value->authn_request_params >= (unsigned) AXIAM_MGMT_AUTHN_REQUEST_PARAMS_MODE_UNKNOWN) return "authn_request_params";
@@ -12834,6 +13549,22 @@ const char *axiam_mgmt_grant_permission_request_unsendable(const axiam_mgmt_gran
 const char *axiam_mgmt_issue_saml_idp_credential_unsendable(const axiam_mgmt_issue_saml_idp_credential_t *value) {
     if (!value) return NULL;
     if ((unsigned) value->slot >= (unsigned) AXIAM_MGMT_SAML_IDP_SLOT_UNKNOWN) return "slot";
+    return NULL;
+}
+
+const char *axiam_mgmt_network_reply_profile_input_unsendable(const axiam_mgmt_network_reply_profile_input_t *value) {
+    if (!value) return NULL;
+    if (value->has_service_type && (unsigned) value->service_type >= (unsigned) AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN) return "service_type";
+    if (value->has_termination_action && (unsigned) value->termination_action >= (unsigned) AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN) return "termination_action";
+    return NULL;
+}
+
+const char *axiam_mgmt_replace_network_reply_profile_request_unsendable(const axiam_mgmt_replace_network_reply_profile_request_t *value) {
+    if (!value) return NULL;
+    {
+        const char *bad = axiam_mgmt_network_reply_profile_input_unsendable(value->profile);
+        if (bad) return bad;
+    }
     return NULL;
 }
 
@@ -12966,6 +13697,24 @@ void axiam_mgmt_group_page_free(axiam_mgmt_group_page_t *page) {
     if (!page) return;
     if (page->items) {
         for (size_t i = 0; i < page->count; i++) axiam_mgmt_group_free(page->items[i]);
+        free(page->items);
+    }
+    free(page);
+}
+
+void axiam_mgmt_network_reply_profile_page_free(axiam_mgmt_network_reply_profile_page_t *page) {
+    if (!page) return;
+    if (page->items) {
+        for (size_t i = 0; i < page->count; i++) axiam_mgmt_network_reply_profile_free(page->items[i]);
+        free(page->items);
+    }
+    free(page);
+}
+
+void axiam_mgmt_network_segment_response_page_free(axiam_mgmt_network_segment_response_page_t *page) {
+    if (!page) return;
+    if (page->items) {
+        for (size_t i = 0; i < page->count; i++) axiam_mgmt_network_segment_response_free(page->items[i]);
         free(page->items);
     }
     free(page);

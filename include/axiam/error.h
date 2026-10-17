@@ -60,6 +60,29 @@ typedef struct axiam_error {
      * "which vocabulary am I asking about?" unavoidable.
      */
     char id_token_reason[32];
+    /**
+     * CONTRACT.md §36.4 (contract 1.62): the `reason_code` member of a management
+     * `409`'s body -- `stale_version`, `strands_profile`, `has_children`, `site_gone`,
+     * `duplicate_name`, `duplicate_vlan`, `duplicate_rank`, `profile_exists`, `other`,
+     * or any value a later server adds -- or "" when the failure was not a `409`, or
+     * the body carried none (a server that predates it).
+     *
+     * A caller BRANCHES ON THIS, never on `message`, which this SDK does not parse. The
+     * vocabulary is open (§27.13): a value this SDK does not know is surfaced verbatim.
+     * It is not the `reason` of an authorization decision (§3), which is a human string.
+     */
+    char reason_code[48];
+    /**
+     * §2's SDK-Q02 member, for a management `403` whose body names one: the permission
+     * that was missing (e.g. `network:grant`), or "" when the body names none (a value
+     * refused by the write gate's H3 names no permission).
+     */
+    char action[64];
+    /**
+     * §2's SDK-Q02 member: the node the permission was checked on, or "" when the body
+     * names none.
+     */
+    char resource_id[64];
 } axiam_error_t;
 
 /** Map an HTTP status code to an error kind (CONTRACT.md §2 table). */

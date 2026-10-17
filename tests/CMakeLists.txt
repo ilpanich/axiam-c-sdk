@@ -274,6 +274,8 @@ endif()
 add_test(NAME test_oidc_logout COMMAND test_oidc_logout)
 
 axiam_add_test(test_oidc_grants test_oidc_grants.c)
+# Contract 1.62 (§14.1, §14.6): the device grant authenticates its client at both endpoints.
+axiam_add_test(test_device_grant_client_auth test_device_grant_client_auth.c)
 
 # §12.1 / §9 rule 2: oidc_refresh coalesces concurrent redemptions of one
 # rotating refresh token. Asserted by counting wire calls under N threads.
@@ -376,7 +378,7 @@ axiam_add_test(test_management_models_generated test_management_models_generated
 axiam_add_test(test_contract_151_models test_contract_151_models.c)
 # The §27 allocation-failure sweep. Same --wrap technique as test_alloc_failures above:
 # every generated operation's OOM guard is one-sided by construction, so this drives each
-# of the 190 call graphs with each of the first N allocations failed in turn.
+# of the 202 call graphs with each of the first N allocations failed in turn.
 add_executable(test_management_alloc_generated
     test_management_alloc_generated.c management_test_util.c)
 target_include_directories(test_management_alloc_generated PRIVATE ${AXIAM_TEST_INCLUDES})
@@ -400,6 +402,9 @@ axiam_add_test(test_directory test_directory.c management_test_util.c)
 axiam_add_test(test_saml test_saml.c management_test_util.c)
 axiam_add_test(test_scim_targets test_scim_targets.c management_test_util.c)
 axiam_add_test(test_ssf_management test_ssf_management.c management_test_util.c)
+# §32.8 test 7's documentation check reads the generated header.
+target_compile_definitions(test_ssf_management
+    PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
 # §32.7 the SSF receiver helper: signs its SETs with an Ed25519 key it generates, so it
 # links the JWT fixture for the base64url encoder.
 add_executable(test_ssf_receiver test_ssf_receiver.c)
@@ -450,3 +455,20 @@ target_compile_definitions(test_contract_159_docs PRIVATE AXIAM_REPO_ROOT="${CMA
 axiam_add_test(test_contract_160 test_contract_160.c management_test_util.c)
 # Contract 1.61 (§27.11 rule 5): Certificate.user_id on both requests and every read.
 axiam_add_test(test_contract_161 test_contract_161.c management_test_util.c)
+# Contract 1.62 (§36.8, the `network` namespace): the five required assertions, and §36.4's
+# `reason_code` / SDK-Q02's `action` and `resource_id` on the error. Reads
+# management-registry.json and the generated sources, so it needs the repository root.
+axiam_add_test(test_contract_162_network test_contract_162_network.c management_test_util.c)
+target_compile_definitions(test_contract_162_network
+    PRIVATE AXIAM_REPO_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+# Contract 1.62 (§27.6.2, §27.9 "Manifest, network"): the network namespace in a manifest.
+axiam_add_test(test_manifest_network test_manifest_network.c management_test_util.c)
+# C162-01: the shared library's ABI version. Four caller-allocated structs grew in 1.1.0, so
+# the SONAME must be libaxiam.so.2 for the loader to refuse a binary built against 1.0.x.
+# Reads the dynamic section of the built library; ELF only.
+if(AXIAM_BUILD_SHARED AND UNIX AND NOT APPLE)
+    add_test(NAME abi_soname
+        COMMAND ${CMAKE_COMMAND}
+            -DLIB=$<TARGET_FILE:axiam> -DEXPECTED=libaxiam.so.2
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_soname.cmake)
+endif()

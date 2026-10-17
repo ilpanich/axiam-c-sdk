@@ -2976,6 +2976,19 @@ axiam_error_kind_t axiam_ssf_get_stream(axiam_client_t *c, const axiam_mgmt_call
  * again or `clear_authorization_header: true`, else `400` (§32.3 rule 5). An update
  * overtaken by the receiver's own write is `409`: read the stream again.
  *
+ * **The three meanings of `events_requested` on an update** (§32.2, contract 1.62; keep
+ * them apart): **absent** (NULL) *resets* the stream to every event of `events_allowed`, as
+ * on create -- widening a narrowing the receiver made, so AXIAM then sends the receiver
+ * more events about the tenant's users than it asked for; **`[]`** is stored as the
+ * receiver's "none" -- it does not widen, and the stream carries nothing; **a list** of
+ * event types is stored as given and refused (`400`) if any is outside `events_allowed`.
+ * The same holds for a raw API client: an `events_requested` left out of the `PUT` resets
+ * the stream. An omitted `description`, `endpoint_url` and `status_reason` take null,
+ * `subject_format` `iss_sub`, `status` `enabled` and `clear_authorization_header` false. To
+ * edit a stream you read, use axiam_mgmt_ssf_stream_apply_changes() (it sends
+ * `events_requested` and `expected_updated_at` as read and cuts the former to a lowered
+ * ceiling); axiam_mgmt_ssf_stream_to_input() leaves that cut to you.
+ *
  * @param c The client. Must have an active session (27.4 rule 1).
  * @param scope Per-call `{org_id}`/`{tenant_id}` override, or NULL for the client's own (27.4 rule 3).
  * @param stream_id The `{stream_id}` path parameter.
@@ -3145,6 +3158,242 @@ axiam_error_kind_t axiam_scim_targets_delete(axiam_client_t *c, const char *id, 
  * @return AXIAM_OK on success, or the failing kind.
  */
 axiam_error_kind_t axiam_scim_targets_reconcile(axiam_client_t *c, const char *id, axiam_mgmt_scim_reconcile_accepted_t **out, axiam_error_t *err);
+
+/* ============================================================================ */
+/*
+ * network -- A tenant's network segments and the RADIUS reply profile each owns (RADIUS
+ * D4): a segment is a node of the reserved /network subtree of the resource tree (kind,
+ * VLAN, Filter-Id envelope, placement rank), and its profile is the typed
+ * `axiam-radius-reply/1` record a decision renders. Every write is conditional on the
+ * `version` the caller read and passes the server's write gate. The tenant's
+ * Session-Timeout cap is one more row of it (get_policy, replace_policy): lowering it is
+ * always allowed, raising it is allowed and audited. The decision route FreeRADIUS calls is
+ * not in this registry.
+ */
+/* ============================================================================ */
+
+/**
+ * `GET /api/v1/network/segments`
+ *
+ * `GET /api/v1/network/segments`.
+ *
+ * Returns ONE page. `total` on it is the server's count across all pages and is not `count`
+ * -- see 27.4 rule 4.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param site The `site` query parameter, or NULL to omit it.
+ * @param page Which page to fetch, or NULL for the first at the default size.
+ * @param out Receives the page on success; free with axiam_mgmt_network_segment_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_list_segments(axiam_client_t *c, const char *site, const axiam_mgmt_page_req_t *page, axiam_mgmt_network_segment_response_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_network_list_segments(), walked to exhaustion -- the auto-paging form
+ * of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param site The `site` query parameter, or NULL to omit it.
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_network_segment_response_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_list_segments_all(axiam_client_t *c, const char *site, const axiam_mgmt_page_req_t *page, axiam_mgmt_network_segment_response_page_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/network/segments`
+ *
+ * `POST /api/v1/network/segments`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_network_segment_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_create_segment(axiam_client_t *c, const axiam_mgmt_create_network_segment_request_t *body, axiam_mgmt_network_segment_response_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/network/segments/{id}`
+ *
+ * `GET /api/v1/network/segments/{id}`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param id The `{id}` path parameter.
+ * @param out Receives the object on success; free with axiam_mgmt_network_segment_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_get_segment(axiam_client_t *c, const char *id, axiam_mgmt_network_segment_response_t **out, axiam_error_t *err);
+
+/**
+ * `PUT /api/v1/network/segments/{id}`
+ *
+ * `PUT /api/v1/network/segments/{id}`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param id The `{id}` path parameter.
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_network_segment_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_replace_segment(axiam_client_t *c, const char *id, const axiam_mgmt_replace_network_segment_request_t *body, axiam_mgmt_network_segment_response_t **out, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/network/segments/{id}?version=`
+ *
+ * `DELETE /api/v1/network/segments/{id}`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param id The `{id}` path parameter.
+ * @param version The `version` query parameter: the version the caller read, sent exactly as given (required, so there is no way to omit it).
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_delete_segment(axiam_client_t *c, const char *id, long version, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/network/profiles`
+ *
+ * `GET /api/v1/network/profiles`.
+ *
+ * Returns ONE page. `total` on it is the server's count across all pages and is not `count`
+ * -- see 27.4 rule 4.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Which page to fetch, or NULL for the first at the default size.
+ * @param out Receives the page on success; free with axiam_mgmt_network_reply_profile_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_list_profiles(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_network_reply_profile_page_t **out, axiam_error_t *err);
+
+/**
+ * Every page of axiam_network_list_profiles(), walked to exhaustion -- the auto-paging form
+ * of 27.4 rule 4.
+ *
+ * Starts at `page` (NULL: the first page at the server's default size,
+ * AXIAM_MGMT_DEFAULT_LIMIT) and requests the next page -- the same `limit` and the same
+ * `search` term, `offset` advanced by `limit` (axiam_mgmt_page_next()) -- until the server
+ * answers an empty page. Each request is one call of the single-page operation, so each is
+ * retried per 16 as that one is.
+ *
+ * Every item comes back in ONE page: `items`/`count` hold the whole walk, `total` is the
+ * server's count from the last page, and `request` is the first request. Any failure ends
+ * the walk and is returned, with `*out` NULL: a walk that stopped half-way is never handed
+ * back as though it were the whole set. The whole set is held in memory; to process a large
+ * one page by page, call the single-page form with axiam_mgmt_page_next().
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param page Where the walk starts, or NULL for the first page at the default size.
+ * @param out Receives every item of the walk on success; free with axiam_mgmt_network_reply_profile_page_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK once the walk reached an empty page, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_list_profiles_all(axiam_client_t *c, const axiam_mgmt_page_req_t *page, axiam_mgmt_network_reply_profile_page_t **out, axiam_error_t *err);
+
+/**
+ * `POST /api/v1/network/profiles`
+ *
+ * `POST /api/v1/network/profiles`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_network_reply_profile_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_create_profile(axiam_client_t *c, const axiam_mgmt_create_network_reply_profile_request_t *body, axiam_mgmt_network_reply_profile_t **out, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/network/profiles/{segment_id}`
+ *
+ * `GET /api/v1/network/profiles/{segment_id}`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param segment_id The `{segment_id}` path parameter.
+ * @param out Receives the object on success; free with axiam_mgmt_network_reply_profile_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_get_profile(axiam_client_t *c, const char *segment_id, axiam_mgmt_network_reply_profile_t **out, axiam_error_t *err);
+
+/**
+ * `PUT /api/v1/network/profiles/{segment_id}`
+ *
+ * `PUT /api/v1/network/profiles/{segment_id}`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param segment_id The `{segment_id}` path parameter.
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_network_reply_profile_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_replace_profile(axiam_client_t *c, const char *segment_id, const axiam_mgmt_replace_network_reply_profile_request_t *body, axiam_mgmt_network_reply_profile_t **out, axiam_error_t *err);
+
+/**
+ * `DELETE /api/v1/network/profiles/{segment_id}?version=`
+ *
+ * `DELETE /api/v1/network/profiles/{segment_id}`.
+ *
+ * Returns nothing; the server answers with an empty body.
+ *
+ * NOT idempotent (27.4 rule 6): deleting something already deleted fails with
+ * AXIAM_MGMT_ERR_NOT_FOUND rather than succeeding quietly.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param segment_id The `{segment_id}` path parameter.
+ * @param version The `version` query parameter: the version the caller read, sent exactly as given (required, so there is no way to omit it).
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_delete_profile(axiam_client_t *c, const char *segment_id, long version, axiam_error_t *err);
+
+/**
+ * `GET /api/v1/network/policy`
+ *
+ * `GET /api/v1/network/policy`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param out Receives the object on success; free with axiam_mgmt_network_policy_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_get_policy(axiam_client_t *c, axiam_mgmt_network_policy_response_t **out, axiam_error_t *err);
+
+/**
+ * `PUT /api/v1/network/policy`
+ *
+ * `PUT /api/v1/network/policy`.
+ *
+ * @param c The client. Must have an active session (27.4 rule 1).
+ * @param body The request body.
+ * @param out Receives the object on success; free with axiam_mgmt_network_policy_response_free(). Set to NULL on failure.
+ * @param err Filled on failure; may be NULL.
+ * @return AXIAM_OK on success, or the failing kind.
+ */
+axiam_error_kind_t axiam_network_replace_policy(axiam_client_t *c, const axiam_mgmt_replace_network_policy_request_t *body, axiam_mgmt_network_policy_response_t **out, axiam_error_t *err);
 
 /* ============================================================================ */
 /* settings -- Effective settings, and the organization/tenant layers they resolve from. */

@@ -998,9 +998,27 @@ axiam_error_kind_t axiam_verify_logout_token(axiam_client_t *client,
 /**
  * `POST /oauth2/device_authorization` (§14.1) — start the grant.
  *
- * UNAUTHENTICATED. A device that cannot show a browser also cannot hold a client
- * secret, so §14.1 forbids sending one here AND forbids refusing to call this
- * from a client constructed without one. Only `client_id` goes out.
+ * Contract 1.62, §14.1: the endpoint authenticates the client by the method it is
+ * registered for, as `/oauth2/token` does, and this SDK sends what the CLIENT IS
+ * CONFIGURED with -- by the same rules as its other token requests:
+ *
+ *  - a client configured with a secret sends it as `client_secret` in the FORM BODY, here
+ *    and at every poll, and never as `Authorization: Basic` (§12.1 rule 3 stands for
+ *    these two routes; the server accepts either form, so a client registered
+ *    `client_secret_basic` is still served);
+ *  - a client configured with a §6.1 certificate presents it on the connection (the
+ *    `mtls_endpoint_aliases` entry is preferred, §21.3 rule 2) and sends `client_id` only;
+ *  - a PUBLIC client -- the usual device, which cannot hold a secret -- is configured with
+ *    none and sends `client_id` and NO credential (the server refuses a public client that
+ *    sends one). Nothing refuses to run from a client constructed without a secret.
+ *
+ * A credential is sent only when the caller configured one: none is borrowed or invented.
+ * This SDK has no `private_key_jwt` signer.
+ *
+ * A failed client authentication is `401 invalid_client` (an unknown client, a bad or
+ * missing credential, a credential sent by a public client): AXIAM_ERR_AUTH with
+ * axiam_error_t::oauth_error `invalid_client`, one request, no retry, and no §9 refresh.
+ * A client that does not hold the grant is `400 unauthorized_client`.
  *
  * @param out Filled on success; dispose with
  *            axiam_device_authorization_dispose().
@@ -1022,6 +1040,16 @@ axiam_error_kind_t axiam_device_authorize(axiam_client_t *client,
  * going) from `access_denied`, `expired_token` and `invalid_grant` (stop) —
  * §14.2 rule 3 keeps the first two of those terminal codes DISTINCT, because
  * "a human said no" and "nobody answered" are the only thing a device can act on.
+ *
+ * Contract 1.62, §14.1 rules 2-4: every poll sends `client_id` (the server reads the client
+ * before it looks at the device code) and the credential the client is configured with, by
+ * the rules of axiam_device_authorize(): `client_secret` in the form body, never
+ * `Authorization: Basic`; a public client sends none. A `401` with `{"error":
+ * "invalid_client"}` -- a bad or missing credential, a client that no longer holds the
+ * grant, or a client bound to sender-constrained tokens whose proof or certificate is
+ * missing -- is terminal: AXIAM_ERR_AUTH with oauth_error `invalid_client`, never retried
+ * and never refreshed. This SDK generates no DPoP proof (§21.7.3), so a DPoP-bound client
+ * cannot be driven and meets that refusal.
  *
  * axiam_device_login() is the loop most callers want; this exists for one that
  * needs its own.

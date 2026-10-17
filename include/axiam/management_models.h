@@ -776,6 +776,42 @@ int axiam_mgmt_name_id_format_from_wire(const char *value, axiam_mgmt_name_id_fo
 const char *axiam_mgmt_name_id_format_to_wire(axiam_mgmt_name_id_format_t value);
 
 /**
+ * What a segment is for.
+ */
+typedef enum axiam_mgmt_network_segment_kind {
+    AXIAM_MGMT_NETWORK_SEGMENT_KIND_ACCESS = 0, /**< Wire value `access`. */
+    AXIAM_MGMT_NETWORK_SEGMENT_KIND_QUARANTINE, /**< Wire value `quarantine`. */
+    AXIAM_MGMT_NETWORK_SEGMENT_KIND_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_network_segment_kind_t;
+
+/**
+ * Parse a wire value into an NetworkSegmentKind.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_NETWORK_SEGMENT_KIND_UNKNOWN` for a value this SDK's
+ * copy of the spec does not list, rather than reporting a failure the caller would have to
+ * fail the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL
+ * argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_network_segment_kind_from_wire(const char *value, axiam_mgmt_network_segment_kind_t *out);
+
+/**
+ * The wire spelling of an NetworkSegmentKind. Never NULL.
+ *
+ * `AXIAM_MGMT_NETWORK_SEGMENT_KIND_UNKNOWN` spells as the empty string, which no server
+ * value is. It is never SENT: an operation whose body carries it -- a read-modify-write of
+ * a record holding a value this SDK does not know -- refuses it locally, before any
+ * request, with the validation error naming the member (CONTRACT.md §34.2 P12.2, contract
+ * 1.60).
+ */
+const char *axiam_mgmt_network_segment_kind_to_wire(axiam_mgmt_network_segment_kind_t value);
+
+/**
  * Events that can trigger an admin notification.
  */
 typedef enum axiam_mgmt_notification_event_type {
@@ -977,6 +1013,77 @@ int axiam_mgmt_pgp_key_status_from_wire(const char *value, axiam_mgmt_pgp_key_st
  * the validation error naming the member (CONTRACT.md §34.2 P12.2, contract 1.60).
  */
 const char *axiam_mgmt_pgp_key_status_to_wire(axiam_mgmt_pgp_key_status_t value);
+
+/**
+ * `Service-Type` (RFC 2865 §5.6). Option B accepts only `framed_user`; the administrative
+ * values are refused with a 400.
+ */
+typedef enum axiam_mgmt_radius_service_type {
+    AXIAM_MGMT_RADIUS_SERVICE_TYPE_FRAMED_USER = 0, /**< Wire value `framed_user`. */
+    AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_radius_service_type_t;
+
+/**
+ * Parse a wire value into an RadiusServiceType.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN` for a value this SDK's copy
+ * of the spec does not list, rather than reporting a failure the caller would have to fail
+ * the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_radius_service_type_from_wire(const char *value, axiam_mgmt_radius_service_type_t *out);
+
+/**
+ * The wire spelling of an RadiusServiceType. Never NULL.
+ *
+ * `AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN` spells as the empty string, which no server
+ * value is. It is never SENT: an operation whose body carries it -- a read-modify-write of
+ * a record holding a value this SDK does not know -- refuses it locally, before any
+ * request, with the validation error naming the member (CONTRACT.md §34.2 P12.2, contract
+ * 1.60).
+ */
+const char *axiam_mgmt_radius_service_type_to_wire(axiam_mgmt_radius_service_type_t value);
+
+/**
+ * `Termination-Action` (RFC 2865 §5.29).
+ */
+typedef enum axiam_mgmt_radius_termination_action {
+    AXIAM_MGMT_RADIUS_TERMINATION_ACTION_DEFAULT = 0, /**< Wire value `default`. */
+    AXIAM_MGMT_RADIUS_TERMINATION_ACTION_RADIUS_REQUEST, /**< Wire value `radius_request`. */
+    AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_radius_termination_action_t;
+
+/**
+ * Parse a wire value into an RadiusTerminationAction.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN` for a value this
+ * SDK's copy of the spec does not list, rather than reporting a failure the caller would
+ * have to fail the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a
+ * NULL argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_radius_termination_action_from_wire(const char *value, axiam_mgmt_radius_termination_action_t *out);
+
+/**
+ * The wire spelling of an RadiusTerminationAction. Never NULL.
+ *
+ * `AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN` spells as the empty string, which no
+ * server value is. It is never SENT: an operation whose body carries it -- a
+ * read-modify-write of a record holding a value this SDK does not know -- refuses it
+ * locally, before any request, with the validation error naming the member (CONTRACT.md
+ * §34.2 P12.2, contract 1.60).
+ */
+const char *axiam_mgmt_radius_termination_action_to_wire(axiam_mgmt_radius_termination_action_t value);
 
 /**
  * How a reactor participates in an event.
@@ -1584,6 +1691,8 @@ typedef struct axiam_mgmt_create_certificate_request axiam_mgmt_create_certifica
 typedef struct axiam_mgmt_create_federation_config_request axiam_mgmt_create_federation_config_request_t;
 typedef struct axiam_mgmt_create_group_request axiam_mgmt_create_group_request_t;
 typedef struct axiam_mgmt_create_intermediate_ca_request axiam_mgmt_create_intermediate_ca_request_t;
+typedef struct axiam_mgmt_create_network_reply_profile_request axiam_mgmt_create_network_reply_profile_request_t;
+typedef struct axiam_mgmt_create_network_segment_request axiam_mgmt_create_network_segment_request_t;
 typedef struct axiam_mgmt_create_notification_rule_request axiam_mgmt_create_notification_rule_request_t;
 typedef struct axiam_mgmt_create_o_auth2_client_request axiam_mgmt_create_o_auth2_client_request_t;
 typedef struct axiam_mgmt_create_permission_request axiam_mgmt_create_permission_request_t;
@@ -1630,6 +1739,10 @@ typedef struct axiam_mgmt_mfa_method_response axiam_mgmt_mfa_method_response_t;
 typedef struct axiam_mgmt_mfa_policy axiam_mgmt_mfa_policy_t;
 typedef struct axiam_mgmt_migrate_custody_response axiam_mgmt_migrate_custody_response_t;
 typedef struct axiam_mgmt_mtls_trust_anchor_response axiam_mgmt_mtls_trust_anchor_response_t;
+typedef struct axiam_mgmt_network_policy_response axiam_mgmt_network_policy_response_t;
+typedef struct axiam_mgmt_network_reply_profile axiam_mgmt_network_reply_profile_t;
+typedef struct axiam_mgmt_network_reply_profile_input axiam_mgmt_network_reply_profile_input_t;
+typedef struct axiam_mgmt_network_segment_response axiam_mgmt_network_segment_response_t;
 typedef struct axiam_mgmt_notification_policy axiam_mgmt_notification_policy_t;
 typedef struct axiam_mgmt_notification_rule_response axiam_mgmt_notification_rule_response_t;
 typedef struct axiam_mgmt_o_auth2_client_created_response axiam_mgmt_o_auth2_client_created_response_t;
@@ -1653,6 +1766,9 @@ typedef struct axiam_mgmt_reactor_event_descriptor axiam_mgmt_reactor_event_desc
 typedef struct axiam_mgmt_reactor_response axiam_mgmt_reactor_response_t;
 typedef struct axiam_mgmt_ready_response axiam_mgmt_ready_response_t;
 typedef struct axiam_mgmt_registration_token_response axiam_mgmt_registration_token_response_t;
+typedef struct axiam_mgmt_replace_network_policy_request axiam_mgmt_replace_network_policy_request_t;
+typedef struct axiam_mgmt_replace_network_reply_profile_request axiam_mgmt_replace_network_reply_profile_request_t;
+typedef struct axiam_mgmt_replace_network_segment_request axiam_mgmt_replace_network_segment_request_t;
 typedef struct axiam_mgmt_resolved_permission_grant axiam_mgmt_resolved_permission_grant_t;
 typedef struct axiam_mgmt_resource axiam_mgmt_resource_t;
 typedef struct axiam_mgmt_retry_policy axiam_mgmt_retry_policy_t;
@@ -2517,7 +2633,10 @@ struct axiam_mgmt_create_ca_certificate_request {
     /**
      * The CA's common name, e.g. `ACME Corp Root CA`. A **common name**, not a
      * distinguished name. A single `CN=` prefix is accepted and stripped; anything else
-     * containing `=` — `O=Acme, CN=ACME Corp Root CA` — is refused with `400`.
+     * containing `=` — `O=Acme, CN=ACME Corp Root CA` — is refused with `400`, as is a name
+     * of more than 64 characters (RFC 5280 `ub-common-name`) or one holding a control
+     * character, a tab or line break, an invisible or bidirectional formatting character,
+     * or two spaces in a row.
      */
     char *subject;
     /**
@@ -2555,7 +2674,12 @@ struct axiam_mgmt_create_certificate_request {
      */
     char *metadata;
     /**
-     * The server's `subject` field.
+     * The certificate's common name, e.g. `device-001`: a bare name or one `CN=` component,
+     * at most 64 characters (RFC 5280 `ub-common-name`), printable — a control character,
+     * tab or line break, an invisible or bidirectional formatting character, or two spaces
+     * in a row is refused with `400`. A name that is to be written into another system's
+     * configuration (a FreeRADIUS table, an ACL) should match
+     * `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`.
      */
     char *subject;
     /**
@@ -2779,6 +2903,82 @@ struct axiam_mgmt_create_intermediate_ca_request {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_create_intermediate_ca_request_free(axiam_mgmt_create_intermediate_ca_request_t *value);
+
+/**
+ * The body of `POST /api/v1/network/profiles`.
+ */
+struct axiam_mgmt_create_network_reply_profile_request {
+    /**
+     * The profile: a typed record of the `axiam-radius-reply/1` dictionary. The VLAN is
+     * never a field; it is the segment's.
+     */
+    axiam_mgmt_network_reply_profile_input_t *profile;
+    /**
+     * The segment the profile belongs to (at most one profile per segment).
+     */
+    char *segment_id;
+    /**
+     * The segment's `version` as the caller read it: the envelope the profile was written
+     * against. A segment written since is `409`.
+     */
+    long segment_version;
+};
+
+/**
+ * Free a CreateNetworkReplyProfileRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_create_network_reply_profile_request_free(axiam_mgmt_create_network_reply_profile_request_t *value);
+
+/**
+ * The body of `POST /api/v1/network/segments`.
+ */
+struct axiam_mgmt_create_network_segment_request {
+    /**
+     * Whether the segment starts as a placement candidate. Defaults to `true`. Optional.
+     */
+    int enabled;
+    int has_enabled; /**< 1 when `enabled` is set. */
+    /**
+     * The `Filter-Id` names the segment's profile may choose from: its envelope. At most
+     * 32, each matching the pattern above. Optional.
+     */
+    char **filter_ids;
+    size_t filter_ids_count; /**< Entries in `filter_ids`. */
+    /**
+     * `access` or `quarantine`. Decides the branch the segment lives under.
+     */
+    axiam_mgmt_network_segment_kind_t kind;
+    /**
+     * The segment's name, same pattern, unique within the site.
+     */
+    char *name;
+    /**
+     * The placement rank (unique within the site): required for `access`, absent for
+     * `quarantine`. Optional.
+     */
+    long rank;
+    int has_rank; /**< 1 when `rank` is set. */
+    /**
+     * The site key (`^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`). A single-site tenant uses
+     * `default`.
+     */
+    char *site_key;
+    /**
+     * The VLAN (1 to 4094), unique within the site.
+     */
+    long vlan_id;
+};
+
+/**
+ * Free a CreateNetworkSegmentRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_create_network_segment_request_free(axiam_mgmt_create_network_segment_request_t *value);
 
 /**
  * The `CreateNotificationRuleRequest` schema from the server's OpenAPI document.
@@ -4098,10 +4298,12 @@ struct axiam_mgmt_generated_ca_certificate {
     char *tenant_id;
     /**
      * PEM-encoded private key — returned only on generation, and only when there is one to
-     * return. Absent under `vault_pki` custody, where the key was generated inside Vault
-     * and no API exports it. The field is omitted rather than sent as `null` so a client
-     * that has always read it keeps working unchanged for every custodian that does produce
-     * a key. Optional.
+     * return. An unencrypted PKCS#8 `PRIVATE KEY` block. An Ed25519 key is RFC 8410 version
+     * 1 (`version` INTEGER 0, the 32-byte seed and no embedded public key), which OpenSSL
+     * 3.0 reads; an RSA-4096 key is the usual PKCS#8 `RSAPrivateKey`. Absent under
+     * `vault_pki` custody, where the key was generated inside Vault and no API exports it.
+     * The field is omitted rather than sent as `null` so a client that has always read it
+     * keeps working unchanged for every custodian that does produce a key. Optional.
      */
     axiam_sensitive_t *private_key_pem;
 };
@@ -4196,7 +4398,10 @@ struct axiam_mgmt_generated_certificate {
      */
     char *chain_pem;
     /**
-     * PEM-encoded private key — returned only on generation.
+     * PEM-encoded private key — returned only on generation. An unencrypted PKCS#8 `PRIVATE
+     * KEY` block. An Ed25519 key AXIAM generated is RFC 8410 version 1 (`version` INTEGER
+     * 0, the 32-byte seed and no embedded public key), which OpenSSL 3.0 reads; the longer
+     * RFC 5958 v2 form it does not. An RSA-4096 key is the usual PKCS#8 `RSAPrivateKey`.
      */
     axiam_sensitive_t *private_key_pem;
 };
@@ -4743,6 +4948,243 @@ struct axiam_mgmt_mtls_trust_anchor_response {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_mtls_trust_anchor_response_free(axiam_mgmt_mtls_trust_anchor_response_t *value);
+
+/**
+ * The tenant's network policy, as the management API returns it.
+ */
+struct axiam_mgmt_network_policy_response {
+    /**
+     * `network.session_timeout_max_secs`: the most a reply profile's `Session-Timeout` may
+     * be, in seconds (300 to 86 400; 3600 until the tenant writes one). A stored profile
+     * above it is clamped at read.
+     */
+    long session_timeout_max_secs;
+    /**
+     * The owning tenant.
+     */
+    char *tenant_id;
+    /**
+     * Last write time; absent while it is the default. Optional.
+     */
+    char *updated_at;
+    /**
+     * The administrator who last wrote it; absent while it is the default. Optional.
+     */
+    char *updated_by;
+    /**
+     * The version the next `PUT` must name; `0` until the tenant first writes.
+     */
+    long version;
+};
+
+/**
+ * Free a NetworkPolicyResponse and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_network_policy_response_free(axiam_mgmt_network_policy_response_t *value);
+
+/**
+ * A segment's reply profile as read: **the effective one**, with the `Session-Timeout`
+ * already clamped to the tenant's current cap (design note §3.4) and `Idle-Timeout` kept
+ * within it.
+ */
+struct axiam_mgmt_network_reply_profile {
+    /**
+     * Creation time.
+     */
+    char *created_at;
+    /**
+     * The administrator who created it.
+     */
+    char *created_by;
+    /**
+     * The dictionary version the profile was validated against.
+     */
+    char *dictionary;
+    /**
+     * `Filter-Id`, one of the segment's declared names. Optional.
+     */
+    char *filter_id;
+    /**
+     * `Idle-Timeout`, seconds, never above the effective `Session-Timeout`. Optional.
+     */
+    long idle_timeout_secs;
+    int has_idle_timeout_secs; /**< 1 when `idle_timeout_secs` is set. */
+    /**
+     * The owning segment, which is also this profile's id: one profile per segment, at
+     * most.
+     */
+    char *segment_id;
+    /**
+     * The server's `service_type` field. Optional.
+     */
+    axiam_mgmt_radius_service_type_t service_type;
+    int has_service_type; /**< 1 when `service_type` is set. */
+    /**
+     * Whether the stored value was above the cap and has been lowered.
+     */
+    int session_timeout_clamped;
+    /**
+     * `Session-Timeout`, seconds: the stored value lowered to the tenant's current cap.
+     * This is the value a reply carries.
+     */
+    long session_timeout_secs;
+    /**
+     * The owning tenant.
+     */
+    char *tenant_id;
+    /**
+     * `Termination-Action`.
+     */
+    axiam_mgmt_radius_termination_action_t termination_action;
+    /**
+     * Last write time.
+     */
+    char *updated_at;
+    /**
+     * The administrator who last wrote it.
+     */
+    char *updated_by;
+    /**
+     * The version the next replace or delete must name. Starts at 1.
+     */
+    long version;
+};
+
+/**
+ * Free a NetworkReplyProfile and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_network_reply_profile_free(axiam_mgmt_network_reply_profile_t *value);
+
+/**
+ * What a writer supplies for a profile. Closed: an unknown key is a refusal naming it,
+ * never ignored (design note §3.4).
+ */
+struct axiam_mgmt_network_reply_profile_input {
+    /**
+     * The dictionary version the profile is written against; defaults to
+     * [`REPLY_DICTIONARY_V1`]. An unknown version is refused. Optional.
+     */
+    char *dictionary;
+    /**
+     * `Filter-Id`: one of the owning segment's declared `filter_ids`. Optional.
+     */
+    char *filter_id;
+    /**
+     * `Idle-Timeout`, seconds: [`IDLE_TIMEOUT_FLOOR_SECS`] up to `session_timeout_secs`.
+     * Optional.
+     */
+    long idle_timeout_secs;
+    int has_idle_timeout_secs; /**< 1 when `idle_timeout_secs` is set. */
+    /**
+     * The server's `service_type` field. Optional.
+     */
+    axiam_mgmt_radius_service_type_t service_type;
+    int has_service_type; /**< 1 when `service_type` is set. */
+    /**
+     * `Session-Timeout`, seconds: [`SESSION_TIMEOUT_FLOOR_SECS`] up to the tenant cap.
+     * Never zero.
+     */
+    long session_timeout_secs;
+    /**
+     * `Termination-Action`; defaults to `RADIUS-Request`. Optional.
+     */
+    axiam_mgmt_radius_termination_action_t termination_action;
+    int has_termination_action; /**< 1 when `termination_action` is set. */
+};
+
+/**
+ * Free a NetworkReplyProfileInput and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_network_reply_profile_input_free(axiam_mgmt_network_reply_profile_input_t *value);
+
+/**
+ * A network segment, as the management API returns it.
+ */
+struct axiam_mgmt_network_segment_response {
+    /**
+     * Creation time.
+     */
+    char *created_at;
+    /**
+     * The administrator who created it.
+     */
+    char *created_by;
+    /**
+     * Whether the segment is a placement candidate.
+     */
+    int enabled;
+    /**
+     * The `Filter-Id` names the segment's profile may choose from.
+     */
+    char **filter_ids;
+    size_t filter_ids_count; /**< Entries in `filter_ids`. */
+    /**
+     * The segment id; also the id of its resource node, which `check_access` is asked
+     * about, and of its reply profile.
+     */
+    char *id;
+    /**
+     * `access` (under `/network/zones`) or `quarantine` (under `/network/quarantine`);
+     * fixed for the segment's life.
+     */
+    axiam_mgmt_network_segment_kind_t kind;
+    /**
+     * The segment's name, unique within its site.
+     */
+    char *name;
+    /**
+     * The segment's place in the reserved subtree,
+     * `/network/{zones|quarantine}/<site_key>/<name>`.
+     */
+    char *path;
+    /**
+     * The placement rank among a site's `access` segments (lowest wins); absent for a
+     * quarantine segment. Optional.
+     */
+    long rank;
+    int has_rank; /**< 1 when `rank` is set. */
+    /**
+     * The site key.
+     */
+    char *site_key;
+    /**
+     * The owning tenant.
+     */
+    char *tenant_id;
+    /**
+     * Last write time.
+     */
+    char *updated_at;
+    /**
+     * The administrator who last wrote it.
+     */
+    char *updated_by;
+    /**
+     * The version the next replace or delete must name.
+     */
+    long version;
+    /**
+     * The VLAN the tunnel attributes carry (1 to 4094), unique per site.
+     */
+    long vlan_id;
+};
+
+/**
+ * Free a NetworkSegmentResponse and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_network_segment_response_free(axiam_mgmt_network_segment_response_t *value);
 
 /**
  * Admin notification preferences.
@@ -5884,6 +6326,97 @@ struct axiam_mgmt_registration_token_response {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_registration_token_response_free(axiam_mgmt_registration_token_response_t *value);
+
+/**
+ * The body of `PUT /api/v1/network/policy`: a **replacement** of the policy.
+ */
+struct axiam_mgmt_replace_network_policy_request {
+    /**
+     * The new cap on a reply profile's `Session-Timeout`, in seconds: 300 to 86 400.
+     * Lowering it below an existing profile's value is fine (reads clamp); raising it is
+     * allowed and audited as a raise.
+     */
+    long session_timeout_max_secs;
+    /**
+     * The policy's `version` as the caller read it (`0` for a tenant that has never written
+     * one). A stale one is `409`.
+     */
+    long version;
+};
+
+/**
+ * Free a ReplaceNetworkPolicyRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_replace_network_policy_request_free(axiam_mgmt_replace_network_policy_request_t *value);
+
+/**
+ * The body of `PUT /api/v1/network/profiles/{segment_id}`.
+ */
+struct axiam_mgmt_replace_network_reply_profile_request {
+    /**
+     * The profile.
+     */
+    axiam_mgmt_network_reply_profile_input_t *profile;
+    /**
+     * The segment's `version` as the caller read it, as for
+     * [`CreateReplyProfileRequest::segment_version`].
+     */
+    long segment_version;
+    /**
+     * The profile's `version` as the caller read it. A stale one is `409`.
+     */
+    long version;
+};
+
+/**
+ * Free a ReplaceNetworkReplyProfileRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_replace_network_reply_profile_request_free(axiam_mgmt_replace_network_reply_profile_request_t *value);
+
+/**
+ * The body of `PUT /api/v1/network/segments/{id}`: a **replacement** of the envelope. The
+ * kind and the place in the tree do not change.
+ */
+struct axiam_mgmt_replace_network_segment_request {
+    /**
+     * Whether the segment is a placement candidate.
+     */
+    int enabled;
+    /**
+     * The `Filter-Id` names the segment's profile may choose from. Removing the one the
+     * profile uses is `409`, naming the profile.
+     */
+    char **filter_ids;
+    size_t filter_ids_count; /**< Entries in `filter_ids`. */
+    /**
+     * The placement rank: required for an `access` segment, absent for a `quarantine` one.
+     * Optional.
+     */
+    long rank;
+    int has_rank; /**< 1 when `rank` is set. */
+    /**
+     * The segment's `version` as the caller read it. A stale one is `409`.
+     */
+    long version;
+    /**
+     * The VLAN (1 to 4094).
+     */
+    long vlan_id;
+};
+
+/**
+ * Free a ReplaceNetworkSegmentRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_replace_network_segment_request_free(axiam_mgmt_replace_network_segment_request_t *value);
 
 /**
  * A permission grant with its scopes resolved. A superset of [`PermissionGrant`]:
@@ -7546,7 +8079,10 @@ void axiam_mgmt_sign_audit_batch_request_free(axiam_mgmt_sign_audit_batch_reques
  * Body of `POST /api/v1/certificates/sign-csr`. No `subject` and no `key_algorithm`: both
  * are read out of the CSR, which is the only place they can be stated without the row and
  * the certificate being able to disagree. No key is returned, so there is no key field
- * anywhere on this exchange.
+ * anywhere on this exchange. The CSR's common name meets the rules of `subject` on `POST
+ * /api/v1/certificates` (printable, at most 64 characters) and is refused, not rewritten,
+ * when it does not. So does the value of every other attribute of the CSR's subject, and a
+ * subject with more than one common name is refused.
  */
 struct axiam_mgmt_sign_certificate_csr_request {
     /**
@@ -8746,7 +9282,9 @@ struct axiam_mgmt_update_o_auth2_client_request {
     int require_par;
     int has_require_par; /**< 1 when `require_par` is set. */
     /**
-     * The server's `scopes` field. Optional.
+     * Replace the client's scopes. On a `managed_by: dcr | cimd` client a scope the request
+     * adds that is outside the tenant's effective `dcr_allowed_scopes` is refused with
+     * `422` (#636); an administrator-managed client is not bounded. Optional.
      */
     char **scopes;
     size_t scopes_count; /**< Entries in `scopes`. */
@@ -9459,6 +9997,44 @@ typedef struct axiam_mgmt_group_page {
  * Free a page of Group objects and every item in it. Safe to pass NULL.
  */
 void axiam_mgmt_group_page_free(axiam_mgmt_group_page_t *page);
+
+/**
+ * One page of NetworkReplyProfile objects (27.4 rule 4).
+ *
+ * `total` is the SERVER's count across every page. It is NOT `count`, and deriving one from
+ * the other is how a management tool silently processes the first fifty of four hundred
+ * rows -- so they are separate members and neither is computed from the other.
+ */
+typedef struct axiam_mgmt_network_reply_profile_page {
+    axiam_mgmt_network_reply_profile_t **items; /**< The items on THIS page. */
+    size_t count;              /**< How many items are on this page. */
+    long total;                /**< The server's total across all pages. */
+    axiam_mgmt_page_req_t request; /**< The request that produced this page. */
+} axiam_mgmt_network_reply_profile_page_t;
+
+/**
+ * Free a page of NetworkReplyProfile objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_network_reply_profile_page_free(axiam_mgmt_network_reply_profile_page_t *page);
+
+/**
+ * One page of NetworkSegmentResponse objects (27.4 rule 4).
+ *
+ * `total` is the SERVER's count across every page. It is NOT `count`, and deriving one from
+ * the other is how a management tool silently processes the first fifty of four hundred
+ * rows -- so they are separate members and neither is computed from the other.
+ */
+typedef struct axiam_mgmt_network_segment_response_page {
+    axiam_mgmt_network_segment_response_t **items; /**< The items on THIS page. */
+    size_t count;              /**< How many items are on this page. */
+    long total;                /**< The server's total across all pages. */
+    axiam_mgmt_page_req_t request; /**< The request that produced this page. */
+} axiam_mgmt_network_segment_response_page_t;
+
+/**
+ * Free a page of NetworkSegmentResponse objects and every item in it. Safe to pass NULL.
+ */
+void axiam_mgmt_network_segment_response_page_free(axiam_mgmt_network_segment_response_page_t *page);
 
 /**
  * One page of NotificationRuleResponse objects (27.4 rule 4).

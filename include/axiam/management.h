@@ -2,7 +2,7 @@
  * @file management.h
  * @brief CONTRACT.md §27 management API — shared core.
  *
- * The §27 surface is 190 administrative operations across 28 namespaces. Nine of the
+ * The §27 surface is 202 administrative operations across 29 namespaces (190 across 28 before contract 1.62). Nine of the
  * eleven AXIAM SDKs expose them as NAMESPACE HANDLES (`client.management().users()
  * .list()`, §27.2). C is one of the two that take §27.3's **flat-symbol accommodation**
  * instead, and not as a shortcut: §27.2's shape needs a value that carries both a
@@ -22,7 +22,7 @@
  *
  * This header carries the pieces every operation shares: paging, scope, the §27.4 rule 7
  * error classification, and the free functions for the two generic result shapes. The
- * models and the 190 operations are generated — see `axiam/management_models.h` and
+ * models and the 202 operations are generated — see `axiam/management_models.h` and
  * `axiam/management_ops.h`.
  */
 
@@ -74,6 +74,12 @@ typedef enum axiam_mgmt_error_class {
  * existing caller compiled against — adding a member to a struct callers allocate on the
  * stack is an ABI break, and §27 is not worth one. The class is derived from
  * `err->transport_cause`, which already carries the HTTP status.
+ *
+ * What the class cannot say comes from the body, and that IS a member: contract 1.62
+ * (§36.4, §2's SDK-Q02) adds `reason_code` (a `409`'s sub-code), `action` and
+ * `resource_id` (a `403`'s) to `axiam_error_t`, appended after the existing members. That
+ * is the one growth of a caller-allocated struct this SDK has made since 1.0.0; it is
+ * source-compatible (recompile) and recorded in CHANGELOG.md.
  *
  * Returns `AXIAM_MGMT_ERR_NONE` for `NULL`, for success, and for any status rule 7 does
  * not name.

@@ -32,6 +32,7 @@
 #include <stddef.h>
 
 #include "axiam/management.h"
+#include "axiam/management_models.h"
 #include "axiam/sensitive.h"
 
 #ifdef __cplusplus
@@ -130,10 +131,93 @@ typedef struct axiam_mgmt_manifest_entity {
     const char *depends_on;
 } axiam_mgmt_manifest_entity_t;
 
-/** A declarative description of the state a tenant must be in. */
+/**
+ * Whether a manifest STATES an optional member, states it as "none", or is silent
+ * (CONTRACT.md §27.6 rule 3 and §27.6.2 item 4).
+ *
+ * C has no `null` to assign, so the three states of a `network` spec's optional members are
+ * explicit. A member left at `AXIAM_MGMT_FIELD_UNSTATED` -- the zero value, so a
+ * zero-initialised spec is silent about everything -- is never an assertion: `plan` does not
+ * compare it, and an `Update` CARRIES the read's value. `AXIAM_MGMT_FIELD_SET` states the
+ * value. `AXIAM_MGMT_FIELD_NULL` is "none": the key is left OUT of a replacement body, which
+ * is how a replacement clears an optional member, and `null` is never sent.
+ */
+typedef enum axiam_mgmt_field_state {
+    AXIAM_MGMT_FIELD_UNSTATED = 0, /**< Silent: not compared, carried from the read. */
+    AXIAM_MGMT_FIELD_SET,          /**< The value is stated. */
+    AXIAM_MGMT_FIELD_NULL          /**< Stated as "none": the key is omitted. */
+} axiam_mgmt_field_state_t;
+
+/**
+ * One `network.segments[]` entry (CONTRACT.md §27.6.2 item 1, contract 1.62).
+ *
+ * The natural key is **site + kind + name**, where `kind` is the WIRE spelling, `access` or
+ * `quarantine`, exactly the value `create_segment` writes and every read returns. There is
+ * no `zones` spelling anywhere in a manifest: that is a server-side path segment.
+ * `site`, `kind` and `name` are the key and are never drift (§36.3 rule 4); every other
+ * member is a field.
+ */
+typedef struct axiam_mgmt_network_segment_spec {
+    const char *key;  /**< Manifest-local key; a profile's `segment` names it. */
+    const char *site; /**< The wire `site_key`. */
+    const char *kind; /**< `"access"` or `"quarantine"` (anything else is refused before any request). */
+    const char *name; /**< The segment's name, unique within its site. */
+    long vlan_id;     /**< The VLAN: a segment is always stated with one (create requires it). */
+    axiam_mgmt_field_state_t rank_state; /**< The placement rank (`access`); see ::axiam_mgmt_field_state_t. */
+    long rank;                           /**< Meaningful when `rank_state` is SET. */
+    /**
+     * The segment's envelope, in the order the manifest states it, or NULL for silent.
+     * COMPARED AS A SET (names are exact strings; a reorder alone is `NoChange`), and SENT
+     * in this order. A name listed twice is refused at `plan` with zero wire calls. A
+     * non-NULL pointer with `filter_ids_count` 0 states an EMPTY envelope.
+     */
+    const char *const *filter_ids;
+    size_t filter_ids_count;
+    axiam_mgmt_field_state_t enabled_state; /**< SET states `enabled`; NULL is the same as UNSTATED. */
+    int enabled;                            /**< Meaningful when `enabled_state` is SET. */
+} axiam_mgmt_network_segment_spec_t;
+
+/**
+ * One `network.profiles[]` entry (§27.6.2 item 1). The natural key is **its segment**: a
+ * profile has no name or id of its own and is addressed by the segment's id.
+ */
+typedef struct axiam_mgmt_network_profile_spec {
+    const char *segment;        /**< The `key` of a ::axiam_mgmt_network_segment_spec_t of this manifest. */
+    long session_timeout_secs;  /**< Always stated. Judged against the EFFECTIVE (clamped) value as read. */
+    /** `"default"` or `"radius_request"`, or NULL for silent. Anything else is refused locally. */
+    const char *termination_action;
+    axiam_mgmt_field_state_t idle_timeout_state; /**< See ::axiam_mgmt_field_state_t. */
+    long idle_timeout_secs;                      /**< Meaningful when SET. */
+    axiam_mgmt_field_state_t filter_id_state;    /**< See ::axiam_mgmt_field_state_t. */
+    const char *filter_id;                       /**< Meaningful when SET. */
+    axiam_mgmt_field_state_t service_type_state; /**< See ::axiam_mgmt_field_state_t. */
+    const char *service_type;                    /**< `"framed_user"` when SET (anything else is refused locally). */
+} axiam_mgmt_network_profile_spec_t;
+
+/**
+ * The `network.policy` singleton (§27.6.2 item 1): the tenant's Session-Timeout cap. A
+ * tenant has exactly one, so it has no key and a manifest carries at most one (here: a
+ * pointer, so a second is not expressible).
+ */
+typedef struct axiam_mgmt_network_policy_spec {
+    long session_timeout_max_secs; /**< The cap: 300 to 86 400, the server's to check. */
+} axiam_mgmt_network_policy_spec_t;
+
+/**
+ * A declarative description of the state a tenant must be in.
+ *
+ * The first two members are the whole of it up to contract 1.62; the rest are appended and
+ * zero for a manifest without a `network` section, which plans exactly as it did before.
+ */
 typedef struct axiam_mgmt_manifest {
     const axiam_mgmt_manifest_entity_t *entities; /**< Everything declared. */
     size_t count;                                 /**< How many. */
+    /* ---- contract 1.62, §27.6.2: the `network` namespace -------------------------- */
+    const axiam_mgmt_network_segment_spec_t *network_segments; /**< `network.segments[]`, or NULL. */
+    size_t network_segments_count;                             /**< How many. */
+    const axiam_mgmt_network_profile_spec_t *network_profiles; /**< `network.profiles[]`, or NULL. */
+    size_t network_profiles_count;                             /**< How many. */
+    const axiam_mgmt_network_policy_spec_t *network_policy;    /**< `network.policy`, or NULL. */
 } axiam_mgmt_manifest_t;
 
 /** One entry in a plan: what would happen to one entity, and why. */
@@ -180,6 +264,39 @@ typedef struct axiam_mgmt_planned_binding {
     size_t old_tenant_scope_count;
 } axiam_mgmt_planned_binding_t;
 
+/** Which `network` object a ::axiam_mgmt_planned_network_t is for. */
+typedef enum axiam_mgmt_network_item {
+    AXIAM_MGMT_NETWORK_POLICY = 0, /**< The tenant's cap: `NoChange` or `Update`, never `Create`. */
+    AXIAM_MGMT_NETWORK_SEGMENT,    /**< A segment: `create_segment` / `replace_segment`. */
+    AXIAM_MGMT_NETWORK_PROFILE     /**< A segment's reply profile: `create_profile` / `replace_profile`. */
+} axiam_mgmt_network_item_t;
+
+/**
+ * What a plan intends to do to one `network` object (CONTRACT.md §27.6.2 item 3).
+ *
+ * The read the decision was made on is kept, because an `Update`'s body is BUILT FROM IT
+ * (item 4): every stated member replaces the read's and every unstated one is carried, with
+ * the `version` the plan read. All of the pointers are owned by the plan.
+ */
+typedef struct axiam_mgmt_planned_network {
+    axiam_mgmt_network_item_t item;                          /**< Policy, segment or profile. */
+    axiam_mgmt_change_action_t action;                       /**< What would be done. */
+    const axiam_mgmt_network_segment_spec_t *segment_spec;   /**< SEGMENT: its spec; PROFILE: its segment's. */
+    const axiam_mgmt_network_profile_spec_t *profile_spec;   /**< PROFILE only. */
+    const axiam_mgmt_network_policy_spec_t *policy_spec;     /**< POLICY only. */
+    axiam_mgmt_network_policy_response_t *read_policy;       /**< POLICY, as read. */
+    axiam_mgmt_network_segment_response_t *read_segment;     /**< SEGMENT, and a PROFILE's segment, as read; NULL when it does not exist yet. */
+    axiam_mgmt_network_reply_profile_t *read_profile;        /**< PROFILE, as read (the EFFECTIVE profile); NULL when none. */
+    /**
+     * Filled by ::axiam_mgmt_apply on a SEGMENT item that wrote: the id and the `version` of
+     * the WRITE'S RESPONSE, which is what a profile that follows sends as `segment_version`
+     * (the segment write moved it; the one `plan` read would be `409 stale_version`). NULL
+     * and 0 until then, and for an item that wrote nothing.
+     */
+    char *applied_segment_id;
+    long applied_segment_version;
+} axiam_mgmt_planned_network_t;
+
 /**
  * What ::axiam_mgmt_plan produced: the ordered changes an apply would make.
  *
@@ -195,6 +312,13 @@ typedef struct axiam_mgmt_plan {
     axiam_mgmt_planned_binding_t *bindings; /**< Every declared role binding, in apply order. */
     size_t binding_count;
     size_t binding_pending;                 /**< How many bindings would actually send a request. */
+    /**
+     * The `network` objects (contract 1.62, §27.6.2): the policy, then the segments (in key
+     * order), then the profiles (in their segments' order), appended after everything above.
+     */
+    axiam_mgmt_planned_network_t *network;
+    size_t network_count;
+    size_t network_pending; /**< How many of them would actually send a request. */
 } axiam_mgmt_plan_t;
 
 /** Free a plan and everything it owns. Safe to pass NULL. */
@@ -246,6 +370,18 @@ typedef struct axiam_mgmt_apply_report {
 
     axiam_mgmt_created_secret_t *created_secrets; /**< One per service-account Create. */
     size_t created_secrets_count;
+
+    /* ---- contract 1.62, §27.6.2: the `network` namespace ---------------------------- */
+    size_t network_applied;   /**< How many network writes landed. */
+    long failed_network;      /**< Index into the plan's `network` of the failing one, or -1. */
+    size_t network_remaining; /**< How many network writes were never attempted because of it. */
+    /**
+     * The failing write's `409` `reason_code` (§36.3 rule 2, §27.6.2 item 5) -- `stale_version`,
+     * `strands_profile`, `duplicate_vlan`, a value this SDK does not know, ... -- or "" when
+     * the failure was not a `409`. The same string is `axiam_error_t::reason_code`.
+     * A manifest author branches on this, never on the message.
+     */
+    char network_reason_code[48];
 } axiam_mgmt_apply_report_t;
 
 /**
@@ -288,6 +424,14 @@ axiam_error_kind_t axiam_mgmt_plan(axiam_client_t *c,
  * bindings are applied once every declared group exists (so a binding naming a
  * just-created group has an id to bind), and before any service account is created, and
  * likewise for service-account bindings after every declared service account exists.
+ *
+ * Contract 1.62 (§27.6.2) appends a last phase: the `network` namespace -- the policy, then
+ * the segments (in key order), then the profiles (in their segments' order). A profile
+ * follows its segment, and sends as `segment_version` the `version` of the segment write's
+ * RESPONSE when this apply wrote it. Every `replace_*` body is built from the read and carries
+ * the version the plan read; nothing is retried, and a `409` is that action's failure: the
+ * apply stops, and the report carries the `reason_code`. Pruning is not offered, for
+ * `network` as for every namespace of this port: omission is never deletion.
  *
  * Returns AXIAM_OK only when every planned change (entity AND binding) landed; on a
  * partial apply it returns the failing kind AND fills `report`, which is what tells you

@@ -60,6 +60,110 @@ axiam_mgmt_ssf_stream_input_t *axiam_mgmt_ssf_stream_to_input(const axiam_mgmt_s
     return out;
 }
 
+/* Replace an owned string with a copy of `value`; 0 on allocation failure. NULL leaves it. */
+static int replace_str(char **slot, const char *value) {
+    if (!value) return 1;
+    char *copy = axiam_strdup0(value);
+    if (!copy) return 0;
+    free(*slot);
+    *slot = copy;
+    return 1;
+}
+
+/* `requested` (a JSON array text) cut to the entries that are in `ceiling` (another), in
+ * the requested order; a malloc'd array text. NULL when either is not a JSON array of
+ * strings or on allocation failure, in which case the caller keeps what it had and the
+ * server judges. */
+static char *cut_to_ceiling(const char *requested, const char *ceiling) {
+    cJSON *req = cJSON_Parse(requested);
+    cJSON *top = cJSON_Parse(ceiling);
+    cJSON *kept = NULL;
+    char *text = NULL;
+    if (cJSON_IsArray(req) && cJSON_IsArray(top) && (kept = cJSON_CreateArray())) {
+        const cJSON *r;
+        cJSON_ArrayForEach(r, req) {
+            if (!cJSON_IsString(r)) continue;
+            const cJSON *c;
+            cJSON_ArrayForEach(c, top) {
+                if (cJSON_IsString(c) && strcmp(c->valuestring, r->valuestring) == 0) {
+                    cJSON *copy = cJSON_CreateString(r->valuestring);
+                    if (!copy || !cJSON_AddItemToArray(kept, copy)) {
+                        cJSON_Delete(copy);
+                        cJSON_Delete(kept);
+                        kept = NULL;
+                    }
+                    break;
+                }
+            }
+            if (!kept) break;
+        }
+        if (kept) text = cJSON_PrintUnformatted(kept);
+    }
+    cJSON_Delete(kept);
+    cJSON_Delete(req);
+    cJSON_Delete(top);
+    return text;
+}
+
+axiam_mgmt_ssf_stream_input_t *
+axiam_mgmt_ssf_stream_apply_changes(const axiam_mgmt_ssf_stream_t *stream,
+                                    const axiam_mgmt_ssf_stream_changes_t *changes) {
+    /* The read, carried: `events_requested` as read (an `[]` stays `[]`) and
+     * `expected_updated_at` as the response's own string. */
+    axiam_mgmt_ssf_stream_input_t *out = axiam_mgmt_ssf_stream_to_input(stream);
+    if (!out || !changes) return out;
+
+    int ok = replace_str(&out->receiver_client_id, changes->receiver_client_id) &&
+             replace_str(&out->audience, changes->audience) &&
+             replace_str(&out->description, changes->description) &&
+             replace_str(&out->endpoint_url, changes->endpoint_url) &&
+             replace_str(&out->status_reason, changes->status_reason) &&
+             replace_str(&out->events_allowed, changes->events_allowed) &&
+             replace_str(&out->events_requested, changes->events_requested);
+
+    if (ok && changes->events_allowed && !changes->events_requested && out->events_requested) {
+        /* The ceiling was named and the caller named no list of their own: cut the one
+         * read to it (a requested entry outside the ceiling is `400`). */
+        char *cut = cut_to_ceiling(out->events_requested, changes->events_allowed);
+        if (cut) {
+            free(out->events_requested);
+            out->events_requested = cut;
+        }
+    }
+    if (ok && changes->has_delivery_method) out->delivery_method = changes->delivery_method;
+    if (ok && changes->has_status) { out->status = changes->status; out->has_status = 1; }
+    if (ok && changes->has_subject_format) {
+        out->subject_format = changes->subject_format;
+        out->has_subject_format = 1;
+    }
+    if (ok && changes->authorization_header) {
+        axiam_sensitive_t *header = axiam_sensitive_new(changes->authorization_header);
+        if (header) {
+            axiam_sensitive_free(out->authorization_header);
+            out->authorization_header = header;
+        } else {
+            ok = 0;
+        }
+    }
+    if (ok && changes->clear_authorization_header) {
+        out->clear_authorization_header = 1;
+        out->has_clear_authorization_header = 1;
+    }
+    if (ok && changes->no_expected_updated_at) {
+        /* "none": the key is left out and `null` is never sent (§27.11 rule 5). */
+        free(out->expected_updated_at);
+        out->expected_updated_at = NULL;
+    } else if (ok) {
+        ok = replace_str(&out->expected_updated_at, changes->expected_updated_at);
+    }
+
+    if (!ok) {
+        axiam_mgmt_ssf_stream_input_free(out);
+        return NULL;
+    }
+    return out;
+}
+
 axiam_mgmt_scim_target_input_t *
 axiam_mgmt_scim_target_response_to_input(const axiam_mgmt_scim_target_response_t *target) {
     cJSON *wire = target ? axiam_mgmt_scim_target_response_build(target) : NULL;

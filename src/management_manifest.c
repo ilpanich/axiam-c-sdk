@@ -28,6 +28,126 @@ static const axiam_mgmt_manifest_entity_t *find_key(const axiam_mgmt_manifest_t 
     return NULL;
 }
 
+/* ---------------------------------------------------------------- */
+/* The `network` namespace -- validation (CONTRACT.md §27.6.2)       */
+/* ---------------------------------------------------------------- */
+
+static int blank(const char *text) { return !text || !*text; }
+
+static const axiam_mgmt_network_segment_spec_t *find_segment_spec(const axiam_mgmt_manifest_t *m,
+                                                                  const char *key) {
+    if (!key) return NULL;
+    for (size_t i = 0; i < m->network_segments_count; i++)
+        if (m->network_segments[i].key && strcmp(m->network_segments[i].key, key) == 0)
+            return &m->network_segments[i];
+    return NULL;
+}
+
+static axiam_error_kind_t refuse(axiam_error_t *err, const char *msg) {
+    axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+    return AXIAM_ERR_NETWORK;
+}
+
+/* Everything §27.6.2 item 1 refuses BEFORE any request: a repeated natural key (two segments
+ * with one site, kind and name; two profiles for one segment), a Filter-Id listed twice in a
+ * segment (the list is compared as a set, and a set has no repeated member), a profile whose
+ * `segment` names no segment spec of this manifest (a dangling key, §27.6 rule 2), and a
+ * value this SDK cannot spell on the wire. The values themselves -- VLAN range, timeouts,
+ * the pattern of a name -- are the server's to judge (§36.3 rule 5). */
+static axiam_error_kind_t validate_network(const axiam_mgmt_manifest_t *m, axiam_error_t *err) {
+    char msg[256];
+
+    if ((m->network_segments_count && !m->network_segments) ||
+        (m->network_profiles_count && !m->network_profiles))
+        return refuse(err, "manifest: invalid network arguments");
+
+    for (size_t i = 0; i < m->network_segments_count; i++) {
+        const axiam_mgmt_network_segment_spec_t *a = &m->network_segments[i];
+        if (blank(a->key)) return refuse(err, "manifest: every network segment needs a key");
+        if (blank(a->site) || blank(a->kind) || blank(a->name)) {
+            snprintf(msg, sizeof msg, "network segment \"%s\" needs a site, a kind and a name", a->key);
+            return refuse(err, msg);
+        }
+        /* The WIRE spelling, and only it: `zones` is a server-side path segment, and this
+         * SDK keeps no mapping to or from it. */
+        if (strcmp(a->kind, "access") != 0 && strcmp(a->kind, "quarantine") != 0) {
+            snprintf(msg, sizeof msg,
+                     "network segment \"%s\": kind \"%s\" is not \"access\" or \"quarantine\" "
+                     "(the wire spelling; there is no other)", a->key, a->kind);
+            return refuse(err, msg);
+        }
+        if (a->filter_ids_count && !a->filter_ids)
+            return refuse(err, "manifest: invalid network arguments");
+        for (size_t f = 0; f < a->filter_ids_count; f++) {
+            if (!a->filter_ids[f]) return refuse(err, "manifest: a network segment lists a NULL Filter-Id");
+            for (size_t g = f + 1; g < a->filter_ids_count; g++) {
+                if (a->filter_ids[g] && strcmp(a->filter_ids[f], a->filter_ids[g]) == 0) {
+                    snprintf(msg, sizeof msg,
+                             "network segment \"%s\" lists Filter-Id \"%s\" twice -- filter_ids "
+                             "is a set (CONTRACT.md \xc2\xa7""27.6.2)", a->key, a->filter_ids[f]);
+                    return refuse(err, msg);
+                }
+            }
+        }
+        for (size_t j = i + 1; j < m->network_segments_count; j++) {
+            const axiam_mgmt_network_segment_spec_t *b = &m->network_segments[j];
+            if (b->key && strcmp(a->key, b->key) == 0) {
+                snprintf(msg, sizeof msg,
+                         "manifest declares network segment \"%s\" twice -- a key must be unique", a->key);
+                return refuse(err, msg);
+            }
+            if (b->site && b->kind && b->name && strcmp(a->site, b->site) == 0 &&
+                strcmp(a->kind, b->kind) == 0 && strcmp(a->name, b->name) == 0) {
+                snprintf(msg, sizeof msg,
+                         "network segments \"%s\" and \"%s\" are one segment (site \"%s\", kind "
+                         "\"%s\", name \"%s\") -- the natural key is site + kind + name",
+                         a->key, b->key, a->site, a->kind, a->name);
+                return refuse(err, msg);
+            }
+        }
+    }
+
+    for (size_t i = 0; i < m->network_profiles_count; i++) {
+        const axiam_mgmt_network_profile_spec_t *a = &m->network_profiles[i];
+        if (blank(a->segment)) return refuse(err, "manifest: every network profile names its segment");
+        if (!find_segment_spec(m, a->segment)) {
+            snprintf(msg, sizeof msg,
+                     "a network profile names segment \"%s\", which this manifest does not declare",
+                     a->segment);
+            return refuse(err, msg);
+        }
+        for (size_t j = i + 1; j < m->network_profiles_count; j++) {
+            if (m->network_profiles[j].segment && strcmp(a->segment, m->network_profiles[j].segment) == 0) {
+                snprintf(msg, sizeof msg,
+                         "manifest declares two network profiles for segment \"%s\" -- a segment "
+                         "has at most one", a->segment);
+                return refuse(err, msg);
+            }
+        }
+        axiam_mgmt_radius_termination_action_t ta;
+        if (a->termination_action &&
+            !axiam_mgmt_radius_termination_action_from_wire(a->termination_action, &ta)) {
+            snprintf(msg, sizeof msg,
+                     "network profile for \"%s\": termination_action \"%s\" is not a value this "
+                     "SDK can send", a->segment, a->termination_action);
+            return refuse(err, msg);
+        }
+        axiam_mgmt_radius_service_type_t st;
+        if (a->service_type_state == AXIAM_MGMT_FIELD_SET &&
+            (!a->service_type || !axiam_mgmt_radius_service_type_from_wire(a->service_type, &st))) {
+            snprintf(msg, sizeof msg,
+                     "network profile for \"%s\": service_type \"%s\" is not a value this SDK can "
+                     "send (the only one is \"framed_user\")", a->segment,
+                     a->service_type ? a->service_type : "(null)");
+            return refuse(err, msg);
+        }
+        if (a->filter_id_state == AXIAM_MGMT_FIELD_SET && !a->filter_id)
+            return refuse(err, "manifest: a network profile states filter_id and gives none");
+    }
+    axiam_error_reset(err);
+    return AXIAM_OK;
+}
+
 axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *manifest,
                                                 axiam_error_t *err) {
     if (!manifest || (manifest->count && !manifest->entities)) {
@@ -168,8 +288,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
         }
     }
 
-    axiam_error_reset(err);
-    return AXIAM_OK;
+    return validate_network(manifest, err);
 }
 
 /* ---------------------------------------------------------------- */
@@ -386,6 +505,15 @@ void axiam_mgmt_plan_free(axiam_mgmt_plan_t *plan) {
         }
     }
     free(plan->bindings);
+    for (size_t i = 0; i < plan->network_count; i++) {
+        axiam_mgmt_planned_network_t *n = &plan->network[i];
+        axiam_mgmt_network_policy_response_free(n->read_policy);
+        /* A PROFILE item's read_segment only BORROWS the one its SEGMENT item owns. */
+        if (n->item == AXIAM_MGMT_NETWORK_SEGMENT) axiam_mgmt_network_segment_response_free(n->read_segment);
+        axiam_mgmt_network_reply_profile_free(n->read_profile);
+        free(n->applied_segment_id);
+    }
+    free(plan->network);
     free(plan);
 }
 
@@ -444,6 +572,9 @@ static int metadata_differs(const char *declared, const char *server) {
     cJSON_Delete(b);
     return !eq;
 }
+
+static axiam_error_kind_t plan_network(axiam_client_t *c, const axiam_mgmt_manifest_t *m,
+                                       axiam_mgmt_plan_t *plan, axiam_error_t *err);
 
 axiam_error_kind_t axiam_mgmt_plan(axiam_client_t *c, const axiam_mgmt_manifest_t *manifest,
                                    axiam_mgmt_plan_t **out, axiam_error_t *err) {
@@ -639,6 +770,17 @@ axiam_error_kind_t axiam_mgmt_plan(axiam_client_t *c, const axiam_mgmt_manifest_
         }
     }
 
+    /* Contract 1.62, §27.6.2: the `network` namespace is planned last, after everything
+     * above, so a manifest without a `network` section plans exactly as it did before. */
+    rc = plan_network(c, manifest, plan, err);
+    if (rc != AXIAM_OK) {
+        for (int k = 0; k < AXIAM_MGMT_MANIFEST_KIND_COUNT; k++)
+            if (loaded[k]) existing_free(&cache[k]);
+        free(ordered);
+        axiam_mgmt_plan_free(plan);
+        return rc;
+    }
+
     for (int k = 0; k < AXIAM_MGMT_MANIFEST_KIND_COUNT; k++)
         if (loaded[k]) existing_free(&cache[k]);
     free(ordered);
@@ -646,6 +788,205 @@ axiam_error_kind_t axiam_mgmt_plan(axiam_client_t *c, const axiam_mgmt_manifest_
 
     if (out) *out = plan;
     else axiam_mgmt_plan_free(plan);
+    return AXIAM_OK;
+}
+
+/* ---------------------------------------------------------------- */
+/* The `network` namespace -- plan (CONTRACT.md §27.6.2 item 3)      */
+/* ---------------------------------------------------------------- */
+
+static int same_text(const char *a, const char *b) { return a && b && strcmp(a, b) == 0; }
+
+static int contains_text(const char *const *list, size_t n, const char *text) {
+    for (size_t i = 0; i < n; i++)
+        if (same_text(list[i], text)) return 1;
+    return 0;
+}
+
+/* `filter_ids` is compared as a SET: the same names in another order are NoChange, and
+ * names compare as exact strings (§27.6.2 item 3). Containment both ways, so a name the
+ * read has and the manifest does not is drift too. */
+static int filter_ids_differ(const axiam_mgmt_network_segment_spec_t *spec,
+                             const axiam_mgmt_network_segment_response_t *read) {
+    const char *const *theirs = (const char *const *) read->filter_ids;
+    for (size_t i = 0; i < spec->filter_ids_count; i++)
+        if (!contains_text(theirs, read->filter_ids_count, spec->filter_ids[i])) return 1;
+    for (size_t i = 0; i < read->filter_ids_count; i++)
+        if (!contains_text(spec->filter_ids, spec->filter_ids_count, read->filter_ids[i])) return 1;
+    return 0;
+}
+
+/* Every stated member against the value AS THE READ RETURNS IT (item 3, "judged on the
+ * read"); silence is never drift, and `kind`, `site` and `name` are the key. */
+static int segment_differs(const axiam_mgmt_network_segment_spec_t *spec,
+                           const axiam_mgmt_network_segment_response_t *read) {
+    if (spec->vlan_id != read->vlan_id) return 1;
+    if (spec->rank_state == AXIAM_MGMT_FIELD_SET && (!read->has_rank || read->rank != spec->rank)) return 1;
+    if (spec->rank_state == AXIAM_MGMT_FIELD_NULL && read->has_rank) return 1;
+    if (spec->filter_ids && filter_ids_differ(spec, read)) return 1;
+    if (spec->enabled_state == AXIAM_MGMT_FIELD_SET && (spec->enabled != 0) != (read->enabled != 0)) return 1;
+    return 0;
+}
+
+/* `read` is the EFFECTIVE profile (§36.2): a stated `session_timeout_secs` is compared with
+ * the clamped value, so one equal to the cap is NoChange and one above it is an Update --
+ * which apply sends, and the server refuses (§36.3 rule 1, H3). */
+static int profile_differs(const axiam_mgmt_network_profile_spec_t *spec,
+                           const axiam_mgmt_network_reply_profile_t *read) {
+    if (spec->session_timeout_secs != read->session_timeout_secs) return 1;
+    if (spec->termination_action &&
+        !same_text(spec->termination_action,
+                   axiam_mgmt_radius_termination_action_to_wire(read->termination_action))) return 1;
+    if (spec->idle_timeout_state == AXIAM_MGMT_FIELD_SET &&
+        (!read->has_idle_timeout_secs || read->idle_timeout_secs != spec->idle_timeout_secs)) return 1;
+    if (spec->idle_timeout_state == AXIAM_MGMT_FIELD_NULL && read->has_idle_timeout_secs) return 1;
+    if (spec->filter_id_state == AXIAM_MGMT_FIELD_SET && !same_text(spec->filter_id, read->filter_id)) return 1;
+    if (spec->filter_id_state == AXIAM_MGMT_FIELD_NULL && read->filter_id) return 1;
+    if (spec->service_type_state == AXIAM_MGMT_FIELD_SET &&
+        (!read->has_service_type ||
+         !same_text(spec->service_type, axiam_mgmt_radius_service_type_to_wire(read->service_type)))) return 1;
+    if (spec->service_type_state == AXIAM_MGMT_FIELD_NULL && read->has_service_type) return 1;
+    return 0;
+}
+
+/* Segments in KEY order, so a plan is stable across runs (§27.6 rule 8). */
+static void order_segment_specs(const axiam_mgmt_manifest_t *m,
+                                const axiam_mgmt_network_segment_spec_t **out) {
+    for (size_t i = 0; i < m->network_segments_count; i++) {
+        const axiam_mgmt_network_segment_spec_t *key = &m->network_segments[i];
+        size_t j = i;
+        while (j > 0 && strcmp(out[j - 1]->key, key->key) > 0) {
+            out[j] = out[j - 1];
+            j--;
+        }
+        out[j] = key;
+    }
+}
+
+static const axiam_mgmt_network_profile_spec_t *profile_spec_for(const axiam_mgmt_manifest_t *m,
+                                                                 const char *segment_key) {
+    for (size_t i = 0; i < m->network_profiles_count; i++)
+        if (same_text(m->network_profiles[i].segment, segment_key)) return &m->network_profiles[i];
+    return NULL;
+}
+
+static axiam_error_kind_t oom(axiam_error_t *err) {
+    return refuse(err, "manifest: out of memory");
+}
+
+/*
+ * Read the tenant's policy, segments and profiles -- `get_policy`, `list_segments` and
+ * `list_profiles`, each segment and profile list walked to exhaustion (§27.4 rule 4) -- and
+ * decide each stated object. GETs only (§27.6 rule 1). Order: the policy, the segments (key
+ * order), the profiles (their segments' order) -- §27.6.2 item 2.
+ */
+static axiam_error_kind_t plan_network(axiam_client_t *c, const axiam_mgmt_manifest_t *m,
+                                       axiam_mgmt_plan_t *plan, axiam_error_t *err) {
+    size_t nseg = m->network_segments_count;
+    size_t nprof = m->network_profiles_count;
+    size_t total = (m->network_policy ? 1 : 0) + nseg + nprof;
+    if (total == 0) return AXIAM_OK;
+
+    plan->network = (axiam_mgmt_planned_network_t *) calloc(total, sizeof(*plan->network));
+    if (!plan->network) return oom(err);
+
+    axiam_error_kind_t rc;
+    axiam_mgmt_page_req_t req = { 0, SCAN_LIMIT, NULL };
+
+    if (m->network_policy) {
+        axiam_mgmt_network_policy_response_t *pol = NULL;
+        rc = axiam_network_get_policy(c, &pol, err);
+        if (rc != AXIAM_OK) return rc;
+        axiam_mgmt_planned_network_t *n = &plan->network[plan->network_count++];
+        n->item = AXIAM_MGMT_NETWORK_POLICY;
+        n->policy_spec = m->network_policy;
+        n->read_policy = pol;
+        /* The policy always exists (the default, version 0, until the tenant first writes
+         * one), so it is never a Create. */
+        n->action = (pol->session_timeout_max_secs != m->network_policy->session_timeout_max_secs)
+                    ? AXIAM_MGMT_CHANGE_UPDATE : AXIAM_MGMT_CHANGE_UNCHANGED;
+        if (n->action != AXIAM_MGMT_CHANGE_UNCHANGED) plan->network_pending++;
+    }
+
+    if (nseg == 0) return AXIAM_OK; /* validate_network() refused a profile with no segment */
+
+    axiam_mgmt_network_segment_response_page_t *segs = NULL;
+    rc = axiam_network_list_segments_all(c, NULL, &req, &segs, err);
+    if (rc != AXIAM_OK) return rc;
+
+    axiam_mgmt_network_reply_profile_page_t *profs = NULL;
+    if (nprof) {
+        rc = axiam_network_list_profiles_all(c, &req, &profs, err);
+        if (rc != AXIAM_OK) {
+            axiam_mgmt_network_segment_response_page_free(segs);
+            return rc;
+        }
+    }
+
+    const axiam_mgmt_network_segment_spec_t **ordered =
+        (const axiam_mgmt_network_segment_spec_t **) calloc(nseg, sizeof(*ordered));
+    if (!ordered) {
+        axiam_mgmt_network_segment_response_page_free(segs);
+        axiam_mgmt_network_reply_profile_page_free(profs);
+        return oom(err);
+    }
+    order_segment_specs(m, ordered);
+
+    /* Segments. A matched read is TAKEN from the page (the page's slot is cleared), so it
+     * outlives the page: an Update's body is built from it. */
+    axiam_mgmt_planned_network_t *first_segment = &plan->network[plan->network_count];
+    for (size_t i = 0; i < nseg; i++) {
+        const axiam_mgmt_network_segment_spec_t *spec = ordered[i];
+        axiam_mgmt_network_segment_response_t *found = NULL;
+        for (size_t k = 0; segs && k < segs->count; k++) {
+            axiam_mgmt_network_segment_response_t *r = segs->items[k];
+            if (r && same_text(r->site_key, spec->site) && same_text(r->name, spec->name) &&
+                same_text(axiam_mgmt_network_segment_kind_to_wire(r->kind), spec->kind)) {
+                found = r;
+                segs->items[k] = NULL;
+                break;
+            }
+        }
+        axiam_mgmt_planned_network_t *n = &plan->network[plan->network_count++];
+        n->item = AXIAM_MGMT_NETWORK_SEGMENT;
+        n->segment_spec = spec;
+        n->read_segment = found;
+        n->action = !found ? AXIAM_MGMT_CHANGE_CREATE
+                           : segment_differs(spec, found) ? AXIAM_MGMT_CHANGE_UPDATE
+                                                          : AXIAM_MGMT_CHANGE_UNCHANGED;
+        if (n->action != AXIAM_MGMT_CHANGE_UNCHANGED) plan->network_pending++;
+    }
+
+    /* Profiles, in their segments' order, matched to the segment READ by `segment_id`. A
+     * profile of a segment that does not exist yet is a Create without a read. */
+    for (size_t i = 0; i < nseg; i++) {
+        const axiam_mgmt_network_profile_spec_t *pspec = profile_spec_for(m, ordered[i]->key);
+        if (!pspec) continue;
+        axiam_mgmt_planned_network_t *owner = &first_segment[i];
+        axiam_mgmt_network_reply_profile_t *found = NULL;
+        for (size_t k = 0; owner->read_segment && profs && k < profs->count; k++) {
+            axiam_mgmt_network_reply_profile_t *r = profs->items[k];
+            if (r && same_text(r->segment_id, owner->read_segment->id)) {
+                found = r;
+                profs->items[k] = NULL;
+                break;
+            }
+        }
+        axiam_mgmt_planned_network_t *n = &plan->network[plan->network_count++];
+        n->item = AXIAM_MGMT_NETWORK_PROFILE;
+        n->segment_spec = ordered[i];
+        n->profile_spec = pspec;
+        n->read_segment = owner->read_segment; /* borrowed: the SEGMENT item owns it */
+        n->read_profile = found;
+        n->action = !found ? AXIAM_MGMT_CHANGE_CREATE
+                           : profile_differs(pspec, found) ? AXIAM_MGMT_CHANGE_UPDATE
+                                                           : AXIAM_MGMT_CHANGE_UNCHANGED;
+        if (n->action != AXIAM_MGMT_CHANGE_UNCHANGED) plan->network_pending++;
+    }
+
+    free(ordered);
+    axiam_mgmt_network_segment_response_page_free(segs);
+    axiam_mgmt_network_reply_profile_page_free(profs);
     return AXIAM_OK;
 }
 
@@ -928,6 +1269,190 @@ static int record_created_secret(axiam_mgmt_apply_report_t *report, const char *
     return 1;
 }
 
+/* ---------------------------------------------------------------- */
+/* The `network` namespace -- apply (CONTRACT.md §27.6.2 items 4-5)  */
+/* ---------------------------------------------------------------- */
+
+/* The SEGMENT item a PROFILE item follows (the same spec). */
+static const axiam_mgmt_planned_network_t *segment_item_of(const axiam_mgmt_plan_t *plan,
+                                                           const axiam_mgmt_planned_network_t *profile) {
+    for (size_t i = 0; i < plan->network_count; i++)
+        if (plan->network[i].item == AXIAM_MGMT_NETWORK_SEGMENT &&
+            plan->network[i].segment_spec == profile->segment_spec)
+            return &plan->network[i];
+    return NULL;
+}
+
+/* Fill a NetworkReplyProfileInput: every stated member, and -- when `read` is given, which is
+ * the body of an Update -- every UNSTATED one CARRIED from the read (silence is not an
+ * assertion, and a replacement would otherwise clear it). A member stated as NULL is
+ * "none": the key is left out, and `null` is never sent. A value the read decoded as
+ * unknown is never re-sent (§36.2): it is left out. */
+static void fill_profile_input(axiam_mgmt_network_reply_profile_input_t *in,
+                               const axiam_mgmt_network_profile_spec_t *spec,
+                               const axiam_mgmt_network_reply_profile_t *read) {
+    memset(in, 0, sizeof *in);
+    in->session_timeout_secs = spec->session_timeout_secs;
+    if (read) in->dictionary = read->dictionary;
+
+    axiam_mgmt_radius_termination_action_t ta;
+    if (spec->termination_action && axiam_mgmt_radius_termination_action_from_wire(spec->termination_action, &ta)) {
+        in->termination_action = ta;
+        in->has_termination_action = 1;
+    } else if (read && read->termination_action != AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN) {
+        in->termination_action = read->termination_action;
+        in->has_termination_action = 1;
+    }
+
+    if (spec->idle_timeout_state == AXIAM_MGMT_FIELD_SET) {
+        in->idle_timeout_secs = spec->idle_timeout_secs;
+        in->has_idle_timeout_secs = 1;
+    } else if (spec->idle_timeout_state == AXIAM_MGMT_FIELD_UNSTATED && read && read->has_idle_timeout_secs) {
+        in->idle_timeout_secs = read->idle_timeout_secs;
+        in->has_idle_timeout_secs = 1;
+    }
+
+    if (spec->filter_id_state == AXIAM_MGMT_FIELD_SET) in->filter_id = (char *) spec->filter_id;
+    else if (spec->filter_id_state == AXIAM_MGMT_FIELD_UNSTATED && read) in->filter_id = read->filter_id;
+
+    axiam_mgmt_radius_service_type_t st;
+    if (spec->service_type_state == AXIAM_MGMT_FIELD_SET &&
+        axiam_mgmt_radius_service_type_from_wire(spec->service_type, &st)) {
+        in->service_type = st;
+        in->has_service_type = 1;
+    } else if (spec->service_type_state == AXIAM_MGMT_FIELD_UNSTATED && read && read->has_service_type &&
+               read->service_type != AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN) {
+        in->service_type = read->service_type;
+        in->has_service_type = 1;
+    }
+}
+
+static axiam_error_kind_t perform_network(axiam_client_t *c, const axiam_mgmt_plan_t *plan,
+                                          axiam_mgmt_planned_network_t *n, axiam_error_t *err) {
+    int create = n->action == AXIAM_MGMT_CHANGE_CREATE;
+
+    if (n->item == AXIAM_MGMT_NETWORK_POLICY) {
+        /* The cap: the version the plan read (0 for a tenant that has never written one). */
+        axiam_mgmt_replace_network_policy_request_t body;
+        memset(&body, 0, sizeof body);
+        body.session_timeout_max_secs = n->policy_spec->session_timeout_max_secs;
+        body.version = n->read_policy->version;
+        axiam_mgmt_network_policy_response_t *out = NULL;
+        axiam_error_kind_t rc = axiam_network_replace_policy(c, &body, &out, err);
+        axiam_mgmt_network_policy_response_free(out);
+        return rc;
+    }
+
+    if (n->item == AXIAM_MGMT_NETWORK_SEGMENT) {
+        const axiam_mgmt_network_segment_spec_t *spec = n->segment_spec;
+        axiam_mgmt_network_segment_response_t *out = NULL;
+        axiam_error_kind_t rc;
+        if (create) {
+            axiam_mgmt_create_network_segment_request_t body;
+            memset(&body, 0, sizeof body);
+            axiam_mgmt_network_segment_kind_from_wire(spec->kind, &body.kind);
+            body.site_key = (char *) spec->site;
+            body.name = (char *) spec->name;
+            body.vlan_id = spec->vlan_id;
+            if (spec->rank_state == AXIAM_MGMT_FIELD_SET) { body.rank = spec->rank; body.has_rank = 1; }
+            /* In the order the manifest states it (item 3). */
+            if (spec->filter_ids) {
+                body.filter_ids = (char **) spec->filter_ids;
+                body.filter_ids_count = spec->filter_ids_count;
+            }
+            if (spec->enabled_state == AXIAM_MGMT_FIELD_SET) { body.enabled = spec->enabled != 0; body.has_enabled = 1; }
+            rc = axiam_network_create_segment(c, &body, &out, err);
+        } else {
+            /* A full replacement, built from the read. `kind`, `site_key` and `name` are
+             * not in it (§36.2). */
+            const axiam_mgmt_network_segment_response_t *read = n->read_segment;
+            char *no_filter_ids[1] = { NULL };
+            axiam_mgmt_replace_network_segment_request_t body;
+            memset(&body, 0, sizeof body);
+            body.version = read->version;
+            body.vlan_id = spec->vlan_id;
+            if (spec->rank_state == AXIAM_MGMT_FIELD_SET) { body.rank = spec->rank; body.has_rank = 1; }
+            else if (spec->rank_state == AXIAM_MGMT_FIELD_UNSTATED && read->has_rank) {
+                body.rank = read->rank;
+                body.has_rank = 1;
+            } /* NULL: "none" -- the key stays out */
+            if (spec->filter_ids) {
+                body.filter_ids = (char **) spec->filter_ids;
+                body.filter_ids_count = spec->filter_ids_count;
+            } else if (read->filter_ids) {
+                body.filter_ids = read->filter_ids;
+                body.filter_ids_count = read->filter_ids_count;
+            } else {
+                body.filter_ids = no_filter_ids; /* required: an empty envelope, sent as [] */
+            }
+            body.enabled = spec->enabled_state == AXIAM_MGMT_FIELD_SET ? (spec->enabled != 0)
+                                                                        : (read->enabled != 0);
+            rc = axiam_network_replace_segment(c, read->id, &body, &out, err);
+        }
+        if (rc == AXIAM_OK && out) {
+            /* What a profile that follows sends as `segment_version`: the WRITE's response. */
+            n->applied_segment_id = axiam_strdup0(out->id);
+            n->applied_segment_version = out->version;
+        }
+        axiam_mgmt_network_segment_response_free(out);
+        return rc;
+    }
+
+    /* AXIAM_MGMT_NETWORK_PROFILE */
+    const axiam_mgmt_planned_network_t *owner = segment_item_of(plan, n);
+    const char *seg_id = NULL;
+    long seg_version = 0;
+    if (owner && owner->applied_segment_id) {
+        seg_id = owner->applied_segment_id;
+        seg_version = owner->applied_segment_version;
+    } else if (owner && owner->read_segment) {
+        seg_id = owner->read_segment->id;
+        seg_version = owner->read_segment->version;
+    }
+    if (!seg_id) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0,
+                        "manifest: could not resolve a network profile's segment (an earlier "
+                        "action must have failed)");
+        return AXIAM_ERR_NETWORK;
+    }
+
+    axiam_mgmt_network_reply_profile_input_t input;
+    axiam_mgmt_network_reply_profile_t *out = NULL;
+    axiam_error_kind_t rc;
+    if (create) {
+        fill_profile_input(&input, n->profile_spec, NULL);
+        axiam_mgmt_create_network_reply_profile_request_t body;
+        memset(&body, 0, sizeof body);
+        body.segment_id = (char *) seg_id;
+        body.segment_version = seg_version;
+        body.profile = &input;
+        rc = axiam_network_create_profile(c, &body, &out, err);
+    } else {
+        fill_profile_input(&input, n->profile_spec, n->read_profile);
+        axiam_mgmt_replace_network_reply_profile_request_t body;
+        memset(&body, 0, sizeof body);
+        body.version = n->read_profile->version;
+        body.segment_version = seg_version;
+        body.profile = &input;
+        rc = axiam_network_replace_profile(c, seg_id, &body, &out, err);
+    }
+    axiam_mgmt_network_reply_profile_free(out);
+    return rc;
+}
+
+static void report_network_failure(axiam_mgmt_apply_report_t *report, const axiam_mgmt_plan_t *plan,
+                                   size_t done, size_t failed_index, const axiam_error_t *err) {
+    if (!report) return;
+    report->network_applied = done;
+    report->failed_network = (long) failed_index;
+    size_t left = 0;
+    for (size_t j = failed_index + 1; j < plan->network_count; j++)
+        if (plan->network[j].action != AXIAM_MGMT_CHANGE_UNCHANGED) left++;
+    report->network_remaining = left;
+    /* §27.6.2 item 5: the 409's sub-code is part of the outcome. */
+    if (err) snprintf(report->network_reason_code, sizeof report->network_reason_code, "%s", err->reason_code);
+}
+
 /*
  * §27.6 rule 5's order, restricted to what this port's manifest covers: resources,
  * permissions, roles, groups, GROUP BINDINGS, service accounts, SERVICE-ACCOUNT
@@ -943,6 +1468,7 @@ axiam_error_kind_t axiam_mgmt_apply(axiam_client_t *c, const axiam_mgmt_manifest
         memset(report, 0, sizeof(*report));
         report->failed = -1;
         report->failed_binding = -1;
+        report->failed_network = -1;
     }
 
     axiam_mgmt_plan_t *plan = NULL;
@@ -1029,9 +1555,30 @@ axiam_error_kind_t axiam_mgmt_apply(axiam_client_t *c, const axiam_mgmt_manifest
         done_bindings++;
     }
 
+    /* Phase 5 (contract 1.62, §27.6.2): the `network` namespace, last -- the policy, then
+     * the segments, then the profiles. A failure, a `409` included, is that action's: the
+     * apply stops here, nothing is retried, and the report names the action and the
+     * `reason_code`. Re-running after fixing the cause is the recovery (§27.6 rule 7). */
+    size_t done_network = 0;
+    for (size_t i = 0; i < plan->network_count; i++) {
+        if (plan->network[i].action == AXIAM_MGMT_CHANGE_UNCHANGED) continue;
+        rc = perform_network(c, plan, &plan->network[i], err);
+        if (rc != AXIAM_OK) {
+            report_network_failure(report, plan, done_network, i, err);
+            if (report) {
+                report->applied = done_entities;
+                report->bindings_applied = done_bindings;
+            }
+            axiam_mgmt_plan_free(plan);
+            return rc;
+        }
+        done_network++;
+    }
+
     if (report) {
         report->applied = done_entities;
         report->bindings_applied = done_bindings;
+        report->network_applied = done_network;
     }
     axiam_mgmt_plan_free(plan);
     axiam_error_reset(err);

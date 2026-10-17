@@ -20,6 +20,10 @@
 
 cJSON *axiam_mgmt_ssf_stream_build(const axiam_mgmt_ssf_stream_t *value);
 
+#ifndef AXIAM_REPO_ROOT
+#error "AXIAM_REPO_ROOT must be defined by the build (see tests/CMakeLists.txt)."
+#endif
+
 #define TENANT "11111111-1111-4111-8111-111111111111"
 #define STREAMS "/api/v1/tenants/" TENANT "/ssf/streams"
 #define STREAM_ID "14141414-1414-4414-8414-141414141414"
@@ -412,6 +416,238 @@ static void test_the_read_modify_write_sends_back_events_requested_and_expected_
     }
 }
 
+/* ---- §32.8 test 7 (contract 1.62): the change-taking form ----------------------------- */
+
+#define EV_A AXIAM_SSF_EVENT_SESSION_REVOKED
+#define EV_B AXIAM_SSF_EVENT_CREDENTIAL_CHANGE
+#define EV_C AXIAM_SSF_EVENT_ACCOUNT_DISABLED
+/* The server's own spelling of the instant: a `+00:00` offset and nine fraction digits. */
+#define UPDATED_AT_NINE "2026-10-04T00:00:00.123456789+00:00"
+
+#define STREAM_THREE_TWO(REQUESTED)                                                         \
+    "{\"id\":\"" STREAM_ID "\",\"tenant_id\":\"" TENANT "\",\"receiver_client_id\":\"rp\"," \
+    "\"audience\":\"https://rp.example\",\"description\":null,"                             \
+    "\"endpoint_url\":\"https://rp.example/ssf/push\",\"authorization_header_set\":true,"   \
+    "\"events_allowed\":[\"" EV_A "\",\"" EV_B "\",\"" EV_C "\"],"                          \
+    "\"events_requested\":" REQUESTED ",\"events_delivered\":[],"                           \
+    "\"last_verification_at\":null,\"created_at\":\"2026-10-04T00:00:00Z\","                \
+    "\"updated_at\":\"" UPDATED_AT_NINE "\",\"delivery_method\":\"push\","                   \
+    "\"subject_format\":\"iss_sub\",\"status\":\"enabled\",\"status_reason\":null,"        \
+    "\"status_actor\":\"admin\",\"transmitter_active\":true}"
+
+static axiam_mgmt_ssf_stream_t *read_stream(axiam_client_t *c, const char *body) {
+    axiam_error_t err;
+    axiam_mgmt_ssf_stream_t *stream = NULL;
+    mgmt_mount(200, body);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_get_stream(c, NULL, STREAM_ID, &stream, &err));
+    TEST_ASSERT_NOT_NULL(stream);
+    return stream;
+}
+
+static cJSON *send_update(axiam_client_t *c, const axiam_mgmt_ssf_stream_input_t *in) {
+    axiam_error_t err;
+    mgmt_mount(200, STREAM_BODY);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_ssf_update_stream(c, NULL, STREAM_ID, in, NULL, &err));
+    cJSON *sent = cJSON_Parse(mgmt_last_body());
+    TEST_ASSERT_TRUE(cJSON_IsObject(sent));
+    return sent;
+}
+
+static void test_the_change_taking_form_cuts_events_requested_to_a_lowered_ceiling(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_ssf_stream_t *stream = read_stream(c, STREAM_THREE_TWO("[\"" EV_A "\",\"" EV_B "\"]"));
+
+    /* Lower the ceiling to ONE of the two requested: only that one is left. */
+    char ceiling[256];
+    snprintf(ceiling, sizeof ceiling, "[\"%s\"]", EV_B);
+    axiam_mgmt_ssf_stream_changes_t changes;
+    memset(&changes, 0, sizeof changes);
+    changes.events_allowed = ceiling;
+    axiam_mgmt_ssf_stream_input_t *in = axiam_mgmt_ssf_stream_apply_changes(stream, &changes);
+    TEST_ASSERT_NOT_NULL(in);
+    cJSON *sent = send_update(c, in);
+    const cJSON *allowed = cJSON_GetObjectItemCaseSensitive(sent, "events_allowed");
+    TEST_ASSERT_EQUAL_INT(1, cJSON_GetArraySize(allowed));
+    const cJSON *requested = cJSON_GetObjectItemCaseSensitive(sent, "events_requested");
+    TEST_ASSERT_TRUE_MESSAGE(cJSON_IsArray(requested), "sent, never omitted");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, cJSON_GetArraySize(requested), "only what is in the new ceiling");
+    TEST_ASSERT_EQUAL_STRING(EV_B, cJSON_GetArrayItem(requested, 0)->valuestring);
+    TEST_ASSERT_EQUAL_STRING(UPDATED_AT_NINE,
+                             cJSON_GetObjectItemCaseSensitive(sent, "expected_updated_at")->valuestring);
+    cJSON_Delete(sent);
+    axiam_mgmt_ssf_stream_input_free(in);
+
+    /* A ceiling that holds none of the requested ones leaves `[]`, not an absent member
+     * (absent would RESET the stream to every allowed event). */
+    snprintf(ceiling, sizeof ceiling, "[\"%s\"]", EV_C);
+    in = axiam_mgmt_ssf_stream_apply_changes(stream, &changes);
+    sent = send_update(c, in);
+    requested = cJSON_GetObjectItemCaseSensitive(sent, "events_requested");
+    TEST_ASSERT_TRUE(cJSON_IsArray(requested));
+    TEST_ASSERT_EQUAL_INT(0, cJSON_GetArraySize(requested));
+    cJSON_Delete(sent);
+    axiam_mgmt_ssf_stream_input_free(in);
+
+    /* The order of the read list survives the cut. */
+    snprintf(ceiling, sizeof ceiling, "[\"%s\",\"%s\"]", EV_B, EV_A);
+    in = axiam_mgmt_ssf_stream_apply_changes(stream, &changes);
+    sent = send_update(c, in);
+    requested = cJSON_GetObjectItemCaseSensitive(sent, "events_requested");
+    TEST_ASSERT_EQUAL_INT(2, cJSON_GetArraySize(requested));
+    TEST_ASSERT_EQUAL_STRING(EV_A, cJSON_GetArrayItem(requested, 0)->valuestring);
+    TEST_ASSERT_EQUAL_STRING(EV_B, cJSON_GetArrayItem(requested, 1)->valuestring);
+    cJSON_Delete(sent);
+    axiam_mgmt_ssf_stream_input_free(in);
+
+    /* An events_requested the caller names is sent as given: the server judges it. */
+    snprintf(ceiling, sizeof ceiling, "[\"%s\"]", EV_B);
+    char own[128];
+    snprintf(own, sizeof own, "[\"%s\"]", EV_A);
+    changes.events_requested = own;
+    in = axiam_mgmt_ssf_stream_apply_changes(stream, &changes);
+    sent = send_update(c, in);
+    requested = cJSON_GetObjectItemCaseSensitive(sent, "events_requested");
+    TEST_ASSERT_EQUAL_INT(1, cJSON_GetArraySize(requested));
+    TEST_ASSERT_EQUAL_STRING(EV_A, cJSON_GetArrayItem(requested, 0)->valuestring);
+    cJSON_Delete(sent);
+    axiam_mgmt_ssf_stream_input_free(in);
+
+    axiam_mgmt_ssf_stream_free(stream);
+    axiam_client_free(c);
+}
+
+static void test_the_change_taking_form_sends_what_it_read_when_events_are_untouched(void) {
+    const char *requested_cases[] = { "[]", "[\"" EV_A "\",\"" EV_B "\"]" };
+    const char *bodies[] = { STREAM_THREE_TWO("[]"), STREAM_THREE_TWO("[\"" EV_A "\",\"" EV_B "\"]") };
+    for (int k = 0; k < 2; k++) {
+        mgmt_reset();
+        axiam_client_t *c = mgmt_signed_in_client();
+        axiam_mgmt_ssf_stream_t *stream = read_stream(c, bodies[k]);
+        axiam_mgmt_ssf_stream_changes_t changes;
+        memset(&changes, 0, sizeof changes);
+        changes.description = "edited"; /* a change that says nothing about events */
+        axiam_mgmt_ssf_stream_input_t *in = axiam_mgmt_ssf_stream_apply_changes(stream, &changes);
+        cJSON *sent = send_update(c, in);
+        cJSON *want = cJSON_Parse(requested_cases[k]);
+        const cJSON *er = cJSON_GetObjectItemCaseSensitive(sent, "events_requested");
+        TEST_ASSERT_TRUE_MESSAGE(cJSON_IsArray(er), "as read: an [] stays [], never omitted");
+        TEST_ASSERT_TRUE(cJSON_Compare(er, want, 1));
+        TEST_ASSERT_EQUAL_STRING("edited", cJSON_GetObjectItemCaseSensitive(sent, "description")->valuestring);
+        /* The response's own string, byte for byte: a `+00:00` offset and nine fraction
+         * digits come back as they went out, not re-rendered as `Z` or rounded. */
+        TEST_ASSERT_EQUAL_STRING(UPDATED_AT_NINE,
+                                 cJSON_GetObjectItemCaseSensitive(sent, "expected_updated_at")->valuestring);
+        TEST_ASSERT_NOT_NULL_MESSAGE(strstr(mgmt_last_body(), "\"" UPDATED_AT_NINE "\""), "verbatim in the wire text");
+        TEST_ASSERT_NULL_MESSAGE(cJSON_GetObjectItemCaseSensitive(sent, "authorization_header"),
+                                 "absent keeps the stored header");
+        cJSON_Delete(want);
+        cJSON_Delete(sent);
+        axiam_mgmt_ssf_stream_input_free(in);
+        axiam_mgmt_ssf_stream_free(stream);
+        axiam_client_free(c);
+    }
+}
+
+static void test_an_assigned_none_for_expected_updated_at_leaves_the_key_out(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_ssf_stream_t *stream = read_stream(c, STREAM_THREE_TWO("[\"" EV_A "\"]"));
+    axiam_mgmt_ssf_stream_changes_t changes;
+    memset(&changes, 0, sizeof changes);
+    changes.no_expected_updated_at = 1;
+    axiam_mgmt_ssf_stream_input_t *in = axiam_mgmt_ssf_stream_apply_changes(stream, &changes);
+    TEST_ASSERT_NULL(in->expected_updated_at);
+    cJSON *sent = send_update(c, in);
+    TEST_ASSERT_NULL_MESSAGE(cJSON_GetObjectItemCaseSensitive(sent, "expected_updated_at"), "the key is omitted");
+    TEST_ASSERT_NULL_MESSAGE(strstr(mgmt_last_body(), "null"), "null is never sent");
+    TEST_ASSERT_NOT_NULL_MESSAGE(cJSON_GetObjectItemCaseSensitive(sent, "events_requested"),
+                                 "the rest of what was read still goes back");
+    cJSON_Delete(sent);
+    axiam_mgmt_ssf_stream_input_free(in);
+
+    /* A value of the caller's own is sent as given. */
+    changes.no_expected_updated_at = 0;
+    changes.expected_updated_at = "2026-10-05T00:00:00Z";
+    in = axiam_mgmt_ssf_stream_apply_changes(stream, &changes);
+    sent = send_update(c, in);
+    TEST_ASSERT_EQUAL_STRING("2026-10-05T00:00:00Z",
+                             cJSON_GetObjectItemCaseSensitive(sent, "expected_updated_at")->valuestring);
+    cJSON_Delete(sent);
+    axiam_mgmt_ssf_stream_input_free(in);
+
+    /* No changes at all is the plain converter. */
+    in = axiam_mgmt_ssf_stream_apply_changes(stream, NULL);
+    TEST_ASSERT_EQUAL_STRING(UPDATED_AT_NINE, in->expected_updated_at);
+    axiam_mgmt_ssf_stream_input_free(in);
+    TEST_ASSERT_NULL(axiam_mgmt_ssf_stream_apply_changes(NULL, &changes));
+    axiam_mgmt_ssf_stream_free(stream);
+    axiam_client_free(c);
+}
+
+/* A text file with its comment decoration collapsed ("\n * " and runs of blanks become one
+ * space), so a phrase the wrapper split across lines is still one phrase. */
+static char *read_flat(const char *relative) {
+    char path[512];
+    snprintf(path, sizeof path, "%s/%s", AXIAM_REPO_ROOT, relative);
+    FILE *f = fopen(path, "rb");
+    TEST_ASSERT_NOT_NULL(f);
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *raw = (char *) malloc((size_t) n + 1);
+    TEST_ASSERT_EQUAL_UINT((size_t) n, fread(raw, 1, (size_t) n, f));
+    raw[n] = '\0';
+    fclose(f);
+    char *flat = (char *) malloc((size_t) n + 1);
+    size_t o = 0;
+    for (size_t i = 0; raw[i]; i++) {
+        if (raw[i] == '\n') {
+            while (raw[i + 1] == ' ' || raw[i + 1] == '*') i++;
+            flat[o++] = ' ';
+        } else {
+            flat[o++] = raw[i];
+        }
+    }
+    flat[o] = '\0';
+    free(raw);
+    return flat;
+}
+
+/* A documentation check, not a mock: the header a caller reads at the call states the three
+ * meanings of `events_requested`, and the plain converter's header names the caller's duty. */
+static void test_the_update_stream_documentation_states_the_three_meanings(void) {
+    char *ops = read_flat("include/axiam/management_ops.h");
+    const char *at = strstr(ops, "axiam_error_kind_t axiam_ssf_update_stream(");
+    TEST_ASSERT_NOT_NULL(at);
+    /* The doc comment of the declaration: from the last comment opener before it. */
+    const char *start = NULL;
+    for (const char *p = ops; p < at;) {
+        const char *q = strstr(p, "/** ");
+        if (!q || q >= at) break;
+        start = q;
+        p = q + 3;
+    }
+    TEST_ASSERT_NOT_NULL(start);
+    char *block = (char *) malloc((size_t) (at - start) + 1);
+    memcpy(block, start, (size_t) (at - start));
+    block[at - start] = '\0';
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(block, "three meanings of `events_requested`"), "named");
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(block, "*resets* the stream to every event of"), "absent resets");
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(block, "**`[]`** is stored as the receiver's \"none\""), "[] is none");
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(block, "stored as given and refused (`400`)"), "a list");
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(block, "raw API client"), "the raw client is bound too");
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(block, "omitted `description`"), "the defaults of the omitted members");
+    free(block);
+    free(ops);
+
+    char *helpers = read_flat("include/axiam/management_helpers.h");
+    TEST_ASSERT_NOT_NULL_MESSAGE(
+        strstr(helpers, "Cutting `events_requested` to the new `events_allowed` is the caller's duty"),
+        "the plain converter names the caller's duty");
+    TEST_ASSERT_NOT_NULL(strstr(helpers, "three meanings of `events_requested`"));
+    TEST_ASSERT_NOT_NULL(strstr(helpers, "`409`"));
+    free(helpers);
+}
+
 /* ---- B5 (contract 1.60; P12.2 (a)) ---------------------------------------------------
  *
  * Every local refusal is ONE category. C's row of §28.7 is `NULL` with `axiam_error_t` for a
@@ -465,6 +701,10 @@ int main(void) {
     RUN_TEST(test_expected_updated_at_is_sent_as_given_and_an_unset_events_requested_is_absent);
     RUN_TEST(test_a_409_on_update_is_the_conflict_class_and_is_not_retried);
     RUN_TEST(test_the_read_modify_write_sends_back_events_requested_and_expected_updated_at);
+    RUN_TEST(test_the_change_taking_form_cuts_events_requested_to_a_lowered_ceiling);
+    RUN_TEST(test_the_change_taking_form_sends_what_it_read_when_events_are_untouched);
+    RUN_TEST(test_an_assigned_none_for_expected_updated_at_leaves_the_key_out);
+    RUN_TEST(test_the_update_stream_documentation_states_the_three_meanings);
     RUN_TEST(test_B5_every_local_refusal_is_the_one_validation_category);
     return UNITY_END();
 }

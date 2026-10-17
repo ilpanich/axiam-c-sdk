@@ -51,6 +51,7 @@ static void record_display(void *ctx, const axiam_device_authorization_t *a) {
 /* ------------------------------------------------------------------ */
 
 void test_device_authorize_sends_no_secret_and_works_without_one(void) {
+    /* §14.1 rule 1: a PUBLIC client sends client_id and no credential, and is not refused. */
     g_oidc.device_answer = (oidc_answer_t){200,
         DEVICE_AUTH_BODY(",\"interval\":3", 600), 0};
 
@@ -71,21 +72,10 @@ void test_device_authorize_sends_no_secret_and_works_without_one(void) {
     axiam_client_free(c);
 }
 
-void test_device_authorize_never_sends_a_secret_even_when_one_is_configured(void) {
-    /* The other half of §14.1: "SDKs MUST NOT send client_secret on it". A
-     * confidential client calling this must still not leak its secret to an
-     * unauthenticated endpoint. */
-    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":3", 600), 0};
-    axiam_client_t *c = oidc_make_client();
-    axiam_error_t err;
-    axiam_device_authorization_t a;
-    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_authorize(c, NULL, NULL, &a, &err));
-    TEST_ASSERT_FALSE(oidc_body_has_field("/oauth2/device_authorization", "client_secret"));
-    int i = oidc_last_call("/oauth2/device_authorization");
-    TEST_ASSERT_NULL(strstr(g_oidc.bodies[i], OIDC_CLIENT_SECRET));
-    axiam_device_authorization_dispose(&a);
-    axiam_client_free(c);
-}
+/* The other half of 1.60's rule -- "SDKs MUST NOT send client_secret on it" -- was replaced by
+ * contract 1.62 (§14.1 rule 2): a client configured with a secret sends it at BOTH device
+ * endpoints, in the form body. That is asserted, with the certificate and public forms, in
+ * test_device_grant_client_auth.c. */
 
 void test_an_omitted_interval_defaults_to_five_seconds(void) {
     /* §14.2 rule 2: the initial interval comes from the RESPONSE, and RFC 8628
@@ -818,7 +808,6 @@ void test_s21_5_the_four_discovery_members_are_optional_and_change_no_method(voi
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_device_authorize_sends_no_secret_and_works_without_one);
-    RUN_TEST(test_device_authorize_never_sends_a_secret_even_when_one_is_configured);
     RUN_TEST(test_an_omitted_interval_defaults_to_five_seconds);
     RUN_TEST(test_verification_uri_complete_is_never_synthesised);
     RUN_TEST(test_the_two_refusals_stay_distinct);

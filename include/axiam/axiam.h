@@ -41,10 +41,10 @@ extern "C" {
 #endif
 
 #define AXIAM_VERSION_MAJOR 1
-#define AXIAM_VERSION_MINOR 0
+#define AXIAM_VERSION_MINOR 1
 #define AXIAM_VERSION_PATCH 0
 /** Full version string, including the pre-release qualifier. */
-#define AXIAM_VERSION "1.0.0"
+#define AXIAM_VERSION "1.1.0"
 
 /**
  * The minimum C standard this SDK is compiled against, as the `__STDC_VERSION__`
@@ -89,7 +89,7 @@ extern "C" {
 #error "The AXIAM C SDK requires C11 or newer (see AXIAM_MIN_C_STANDARD)."
 #endif
 
-/** Returns the compiled-in version string (e.g. "1.0.0"). */
+/** Returns the compiled-in version string (e.g. "1.1.0"). */
 const char *axiam_version(void);
 
 #ifdef __cplusplus
