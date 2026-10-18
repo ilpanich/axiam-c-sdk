@@ -29,6 +29,10 @@ static char g_body[4096];
 
 /* Every request's URL, in order (index 0 is the login), for a walk's assertions. */
 static char g_urls[32][512];
+/* ... and every request's method and body (contract 1.62's manifest tests assert on the
+ * ORDER of writes and on the body of each, not only on the last one). */
+static char g_methods[32][16];
+static char g_bodies[32][1024];
 
 /* §16 waits the client asked for: recorded, never slept. */
 static long g_sleeps[16];
@@ -77,6 +81,14 @@ const char *mgmt_url_at(int i) {
     return (i >= 0 && i < g_count && i < (int) (sizeof g_urls / sizeof g_urls[0])) ? g_urls[i] : NULL;
 }
 
+const char *mgmt_method_at(int i) {
+    return (i >= 0 && i < g_count && i < (int) (sizeof g_methods / sizeof g_methods[0])) ? g_methods[i] : NULL;
+}
+
+const char *mgmt_body_at(int i) {
+    return (i >= 0 && i < g_count && i < (int) (sizeof g_bodies / sizeof g_bodies[0])) ? g_bodies[i] : NULL;
+}
+
 long mgmt_sleep_ms(int i) { return (i >= 0 && i < g_sleep_count) ? g_sleeps[i] : -1; }
 
 static void fake_sleep(void *ctx, long ms) {
@@ -114,6 +126,10 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req,
     if (g_count - 1 < (int) (sizeof g_urls / sizeof g_urls[0]))
         snprintf(g_urls[g_count - 1], sizeof g_urls[0], "%s", req->url ? req->url : "");
     snprintf(g_body, sizeof g_body, "%s", req->body ? req->body : "");
+    if (g_count - 1 < (int) (sizeof g_methods / sizeof g_methods[0])) {
+        snprintf(g_methods[g_count - 1], sizeof g_methods[0], "%s", req->method ? req->method : "");
+        snprintf(g_bodies[g_count - 1], sizeof g_bodies[0], "%s", req->body ? req->body : "");
+    }
     record_path(req->url);
 
     memset(resp, 0, sizeof *resp);

@@ -147,7 +147,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      # The §27 surface -- 145 model structs, 146 flat operations and four generated test
+      # The §27 surface -- the model structs, 202 flat operations and the generated test
       # files, ~24k lines -- is produced by scripts/gen_management.py from the VENDORED
       # management-registry.json and openapi.json, and the output is committed so a
       # consumer never needs Python to build this library.

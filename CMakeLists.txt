@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 
 # NOTE: CMake rejects pre-release semver suffixes, so the project version is the
-# plain 1.0.0 triple. The alpha spelling ("1.0.0") lives in vcpkg.json,
+# plain 1.1.0 triple. The alpha spelling ("1.1.0") lives in vcpkg.json,
 # conanfile.py, README and the AXIAM_VERSION macro.
 project(axiam_c_sdk
-    VERSION 1.0.0
+    VERSION 1.1.0
     DESCRIPTION "AXIAM C SDK — REST client conforming to CONTRACT.md §1–§7, §9–§11, §13, §23 (incl. §6.1 mTLS)"
     HOMEPAGE_URL "https://github.com/ilpanich/axiam-c-sdk"
     LANGUAGES C)
@@ -126,12 +126,19 @@ endif()
 
 set(AXIAM_INSTALL_TARGETS "")
 
+# The shared library's ABI version (SONAME libaxiam.so.<N>). It moves independently of the
+# package's Semantic Version and is bumped whenever a caller-allocated public struct changes
+# size (axiam_error_t, axiam_mgmt_manifest_t, ...): the loader then refuses a binary built
+# against the old headers instead of letting the library write past its objects.
+# 1 = 1.0.x; 2 = 1.1.0 (contract 1.62 grew four structs).
+set(AXIAM_SOVERSION 2)
+
 # Shared library — the canonical `axiam` target.
 if(AXIAM_BUILD_SHARED)
     add_library(axiam SHARED
         $<TARGET_OBJECTS:axiam_obj> $<TARGET_OBJECTS:axiam_cjson>)
     set_target_properties(axiam PROPERTIES
-        VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR}
+        VERSION ${PROJECT_VERSION} SOVERSION ${AXIAM_SOVERSION}
         OUTPUT_NAME axiam)
     target_include_directories(axiam PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -200,7 +207,7 @@ endif()
 # ---- CPack (.tar.gz) ----
 set(CPACK_PACKAGE_NAME "axiam-c-sdk")
 set(CPACK_PACKAGE_VENDOR "AXIAM")
-set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_PACKAGE_VERSION "1.1.0")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_GENERATOR "TGZ")

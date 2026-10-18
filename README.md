@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.61 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32 and §33, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.62 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33 and §36, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -24,7 +24,33 @@ framework-agnostic route guard and declarative authorization helpers.
 >
 > **Stable since 1.0.0.** From 1.0.0 this SDK follows [Semantic Versioning](https://semver.org/):
 > a public header, a symbol or a documented behaviour changes incompatibly only in a new
-> major version, and every change is in [CHANGELOG.md](CHANGELOG.md).
+> major version, and every change is in [CHANGELOG.md](CHANGELOG.md). **A contract record may
+> add a member or widen a type in a minor release** — a struct that grows by appended members
+> (rebuild against the new headers), an enum that gains a value, a request that gains an
+> optional member — **and a removal waits for 2.0.0.** 1.1.0 is such a release; its
+> [change log](CHANGELOG.md) names every struct that grew.
+> A struct that grows bumps the shared library's `SOVERSION` (its ABI version), which moves
+> independently of the package's Semantic Version: 1.1.0 is `libaxiam.so.1.1.0` with SONAME
+> `libaxiam.so.2`, so a binary built against 1.0.x keeps loading `libaxiam.so.1` and the
+> loader refuses to run it against 1.1.0 until it is rebuilt.
+>
+> **Manifest pruning: not offered in any namespace** (§27.10; §27.6 rule 4 makes it a MAY).
+> Omission from a manifest is never deletion.
+>
+> **Contract 1.62** (§34.6, released with 1.0.1's fields as **1.1.0**; the section list above
+> now also names §36, which is management REST and part of §27). In this SDK: the `network`
+> management namespace — twelve operations, `axiam_network_*`, 202 operations in 29
+> namespaces in all — with `reason_code` on a `409` and `action` / `resource_id` on a `403`
+> as members of `axiam_error_t` (§36.4); `network` in a declarative manifest (§27.6.2); the
+> change-taking read-modify-write form `axiam_mgmt_ssf_stream_apply_changes()` and the three
+> meanings of `events_requested` at `axiam_ssf_update_stream()` (§32.2); and a device grant
+> that authenticates its client at both endpoints (§14.1, §14.2: the secret in the form body
+> at `axiam_device_authorize()` and every `axiam_device_poll()`, never
+> `Authorization: Basic`; a public client sends none). Already held here, and verified: an
+> unset request member is omitted and `null` is never sent (§27.11 rule 5), `updated_at` is
+> the server's own string, and the request `user_id` is an untyped `char *`. This SDK has no
+> `private_key_jwt` signer and generates no DPoP proof, so neither is sent at the device
+> endpoints.
 >
 > **Contract 1.61** (§34.5, the 1.0.1 fields; additive, the section list above is unchanged).
 > In this SDK: `user_id` on `Certificate` and `GeneratedCertificate` — optional and nullable,
@@ -170,7 +196,7 @@ when `CMakeLists.txt`, the header macros and the CI matrix stop agreeing.
 include(FetchContent)
 FetchContent_Declare(axiam-c-sdk
   GIT_REPOSITORY https://github.com/ilpanich/axiam-c-sdk.git
-  GIT_TAG v1.0.0)
+  GIT_TAG v1.1.0)
 FetchContent_MakeAvailable(axiam-c-sdk)
 
 target_link_libraries(my_app PRIVATE axiam::axiam)
@@ -194,7 +220,7 @@ vcpkg install axiam-c-sdk --overlay-ports=./ports
 ### Conan
 
 ```sh
-conan create . --version=1.0.0
+conan create . --version=1.1.0
 ```
 
 ## Quickstart
@@ -1005,6 +1031,19 @@ Where those identifiers actually are:
 | tenant a §27 call would address | `axiam_mgmt_resolved_tenant_id()` |
 | e-mail address | `axiam_login_result_t.email` |
 
+**The device grant authenticates its client (§14.1, §14.2; contract 1.62).** `axiam_device_authorize()`
+and every `axiam_device_poll()` send the credential the client is *configured* with, by the rules
+of its other token requests: a client secret as `client_secret` in the **form body** — never
+`Authorization: Basic`, whichever of `client_secret_post` and `client_secret_basic` the client is
+registered for — or, for a client configured with a §6.1 certificate and no secret, the
+certificate on the connection (the `mtls_endpoint_aliases` entry) with `client_id` only. A public
+client (the usual device) is configured with neither and sends `client_id` and no credential, and
+is never refused client-side. Every poll sends `client_id`. A `401` with `invalid_client` from
+either call is terminal — `AXIAM_ERR_AUTH`, `oauth_error` `invalid_client`, one request, no
+retry, no §9 refresh. This SDK has no `private_key_jwt` signer and generates no DPoP proof, so a
+client bound to either meets that `401`; a `token_type` of `DPoP` in a response is reported as
+read.
+
 Three things this surface will not do, each because a section says so:
 
 - **It stores no correlation values** (§12.3 rule 1). See above.
@@ -1656,7 +1695,7 @@ Worked example, including a transport skeleton:
 
 ## §27 Management API
 
-190 administrative operations across 28 namespaces, as **flat symbols** —
+202 administrative operations across 29 namespaces (190 across 28 before contract 1.62), as **flat symbols** —
 `axiam_<namespace>_<operation>()`, the exact shape CONTRACT.md **§27.3's** per-language
 table gives C (its row reads `axiam_service_accounts_rotate_secret(client, id, &out)`).
 C is the only SDK that takes it; every other language in that table, C++ included, gets a
@@ -1858,6 +1897,48 @@ itself declares `is_global: true` — is refused *before* the first request.
 | role → permission grants | **no** | a tier gap this port did not close (§27.10's table; not one of the three defects C-10 was assigned) — a role's permissions are managed imperatively (`axiam_roles_grant_permission` / `_revoke_permission`) |
 | `users`, `scopes` | **no** | the flat-entity tier (§7.2 of the dogfooding remediation plan): deferred until a consumer needs them, same as PHP and Swift |
 | `webhooks` | **no** | §27.6 leaves it "listed and unspecified" for every SDK — a webhook's `secret` is caller-supplied, not minted, so nothing forbids adding it, but no consumer has asked |
+| `network` | yes (contract 1.62, §27.6.2) | `network_segments` (natural key site + kind + name, `kind` the wire spelling `access` / `quarantine`), `network_profiles` (keyed by their segment) and `network_policy` (the singleton cap), on `axiam_mgmt_manifest_t`; see below |
+
+#### The `network` namespace in a manifest (§27.6.2, contract 1.62)
+
+```c
+const char *envelope[] = { "staff", "guest" };
+axiam_mgmt_network_segment_spec_t seg = {0};
+seg.key = "lab"; seg.site = "hq"; seg.kind = "access"; seg.name = "lab"; seg.vlan_id = 30;
+seg.rank_state = AXIAM_MGMT_FIELD_SET; seg.rank = 1;
+seg.filter_ids = envelope; seg.filter_ids_count = 2;
+axiam_mgmt_network_profile_spec_t prof = {0};
+prof.segment = "lab"; prof.session_timeout_secs = 3000;
+axiam_mgmt_network_policy_spec_t cap = { 3600 };
+
+axiam_mgmt_manifest_t manifest = {0};
+manifest.network_segments = &seg;  manifest.network_segments_count = 1;
+manifest.network_profiles = &prof; manifest.network_profiles_count = 1;
+manifest.network_policy = &cap;
+```
+
+- **Order:** the policy, then the segments (in key order), then the profiles (in their segments'
+  order), after everything else, so a manifest without a `network` section plans exactly as
+  before. `plan` issues `GET`s only (`get_policy`, `list_segments`, `list_profiles`, each walked
+  to exhaustion).
+- **Judged on the read.** Every stated member is compared with the value as the read returns
+  it — a profile's *effective* (clamped) `session_timeout_secs`, so a manifest stating the cap
+  is `NoChange` and one stating a value above it is an `Update` whose `apply` the server refuses
+  with a `403` (the action's failure: reported as given, `apply` stops, nothing is retried or
+  lowered). `filter_ids` is compared **as a set** (a reorder is `NoChange`) and sent in the
+  order you state it. A Filter-Id listed twice in one segment, two segments with one site,
+  kind and name, and a profile naming no segment are refused before any request.
+- **Optional members have three states** (`AXIAM_MGMT_FIELD_UNSTATED` — the zero value, silent:
+  not compared, carried from the read; `_SET`; `_NULL` — "none": the key is left out of the
+  replacement, which is how it clears the member, and `null` is never sent).
+- **`replace_*` is version-conditional and never retried.** The body is built from the read and
+  carries the version `plan` read; a profile's `segment_version` is the version of the segment
+  write's response when this `apply` wrote the segment. A `409` is that action's failure and
+  stops the `apply`; its `reason_code` (`stale_version`, `strands_profile`, `duplicate_vlan`,
+  …) is on the report (`network_reason_code`) and on `axiam_error_t::reason_code`. Re-run
+  `apply` to recover: it re-reads.
+- **No pruning.** As for every namespace of this port, omission is never deletion; there is no
+  delete action for a segment or a profile, and the policy has no delete.
 
 **A failed rebind (`AXIAM_MGMT_BINDING_UPDATE`) leaves the subject in one of two
 states, reported as data, not only a message.** The wire form of a changed
@@ -2283,10 +2364,31 @@ another administrator wrote the stream after you read it, and it carries the
 `events_requested` it read: `[]` stays `[]` (the receiver's "none"), and an `events_requested`
 you leave `NULL` on a hand-built input is *absent*, which resets the stream to every event of
 `events_allowed` — so a stream you edit is always converted, never rebuilt. If you lower
-`events_allowed`, cut `events_requested` to the new ceiling before sending. An
+`events_allowed`, cutting `events_requested` to the new ceiling is **your** duty with this
+plain converter — or use the change-taking form below. An
 unknown `auth.type` / `scope.type` decodes (tag and raw object kept,
 `axiam_mgmt_scim_target_auth_is_known()` answers 0) and is refused locally if you try to
 send it back. Event-type URIs are the `AXIAM_SSF_EVENT_*` macros of `axiam/ssf.h`.
+
+**The change-taking form (§32.2, contract 1.62).** `axiam_mgmt_ssf_stream_apply_changes(stream,
+&changes)` takes the stream you read and the changes to make and returns the
+`axiam_ssf_update_stream()` body: it sends `events_requested` and `expected_updated_at` **as
+read** (the response's own string, byte for byte; `[]` stays `[]`), and **cuts
+`events_requested` to the new `events_allowed`** when the changes name one and no
+`events_requested` of their own. `no_expected_updated_at` states "none": the key is left out
+and `null` is never sent.
+
+```c
+axiam_mgmt_ssf_stream_changes_t changes = {0};
+changes.events_allowed = "[\"" AXIAM_SSF_EVENT_SESSION_REVOKED "\"]";   /* lower the ceiling */
+axiam_mgmt_ssf_stream_input_t *in = axiam_mgmt_ssf_stream_apply_changes(stream, &changes);
+axiam_ssf_update_stream(c, NULL, id, in, &out, &err);
+```
+
+The three meanings of `events_requested` on an update — **absent resets** to every event of
+`events_allowed`, **`[]` is none**, **a list is stored as given** and refused (`400`) outside
+`events_allowed` — are stated at `axiam_ssf_update_stream()`; a raw API client is bound by them
+too.
 
 The four replacement bodies (`SetDirectoryConfig`, `SamlServiceProviderInput`,
 `ScimTargetInput`, `SsfStreamInput`) are checked for their required *pointer* members

@@ -26,6 +26,9 @@ void axiam_error_reset(axiam_error_t *err) {
     err->transport_cause = 0;
     err->oauth_error[0] = '\0';
     err->id_token_reason[0] = '\0';
+    err->reason_code[0] = '\0';
+    err->action[0] = '\0';
+    err->resource_id[0] = '\0';
 }
 
 void axiam_error_set(axiam_error_t *err, axiam_error_kind_t kind, long cause,
@@ -39,6 +42,11 @@ void axiam_error_set(axiam_error_t *err, axiam_error_kind_t kind, long cause,
      * `id_token_reason`. */
     err->oauth_error[0] = '\0';
     err->id_token_reason[0] = '\0';
+    /* Same reason, for the §36.4 / SDK-Q02 members: a `reason_code` left over from an
+     * earlier `409` must not read as the code of this failure. */
+    err->reason_code[0] = '\0';
+    err->action[0] = '\0';
+    err->resource_id[0] = '\0';
     if (msg) {
         /* Copy + guarantee NUL-termination; message must never carry a token. */
         strncpy(err->message, msg, sizeof(err->message) - 1);

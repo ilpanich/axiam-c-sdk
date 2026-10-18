@@ -3831,6 +3831,305 @@ static void test_scim_targets_reconcile_survives_oom(void) {
     TEST_PASS();
 }
 
+static void test_network_list_segments_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_network_segment_response_page_t *result = NULL;
+        arm(n);
+        (void) axiam_network_list_segments(c, NULL, NULL, &result, &err);
+        disarm();
+        axiam_mgmt_network_segment_response_page_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_list_segments_all_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH_WALK; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        mgmt_mount(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_network_segment_response_page_t *result = NULL;
+        arm(n);
+        (void) axiam_network_list_segments_all(c, NULL, NULL, &result, &err);
+        disarm();
+        axiam_mgmt_network_segment_response_page_free(result);
+        axiam_client_free(c);
+    }
+    TEST_PASS();
+}
+
+static void test_network_create_segment_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_create_network_segment_request_t body;
+        memset(&body, 0, sizeof(body));
+        axiam_mgmt_network_segment_response_t *result = NULL;
+        arm(n);
+        (void) axiam_network_create_segment(c, &body, &result, &err);
+        disarm();
+        axiam_mgmt_network_segment_response_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_get_segment_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_network_segment_response_t *result = NULL;
+        arm(n);
+        (void) axiam_network_get_segment(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        disarm();
+        axiam_mgmt_network_segment_response_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_replace_segment_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_replace_network_segment_request_t body;
+        memset(&body, 0, sizeof(body));
+        char *pc_filter_ids[1] = {NULL};
+        body.filter_ids = pc_filter_ids;
+        axiam_mgmt_network_segment_response_t *result = NULL;
+        arm(n);
+        (void) axiam_network_replace_segment(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        disarm();
+        axiam_mgmt_network_segment_response_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_delete_segment_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        arm(n);
+        (void) axiam_network_delete_segment(c, "11111111-1111-4111-8111-111111111111", 0L, &err);
+        disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_list_profiles_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_network_reply_profile_page_t *result = NULL;
+        arm(n);
+        (void) axiam_network_list_profiles(c, NULL, &result, &err);
+        disarm();
+        axiam_mgmt_network_reply_profile_page_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_list_profiles_all_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH_WALK; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"items\": [{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        mgmt_mount(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_network_reply_profile_page_t *result = NULL;
+        arm(n);
+        (void) axiam_network_list_profiles_all(c, NULL, &result, &err);
+        disarm();
+        axiam_mgmt_network_reply_profile_page_free(result);
+        axiam_client_free(c);
+    }
+    TEST_PASS();
+}
+
+static void test_network_create_profile_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_create_network_reply_profile_request_t body;
+        memset(&body, 0, sizeof(body));
+        axiam_mgmt_network_reply_profile_t *result = NULL;
+        arm(n);
+        (void) axiam_network_create_profile(c, &body, &result, &err);
+        disarm();
+        axiam_mgmt_network_reply_profile_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_get_profile_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_network_reply_profile_t *result = NULL;
+        arm(n);
+        (void) axiam_network_get_profile(c, "11111111-1111-4111-8111-111111111111", &result, &err);
+        disarm();
+        axiam_mgmt_network_reply_profile_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_replace_profile_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_replace_network_reply_profile_request_t body;
+        memset(&body, 0, sizeof(body));
+        axiam_mgmt_network_reply_profile_input_t pc_profile;
+        memset(&pc_profile, 0, sizeof pc_profile);
+        body.profile = &pc_profile;
+        axiam_mgmt_network_reply_profile_t *result = NULL;
+        arm(n);
+        (void) axiam_network_replace_profile(c, "11111111-1111-4111-8111-111111111111", &body, &result, &err);
+        disarm();
+        axiam_mgmt_network_reply_profile_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_delete_profile_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(204, NULL);
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        arm(n);
+        (void) axiam_network_delete_profile(c, "11111111-1111-4111-8111-111111111111", 0L, &err);
+        disarm();
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_get_policy_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_network_policy_response_t *result = NULL;
+        arm(n);
+        (void) axiam_network_get_policy(c, &result, &err);
+        disarm();
+        axiam_mgmt_network_policy_response_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
+static void test_network_replace_policy_survives_oom(void) {
+    for (long n = 1; n <= ALLOC_DEPTH; n++) {
+        mgmt_reset();
+        mgmt_mount(200, "{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+        axiam_client_t *c = mgmt_signed_in_client();
+        if (!c) continue;
+        axiam_error_t err;
+        axiam_mgmt_replace_network_policy_request_t body;
+        memset(&body, 0, sizeof(body));
+        axiam_mgmt_network_policy_response_t *result = NULL;
+        arm(n);
+        (void) axiam_network_replace_policy(c, &body, &result, &err);
+        disarm();
+        axiam_mgmt_network_policy_response_free(result);
+        axiam_client_free(c);
+    }
+    /*
+     * Reaching here at all is the assertion: no crash, no double free, and under ASan no
+     * leak, with each of the first ALLOC_DEPTH allocations failed in turn.
+     */
+    TEST_PASS();
+}
+
 static void test_settings_get_org_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
@@ -4736,6 +5035,20 @@ int main(void) {
     RUN_TEST(test_scim_targets_update_survives_oom);
     RUN_TEST(test_scim_targets_delete_survives_oom);
     RUN_TEST(test_scim_targets_reconcile_survives_oom);
+    RUN_TEST(test_network_list_segments_survives_oom);
+    RUN_TEST(test_network_list_segments_all_survives_oom);
+    RUN_TEST(test_network_create_segment_survives_oom);
+    RUN_TEST(test_network_get_segment_survives_oom);
+    RUN_TEST(test_network_replace_segment_survives_oom);
+    RUN_TEST(test_network_delete_segment_survives_oom);
+    RUN_TEST(test_network_list_profiles_survives_oom);
+    RUN_TEST(test_network_list_profiles_all_survives_oom);
+    RUN_TEST(test_network_create_profile_survives_oom);
+    RUN_TEST(test_network_get_profile_survives_oom);
+    RUN_TEST(test_network_replace_profile_survives_oom);
+    RUN_TEST(test_network_delete_profile_survives_oom);
+    RUN_TEST(test_network_get_policy_survives_oom);
+    RUN_TEST(test_network_replace_policy_survives_oom);
     RUN_TEST(test_settings_get_org_survives_oom);
     RUN_TEST(test_settings_set_org_survives_oom);
     RUN_TEST(test_settings_get_effective_survives_oom);

@@ -65,6 +65,10 @@ axiam_mgmt_create_group_request_t *axiam_mgmt_create_group_request_parse(const c
 cJSON *axiam_mgmt_create_group_request_build(const axiam_mgmt_create_group_request_t *value);
 axiam_mgmt_create_intermediate_ca_request_t *axiam_mgmt_create_intermediate_ca_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_intermediate_ca_request_build(const axiam_mgmt_create_intermediate_ca_request_t *value);
+axiam_mgmt_create_network_reply_profile_request_t *axiam_mgmt_create_network_reply_profile_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_create_network_reply_profile_request_build(const axiam_mgmt_create_network_reply_profile_request_t *value);
+axiam_mgmt_create_network_segment_request_t *axiam_mgmt_create_network_segment_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_create_network_segment_request_build(const axiam_mgmt_create_network_segment_request_t *value);
 axiam_mgmt_create_notification_rule_request_t *axiam_mgmt_create_notification_rule_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_create_notification_rule_request_build(const axiam_mgmt_create_notification_rule_request_t *value);
 axiam_mgmt_create_o_auth2_client_request_t *axiam_mgmt_create_o_auth2_client_request_parse(const cJSON *src);
@@ -157,6 +161,14 @@ axiam_mgmt_migrate_custody_response_t *axiam_mgmt_migrate_custody_response_parse
 cJSON *axiam_mgmt_migrate_custody_response_build(const axiam_mgmt_migrate_custody_response_t *value);
 axiam_mgmt_mtls_trust_anchor_response_t *axiam_mgmt_mtls_trust_anchor_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_anchor_response_t *value);
+axiam_mgmt_network_policy_response_t *axiam_mgmt_network_policy_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_policy_response_build(const axiam_mgmt_network_policy_response_t *value);
+axiam_mgmt_network_reply_profile_t *axiam_mgmt_network_reply_profile_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_reply_profile_build(const axiam_mgmt_network_reply_profile_t *value);
+axiam_mgmt_network_reply_profile_input_t *axiam_mgmt_network_reply_profile_input_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_reply_profile_input_build(const axiam_mgmt_network_reply_profile_input_t *value);
+axiam_mgmt_network_segment_response_t *axiam_mgmt_network_segment_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_network_segment_response_build(const axiam_mgmt_network_segment_response_t *value);
 axiam_mgmt_notification_policy_t *axiam_mgmt_notification_policy_parse(const cJSON *src);
 cJSON *axiam_mgmt_notification_policy_build(const axiam_mgmt_notification_policy_t *value);
 axiam_mgmt_notification_rule_response_t *axiam_mgmt_notification_rule_response_parse(const cJSON *src);
@@ -203,6 +215,12 @@ axiam_mgmt_ready_response_t *axiam_mgmt_ready_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_ready_response_build(const axiam_mgmt_ready_response_t *value);
 axiam_mgmt_registration_token_response_t *axiam_mgmt_registration_token_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_registration_token_response_build(const axiam_mgmt_registration_token_response_t *value);
+axiam_mgmt_replace_network_policy_request_t *axiam_mgmt_replace_network_policy_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_policy_request_build(const axiam_mgmt_replace_network_policy_request_t *value);
+axiam_mgmt_replace_network_reply_profile_request_t *axiam_mgmt_replace_network_reply_profile_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_reply_profile_request_build(const axiam_mgmt_replace_network_reply_profile_request_t *value);
+axiam_mgmt_replace_network_segment_request_t *axiam_mgmt_replace_network_segment_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_replace_network_segment_request_build(const axiam_mgmt_replace_network_segment_request_t *value);
 axiam_mgmt_resolved_permission_grant_t *axiam_mgmt_resolved_permission_grant_parse(const cJSON *src);
 cJSON *axiam_mgmt_resolved_permission_grant_build(const axiam_mgmt_resolved_permission_grant_t *value);
 axiam_mgmt_resource_t *axiam_mgmt_resource_parse(const cJSON *src);
@@ -1801,6 +1819,134 @@ static void test_create_intermediate_ca_request_rejects_a_non_object(void) {
     cJSON *scalar = cJSON_CreateString("nope");
     TEST_ASSERT_NULL(axiam_mgmt_create_intermediate_ca_request_parse(scalar));
     axiam_mgmt_create_intermediate_ca_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `CreateNetworkReplyProfileRequest`: a full wire object parses, builds back and frees. */
+static void test_create_network_reply_profile_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"profile\": {\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"segment_version\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_create_network_reply_profile_request_t *model = axiam_mgmt_create_network_reply_profile_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_create_network_reply_profile_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_create_network_reply_profile_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `CreateNetworkReplyProfileRequest`: an EMPTY object parses without crashing. A server
+ * that omits a field openapi.json marks required is malformed, and this SDK's answer is a
+ * model with that member unset rather than an abort -- the caller is in a position to
+ * decide, and a parser that segfaults on a bad response is a worse failure than one that
+ * hands back a null. This also reaches the ABSENT arm of every field guard, required ones
+ * included, which no well-formed fixture can.
+ */
+static void test_create_network_reply_profile_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_create_network_reply_profile_request_t *model = axiam_mgmt_create_network_reply_profile_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_create_network_reply_profile_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_create_network_reply_profile_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_create_network_reply_profile_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_create_network_reply_profile_request_parse(scalar));
+    axiam_mgmt_create_network_reply_profile_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `CreateNetworkSegmentRequest`: a full wire object parses, builds back and frees. */
+static void test_create_network_segment_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"enabled\": true, \"filter_ids\": [\"example\"], \"kind\": \"access\", \"name\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"vlan_id\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_create_network_segment_request_t *model = axiam_mgmt_create_network_segment_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_create_network_segment_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_create_network_segment_request_free(model);
+    cJSON_Delete(src);
+}
+
+/* `CreateNetworkSegmentRequest`: the server omitting every OPTIONAL field is not an error. */
+static void test_create_network_segment_request_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"kind\": \"access\", \"name\": \"example\", \"site_key\": \"example\", \"vlan_id\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_create_network_segment_request_t *model = axiam_mgmt_create_network_segment_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_create_network_segment_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_create_network_segment_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `CreateNetworkSegmentRequest`: an EMPTY object parses without crashing. A server that
+ * omits a field openapi.json marks required is malformed, and this SDK's answer is a model
+ * with that member unset rather than an abort -- the caller is in a position to decide, and
+ * a parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_create_network_segment_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_create_network_segment_request_t *model = axiam_mgmt_create_network_segment_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_create_network_segment_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_create_network_segment_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_create_network_segment_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_create_network_segment_request_parse(scalar));
+    axiam_mgmt_create_network_segment_request_free(NULL);
     cJSON_Delete(scalar);
 }
 
@@ -4833,6 +4979,306 @@ static void test_mtls_trust_anchor_response_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `NetworkPolicyResponse`: a full wire object parses, builds back and frees. */
+static void test_network_policy_response_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_policy_response_t *model = axiam_mgmt_network_policy_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_network_policy_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_network_policy_response_free(model);
+    cJSON_Delete(src);
+}
+
+/* `NetworkPolicyResponse`: the server omitting every OPTIONAL field is not an error. */
+static void test_network_policy_response_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_policy_response_t *model = axiam_mgmt_network_policy_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_network_policy_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_network_policy_response_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `NetworkPolicyResponse`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_network_policy_response_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_policy_response_t *model = axiam_mgmt_network_policy_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_network_policy_response_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_network_policy_response_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_network_policy_response_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_network_policy_response_parse(scalar));
+    axiam_mgmt_network_policy_response_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `NetworkReplyProfile`: a full wire object parses, builds back and frees. */
+static void test_network_reply_profile_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"service_type\": \"framed_user\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_reply_profile_t *model = axiam_mgmt_network_reply_profile_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_network_reply_profile_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_network_reply_profile_free(model);
+    cJSON_Delete(src);
+}
+
+/* `NetworkReplyProfile`: the server omitting every OPTIONAL field is not an error. */
+static void test_network_reply_profile_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"dictionary\": \"example\", \"segment_id\": \"11111111-1111-4111-8111-111111111111\", \"session_timeout_clamped\": true, \"session_timeout_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"termination_action\": \"default\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_reply_profile_t *model = axiam_mgmt_network_reply_profile_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_network_reply_profile_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_network_reply_profile_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `NetworkReplyProfile`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_network_reply_profile_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_reply_profile_t *model = axiam_mgmt_network_reply_profile_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_network_reply_profile_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_network_reply_profile_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_network_reply_profile_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_network_reply_profile_parse(scalar));
+    axiam_mgmt_network_reply_profile_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `NetworkReplyProfileInput`: a full wire object parses, builds back and frees. */
+static void test_network_reply_profile_input_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_reply_profile_input_t *model = axiam_mgmt_network_reply_profile_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_network_reply_profile_input_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_network_reply_profile_input_free(model);
+    cJSON_Delete(src);
+}
+
+/* `NetworkReplyProfileInput`: the server omitting every OPTIONAL field is not an error. */
+static void test_network_reply_profile_input_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"session_timeout_secs\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_reply_profile_input_t *model = axiam_mgmt_network_reply_profile_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_network_reply_profile_input_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_network_reply_profile_input_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `NetworkReplyProfileInput`: an EMPTY object parses without crashing. A server that omits
+ * a field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_network_reply_profile_input_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_reply_profile_input_t *model = axiam_mgmt_network_reply_profile_input_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_network_reply_profile_input_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_network_reply_profile_input_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_network_reply_profile_input_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_network_reply_profile_input_parse(scalar));
+    axiam_mgmt_network_reply_profile_input_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `NetworkSegmentResponse`: a full wire object parses, builds back and frees. */
+static void test_network_segment_response_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"rank\": 1, \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_segment_response_t *model = axiam_mgmt_network_segment_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_network_segment_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_network_segment_response_free(model);
+    cJSON_Delete(src);
+}
+
+/* `NetworkSegmentResponse`: the server omitting every OPTIONAL field is not an error. */
+static void test_network_segment_response_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"created_at\": \"2026-08-26T00:00:00Z\", \"created_by\": \"11111111-1111-4111-8111-111111111111\", \"enabled\": true, \"filter_ids\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"kind\": \"access\", \"name\": \"example\", \"path\": \"example\", \"site_key\": \"example\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1, \"vlan_id\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_segment_response_t *model = axiam_mgmt_network_segment_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_network_segment_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_network_segment_response_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `NetworkSegmentResponse`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_network_segment_response_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_network_segment_response_t *model = axiam_mgmt_network_segment_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_network_segment_response_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_network_segment_response_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_network_segment_response_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_network_segment_response_parse(scalar));
+    axiam_mgmt_network_segment_response_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `NotificationPolicy`: a full wire object parses, builds back and frees. */
 static void test_notification_policy_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"admin_notifications_enabled\": true}");
@@ -6150,6 +6596,187 @@ static void test_registration_token_response_rejects_a_non_object(void) {
     cJSON *scalar = cJSON_CreateString("nope");
     TEST_ASSERT_NULL(axiam_mgmt_registration_token_response_parse(scalar));
     axiam_mgmt_registration_token_response_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `ReplaceNetworkPolicyRequest`: a full wire object parses, builds back and frees. */
+static void test_replace_network_policy_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"session_timeout_max_secs\": 1, \"version\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_replace_network_policy_request_t *model = axiam_mgmt_replace_network_policy_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_replace_network_policy_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_replace_network_policy_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `ReplaceNetworkPolicyRequest`: an EMPTY object parses without crashing. A server that
+ * omits a field openapi.json marks required is malformed, and this SDK's answer is a model
+ * with that member unset rather than an abort -- the caller is in a position to decide, and
+ * a parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_replace_network_policy_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_replace_network_policy_request_t *model = axiam_mgmt_replace_network_policy_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_replace_network_policy_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_replace_network_policy_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_replace_network_policy_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_replace_network_policy_request_parse(scalar));
+    axiam_mgmt_replace_network_policy_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `ReplaceNetworkReplyProfileRequest`: a full wire object parses, builds back and frees. */
+static void test_replace_network_reply_profile_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"profile\": {\"dictionary\": \"example\", \"filter_id\": \"example\", \"idle_timeout_secs\": 1, \"service_type\": \"framed_user\", \"session_timeout_secs\": 1, \"termination_action\": \"default\"}, \"segment_version\": 1, \"version\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_replace_network_reply_profile_request_t *model = axiam_mgmt_replace_network_reply_profile_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_replace_network_reply_profile_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_replace_network_reply_profile_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `ReplaceNetworkReplyProfileRequest`: an EMPTY object parses without crashing. A server
+ * that omits a field openapi.json marks required is malformed, and this SDK's answer is a
+ * model with that member unset rather than an abort -- the caller is in a position to
+ * decide, and a parser that segfaults on a bad response is a worse failure than one that
+ * hands back a null. This also reaches the ABSENT arm of every field guard, required ones
+ * included, which no well-formed fixture can.
+ */
+static void test_replace_network_reply_profile_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_replace_network_reply_profile_request_t *model = axiam_mgmt_replace_network_reply_profile_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_replace_network_reply_profile_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_replace_network_reply_profile_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_replace_network_reply_profile_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_replace_network_reply_profile_request_parse(scalar));
+    axiam_mgmt_replace_network_reply_profile_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `ReplaceNetworkSegmentRequest`: a full wire object parses, builds back and frees. */
+static void test_replace_network_segment_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"enabled\": true, \"filter_ids\": [\"example\"], \"rank\": 1, \"version\": 1, \"vlan_id\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_replace_network_segment_request_t *model = axiam_mgmt_replace_network_segment_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_replace_network_segment_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_replace_network_segment_request_free(model);
+    cJSON_Delete(src);
+}
+
+/* `ReplaceNetworkSegmentRequest`: the server omitting every OPTIONAL field is not an error. */
+static void test_replace_network_segment_request_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"enabled\": true, \"filter_ids\": [\"example\"], \"version\": 1, \"vlan_id\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_replace_network_segment_request_t *model = axiam_mgmt_replace_network_segment_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_replace_network_segment_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_replace_network_segment_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `ReplaceNetworkSegmentRequest`: an EMPTY object parses without crashing. A server that
+ * omits a field openapi.json marks required is malformed, and this SDK's answer is a model
+ * with that member unset rather than an abort -- the caller is in a position to decide, and
+ * a parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_replace_network_segment_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_replace_network_segment_request_t *model = axiam_mgmt_replace_network_segment_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_replace_network_segment_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_replace_network_segment_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_replace_network_segment_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_replace_network_segment_request_parse(scalar));
+    axiam_mgmt_replace_network_segment_request_free(NULL);
     cJSON_Delete(scalar);
 }
 
@@ -11038,6 +11665,38 @@ static void test_name_id_format_enum_round_trips(void) {
 }
 
 /*
+ * `NetworkSegmentKind`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_network_segment_kind_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "access",
+        "quarantine",
+    };
+    static const axiam_mgmt_network_segment_kind_t constant[] = {
+        AXIAM_MGMT_NETWORK_SEGMENT_KIND_ACCESS,
+        AXIAM_MGMT_NETWORK_SEGMENT_KIND_QUARANTINE,
+    };
+    axiam_mgmt_network_segment_kind_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_network_segment_kind_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_network_segment_kind_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_network_segment_kind_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_NETWORK_SEGMENT_KIND_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_network_segment_kind_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_network_segment_kind_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_network_segment_kind_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_network_segment_kind_to_wire((axiam_mgmt_network_segment_kind_t) 0x7fff));
+}
+
+/*
  * `NotificationEventType`: every wire value round-trips through its constant, an
  * unrecognised value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and
  * a NULL argument is refused.
@@ -11227,6 +11886,68 @@ static void test_pgp_key_status_enum_round_trips(void) {
      * rather than reading past a table.
      */
     TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_pgp_key_status_to_wire((axiam_mgmt_pgp_key_status_t) 0x7fff));
+}
+
+/*
+ * `RadiusServiceType`: every wire value round-trips through its constant, an unrecognised
+ * value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL
+ * argument is refused.
+ */
+static void test_radius_service_type_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "framed_user",
+    };
+    static const axiam_mgmt_radius_service_type_t constant[] = {
+        AXIAM_MGMT_RADIUS_SERVICE_TYPE_FRAMED_USER,
+    };
+    axiam_mgmt_radius_service_type_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_radius_service_type_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_radius_service_type_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_radius_service_type_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_radius_service_type_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_radius_service_type_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_radius_service_type_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_radius_service_type_to_wire((axiam_mgmt_radius_service_type_t) 0x7fff));
+}
+
+/*
+ * `RadiusTerminationAction`: every wire value round-trips through its constant, an
+ * unrecognised value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and
+ * a NULL argument is refused.
+ */
+static void test_radius_termination_action_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "default",
+        "radius_request",
+    };
+    static const axiam_mgmt_radius_termination_action_t constant[] = {
+        AXIAM_MGMT_RADIUS_TERMINATION_ACTION_DEFAULT,
+        AXIAM_MGMT_RADIUS_TERMINATION_ACTION_RADIUS_REQUEST,
+    };
+    axiam_mgmt_radius_termination_action_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_radius_termination_action_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_radius_termination_action_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_radius_termination_action_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_radius_termination_action_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_radius_termination_action_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_radius_termination_action_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_radius_termination_action_to_wire((axiam_mgmt_radius_termination_action_t) 0x7fff));
 }
 
 /*
@@ -11784,11 +12505,14 @@ int main(void) {
     RUN_TEST(test_managed_by_enum_round_trips);
     RUN_TEST(test_mfa_method_type_enum_round_trips);
     RUN_TEST(test_name_id_format_enum_round_trips);
+    RUN_TEST(test_network_segment_kind_enum_round_trips);
     RUN_TEST(test_notification_event_type_enum_round_trips);
     RUN_TEST(test_permission_effect_enum_round_trips);
     RUN_TEST(test_pgp_key_algorithm_enum_round_trips);
     RUN_TEST(test_pgp_key_purpose_enum_round_trips);
     RUN_TEST(test_pgp_key_status_enum_round_trips);
+    RUN_TEST(test_radius_service_type_enum_round_trips);
+    RUN_TEST(test_radius_termination_action_enum_round_trips);
     RUN_TEST(test_reactor_mode_enum_round_trips);
     RUN_TEST(test_saml_binding_enum_round_trips);
     RUN_TEST(test_saml_idp_credential_status_enum_round_trips);
@@ -11884,6 +12608,13 @@ int main(void) {
     RUN_TEST(test_create_intermediate_ca_request_round_trips);
     RUN_TEST(test_create_intermediate_ca_request_parses_an_empty_object);
     RUN_TEST(test_create_intermediate_ca_request_rejects_a_non_object);
+    RUN_TEST(test_create_network_reply_profile_request_round_trips);
+    RUN_TEST(test_create_network_reply_profile_request_parses_an_empty_object);
+    RUN_TEST(test_create_network_reply_profile_request_rejects_a_non_object);
+    RUN_TEST(test_create_network_segment_request_round_trips);
+    RUN_TEST(test_create_network_segment_request_parses_without_optionals);
+    RUN_TEST(test_create_network_segment_request_parses_an_empty_object);
+    RUN_TEST(test_create_network_segment_request_rejects_a_non_object);
     RUN_TEST(test_create_notification_rule_request_round_trips);
     RUN_TEST(test_create_notification_rule_request_parses_without_optionals);
     RUN_TEST(test_create_notification_rule_request_parses_an_empty_object);
@@ -12048,6 +12779,22 @@ int main(void) {
     RUN_TEST(test_mtls_trust_anchor_response_parses_without_optionals);
     RUN_TEST(test_mtls_trust_anchor_response_parses_an_empty_object);
     RUN_TEST(test_mtls_trust_anchor_response_rejects_a_non_object);
+    RUN_TEST(test_network_policy_response_round_trips);
+    RUN_TEST(test_network_policy_response_parses_without_optionals);
+    RUN_TEST(test_network_policy_response_parses_an_empty_object);
+    RUN_TEST(test_network_policy_response_rejects_a_non_object);
+    RUN_TEST(test_network_reply_profile_round_trips);
+    RUN_TEST(test_network_reply_profile_parses_without_optionals);
+    RUN_TEST(test_network_reply_profile_parses_an_empty_object);
+    RUN_TEST(test_network_reply_profile_rejects_a_non_object);
+    RUN_TEST(test_network_reply_profile_input_round_trips);
+    RUN_TEST(test_network_reply_profile_input_parses_without_optionals);
+    RUN_TEST(test_network_reply_profile_input_parses_an_empty_object);
+    RUN_TEST(test_network_reply_profile_input_rejects_a_non_object);
+    RUN_TEST(test_network_segment_response_round_trips);
+    RUN_TEST(test_network_segment_response_parses_without_optionals);
+    RUN_TEST(test_network_segment_response_parses_an_empty_object);
+    RUN_TEST(test_network_segment_response_rejects_a_non_object);
     RUN_TEST(test_notification_policy_round_trips);
     RUN_TEST(test_notification_policy_parses_an_empty_object);
     RUN_TEST(test_notification_policy_rejects_a_non_object);
@@ -12121,6 +12868,16 @@ int main(void) {
     RUN_TEST(test_registration_token_response_parses_without_optionals);
     RUN_TEST(test_registration_token_response_parses_an_empty_object);
     RUN_TEST(test_registration_token_response_rejects_a_non_object);
+    RUN_TEST(test_replace_network_policy_request_round_trips);
+    RUN_TEST(test_replace_network_policy_request_parses_an_empty_object);
+    RUN_TEST(test_replace_network_policy_request_rejects_a_non_object);
+    RUN_TEST(test_replace_network_reply_profile_request_round_trips);
+    RUN_TEST(test_replace_network_reply_profile_request_parses_an_empty_object);
+    RUN_TEST(test_replace_network_reply_profile_request_rejects_a_non_object);
+    RUN_TEST(test_replace_network_segment_request_round_trips);
+    RUN_TEST(test_replace_network_segment_request_parses_without_optionals);
+    RUN_TEST(test_replace_network_segment_request_parses_an_empty_object);
+    RUN_TEST(test_replace_network_segment_request_rejects_a_non_object);
     RUN_TEST(test_resolved_permission_grant_round_trips);
     RUN_TEST(test_resolved_permission_grant_parses_an_empty_object);
     RUN_TEST(test_resolved_permission_grant_rejects_a_non_object);
