@@ -48,6 +48,18 @@ static axiam_error_kind_t refuse(axiam_error_t *err, const char *msg) {
     return AXIAM_ERR_NETWORK;
 }
 
+/* The generated `_from_wire` returns 0 for ANY string and yields UNKNOWN for one it does not
+ * list (§27.11 rule 1); a value the manifest may SEND is one it decoded to a known constant. */
+static int known_termination_action(const char *wire, axiam_mgmt_radius_termination_action_t *out) {
+    return axiam_mgmt_radius_termination_action_from_wire(wire, out) == 0 &&
+           *out != AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN;
+}
+
+static int known_service_type(const char *wire, axiam_mgmt_radius_service_type_t *out) {
+    return axiam_mgmt_radius_service_type_from_wire(wire, out) == 0 &&
+           *out != AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN;
+}
+
 /* Everything §27.6.2 item 1 refuses BEFORE any request: a repeated natural key (two segments
  * with one site, kind and name; two profiles for one segment), a Filter-Id listed twice in a
  * segment (the list is compared as a set, and a set has no repeated member), a profile whose
@@ -126,7 +138,7 @@ static axiam_error_kind_t validate_network(const axiam_mgmt_manifest_t *m, axiam
         }
         axiam_mgmt_radius_termination_action_t ta;
         if (a->termination_action &&
-            !axiam_mgmt_radius_termination_action_from_wire(a->termination_action, &ta)) {
+            !known_termination_action(a->termination_action, &ta)) {
             snprintf(msg, sizeof msg,
                      "network profile for \"%s\": termination_action \"%s\" is not a value this "
                      "SDK can send", a->segment, a->termination_action);
@@ -134,7 +146,7 @@ static axiam_error_kind_t validate_network(const axiam_mgmt_manifest_t *m, axiam
         }
         axiam_mgmt_radius_service_type_t st;
         if (a->service_type_state == AXIAM_MGMT_FIELD_SET &&
-            (!a->service_type || !axiam_mgmt_radius_service_type_from_wire(a->service_type, &st))) {
+            (!a->service_type || !known_service_type(a->service_type, &st))) {
             snprintf(msg, sizeof msg,
                      "network profile for \"%s\": service_type \"%s\" is not a value this SDK can "
                      "send (the only one is \"framed_user\")", a->segment,
@@ -982,6 +994,30 @@ static axiam_error_kind_t plan_network(axiam_client_t *c, const axiam_mgmt_manif
                            : profile_differs(pspec, found) ? AXIAM_MGMT_CHANGE_UPDATE
                                                            : AXIAM_MGMT_CHANGE_UNCHANGED;
         if (n->action != AXIAM_MGMT_CHANGE_UNCHANGED) plan->network_pending++;
+
+        /* §27.6.2 item 4: an Update never leaves out a member the read holds as a value this
+         * SDK does not know -- the server would write its default over it. Unless the
+         * manifest states the member, `plan` refuses (GETs only so far; no plan is returned). */
+        if (n->action == AXIAM_MGMT_CHANGE_UPDATE) {
+            const char *member = NULL;
+            if (found->termination_action == AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN &&
+                !pspec->termination_action)
+                member = "termination_action";
+            else if (found->has_service_type && found->service_type == AXIAM_MGMT_RADIUS_SERVICE_TYPE_UNKNOWN &&
+                     pspec->service_type_state == AXIAM_MGMT_FIELD_UNSTATED)
+                member = "service_type";
+            if (member) {
+                char msg[256];
+                snprintf(msg, sizeof msg,
+                         "network profile for \"%s\": the server holds a %s this SDK does not know, "
+                         "and the manifest does not state it; stating it is the only way to update "
+                         "the profile", pspec->segment, member);
+                free(ordered);
+                axiam_mgmt_network_segment_response_page_free(segs);
+                axiam_mgmt_network_reply_profile_page_free(profs);
+                return refuse(err, msg);
+            }
+        }
     }
 
     free(ordered);
@@ -1296,7 +1332,7 @@ static void fill_profile_input(axiam_mgmt_network_reply_profile_input_t *in,
     if (read) in->dictionary = read->dictionary;
 
     axiam_mgmt_radius_termination_action_t ta;
-    if (spec->termination_action && axiam_mgmt_radius_termination_action_from_wire(spec->termination_action, &ta)) {
+    if (spec->termination_action && known_termination_action(spec->termination_action, &ta)) {
         in->termination_action = ta;
         in->has_termination_action = 1;
     } else if (read && read->termination_action != AXIAM_MGMT_RADIUS_TERMINATION_ACTION_UNKNOWN) {
@@ -1317,7 +1353,7 @@ static void fill_profile_input(axiam_mgmt_network_reply_profile_input_t *in,
 
     axiam_mgmt_radius_service_type_t st;
     if (spec->service_type_state == AXIAM_MGMT_FIELD_SET &&
-        axiam_mgmt_radius_service_type_from_wire(spec->service_type, &st)) {
+        known_service_type(spec->service_type, &st)) {
         in->service_type = st;
         in->has_service_type = 1;
     } else if (spec->service_type_state == AXIAM_MGMT_FIELD_UNSTATED && read && read->has_service_type &&

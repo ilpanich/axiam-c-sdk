@@ -423,9 +423,10 @@ static int oidc_transport_once(axiam_client_t *c, const char *method, const char
                                   ? c->cfg->tenant_id : c->cfg->tenant_slug);
     headers = axiam_kv_append(headers, "Accept", "application/json");
     if (content_type) headers = axiam_kv_append(headers, "Content-Type", content_type);
-    /* §12.1 note 8: the /oauth2 paths are unauthenticated, so no axiam_csrf cookie exists
-     * yet on a first call. §3 step 3 already governs this — omit the header
-     * rather than inventing a value — so none is added. */
+    /* §12.1 note 8 and rule 3 (contract 1.63): no X-CSRF-Token is added, and an explicit empty
+     * Cookie entry withholds the jar -- a cookie login's session cookies never ride an
+     * /oauth2/ ... request (§6.1 rule 11; axiam_curl_transport() reads the entry as a signal). */
+    headers = axiam_kv_append(headers, "Cookie", "");
 
     axiam_http_request_t req = {0};
     req.method = method;

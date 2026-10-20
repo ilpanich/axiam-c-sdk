@@ -315,7 +315,11 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
     memset(resp, 0, sizeof(*resp));
     char *url = build_url(c, path);
     if (!url) return -1;
-    axiam_kv_t *headers = build_headers(c, state_changing, body != NULL);
+    /* Contract 1.63, §6.1 rule 11 / §12.1 rule 3: an /oauth2/ ... request carries no session
+     * cookie and no X-CSRF-Token -- the endpoint authenticates by the client and the grant. */
+    int oauth2 = strncmp(path, "/oauth2/", 8) == 0;
+    axiam_kv_t *headers = build_headers(c, state_changing && !oauth2, body != NULL);
+    if (oauth2) headers = axiam_kv_append(headers, "Cookie", ""); /* withhold the jar */
 
     axiam_http_request_t req = {0};
     req.method = method;

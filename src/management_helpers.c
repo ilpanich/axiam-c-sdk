@@ -169,6 +169,12 @@ axiam_mgmt_scim_target_response_to_input(const axiam_mgmt_scim_target_response_t
     cJSON *wire = target ? axiam_mgmt_scim_target_response_build(target) : NULL;
     axiam_mgmt_scim_target_input_t *out = wire ? axiam_mgmt_scim_target_input_parse(wire) : NULL;
     cJSON_Delete(wire);
+    /* §31.3 rule 4: the update is conditional on the version read, which is the response's own
+     * `updated_at` string, byte for byte (the read-only member the conversion above drops). */
+    if (out && target->updated_at && !replace_str(&out->expected_updated_at, target->updated_at)) {
+        axiam_mgmt_scim_target_input_free(out);
+        return NULL;
+    }
     return out;
 }
 
