@@ -3162,8 +3162,8 @@ axiam_error_kind_t axiam_scim_targets_reconcile(axiam_client_t *c, const char *i
 /* ============================================================================ */
 /*
  * network -- A tenant's network segments and the RADIUS reply profile each owns (RADIUS
- * D4): a segment is a node of the reserved /network subtree of the resource tree (kind,
- * VLAN, Filter-Id envelope, placement rank), and its profile is the typed
+ * Live profile): a segment is a node of the reserved /network subtree of the resource tree
+ * (kind, VLAN, Filter-Id envelope, placement rank), and its profile is the typed
  * `axiam-radius-reply/1` record a decision renders. Every write is conditional on the
  * `version` the caller read and passes the server's write gate. The tenant's
  * Session-Timeout cap is one more row of it (get_policy, replace_policy): lowering it is
