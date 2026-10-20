@@ -45,8 +45,9 @@ framework-agnostic route guard and declarative authorization helpers.
 > with no write, a `network` profile update that would overwrite a `termination_action` or
 > `service_type` this SDK does not know without the manifest stating it (§27.6.2 item 4).
 > `client_id` at the device endpoints is still the configured one (§14.1 rule 5 makes omitting it
-> optional; no signature here changes). This SDK generates no DPoP proof, so §21.7.4 binds it
-> in no way.
+> optional; no signature here changes). The UMA ticket grant withholds the jar as well. C ships
+> no AMQP producer, so the audit-action refusal (c) does not apply, and it generates no DPoP
+> proof, so §21.7.4 binds it in no way.
 >
 > **Contract 1.62** (§34.6, released with 1.0.1's fields as **1.1.0**; the section list above
 > now also names §36, which is management REST and part of §27). In this SDK: the `network`

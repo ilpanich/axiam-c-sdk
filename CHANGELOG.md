@@ -14,13 +14,15 @@ from ilpanich/axiam `a6cd10eba` (this SDK vendors no `proto/`; the regenerated s
 unchanged apart from a doc comment). No operation is added, no signature changes and no
 struct grows, so this is a **patch**; the ABI version stays 2. `DeviceAuthorizationRequest.client_id`
 is optional in the spec now; this SDK takes the client id from its configuration and still
-sends it, so nothing here changes.
+sends it, so nothing here changes. Item (c), the producer's refusal of the reserved audit
+actions, does not apply: C ships no AMQP producer.
 
 ### Fixed
 
 - **No session cookie and no `X-CSRF-Token` on any `/oauth2/*` request (contract 1.63, §6.1
   rule 11, §12.1 rule 3).** A client signed in by cookie no longer sends its jar to the token,
-  device, introspection, revocation, PAR or JWKS endpoints. Test: `test_oauth2_no_session`,
+  device, introspection, revocation, PAR, JWKS or UMA ticket-grant endpoints (and the UMA
+  Protection API calls, which authenticate by their PAT). Test: `test_oauth2_no_session`,
   against the real libcurl cookie engine, with the logout as the control.
 - **A manifest `Update` never overwrites an unknown enum with the server default (C162-06,
   §27.6.2 item 4).** `axiam_mgmt_plan()` refuses a network profile whose read holds a

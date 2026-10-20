@@ -102,7 +102,18 @@ static void *server_thread(void *arg) {
                     "{\"session_id\":\"s\",\"expires_in\":900,\"user\":{\"id\":\"u\",\"username\":\"a\","
                     "\"email\":\"e\",\"tenant_id\":\"t\"}}");
         else if (strstr(head, "GET /.well-known/openid-configuration")) respond(cfd, "", discovery);
-        else if (strstr(head, "POST /oauth2/device_authorization"))
+        else if (strstr(head, "GET /.well-known/uma2-configuration")) {
+            char uma[1024];
+            snprintf(uma, sizeof uma,
+                     "{\"issuer\":\"%s\",\"token_endpoint\":\"%s/oauth2/token\","
+                     "\"introspection_endpoint\":\"%s/oauth2/introspect\","
+                     "\"permission_endpoint\":\"%s/uma2/perm\","
+                     "\"resource_registration_endpoint\":\"%s/uma2/rreg/resource_set\","
+                     "\"jwks_uri\":\"%s/oauth2/jwks\",\"grant_types_supported\":[\"%s\"],"
+                     "\"uma_profiles_supported\":[],\"permission_ticket_lifetime\":60}",
+                     s->base, s->base, s->base, s->base, s->base, s->base, AXIAM_UMA_TICKET_GRANT_TYPE);
+            respond(cfd, "", uma);
+        } else if (strstr(head, "POST /oauth2/device_authorization"))
             respond(cfd, "",
                     "{\"device_code\":\"the-device-code\",\"user_code\":\"WDJB-MJHT\","
                     "\"verification_uri\":\"https://id.test/device\",\"expires_in\":600,\"interval\":1}");
@@ -178,6 +189,18 @@ static void test_oauth2_requests_carry_no_session_cookie_and_no_csrf_header(void
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_login_client_credentials(c, NULL, NULL, &set, &err));
     axiam_oidc_token_set_dispose(&set);
 
+    /* The UMA ticket grant is POST /oauth2/token?tenant_id= and withholds the jar too. */
+    axiam_sensitive_t *ticket = axiam_sensitive_new("ticket-value");
+    axiam_sensitive_t *claim = axiam_sensitive_new("claim-token-value");
+    axiam_sensitive_t *secret = axiam_sensitive_new("resource-server-secret");
+    axiam_uma_exchange_params_t up = {ticket, claim, "orders-resource-server", secret, NULL};
+    axiam_uma_rpt_t rpt;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_uma_exchange_ticket(c, &up, &rpt, &err));
+    axiam_uma_rpt_dispose(&rpt);
+    axiam_sensitive_free(ticket);
+    axiam_sensitive_free(claim);
+    axiam_sensitive_free(secret);
+
     /* The control: a state-changing /api/v1 request does carry both. */
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_logout(c, &err));
 
@@ -193,7 +216,8 @@ static void test_oauth2_requests_carry_no_session_cookie_and_no_csrf_header(void
         TEST_ASSERT_FALSE(g_srv.cookie[i]);
         TEST_ASSERT_FALSE(g_srv.csrf[i]);
     }
-    TEST_ASSERT_EQUAL_INT_MESSAGE(2, tokens, "the device poll and the client-credentials request");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(3, tokens, "the device poll, the client-credentials request and the UMA ticket grant");
+    TEST_ASSERT_TRUE(find("POST /oauth2/token?tenant_id=") >= 0);
     int out = find("POST /api/v1/auth/logout");
     TEST_ASSERT_TRUE(out >= 0);
     TEST_ASSERT_TRUE_MESSAGE(g_srv.cookie[out], "the control carries the session cookie");
