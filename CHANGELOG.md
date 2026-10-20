@@ -10,7 +10,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Contract **1.63** (§34.7) and the two Low findings of the 1.62 conformance review (#74).
 `CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for byte
-from ilpanich/axiam `a6cd10eba` (this SDK vendors no `proto/`; the regenerated surface is
+from ilpanich/axiam `d919ba0cc` (this SDK vendors no `proto/`; the regenerated surface is
 unchanged apart from a doc comment). No operation is added, no signature changes and no
 struct grows, so this is a **patch**; the ABI version stays 2. `DeviceAuthorizationRequest.client_id`
 is optional in the spec now; this SDK takes the client id from its configuration and still
