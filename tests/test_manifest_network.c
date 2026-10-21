@@ -631,6 +631,77 @@ static void test_a_clamped_profile_is_judged_on_the_read(void) {
     axiam_client_free(c);
 }
 
+/* Contract 1.63 / C162-06, §27.6.2 item 4: a read profile holding a `termination_action` or
+ * `service_type` this SDK does not know, and a manifest that changes another member without
+ * stating it: `plan` refuses, GETs only, no plan. Stating it makes an Update that never
+ * carries the unknown value; changing nothing is NoChange. */
+static void unknown_member_case(const char *member) {
+    int term = strcmp(member, "termination_action") == 0;
+    axiam_mgmt_network_segment_spec_t seg = seg_spec("lab", "lab", 10);
+    axiam_mgmt_network_profile_spec_t prof = prof_spec("lab", 2400); /* read: 3000 */
+    axiam_mgmt_manifest_t m = {0};
+    m.network_segments = &seg;
+    m.network_segments_count = 1;
+    m.network_profiles = &prof;
+    m.network_profiles_count = 1;
+
+    char read[1024];
+    const char *known = prof_json(SEG_A, 3000, 0, -1, NULL, 5);
+    const char *from = term ? "\"termination_action\":\"radius_request\"" : "\"service_type\":\"framed_user\"";
+    const char *to = term ? "\"termination_action\":\"future\"" : "\"service_type\":\"future\"";
+    const char *at = strstr(known, from);
+    TEST_ASSERT_NOT_NULL(at);
+    snprintf(read, sizeof read, "%.*s%s%s", (int) (at - known), known, to, at + strlen(from));
+
+    mount_walk(seg_json(SEG_A, "hq", "access", "lab", 10, -1, "", 1, 3));
+    mount_walk(read);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_plan_t *plan = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_mgmt_plan(c, &m, &plan, &err));
+    TEST_ASSERT_NULL(plan);
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(err.message, member), err.message);
+    assert_only_reads_after_login();
+    axiam_client_free(c);
+
+    /* Stated: an Update whose body carries the stated value and never the unknown one. */
+    mgmt_reset();
+    if (term) prof.termination_action = "default";
+    else {
+        prof.service_type_state = AXIAM_MGMT_FIELD_SET;
+        prof.service_type = "framed_user";
+    }
+    mount_walk(seg_json(SEG_A, "hq", "access", "lab", 10, -1, "", 1, 3));
+    mount_walk(read);
+    mgmt_mount_next(200, prof_json(SEG_A, 2400, 0, -1, NULL, 6));
+    c = mgmt_signed_in_client();
+    axiam_mgmt_apply_report_t report;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_OK, axiam_mgmt_apply(c, &m, &report, &err), err.message);
+    TEST_ASSERT_EQUAL_STRING("PUT", mgmt_method_at(mgmt_request_count() - 1));
+    const char *sent = mgmt_last_body();
+    TEST_ASSERT_NULL_MESSAGE(strstr(sent, "future"), "the unknown value is never re-sent");
+    TEST_ASSERT_NOT_NULL(strstr(sent, term ? "\"termination_action\":\"default\"" : "\"service_type\":\"framed_user\""));
+    axiam_mgmt_apply_report_dispose(&report);
+    axiam_client_free(c);
+
+    /* Nothing differs (the stated member is the only one and equals nothing the read could
+     * hold, so use a profile whose other members match): NoChange needs the member to be
+     * the unknown one's equal, which no known value is -- so state nothing and match all. */
+    mgmt_reset();
+    prof = prof_spec("lab", 3000);
+    mount_walk(seg_json(SEG_A, "hq", "access", "lab", 10, -1, "", 1, 3));
+    mount_walk(read);
+    c = mgmt_signed_in_client();
+    plan = NULL;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_OK, axiam_mgmt_plan(c, &m, &plan, &err), err.message);
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_CHANGE_UNCHANGED, plan->network[1].action);
+    axiam_mgmt_plan_free(plan);
+    axiam_client_free(c);
+}
+
+static void test_an_unknown_termination_action_is_refused_unless_stated(void) { unknown_member_case("termination_action"); }
+static void test_an_unknown_service_type_is_refused_unless_stated(void) { unknown_member_case("service_type"); }
+
 /* A manifest without a network section plans exactly as before: no network request at all. */
 static void test_a_manifest_without_network_sends_no_network_request(void) {
     axiam_mgmt_manifest_t m = {0};
@@ -658,6 +729,8 @@ int main(void) {
     RUN_TEST(test_kind_is_the_wire_spelling_in_the_key_and_the_body);
     RUN_TEST(test_filter_ids_compare_as_a_set_and_are_sent_in_the_stated_order);
     RUN_TEST(test_a_clamped_profile_is_judged_on_the_read);
+    RUN_TEST(test_an_unknown_termination_action_is_refused_unless_stated);
+    RUN_TEST(test_an_unknown_service_type_is_refused_unless_stated);
     RUN_TEST(test_a_manifest_without_network_sends_no_network_request);
     return UNITY_END();
 }

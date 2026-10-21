@@ -132,7 +132,12 @@ static int uma_transport(axiam_client_t *c, const char *method, const char *url,
                          const char *body, axiam_http_response_t *resp) {
     memset(resp, 0, sizeof(*resp));
 
-    axiam_kv_t *headers = NULL;
+    /* Contract 1.63, §6.1 rule 11 / §12.1 rule 3: the ticket grant is POST /oauth2/token, and
+     * the Protection API calls authenticate by their PAT: none carries the session cookie jar.
+     * The empty Cookie entry is the signal axiam_curl_transport() reads as "withhold the jar";
+     * without it the request would carry the cookie, so failing to allocate it fails the call. */
+    axiam_kv_t *headers = axiam_kv_append(NULL, "Cookie", "");
+    if (!headers) return -1;
     headers = axiam_kv_append(headers, "X-Tenant-ID",
                               c->cfg->tenant_id && c->cfg->tenant_id[0]
                                   ? c->cfg->tenant_id : c->cfg->tenant_slug);

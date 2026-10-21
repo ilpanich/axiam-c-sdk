@@ -537,6 +537,31 @@ static void test_errors_and_reconcile(void) {
     axiam_client_free(c);
 }
 
+/* Contract 1.63, §31.3 rule 4: the converted body carries the read's `updated_at` string verbatim
+ * (offset and fractional digits are not normalised to a date and back). */
+static void test_the_conversion_carries_updated_at_verbatim(void) {
+    char body[2048];
+    target_body(body, sizeof body,
+                "{\"type\":\"oauth2_client_credentials\",\"token_url\":\"https://idp.example/token\","
+                "\"client_id\":\"axiam\",\"scope\":null}", NULL);
+    char *at = strstr(body, "\"updated_at\":\"2026-10-05T00:00:00Z\"");
+    TEST_ASSERT_NOT_NULL(at);
+    char odd[2200];
+    snprintf(odd, sizeof odd, "%.*s\"updated_at\":\"2026-10-05T02:00:00.123456+02:00\"%s",
+             (int) (at - body), body, at + strlen("\"updated_at\":\"2026-10-05T00:00:00Z\""));
+    mgmt_mount(200, odd);
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_scim_target_response_t *t = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_get(c, TARGET_ID, &t, &err));
+    axiam_mgmt_scim_target_input_t *in = axiam_mgmt_scim_target_response_to_input(t);
+    TEST_ASSERT_NOT_NULL(in);
+    TEST_ASSERT_EQUAL_STRING("2026-10-05T02:00:00.123456+02:00", in->expected_updated_at);
+    axiam_mgmt_scim_target_input_free(in);
+    axiam_mgmt_scim_target_response_free(t);
+    axiam_client_free(c);
+}
+
 static void test_a_read_converts_into_the_replacement_body_without_the_credential(void) {
     char body[2048];
     target_body(body, sizeof body,
@@ -554,8 +579,11 @@ static void test_a_read_converts_into_the_replacement_body_without_the_credentia
     TEST_ASSERT_EQUAL_STRING("oauth2_client_credentials", in->auth->type);
     TEST_ASSERT_TRUE(in->has_enabled);
     TEST_ASSERT_TRUE(in->has_deprovision);
+    /* §31.3 rule 4 (contract 1.63): the read's own `updated_at`, byte for byte. */
+    TEST_ASSERT_EQUAL_STRING("2026-10-05T00:00:00Z", in->expected_updated_at);
     mgmt_mount(200, body);
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_scim_targets_update(c, TARGET_ID, in, NULL, &err));
+    TEST_ASSERT_NOT_NULL(strstr(mgmt_last_body(), "\"expected_updated_at\":\"2026-10-05T00:00:00Z\""));
     TEST_ASSERT_NOT_NULL(strstr(mgmt_last_body(), "\"token_url\":\"https://idp.example/token\""));
     TEST_ASSERT_NULL(strstr(mgmt_last_body(), "\"state\""));
     TEST_ASSERT_NULL(strstr(mgmt_last_body(), "\"credential\""));
@@ -571,6 +599,7 @@ int main(void) {
     RUN_TEST(test_a_credential_in_a_response_is_dropped);
     RUN_TEST(test_update_omits_an_absent_credential_and_the_variants_have_exact_keys);
     RUN_TEST(test_update_passes_expected_updated_at_through_and_a_409_surfaces);
+    RUN_TEST(test_the_conversion_carries_updated_at_verbatim);
     RUN_TEST(test_an_unknown_enum_value_is_refused_not_sent_as_empty);
     RUN_TEST(test_unknown_arms_and_values_decode_and_the_pager_carries_search);
     RUN_TEST(test_an_unknown_arm_is_never_sent);

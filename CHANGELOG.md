@@ -6,6 +6,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-20
+
+Contract **1.63** (§34.7) and the two Low findings of the 1.62 conformance review (#74).
+`CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for byte
+from ilpanich/axiam `d919ba0cc` (this SDK vendors no `proto/`; the regenerated surface is
+unchanged apart from a doc comment). No operation is added, no signature changes and no
+struct grows, so this is a **patch**; the ABI version stays 2. `DeviceAuthorizationRequest.client_id`
+is optional in the spec now; this SDK takes the client id from its configuration and still
+sends it, so nothing here changes. Item (c), the producer's refusal of the reserved audit
+actions, does not apply: C ships no AMQP producer.
+
+### Fixed
+
+- **No session cookie and no `X-CSRF-Token` on any `/oauth2/*` request (contract 1.63, §6.1
+  rule 11, §12.1 rule 3).** A client signed in by cookie no longer sends its jar to the token,
+  device, introspection, revocation, PAR, JWKS or UMA ticket-grant endpoints (and the UMA
+  Protection API calls, which authenticate by their PAT). Test: `test_oauth2_no_session`,
+  against the real libcurl cookie engine, with the logout as the control.
+- **A manifest `Update` never overwrites an unknown enum with the server default (C162-06,
+  §27.6.2 item 4).** `axiam_mgmt_plan()` refuses a network profile whose read holds a
+  `termination_action` or `service_type` this SDK does not know, when the manifest changes
+  another member and does not state it: no request but the reads, no plan. Stating the member
+  makes an Update that sends the stated value; nothing differing stays NoChange. Test:
+  `test_manifest_network`. A stated `termination_action` or `service_type` was refused
+  as unsendable before, because the manifest read the generated `_from_wire` return value
+  (0 for any string) as a failure; it is now judged on the decoded constant.
+- **`axiam_mgmt_scim_target_response_to_input()` carries `expected_updated_at` (C162-09,
+  §31.3 rule 4).** It is the response's own `updated_at` string, byte for byte. Test:
+  `test_scim_targets`.
+
 ## [1.1.0] - 2026-10-16
 
 Contract **1.62** (§34.6) on top of contract **1.61** (§34.5, the 1.0.1 fields). The 1.0.1 release
