@@ -10,8 +10,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Contract **1.64** (§34.8, as amended 2026-10-23), the three Informational findings of the 1.63
 conformance review (#76) and the findings of the 1.64 review that name this SDK. `CONTRACT.md` is
-re-vendored byte for byte from ilpanich/axiam `21beda0`; `openapi.json` and
-`management-registry.json` from `fb92ec4`, where `21beda0` leaves them unchanged (this SDK vendors
+re-vendored byte for byte from ilpanich/axiam `b3f8687` (the second 1.64 amendment); `openapi.json` and
+`management-registry.json` from `fb92ec4`, which the amendments leave unchanged (this SDK vendors
 no `proto/`; the generated surface is unchanged, `gen_management.py --check` is clean). No
 operation is added, no signature changes and no struct grows, so this is a **patch** and the ABI
 version stays 2. Nothing is source-breaking. The observable changes are that a manifest refusal
@@ -41,6 +41,11 @@ returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
   whose body says `slow_down` no longer raises the interval (only a `400` does), and a `429` with no
   OAuth body honours its `Retry-After` as the floor. Tests: `test_oidc_grants`.
 
+- **The 5xx rule does not depend on the caller's error struct (C164-27).** A single
+  `axiam_device_poll()` answered `500 {"error":"server_error"}` returns `AXIAM_ERR_NETWORK` also when
+  `err` is `NULL`. The header docs of `axiam_device_poll()` and `axiam_device_login()` and the README
+  state the status-decides rules (C164-32). Test: `test_oidc_grants`.
+
 ### Changed
 
 - **Every manifest refusal carries `transport_cause` 400 (C164-08).** Not only the network
@@ -48,7 +53,8 @@ returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
   role-binding and ambiguous service-account refusals of `axiam_mgmt_manifest_validate()` and
   `axiam_mgmt_plan()` too, as `management_manifest.h` documents. An out-of-memory stays 0, and
   `error.h` no longer says "nothing was sent" (a `plan` has sent reads). Tests:
-  `test_management_manifest`.
+  `test_management_manifest`, which now asserts it for every site: the role-binding checks, a
+  missing `resource_type` and the ambiguous service account too (C164-33).
 - **The refusal at `axiam_mgmt_plan()` of an unknown network enum says the value is unknown
   (C163-10, contract 1.64 (c), §27.6.2 item 4).** The message names the member and states that
   its value is unknown to this SDK (the decoded enum keeps no text, so no raw value is kept and
@@ -60,6 +66,10 @@ returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
 
 ### Tests
 
+- The device poll's in-attempt retry is tested (contract 1.64, second amendment, §14.6; C164-25):
+  two `500`s then `200` make three requests and return the tokens, a third `500` surfaces after
+  three, a transport failure is retried alike, a `429` is one request, and retry disabled makes one
+  per poll. This SDK already met it; `test_oidc_grants`.
 - `test_client_failing_transport` runs serially (`RUN_SERIAL`): its single-flight window is
   60 ms and it failed once under `ctest -j8` with sanitizers (C164-23).
 

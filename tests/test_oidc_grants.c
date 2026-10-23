@@ -346,6 +346,99 @@ void test_a_5xx_on_a_single_poll_is_a_network_error_whatever_its_body(void) {
     axiam_client_free(c);
 }
 
+void test_a_5xx_on_a_single_poll_is_a_network_error_with_a_null_err(void) {
+    /* C164-27: the kind does not depend on the caller passing an error struct. */
+    g_oidc.token_script[0] = (oidc_answer_t){500, "{\"error\":\"server_error\"}", 0};
+    g_oidc.token_script_len = 1;
+    axiam_client_t *c = oidc_make_client();
+    axiam_sensitive_t *code = axiam_sensitive_new("the-device-code");
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_device_poll(c, code, NULL, &set, NULL));
+    axiam_sensitive_free(code);
+    axiam_client_free(c);
+}
+
+#define SERVER_ERROR_500 \
+    ((oidc_answer_t){500, "{\"error\":\"server_error\",\"error_description\":\"db\"}", 0})
+
+void test_the_device_poll_is_retried_inside_the_attempt_on_a_5xx_but_not_on_a_429(void) {
+    /*
+     * Contract 1.64 (amended), §14.6, C164-35/C164-25: with retry enabled the poll is §16-retried
+     * on a 5xx or transport failure (three requests in all) and never on a 429.
+     */
+    axiam_sensitive_t *code = axiam_sensitive_new("the-device-code");
+    axiam_oidc_token_set_t set;
+    axiam_error_t err;
+
+    /* Two 500s then 200: a single poll makes three requests and returns the tokens. */
+    g_oidc.token_script[0] = SERVER_ERROR_500;
+    g_oidc.token_script[1] = SERVER_ERROR_500;
+    g_oidc.token_script[2] = (oidc_answer_t){200, SUCCESS_TOKENS, 0};
+    g_oidc.token_script_len = 3;
+    axiam_client_t *c = oidc_make_client();
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_poll(c, code, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(3, g_oidc.token_calls);
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+
+    /* A third 500 exhausts the cap: three requests, then the failure surfaces. */
+    oidc_reset();
+    g_oidc.token_script[0] = SERVER_ERROR_500;
+    g_oidc.token_script_len = 1;
+    c = oidc_make_client();
+    TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_device_poll(c, code, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(3, g_oidc.token_calls);
+    axiam_client_free(c);
+
+    /* A transport failure is retried the same way. */
+    oidc_reset();
+    g_oidc.token_script[0] = (oidc_answer_t){0, NULL, 1};
+    g_oidc.token_script[1] = (oidc_answer_t){0, NULL, 1};
+    g_oidc.token_script[2] = (oidc_answer_t){200, SUCCESS_TOKENS, 0};
+    g_oidc.token_script_len = 3;
+    c = oidc_make_client();
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_poll(c, code, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(3, g_oidc.token_calls);
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+
+    /* A 429 is one request: the wait is the loop's (rule 9). */
+    oidc_reset();
+    g_oidc.token_script[0] = (oidc_answer_t){429, "{\"error\":\"rate_limit_exceeded\"}", 0, "9"};
+    g_oidc.token_script_len = 1;
+    c = oidc_make_client();
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_device_poll(c, code, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_STRING("rate_limit_exceeded", err.oauth_error);
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+    axiam_client_free(c);
+
+    /* Retry disabled: one request per poll on a 5xx. */
+    oidc_reset();
+    g_oidc.token_script[0] = SERVER_ERROR_500;
+    g_oidc.token_script_len = 1;
+    c = oidc_make_client();
+    c->retry_enabled = 0;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_device_poll(c, code, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+    axiam_client_free(c);
+
+    /* device_login: two 500s then the tokens complete within one interval, in three requests. */
+    oidc_reset();
+    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":2", 600), 0};
+    g_oidc.token_script[0] = SERVER_ERROR_500;
+    g_oidc.token_script[1] = SERVER_ERROR_500;
+    g_oidc.token_script[2] = (oidc_answer_t){200, SUCCESS_TOKENS, 0};
+    g_oidc.token_script_len = 3;
+    c = oidc_make_client();
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(3, g_oidc.token_calls);
+    TEST_ASSERT_EQUAL_INT(2000, g_oidc.sleeps[0]); /* the one interval before the poll */
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+
+    axiam_sensitive_free(code);
+}
+
 void test_a_429_slow_down_does_not_raise_the_interval_and_a_bodiless_429_honours_retry_after(void) {
     /* §14.2 rule 9 (amended): the status decides. A 429 whose body says `slow_down` is the
      * wait, not the signal (waits [2, 2, 7, 2]: the interval, then the 429 with the interval as
@@ -930,6 +1023,8 @@ int main(void) {
     RUN_TEST(test_a_429_retry_after_past_the_deadline_is_capped_and_sends_nothing_after_it);
     RUN_TEST(test_a_500_mid_poll_is_retried_rather_than_treated_as_terminal);
     RUN_TEST(test_a_5xx_on_a_single_poll_is_a_network_error_whatever_its_body);
+    RUN_TEST(test_a_5xx_on_a_single_poll_is_a_network_error_with_a_null_err);
+    RUN_TEST(test_the_device_poll_is_retried_inside_the_attempt_on_a_5xx_but_not_on_a_429);
     RUN_TEST(test_a_429_slow_down_does_not_raise_the_interval_and_a_bodiless_429_honours_retry_after);
     RUN_TEST(test_a_delegation_narrows_scopes_and_reports_what_was_granted);
     RUN_TEST(test_omitting_scope_inherits_the_subjects_and_omitting_the_actor_asks_for_impersonation);

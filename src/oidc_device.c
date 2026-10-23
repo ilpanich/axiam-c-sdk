@@ -181,6 +181,13 @@ static axiam_error_kind_t device_poll_with(axiam_client_t *client,
                                            const char *tenant,
                                            axiam_oidc_token_set_t *out, long *retry_after_ms,
                                            axiam_error_t *err) {
+    /* The status decides below (§14.2 rule 6), and that reads the error struct; a caller that
+     * passes NULL gets the same kind as one that does not. */
+    axiam_error_t local;
+    if (!err) {
+        axiam_error_reset(&local);
+        err = &local;
+    }
     oidc_form_t form;
     oidc_form_init(&form);
     oidc_form_add(&form, "grant_type", AXIAM_DEVICE_CODE_GRANT_TYPE);

@@ -560,6 +560,8 @@ static void test_ambiguous_service_account_name_fails_plan_before_any_write(void
     axiam_error_t err;
     axiam_error_kind_t rc = axiam_mgmt_plan(c, &m, &plan, &err);
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, rc);
+    /* C164-33: a local refusal (nothing was written), `transport_cause` 400. */
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
     (void) before;
     axiam_client_free(c);
 }
