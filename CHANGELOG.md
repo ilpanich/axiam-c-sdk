@@ -65,6 +65,15 @@ returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
   behaviour. Test: `test_ciba` (`test_t07_a_retry_after_past_the_deadline_inside_a_poll_is_not_served`),
   with the boundary (`>=`) pinned.
   The README now says that the in-poll retry stays inside the deadline (C164-48).
+- **A CIBA in-poll backoff is served in milliseconds unless the caller supplied a clock (C164-51,
+  a regression of the C164-43 change, §16.1).** Without an `axiam_ciba_clock_t` the wait had been
+  rounded up to a whole second, quantising the jitter and ending a recoverable grant early (interval
+  28, `expires_in` 30, `500`, `500`, tokens: `expired_token` instead of the tokens). The deadline
+  check still rounds up on both paths; only a caller's own whole-second clock sleeps whole seconds.
+  Test: `test_ciba` (`test_t07_without_a_clock_a_sub_second_backoff_is_served_in_milliseconds`).
+  C164-53 adds the jittered deadline case (`test_t07_a_jittered_backoff_past_the_deadline_inside_a_poll_is_not_served`:
+  a bare `500` one second before the deadline gets no retry), which pins the rounding and the
+  jittered backoff in the check.
 
 ### Changed
 

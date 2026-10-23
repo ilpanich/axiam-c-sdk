@@ -759,6 +759,74 @@ static void test_t07_a_retry_after_past_the_deadline_inside_a_poll_is_not_served
     axiam_client_free(c);
 }
 
+static double half_jitter(void *ctx) { (void) ctx; return 0.5; }
+
+static void recording_sleep(void *ctx, long ms) {
+    (void) ctx;
+    if (g.n_sleeps < MAX) g.sleeps[g.n_sleeps++] = ms;
+    g.clock_s += ms / 1000;
+}
+
+/* C164-51: with no clock supplied, a sub-second §16 backoff inside a poll is served as
+ * milliseconds. Rounded up to a whole second, the second retry here would reach the deadline
+ * and the grant would end with expired_token although the third answer is the tokens. */
+static void test_t07_without_a_clock_a_sub_second_backoff_is_served_in_milliseconds(void) {
+    mint_tokens();
+    axiam_client_t *c = make_client();
+    c->sleep_fn = recording_sleep;
+    c->jitter_fn = half_jitter;
+    g.token[0] = (answer_t){500, "{\"error\":\"server_error\"}", 0};
+    g.token[1] = (answer_t){500, "{\"error\":\"server_error\"}", 0};
+    g.token[2] = (answer_t){200, g_tokens, 0};
+    g.token_len = 3;
+    axiam_ciba_initiate_response_t in = initiated("slow-backoff", 30, 28);
+    axiam_oidc_token_set_t set;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(AXIAM_OK, axiam_ciba_await(c, &in, NULL, NULL, NULL, &set, &err),
+                                  err.message);
+    TEST_ASSERT_EQUAL_INT(3, g.token_calls);
+    TEST_ASSERT_EQUAL_INT(3, g.n_sleeps);
+    TEST_ASSERT_EQUAL_INT(28000, g.sleeps[0]);
+    TEST_ASSERT_TRUE_MESSAGE(g.sleeps[1] > 0 && g.sleeps[1] < 1000, "the first backoff is in ms");
+    TEST_ASSERT_TRUE_MESSAGE(g.sleeps[2] > 0 && g.sleeps[2] < 1000, "the second backoff is in ms");
+    axiam_oidc_token_set_dispose(&set);
+    axiam_ciba_initiate_response_dispose(&in);
+    axiam_client_free(c);
+}
+
+/* C164-53: the deadline check counts the jittered backoff, rounded up (not floored, and not
+ * only Retry-After): a bare 500 to a poll one second before the deadline gets no retry. */
+static void test_t07_a_jittered_backoff_past_the_deadline_inside_a_poll_is_not_served(void) {
+    axiam_client_t *c = make_client();
+    c->jitter_fn = half_jitter;
+    g.token[0] = (answer_t){500, "{\"error\":\"server_error\"}", 0};
+    g.token_len = 1;
+    long start = g.clock_s;
+    axiam_ciba_initiate_response_t in = initiated("bare-500", 30, 29);
+    axiam_oidc_token_set_t set;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_ciba_await(c, &in, NULL, NULL, &TEST_CLOCK, &set, &err));
+    TEST_ASSERT_TRUE(axiam_error_is_expired_token(&err));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, g.token_calls, "the retry would leave at the deadline");
+    for (int i = 0; i < g.n; i++) TEST_ASSERT_TRUE(g.at[i] < start + 30);
+    axiam_ciba_initiate_response_dispose(&in);
+    axiam_client_free(c);
+
+    /* The same on the client's own clock, with a poll that leaves just before the deadline. */
+    setUp();
+    c = make_client();
+    c->jitter_fn = half_jitter;
+    c->sleep_fn = recording_sleep;
+    g.token[0] = (answer_t){500, "{\"error\":\"server_error\"}", 0};
+    g.token_len = 1;
+    in = initiated("bare-500", 30, 29);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_ciba_await(c, &in, NULL, NULL, NULL, &set, &err));
+    TEST_ASSERT_TRUE(axiam_error_is_expired_token(&err));
+    TEST_ASSERT_EQUAL_INT(1, g.token_calls);
+    axiam_ciba_initiate_response_dispose(&in);
+    axiam_client_free(c);
+}
+
 /* ---- 8. Transient failure is not terminal ------------------------------------------ */
 
 static void test_t08_a_500_and_a_429_mid_loop_are_survived(void) {
@@ -1359,6 +1427,8 @@ int main(void) {
     RUN_TEST(test_t06_the_first_poll_waits_the_interval_or_five_seconds);
     RUN_TEST(test_t07_no_request_after_expires_in_and_expired_token_is_raised_locally);
     RUN_TEST(test_t07_a_retry_after_past_the_deadline_inside_a_poll_is_not_served);
+    RUN_TEST(test_t07_without_a_clock_a_sub_second_backoff_is_served_in_milliseconds);
+    RUN_TEST(test_t07_a_jittered_backoff_past_the_deadline_inside_a_poll_is_not_served);
     RUN_TEST(test_t08_a_500_and_a_429_mid_loop_are_survived);
     RUN_TEST(test_t09_a_second_redemption_is_invalid_grant_and_not_retried);
     RUN_TEST(test_t10_a_valid_ping_returns_its_auth_req_id_in_any_scheme_case);
