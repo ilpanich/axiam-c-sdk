@@ -1098,6 +1098,11 @@ typedef void (*axiam_device_display_fn)(void *ctx,
  * not lose a grant the user already approved. The status is read before the body
  * (contract 1.64, as amended), so a `500 {"error":"server_error"}` is such a failure too.
  *
+ * The §16 retry inside a poll never waits past the grant's deadline (§14.2 rule 4): when the
+ * full wait (the backoff, floored at a `Retry-After`) would reach `expires_in`, nothing more is
+ * sent, the 5xx ends that one poll and the loop raises `expired_token`. (A bare
+ * axiam_device_poll() has no deadline.)
+ *
  * Any `429` on a poll is waited out whatever its body names (contract 1.64, §14.2 rule 9, as
  * amended): the wait is at least its `Retry-After` and at least one interval, it is capped at
  * the `expires_in` deadline, and it does not raise the interval -- a `429` whose body says

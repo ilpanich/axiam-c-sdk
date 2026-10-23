@@ -433,10 +433,75 @@ void test_the_device_poll_is_retried_inside_the_attempt_on_a_5xx_but_not_on_a_42
     TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
     TEST_ASSERT_EQUAL_INT(3, g_oidc.token_calls);
     TEST_ASSERT_EQUAL_INT(2000, g_oidc.sleeps[0]); /* the one interval before the poll */
+    /* C164-41: the two retries wait their backoff, not an interval: a third request one interval
+     * late would match the call count and sleeps[0] alone. */
+    TEST_ASSERT_EQUAL_INT(3, g_oidc.n_sleeps);
+    TEST_ASSERT_TRUE(g_oidc.sleeps[1] < 2000 && g_oidc.sleeps[2] < 2000);
     axiam_oidc_token_set_dispose(&set);
     axiam_client_free(c);
 
     axiam_sensitive_free(code);
+}
+
+static double half_jitter(void *ctx) { (void) ctx; return 0.5; }
+
+void test_the_in_poll_retry_never_waits_past_the_grants_deadline(void) {
+    /*
+     * C164-36, §14.2 rule 4 / §14.6 ("sends nothing after the deadline"): a retry inside a poll is
+     * a poll request. expires_in 30, interval 5, every poll answered 503 + Retry-After: 120. The
+     * floor would put the retry at 125 s; the loop instead returns the 5xx at once and ends with
+     * expired_token at t = 25 s, having waited only the interval between polls.
+     */
+    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":5", 30), 0};
+    g_oidc.token_script[0] = (oidc_answer_t){503, "{\"error\":\"temporarily_unavailable\"}", 0, "120"};
+    g_oidc.token_script_len = 1;
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_STRING("expired_token", err.oauth_error);
+    TEST_ASSERT_EQUAL_INT(5, g_oidc.token_calls);   /* polls at 5, 10, 15, 20, 25 s: no retry */
+    TEST_ASSERT_TRUE(g_oidc.virtual_elapsed_s < 30);
+    for (int i = 0; i < g_oidc.n_sleeps; i++) TEST_ASSERT_TRUE(g_oidc.sleeps[i] <= 5000);
+    axiam_client_free(c);
+
+    /* Control: Retry-After: 20 fits (the retry at t = 25 s is allowed), the one after it does not. */
+    oidc_reset();
+    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":5", 30), 0};
+    g_oidc.token_script[0] = (oidc_answer_t){503, "{\"error\":\"temporarily_unavailable\"}", 0, "20"};
+    g_oidc.token_script_len = 1;
+    c = oidc_make_client();
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_STRING("expired_token", err.oauth_error);
+    TEST_ASSERT_EQUAL_INT(2, g_oidc.token_calls);   /* t = 5 s and its retry at t = 25 s */
+    TEST_ASSERT_EQUAL_INT(25, (int) g_oidc.virtual_elapsed_s);
+    axiam_client_free(c);
+
+    /* A poll sent just before the deadline answered 500 sends no retry, even with no Retry-After. */
+    oidc_reset();
+    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":29", 30), 0};
+    g_oidc.token_script[0] = SERVER_ERROR_500;
+    g_oidc.token_script_len = 1;
+    c = oidc_make_client();
+    c->jitter_fn = half_jitter;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_STRING("expired_token", err.oauth_error);
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+    axiam_client_free(c);
+
+    /* A bare axiam_device_poll has no deadline and keeps the unbounded §16 behaviour. */
+    oidc_reset();
+    g_oidc.token_script[0] = (oidc_answer_t){503, "", 0, "120"};
+    g_oidc.token_script[1] = (oidc_answer_t){200, SUCCESS_TOKENS, 0};
+    g_oidc.token_script_len = 2;
+    c = oidc_make_client();
+    axiam_sensitive_t *code = axiam_sensitive_new("the-device-code");
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_poll(c, code, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(2, g_oidc.token_calls);
+    TEST_ASSERT_TRUE(g_oidc.sleeps[0] >= 120000);
+    axiam_oidc_token_set_dispose(&set);
+    axiam_sensitive_free(code);
+    axiam_client_free(c);
 }
 
 void test_a_429_slow_down_does_not_raise_the_interval_and_a_bodiless_429_honours_retry_after(void) {
@@ -1024,6 +1089,7 @@ int main(void) {
     RUN_TEST(test_a_500_mid_poll_is_retried_rather_than_treated_as_terminal);
     RUN_TEST(test_a_5xx_on_a_single_poll_is_a_network_error_whatever_its_body);
     RUN_TEST(test_a_5xx_on_a_single_poll_is_a_network_error_with_a_null_err);
+    RUN_TEST(test_the_in_poll_retry_never_waits_past_the_grants_deadline);
     RUN_TEST(test_the_device_poll_is_retried_inside_the_attempt_on_a_5xx_but_not_on_a_429);
     RUN_TEST(test_a_429_slow_down_does_not_raise_the_interval_and_a_bodiless_429_honours_retry_after);
     RUN_TEST(test_a_delegation_narrows_scopes_and_reports_what_was_granted);

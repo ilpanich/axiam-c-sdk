@@ -180,7 +180,7 @@ static axiam_error_kind_t device_poll_with(axiam_client_t *client,
                                            const char *device_code, const char *client_id,
                                            const char *tenant,
                                            axiam_oidc_token_set_t *out, long *retry_after_ms,
-                                           axiam_error_t *err) {
+                                           time_t deadline, axiam_error_t *err) {
     /* The status decides below (§14.2 rule 6), and that reads the error struct; a caller that
      * passes NULL gets the same kind as one that does not. */
     axiam_error_t local;
@@ -215,7 +215,7 @@ static axiam_error_kind_t device_poll_with(axiam_client_t *client,
      * 1.64), so one poll answers it once and reports its Retry-After. */
     axiam_error_kind_t kind = oidc_token_grant_ex(client, &form, config, tenant,
                                                   OIDC_RETRY_LOOP_OWNS_429, "device poll failed",
-                                                  &body, retry_after_ms, err);
+                                                  &body, retry_after_ms, deadline, err);
     oidc_form_dispose(&form);
     if (kind == AXIAM_ERR_AUTH && err && err->transport_cause >= 500 && err->transport_cause <= 599) {
         /* §14.2 rule 6 (contract 1.64, amended): a 5xx is a transport failure whatever its body.
@@ -259,7 +259,7 @@ axiam_error_kind_t axiam_device_poll(axiam_client_t *client,
     axiam_oidc_config_t config;
     axiam_error_kind_t kind = axiam_oidc_discover(client, &config, err);
     if (kind != AXIAM_OK) return kind;
-    kind = device_poll_with(client, &config, raw, client_id, tenant, out, NULL, err);
+    kind = device_poll_with(client, &config, raw, client_id, tenant, out, NULL, 0, err);
     axiam_oidc_config_dispose(&config);
     return kind;
 }
@@ -327,7 +327,7 @@ axiam_error_kind_t axiam_device_login(axiam_client_t *client, const char *scope,
         axiam_error_reset(&poll_err);
         long retry_after_ms = -1;
         kind = device_poll_with(client, &config, device_code, client_id, tenant, out,
-                                &retry_after_ms, &poll_err);
+                                &retry_after_ms, deadline, &poll_err);
         if (kind == AXIAM_OK) break;
 
         const char *code = poll_err.oauth_error;

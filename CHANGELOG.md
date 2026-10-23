@@ -46,6 +46,15 @@ returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
   `err` is `NULL`. The header docs of `axiam_device_poll()` and `axiam_device_login()` and the README
   state the status-decides rules (C164-32). Test: `test_oidc_grants`.
 
+- **The §16 retry inside a device poll never waits past the grant's deadline (C164-36, §14.2
+  rule 4, §14.6).** With a `5xx` carrying `Retry-After` the in-poll retry used to sleep the floor
+  (up to 3600 s) and send again, so `axiam_device_login()` could poll long after `expires_in` and
+  even return tokens from a request sent after it. Before each retry the full wait (backoff
+  floored at `Retry-After`) is checked against the deadline; if it would reach it nothing more is
+  sent, the `5xx` ends that poll and the loop raises `expired_token`. A bare `axiam_device_poll()`
+  has no deadline and keeps the §16 behaviour. Test: `test_oidc_grants`
+  (`test_the_in_poll_retry_never_waits_past_the_grants_deadline`).
+
 ### Changed
 
 - **Every manifest refusal carries `transport_cause` 400 (C164-08).** Not only the network
@@ -69,7 +78,8 @@ returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
 - The device poll's in-attempt retry is tested (contract 1.64, second amendment, §14.6; C164-25):
   two `500`s then `200` make three requests and return the tokens, a third `500` surfaces after
   three, a transport failure is retried alike, a `429` is one request, and retry disabled makes one
-  per poll. This SDK already met it; `test_oidc_grants`.
+  per poll. This SDK already met it; `test_oidc_grants`. The `device_login` sub-case also counts
+  the waits now (C164-41).
 - `test_client_failing_transport` runs serially (`RUN_SERIAL`): its single-flight window is
   60 ms and it failed once under `ctest -j8` with sanitizers (C164-23).
 
