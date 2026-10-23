@@ -6,6 +6,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-23
+
+Contract **1.64** (§34.8) and the three Informational findings of the 1.63 conformance review
+(#76). `CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for
+byte from ilpanich/axiam `fb92ec4` (this SDK vendors no `proto/`; the generated surface is
+unchanged, `gen_management.py --check` is clean). No operation is added, no signature changes and
+no struct grows, so this is a **patch** and the ABI version stays 2. Nothing is source-breaking:
+the one observable change is that a manifest refusal now reports `transport_cause` 400 where it
+reported 0 (the value is documented now, see Changed), which no documented behaviour relied on.
+
+### Fixed
+
+- **A `429 rate_limit_exceeded` on a device-code poll is waited out (contract 1.64, §14.2 rule 9,
+  item (b)).** `axiam_device_login()` no longer ends on it: it waits the `Retry-After` as a
+  minimum, caps the wait at the `expires_in` deadline (past it the loop raises `expired_token` and
+  sends nothing more), counts the wait as one interval and does not raise the interval for it,
+  then polls again. A single `axiam_device_poll()` still returns the
+  `rate_limit_exceeded` error of the 1.63 paragraph. The poll no longer retries the `429` inside
+  itself under §16 (a `5xx` and a transport failure still are). Tests: `test_oidc_grants`.
+- **No adopted device bearer on `/oauth2/jwks` and `/oauth2/revocations` (C163-20, §6.1 rule
+  11).** `build_headers()` withheld the cookie jar there since 1.1.1 but still sent the bearer
+  an `axiam_authenticate_device()` login had adopted. Test: `test_oauth2_no_session`.
+
+### Changed
+
+- **The refusal at `axiam_mgmt_plan()` of an unknown network enum says the value is unknown
+  (C163-10, contract 1.64 (c), §27.6.2 item 4).** The message names the member and states that
+  its value is unknown to this SDK (the decoded enum keeps no text, so no raw value is kept and
+  no struct changes). Test: `strstr(err.message, "unknown")` in `test_manifest_network`, plus a
+  test that a manifest stating an unknown `termination_action` or `service_type` is refused.
+- **The manifest's refusals carry `transport_cause` 400, like the generated builders' local
+  refusals (C163-20).** `error.h` and `management_manifest.h` now say that 400 on an
+  `AXIAM_ERR_NETWORK` with no HTTP exchange is a local refusal.
+
+### Documentation
+
+- C163-18: the `CMakeLists.txt` version note, the doc of
+  `axiam_mgmt_scim_target_response_to_input()` (it sets `expected_updated_at`) and the
+  `fill_profile_input` comment (the unknown branch is unreachable from an Update).
+
 ## [1.1.1] - 2026-10-20
 
 Contract **1.63** (§34.7) and the two Low findings of the 1.62 conformance review (#74).

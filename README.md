@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.63 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33 and §36, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.64 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33 and §36, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -30,12 +30,24 @@ framework-agnostic route guard and declarative authorization helpers.
 > optional member — **and a removal waits for 2.0.0.** 1.1.0 is such a release; its
 > [change log](CHANGELOG.md) names every struct that grew.
 > A struct that grows bumps the shared library's `SOVERSION` (its ABI version), which moves
-> independently of the package's Semantic Version: 1.1.1 is `libaxiam.so.1.1.1` with SONAME
+> independently of the package's Semantic Version: 1.1.2 is `libaxiam.so.1.1.2` with SONAME
 > `libaxiam.so.2`, so a binary built against 1.0.x keeps loading `libaxiam.so.1` and the
 > loader refuses to run it against 1.1.0 until it is rebuilt.
 >
 > **Manifest pruning: not offered in any namespace** (§27.10; §27.6 rule 4 makes it a MAY).
 > Omission from a manifest is never deletion.
+>
+> **Contract 1.64** (§34.8, released as **1.1.2**; no new operation, the section list above is
+> unchanged). In this SDK: a `429 rate_limit_exceeded` on a device-code poll is waited out by
+> `axiam_device_login()` and is no longer terminal (§14.2 rule 9) — the loop waits the
+> `Retry-After` as a minimum, capped at the `expires_in` deadline, counts the wait as one
+> interval and does not raise the interval for it; a single `axiam_device_poll()` still returns
+> the `rate_limit_exceeded` error. The refusal at `axiam_mgmt_plan()` of a network profile whose
+> `termination_action` or `service_type` this SDK does not know names the member and says the
+> value is unknown (§27.6.2 item 4 as amended: the decoded enum keeps no text); the manifest's
+> refusals now carry `transport_cause` 400 like the generated operations (400 with no HTTP
+> exchange is a local refusal); and an adopted device bearer is no longer sent on the
+> `GET /oauth2/jwks` and `/oauth2/revocations` requests (§6.1 rule 11).
 >
 > **Contract 1.63** (§34.7, released as **1.1.1**; no new operation, the section list above is
 > unchanged). In this SDK: no `axiam_*` session cookie and no `X-CSRF-Token` header on any
@@ -208,7 +220,7 @@ when `CMakeLists.txt`, the header macros and the CI matrix stop agreeing.
 include(FetchContent)
 FetchContent_Declare(axiam-c-sdk
   GIT_REPOSITORY https://github.com/ilpanich/axiam-c-sdk.git
-  GIT_TAG v1.1.1)
+  GIT_TAG v1.1.2)
 FetchContent_MakeAvailable(axiam-c-sdk)
 
 target_link_libraries(my_app PRIVATE axiam::axiam)
@@ -232,7 +244,7 @@ vcpkg install axiam-c-sdk --overlay-ports=./ports
 ### Conan
 
 ```sh
-conan create . --version=1.1.1
+conan create . --version=1.1.2
 ```
 
 ## Quickstart
