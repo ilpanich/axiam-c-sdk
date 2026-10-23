@@ -221,6 +221,8 @@ static void test_a_dangling_reference_is_refused_before_any_request(void) {
     TEST_ASSERT_NOT_EQUAL(AXIAM_OK, rc);
     TEST_ASSERT_NULL(plan);
     TEST_ASSERT_NOT_NULL(strstr(err.message, "does not declare"));
+    /* C164-08: every manifest refusal is a local one, `transport_cause` 400. */
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
     TEST_ASSERT_EQUAL_INT(1, mgmt_request_count()); /* only the login */
     axiam_client_free(c);
 }
@@ -242,6 +244,7 @@ static void test_a_cycle_is_refused_before_any_request(void) {
 
     TEST_ASSERT_NOT_EQUAL(AXIAM_OK, rc);
     TEST_ASSERT_NOT_NULL(strstr(err.message, "cycle"));
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
     TEST_ASSERT_EQUAL_INT(1, mgmt_request_count());
     axiam_client_free(c);
 }
@@ -257,6 +260,16 @@ static void test_a_duplicate_key_is_refused(void) {
 
     TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_mgmt_manifest_validate(&m, &err));
     TEST_ASSERT_NOT_NULL(strstr(err.message, "twice"));
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
+
+    /* The same refusal at `plan`: also a local one, and no request after the sign-in. */
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_plan_t *plan = NULL;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_mgmt_plan(c, &m, &plan, &err));
+    TEST_ASSERT_NULL(plan);
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
+    TEST_ASSERT_EQUAL_INT(1, mgmt_request_count());
+    axiam_client_free(c);
 }
 
 static void test_an_entity_without_a_key_is_refused(void) {
@@ -269,6 +282,7 @@ static void test_an_entity_without_a_key_is_refused(void) {
     axiam_mgmt_manifest_t m = { &e, 1 };
 
     TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_mgmt_manifest_validate(&m, &err));
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
 }
 
 /* ---- apply stops at the first failure, without rolling back ---------- */

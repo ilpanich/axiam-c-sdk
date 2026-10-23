@@ -176,7 +176,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
     for (size_t i = 0; i < manifest->count; i++) {
         const axiam_mgmt_manifest_entity_t *a = &manifest->entities[i];
         if (!a->key || !*a->key) {
-            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "manifest: every entity needs a key");
+            refuse(err, "manifest: every entity needs a key");
             return AXIAM_ERR_NETWORK;
         }
         for (size_t j = i + 1; j < manifest->count; j++) {
@@ -185,7 +185,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
                 snprintf(msg, sizeof msg,
                          "manifest declares \"%s\" twice -- a key must be unique within "
                          "its kind", a->key);
-                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+                refuse(err, msg);
                 return AXIAM_ERR_NETWORK;
             }
         }
@@ -199,7 +199,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
             snprintf(msg, sizeof msg,
                      "\"%s\": a resource entity needs a resource_type -- this SDK does "
                      "not default one", a->key);
-            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+            refuse(err, msg);
             return AXIAM_ERR_NETWORK;
         }
     }
@@ -212,7 +212,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
             snprintf(msg, sizeof msg,
                      "\"%s\" depends on \"%s\", which this manifest does not declare",
                      manifest->entities[i].key, dep);
-            axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+            refuse(err, msg);
             return AXIAM_ERR_NETWORK;
         }
     }
@@ -229,7 +229,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
                 snprintf(msg, sizeof msg,
                          "manifest has a dependency cycle reachable from \"%s\"",
                          manifest->entities[i].key);
-                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+                refuse(err, msg);
                 return AXIAM_ERR_NETWORK;
             }
             e = find_key(manifest, e->depends_on);
@@ -251,7 +251,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
                 snprintf(msg, sizeof msg,
                          "\"%s\" binds role \"%s\", which this manifest does not declare "
                          "as a role", subj->key, rb->role_key ? rb->role_key : "(null)");
-                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+                refuse(err, msg);
                 return AXIAM_ERR_NETWORK;
             }
             if (rb->resource_key) {
@@ -261,7 +261,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
                              "\"%s\" binds role \"%s\" to resource \"%s\", which this "
                              "manifest does not declare as a resource",
                              subj->key, rb->role_key, rb->resource_key);
-                    axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+                    refuse(err, msg);
                     return AXIAM_ERR_NETWORK;
                 }
             }
@@ -275,7 +275,7 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
                     snprintf(msg, sizeof msg,
                              "\"%s\" binds role \"%s\" twice -- a subject holds a role at "
                              "most once (CONTRACT.md \xc2\xa7""27.6.1)", subj->key, rb->role_key);
-                    axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+                    refuse(err, msg);
                     return AXIAM_ERR_NETWORK;
                 }
             }
@@ -288,14 +288,14 @@ axiam_error_kind_t axiam_mgmt_manifest_validate(const axiam_mgmt_manifest_t *man
                 snprintf(msg, sizeof msg,
                          "\"%s\" binds role \"%s\" with inherit:false and no resource -- "
                          "there is no resource to stop at", subj->key, rb->role_key);
-                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+                refuse(err, msg);
                 return AXIAM_ERR_NETWORK;
             }
             if (rb->inherit_false && role->is_global) {
                 snprintf(msg, sizeof msg,
                          "\"%s\" binds global role \"%s\" with inherit:false -- a global "
                          "role applies everywhere by definition", subj->key, rb->role_key);
-                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+                refuse(err, msg);
                 return AXIAM_ERR_NETWORK;
             }
         }
@@ -642,7 +642,7 @@ axiam_error_kind_t axiam_mgmt_plan(axiam_client_t *c, const axiam_mgmt_manifest_
                          "\"%s\": more than one existing service account is named \"%s\" "
                          "-- name is not unique server-side (CONTRACT.md \xc2\xa7""27.6.1 "
                          "item 3); plan cannot pick one", e->key, match_name(e));
-                axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+                refuse(err, msg);
                 for (int k = 0; k < AXIAM_MGMT_MANIFEST_KIND_COUNT; k++)
                     if (loaded[k]) existing_free(&cache[k]);
                 axiam_mgmt_plan_free(plan);
@@ -884,7 +884,9 @@ static const axiam_mgmt_network_profile_spec_t *profile_spec_for(const axiam_mgm
 }
 
 static axiam_error_kind_t oom(axiam_error_t *err) {
-    return refuse(err, "manifest: out of memory");
+    /* Not a refusal of the manifest: no HTTP status, so cause 0 like every other allocation failure. */
+    axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "manifest: out of memory");
+    return AXIAM_ERR_NETWORK;
 }
 
 /*

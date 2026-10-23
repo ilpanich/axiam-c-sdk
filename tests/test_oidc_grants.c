@@ -310,9 +310,10 @@ void test_a_500_mid_poll_is_retried_rather_than_treated_as_terminal(void) {
      * own `expires_in` window.
      */
     g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":1", 600), 0};
-    g_oidc.token_script[0] = (oidc_answer_t){503, "", 0};
-    g_oidc.token_script[1] = (oidc_answer_t){503, "", 0};
-    g_oidc.token_script[2] = (oidc_answer_t){503, "", 0};
+    /* Contract 1.64 (amended), §14.6: the body the server sends, not a bodiless 500. */
+    g_oidc.token_script[0] = (oidc_answer_t){500, "{\"error\":\"server_error\",\"error_description\":\"db\"}", 0};
+    g_oidc.token_script[1] = (oidc_answer_t){500, "{\"error\":\"server_error\",\"error_description\":\"db\"}", 0};
+    g_oidc.token_script[2] = (oidc_answer_t){500, "{\"error\":\"server_error\",\"error_description\":\"db\"}", 0};
     g_oidc.token_script[3] = (oidc_answer_t){200, SUCCESS_TOKENS, 0};
     g_oidc.token_script_len = 4;
 
@@ -323,6 +324,49 @@ void test_a_500_mid_poll_is_retried_rather_than_treated_as_terminal(void) {
     /* Three attempts inside the first poll (§16.1's 1 + 2), then the loop's own
      * second poll succeeds. A terminal treatment would have stopped at one. */
     TEST_ASSERT_EQUAL_INT(4, g_oidc.token_calls);
+    /* And the interval is unchanged. */
+    TEST_ASSERT_EQUAL_INT(1000, g_oidc.sleeps[g_oidc.n_sleeps - 1]);
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
+void test_a_5xx_on_a_single_poll_is_a_network_error_whatever_its_body(void) {
+    /* §14.2 rule 6 (amended): the status is read before the body, so a single poll's 500 is the
+     * §2 NetworkError with no OAuth code, not an OAuthProtocolError("server_error"). */
+    g_oidc.token_script[0] = (oidc_answer_t){500, "{\"error\":\"server_error\"}", 0};
+    g_oidc.token_script_len = 1;
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_sensitive_t *code = axiam_sensitive_new("the-device-code");
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_device_poll(c, code, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_STRING("", err.oauth_error);
+    TEST_ASSERT_EQUAL_INT(500, (int) err.transport_cause);
+    axiam_sensitive_free(code);
+    axiam_client_free(c);
+}
+
+void test_a_429_slow_down_does_not_raise_the_interval_and_a_bodiless_429_honours_retry_after(void) {
+    /* §14.2 rule 9 (amended): the status decides. A 429 whose body says `slow_down` is the
+     * wait, not the signal (waits [2, 2, 7, 2]: the interval, then the 429 with the interval as
+     * its floor, then a bodiless 429 with `Retry-After: 7`, then the interval again). */
+    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":2", 600), 0};
+    g_oidc.token_script[0] = (oidc_answer_t){429, "{\"error\":\"slow_down\"}", 0, "1"};
+    g_oidc.token_script[1] = (oidc_answer_t){429, "", 0, "7"};
+    g_oidc.token_script[2] = (oidc_answer_t){400, "{\"error\":\"authorization_pending\"}", 0};
+    g_oidc.token_script[3] = (oidc_answer_t){200, SUCCESS_TOKENS, 0};
+    g_oidc.token_script_len = 4;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(4, g_oidc.token_calls);
+    TEST_ASSERT_EQUAL_INT(4, g_oidc.n_sleeps);
+    TEST_ASSERT_EQUAL_INT(2000, g_oidc.sleeps[0]);
+    TEST_ASSERT_EQUAL_INT(2000, g_oidc.sleeps[1]); /* the 429 slow_down: 1 s < the interval */
+    TEST_ASSERT_EQUAL_INT(7000, g_oidc.sleeps[2]); /* the bodiless 429: Retry-After as the floor */
+    TEST_ASSERT_EQUAL_INT(2000, g_oidc.sleeps[3]);
     axiam_oidc_token_set_dispose(&set);
     axiam_client_free(c);
 }
@@ -885,6 +929,8 @@ int main(void) {
     RUN_TEST(test_a_429_without_retry_after_waits_the_interval_and_polls_again);
     RUN_TEST(test_a_429_retry_after_past_the_deadline_is_capped_and_sends_nothing_after_it);
     RUN_TEST(test_a_500_mid_poll_is_retried_rather_than_treated_as_terminal);
+    RUN_TEST(test_a_5xx_on_a_single_poll_is_a_network_error_whatever_its_body);
+    RUN_TEST(test_a_429_slow_down_does_not_raise_the_interval_and_a_bodiless_429_honours_retry_after);
     RUN_TEST(test_a_delegation_narrows_scopes_and_reports_what_was_granted);
     RUN_TEST(test_omitting_scope_inherits_the_subjects_and_omitting_the_actor_asks_for_impersonation);
     RUN_TEST(test_unauthorized_client_is_surfaced_verbatim_with_no_retry_or_rewrite);

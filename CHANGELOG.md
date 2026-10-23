@@ -8,13 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.1.2] - 2026-10-23
 
-Contract **1.64** (§34.8) and the three Informational findings of the 1.63 conformance review
-(#76). `CONTRACT.md`, `openapi.json` and `management-registry.json` are re-vendored byte for
-byte from ilpanich/axiam `fb92ec4` (this SDK vendors no `proto/`; the generated surface is
-unchanged, `gen_management.py --check` is clean). No operation is added, no signature changes and
-no struct grows, so this is a **patch** and the ABI version stays 2. Nothing is source-breaking:
-the one observable change is that a manifest refusal now reports `transport_cause` 400 where it
-reported 0 (the value is documented now, see Changed), which no documented behaviour relied on.
+Contract **1.64** (§34.8, as amended 2026-10-23), the three Informational findings of the 1.63
+conformance review (#76) and the findings of the 1.64 review that name this SDK. `CONTRACT.md` is
+re-vendored byte for byte from ilpanich/axiam `21beda0`; `openapi.json` and
+`management-registry.json` from `fb92ec4`, where `21beda0` leaves them unchanged (this SDK vendors
+no `proto/`; the generated surface is unchanged, `gen_management.py --check` is clean). No
+operation is added, no signature changes and no struct grows, so this is a **patch** and the ABI
+version stays 2. Nothing is source-breaking. The observable changes are that a manifest refusal
+reports `transport_cause` 400 where it reported 0 (the value is documented now), and that a single
+`axiam_device_poll()` answered `5xx` with an OAuth error body returns `AXIAM_ERR_NETWORK` where it
+returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
 
 ### Fixed
 
@@ -27,10 +30,25 @@ reported 0 (the value is documented now, see Changed), which no documented behav
   itself under §16 (a `5xx` and a transport failure still are). Tests: `test_oidc_grants`.
 - **No adopted device bearer on `/oauth2/jwks` and `/oauth2/revocations` (C163-20, §6.1 rule
   11).** `build_headers()` withheld the cookie jar there since 1.1.1 but still sent the bearer
-  an `axiam_authenticate_device()` login had adopted. Test: `test_oauth2_no_session`.
+  an `axiam_authenticate_device()` login had adopted. Test: `test_device_auth`
+  (`test_adopted_bearer_is_not_sent_on_jwks_or_revocations`).
+
+- **The status decides on a device poll (contract 1.64 as amended, §14.2 rules 6 and 9; C164-03,
+  C164-04, C164-17).** A `5xx` on a poll is a transport failure whatever its body: AXIAM answers a
+  datastore fault `500 {"error":"server_error"}`, which used to end `axiam_device_login()`; a single
+  `axiam_device_poll()` now returns it as `AXIAM_ERR_NETWORK` with no `oauth_error` (it was
+  `AXIAM_ERR_AUTH`/`server_error`). Any `429` on a poll is the wait, whatever its body: a `429`
+  whose body says `slow_down` no longer raises the interval (only a `400` does), and a `429` with no
+  OAuth body honours its `Retry-After` as the floor. Tests: `test_oidc_grants`.
 
 ### Changed
 
+- **Every manifest refusal carries `transport_cause` 400 (C164-08).** Not only the network
+  section's: the duplicate key, missing key or `resource_type`, dangling `depends_on`, cycle,
+  role-binding and ambiguous service-account refusals of `axiam_mgmt_manifest_validate()` and
+  `axiam_mgmt_plan()` too, as `management_manifest.h` documents. An out-of-memory stays 0, and
+  `error.h` no longer says "nothing was sent" (a `plan` has sent reads). Tests:
+  `test_management_manifest`.
 - **The refusal at `axiam_mgmt_plan()` of an unknown network enum says the value is unknown
   (C163-10, contract 1.64 (c), §27.6.2 item 4).** The message names the member and states that
   its value is unknown to this SDK (the decoded enum keeps no text, so no raw value is kept and
@@ -39,6 +57,11 @@ reported 0 (the value is documented now, see Changed), which no documented behav
 - **The manifest's refusals carry `transport_cause` 400, like the generated builders' local
   refusals (C163-20).** `error.h` and `management_manifest.h` now say that 400 on an
   `AXIAM_ERR_NETWORK` with no HTTP exchange is a local refusal.
+
+### Tests
+
+- `test_client_failing_transport` runs serially (`RUN_SERIAL`): its single-flight window is
+  60 ms and it failed once under `ctest -j8` with sanitizers (C164-23).
 
 ### Documentation
 

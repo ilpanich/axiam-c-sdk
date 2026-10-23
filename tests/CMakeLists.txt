@@ -39,6 +39,9 @@ axiam_add_test(test_sensitive test_sensitive.c)
 axiam_add_test(test_error test_error.c)
 axiam_add_test(test_client_auth test_client_auth.c)
 axiam_add_test(test_client_failing_transport test_client_failing_transport.c)
+# The single-flight follower test relies on a 60 ms window for the followers to pile up; under
+# `ctest -j` with sanitizers it has failed once ("Expected 1 Was 2"). Run it alone (C164-23).
+set_tests_properties(test_client_failing_transport PROPERTIES RUN_SERIAL TRUE)
 axiam_add_test(test_authz test_authz.c)
 axiam_add_test(test_singleflight test_singleflight.c)
 axiam_add_test(test_refresh_org test_refresh_org.c)

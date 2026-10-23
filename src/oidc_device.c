@@ -210,6 +210,14 @@ static axiam_error_kind_t device_poll_with(axiam_client_t *client,
                                                   OIDC_RETRY_LOOP_OWNS_429, "device poll failed",
                                                   &body, retry_after_ms, err);
     oidc_form_dispose(&form);
+    if (kind == AXIAM_ERR_AUTH && err && err->transport_cause >= 500 && err->transport_cause <= 599) {
+        /* §14.2 rule 6 (contract 1.64, amended): a 5xx is a transport failure whatever its body.
+         * AXIAM answers a datastore fault `500 {"error":"server_error"}`; the status is read
+         * before the body, so this is the §2 NetworkError the loop does not end on. */
+        err->kind = AXIAM_ERR_NETWORK;
+        err->oauth_error[0] = '\0';
+        kind = AXIAM_ERR_NETWORK;
+    }
     if (kind == AXIAM_OK) {
         /* §12.4 rules 1-5 and 7 apply to any id_token; rule 6 is skipped —
          * there was no authorization request in this flow to carry a nonce. */
@@ -316,6 +324,14 @@ axiam_error_kind_t axiam_device_login(axiam_client_t *client, const char *scope,
         if (kind == AXIAM_OK) break;
 
         const char *code = poll_err.oauth_error;
+        if (poll_err.transport_cause == 429) {
+            /* Rule 9 (contract 1.64, amended): the STATUS decides. Any 429 on a poll is this
+             * wait, whatever its body names (a `slow_down` or no OAuth body at all included);
+             * `Retry-After` is a minimum, the wait counts as this poll's interval and does NOT
+             * raise it, and the deadline check at the top of the loop caps it (rule 4). */
+            if (retry_after_ms > wait_ms) wait_ms = retry_after_ms;
+            continue;
+        }
         if (!code[0]) {
             /* §14.2 rule 6: a 5xx or transport failure is not terminal — it has
              * already been through the §16 bounded retry inside the poll. */
@@ -326,13 +342,6 @@ axiam_error_kind_t axiam_device_login(axiam_client_t *client, const char *scope,
             /* Rule 1: permanent, cumulative, never reset. */
             interval += AXIAM_DEVICE_SLOW_DOWN_INCREMENT_S;
             wait_ms = interval * 1000L;
-            continue;
-        }
-        if (poll_err.transport_cause == 429 && strcmp(code, "rate_limit_exceeded") == 0) {
-            /* Rule 9 (contract 1.64): not terminal. `Retry-After` is a minimum, the wait
-             * counts as this poll's interval and does NOT raise it, and the deadline
-             * check at the top of the loop caps it (rule 4). */
-            if (retry_after_ms > wait_ms) wait_ms = retry_after_ms;
             continue;
         }
         /* access_denied, expired_token, invalid_grant — and anything else the
