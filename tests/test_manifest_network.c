@@ -661,6 +661,10 @@ static void unknown_member_case(const char *member) {
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_mgmt_plan(c, &m, &plan, &err));
     TEST_ASSERT_NULL(plan);
     TEST_ASSERT_NOT_NULL_MESSAGE(strstr(err.message, member), err.message);
+    /* Contract 1.64 (c): the decoded enum keeps no text, so the message says the value is
+     * unknown; and a refusal is a local one, `transport_cause` 400 like the builders'. */
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(err.message, "unknown"), err.message);
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
     assert_only_reads_after_login();
     axiam_client_free(c);
 
@@ -702,6 +706,37 @@ static void unknown_member_case(const char *member) {
 static void test_an_unknown_termination_action_is_refused_unless_stated(void) { unknown_member_case("termination_action"); }
 static void test_an_unknown_service_type_is_refused_unless_stated(void) { unknown_member_case("service_type"); }
 
+/* C163-20: a manifest that STATES a termination_action or service_type this SDK does not know
+ * is refused at `plan` before any request, and says which member. */
+static void stated_unknown_case(const char *member) {
+    int term = strcmp(member, "termination_action") == 0;
+    axiam_mgmt_network_segment_spec_t seg = seg_spec("lab", "lab", 10);
+    axiam_mgmt_network_profile_spec_t prof = prof_spec("lab", 2400);
+    if (term) prof.termination_action = "future";
+    else {
+        prof.service_type_state = AXIAM_MGMT_FIELD_SET;
+        prof.service_type = "future";
+    }
+    axiam_mgmt_manifest_t m = {0};
+    m.network_segments = &seg;
+    m.network_segments_count = 1;
+    m.network_profiles = &prof;
+    m.network_profiles_count = 1;
+
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+    axiam_mgmt_plan_t *plan = NULL;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_mgmt_plan(c, &m, &plan, &err));
+    TEST_ASSERT_NULL(plan);
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(err.message, member), err.message);
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
+    assert_only_reads_after_login();
+    axiam_client_free(c);
+}
+
+static void test_a_stated_unknown_termination_action_is_refused(void) { stated_unknown_case("termination_action"); }
+static void test_a_stated_unknown_service_type_is_refused(void) { stated_unknown_case("service_type"); }
+
 /* A manifest without a network section plans exactly as before: no network request at all. */
 static void test_a_manifest_without_network_sends_no_network_request(void) {
     axiam_mgmt_manifest_t m = {0};
@@ -731,6 +766,8 @@ int main(void) {
     RUN_TEST(test_a_clamped_profile_is_judged_on_the_read);
     RUN_TEST(test_an_unknown_termination_action_is_refused_unless_stated);
     RUN_TEST(test_an_unknown_service_type_is_refused_unless_stated);
+    RUN_TEST(test_a_stated_unknown_termination_action_is_refused);
+    RUN_TEST(test_a_stated_unknown_service_type_is_refused);
     RUN_TEST(test_a_manifest_without_network_sends_no_network_request);
     return UNITY_END();
 }

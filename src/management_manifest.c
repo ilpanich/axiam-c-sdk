@@ -44,7 +44,8 @@ static const axiam_mgmt_network_segment_spec_t *find_segment_spec(const axiam_mg
 }
 
 static axiam_error_kind_t refuse(axiam_error_t *err, const char *msg) {
-    axiam_error_set(err, AXIAM_ERR_NETWORK, 0, msg);
+    /* 400 with no HTTP exchange is a local refusal, as in axiam_local_refusal(). */
+    axiam_error_set(err, AXIAM_ERR_NETWORK, 400, msg);
     return AXIAM_ERR_NETWORK;
 }
 
@@ -1009,9 +1010,9 @@ static axiam_error_kind_t plan_network(axiam_client_t *c, const axiam_mgmt_manif
             if (member) {
                 char msg[256];
                 snprintf(msg, sizeof msg,
-                         "network profile for \"%s\": the server holds a %s this SDK does not know, "
-                         "and the manifest does not state it; stating it is the only way to update "
-                         "the profile", pspec->segment, member);
+                         "network profile for \"%s\": the server holds a %s whose value is unknown to "
+                         "this SDK, and the manifest does not state it; stating it is the only "
+                         "way to update the profile", pspec->segment, member);
                 free(ordered);
                 axiam_mgmt_network_segment_response_page_free(segs);
                 axiam_mgmt_network_reply_profile_page_free(profs);
@@ -1323,7 +1324,9 @@ static const axiam_mgmt_planned_network_t *segment_item_of(const axiam_mgmt_plan
  * the body of an Update -- every UNSTATED one CARRIED from the read (silence is not an
  * assertion, and a replacement would otherwise clear it). A member stated as NULL is
  * "none": the key is left out, and `null` is never sent. A value the read decoded as
- * unknown is never re-sent (§36.2): it is left out. */
+ * unknown is never re-sent (§36.2); an Update cannot reach that branch, because `plan`
+ * refuses it unless the manifest states the member (§27.6.2 item 4), so it is only a
+ * guard. */
 static void fill_profile_input(axiam_mgmt_network_reply_profile_input_t *in,
                                const axiam_mgmt_network_profile_spec_t *spec,
                                const axiam_mgmt_network_reply_profile_t *read) {

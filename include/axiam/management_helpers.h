@@ -127,7 +127,9 @@ axiam_mgmt_ssf_stream_apply_changes(const axiam_mgmt_ssf_stream_t *stream,
                                     const axiam_mgmt_ssf_stream_changes_t *changes);
 
 /** A `ScimTargetResponse` read as the `update` replacement body; `credential` absent
- *  (keeps the stored one unless the URL moves — §31.3 rule 2). */
+ *  (keeps the stored one unless the URL moves — §31.3 rule 2). `expected_updated_at` is the
+ *  read's own `updated_at` string, byte for byte (§31.3 rule 4), so the update is refused
+ *  with a `409` if the target changed since the read. */
 axiam_mgmt_scim_target_input_t *
 axiam_mgmt_scim_target_response_to_input(const axiam_mgmt_scim_target_response_t *target);
 

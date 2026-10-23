@@ -397,7 +397,9 @@ void axiam_mgmt_apply_report_dispose(axiam_mgmt_apply_report_t *report);
  *
  * Validates the manifest BEFORE the first request: a dangling `depends_on`, a cycle, or a
  * duplicate key is refused up front, because §27.7 gives apply no rollback and
- * discovering it halfway through leaves a tenant in a state nobody described.
+ * discovering it halfway through leaves a tenant in a state nobody described. A refusal
+ * is `AXIAM_ERR_NETWORK` with `transport_cause` 400: 400 with no HTTP exchange is a local
+ * refusal, as for the generated operations (`axiam_local_refusal`).
  *
  * @param c        The client. Must have an active session.
  * @param manifest The desired state.

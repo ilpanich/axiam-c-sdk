@@ -31,7 +31,7 @@ typedef enum axiam_error_kind {
 typedef struct axiam_error {
     axiam_error_kind_t kind;     /**< The error kind. */
     char message[256];           /**< Human-readable, redacted message. */
-    long transport_cause;        /**< Numeric transport cause: HTTP status, or CURLcode << (negated). */
+    long transport_cause;        /**< Numeric transport cause: HTTP status, or CURLcode << (negated). `400` on an `AXIAM_ERR_NETWORK` with no HTTP exchange is a local refusal: nothing was sent. */
     /**
      * The `error` field of an OAuth2ErrorResponse — e.g. "invalid_grant",
      * "access_denied" — or "" when the failure was not an OAuth2 protocol
