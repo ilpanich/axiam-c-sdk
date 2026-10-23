@@ -44,7 +44,8 @@ framework-agnostic route guard and declarative authorization helpers.
 > interval and does not raise the interval for it. The status decides, not the body: this holds
 > for any `429` (a `429 slow_down` included; only a `400` raises the interval), and a `5xx` on a
 > poll is a transport failure whatever its body (`500 {"error":"server_error"}` included), retried
-> under §16 inside the poll and never ending the loop. A single `axiam_device_poll()` returns the
+> under §16 inside the poll and never ending the loop; that retry never waits past the
+> `expires_in` deadline (nothing is sent after it), in `axiam_ciba_await()` as well (§34.2 P10). A single `axiam_device_poll()` returns the
 > `429` as `rate_limit_exceeded` and a `5xx` as `AXIAM_ERR_NETWORK`. The refusal at `axiam_mgmt_plan()` of a network profile whose
 > `termination_action` or `service_type` this SDK does not know names the member and says the
 > value is unknown (§27.6.2 item 4 as amended: the decoded enum keeps no text); the manifest's

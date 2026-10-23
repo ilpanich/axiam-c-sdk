@@ -88,6 +88,7 @@ typedef struct {
     long status;
     const char *body;
     int transport_fails;
+    const char *retry_after; /* the Retry-After header value, or NULL */
 } answer_t;
 
 typedef struct {
@@ -135,6 +136,8 @@ static int answer(const answer_t *script, int len, int *calls, axiam_http_respon
     }
     resp->status = script[i].status;
     if (script[i].body) resp->body = strdup(script[i].body);
+    if (script[i].retry_after)
+        resp->headers = axiam_kv_append(resp->headers, "Retry-After", script[i].retry_after);
     return 0;
 }
 
@@ -690,6 +693,69 @@ static void test_t07_no_request_after_expires_in_and_expired_token_is_raised_loc
     TEST_ASSERT_TRUE(axiam_error_is_expired_token(&err));
     TEST_ASSERT_EQUAL_INT_MESSAGE(1, g.token_calls, "one poll at 5 s, none at 10 s past 6 s");
     axiam_ciba_initiate_response_dispose(&in);
+    axiam_client_free(c);
+}
+
+/* §33.8 test 7, second sentence; §34.2 P10 (C164-43): a §16 retry inside a poll never waits past
+ * the deadline, and the wait runs on the injected clock. */
+static void test_t07_a_retry_after_past_the_deadline_inside_a_poll_is_not_served(void) {
+    axiam_client_t *c = make_client();
+    g.token[0] = (answer_t){503, "{\"error\":\"temporarily_unavailable\"}", 0, "120"};
+    g.token_len = 1;
+    long start = g.clock_s;
+    axiam_ciba_initiate_response_t in = initiated("unavailable-forever", 30, 5);
+    axiam_oidc_token_set_t set;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_ciba_await(c, &in, NULL, NULL, &TEST_CLOCK, &set, &err));
+    TEST_ASSERT_TRUE(axiam_error_is_expired_token(&err));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(5, g.token_calls, "polls at 5, 10, 15, 20, 25 s and no retry");
+    for (int i = 0; i < g.n; i++) TEST_ASSERT_TRUE(g.at[i] < start + 30);
+    TEST_ASSERT_TRUE_MESSAGE(g.clock_s - start < 30, "the injected clock never reached the deadline");
+    axiam_ciba_initiate_response_dispose(&in);
+    axiam_client_free(c);
+
+    /* Control: Retry-After 20 fits (the retry at 25 s is sent, on the injected clock), nothing after. */
+    setUp();
+    c = make_client();
+    g.token[0] = (answer_t){503, "{\"error\":\"temporarily_unavailable\"}", 0, "20"};
+    g.token_len = 1;
+    start = g.clock_s;
+    in = initiated("unavailable-forever", 30, 5);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_ciba_await(c, &in, NULL, NULL, &TEST_CLOCK, &set, &err));
+    TEST_ASSERT_TRUE(axiam_error_is_expired_token(&err));
+    TEST_ASSERT_EQUAL_INT(2, g.token_calls);
+    TEST_ASSERT_EQUAL_INT(start + 5, g.at[0]);
+    TEST_ASSERT_EQUAL_INT(start + 25, g.at[1]);
+    axiam_ciba_initiate_response_dispose(&in);
+    axiam_client_free(c);
+
+    /* The boundary: a wait that lands exactly on the deadline is not served either (>=, not >). */
+    setUp();
+    c = make_client();
+    g.token[0] = (answer_t){503, "{\"error\":\"temporarily_unavailable\"}", 0, "25"};
+    g.token_len = 1;
+    start = g.clock_s;
+    in = initiated("unavailable-forever", 30, 5);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_ciba_await(c, &in, NULL, NULL, &TEST_CLOCK, &set, &err));
+    for (int i = 0; i < g.n; i++) TEST_ASSERT_TRUE(g.at[i] < start + 30);
+    TEST_ASSERT_EQUAL_INT(5, g.token_calls);
+    axiam_ciba_initiate_response_dispose(&in);
+    axiam_client_free(c);
+
+    /* A bare ciba_poll has no deadline and keeps the unbounded §16 behaviour. */
+    setUp();
+    c = make_client();
+    c->sleep_fn = advancing_sleep;
+    g.token[0] = (answer_t){503, "", 0, "120"};
+    g.token[1] = (answer_t){503, "", 0, "120"};
+    g.token[2] = (answer_t){503, "", 0, "120"};
+    g.token_len = 3;
+    start = g.clock_s;
+    axiam_sensitive_t *id = axiam_sensitive_new("bare-poll");
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_ciba_poll(c, id, NULL, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(3, g.token_calls);
+    TEST_ASSERT_TRUE(g.clock_s - start >= 240);
+    axiam_sensitive_free(id);
     axiam_client_free(c);
 }
 
@@ -1292,6 +1358,7 @@ int main(void) {
     RUN_TEST(test_t05_pending_loops_slow_down_persists_and_the_terminal_answers_are_distinct);
     RUN_TEST(test_t06_the_first_poll_waits_the_interval_or_five_seconds);
     RUN_TEST(test_t07_no_request_after_expires_in_and_expired_token_is_raised_locally);
+    RUN_TEST(test_t07_a_retry_after_past_the_deadline_inside_a_poll_is_not_served);
     RUN_TEST(test_t08_a_500_and_a_429_mid_loop_are_survived);
     RUN_TEST(test_t09_a_second_redemption_is_invalid_grant_and_not_retried);
     RUN_TEST(test_t10_a_valid_ping_returns_its_auth_req_id_in_any_scheme_case);

@@ -55,6 +55,17 @@ returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
   has no deadline and keeps the §16 behaviour. Test: `test_oidc_grants`
   (`test_the_in_poll_retry_never_waits_past_the_grants_deadline`).
 
+- **The §16 retry inside a CIBA poll never waits past `axiam_ciba_await()`'s deadline (C164-43,
+  §33.7 rule 5, §34.2 P10, §33.8 test 7).** The same fault as the device poll's, found in the
+  CIBA loop: a `5xx` with `Retry-After: 120` made `axiam_ciba_await()` send at 125 s and 245 s
+  against a 30 s request, and the in-poll waits ran on the client's clock, not the caller's
+  `axiam_ciba_clock_t`. The full wait is now checked against `received_at + expires_in` before
+  each retry; if it would reach it nothing more is sent and the loop raises `expired_token`, and
+  the wait is slept on the injected clock. A bare `axiam_ciba_poll()` keeps the unbounded §16
+  behaviour. Test: `test_ciba` (`test_t07_a_retry_after_past_the_deadline_inside_a_poll_is_not_served`),
+  with the boundary (`>=`) pinned.
+  The README now says that the in-poll retry stays inside the deadline (C164-48).
+
 ### Changed
 
 - **Every manifest refusal carries `transport_cause` 400 (C164-08).** Not only the network
