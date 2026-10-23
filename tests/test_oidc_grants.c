@@ -235,6 +235,72 @@ void test_a_slow_down_past_the_deadline_stops_the_loop_rather_than_overrunning(v
     axiam_client_free(c);
 }
 
+void test_a_429_on_a_poll_is_waited_out_and_leaves_the_interval_unchanged(void) {
+    /*
+     * Contract 1.64, §14.2 rule 9 (last paragraph), §14.6: the mock answers one poll with
+     * `429 rate_limit_exceeded` and a `Retry-After` of 20 s, then `200`. The loop waits at
+     * least the Retry-After (recorded by the fake sleep, not taken), polls again and
+     * completes; the interval is unchanged, so the wait after the 429 is the interval and
+     * not the interval plus five seconds. The 429 is not retried inside the poll.
+     */
+    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":2", 600), 0};
+    g_oidc.token_script[0] = (oidc_answer_t){429, "{\"error\":\"rate_limit_exceeded\"}", 0, "20"};
+    g_oidc.token_script[1] = (oidc_answer_t){400, "{\"error\":\"authorization_pending\"}", 0};
+    g_oidc.token_script[2] = (oidc_answer_t){200, SUCCESS_TOKENS, 0};
+    g_oidc.token_script_len = 3;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
+
+    TEST_ASSERT_EQUAL_INT(3, g_oidc.token_calls);
+    TEST_ASSERT_EQUAL_INT(3, g_oidc.n_sleeps);
+    TEST_ASSERT_EQUAL_INT(2000, g_oidc.sleeps[0]);
+    /* The wait before the poll that follows the 429: the Retry-After, a minimum. */
+    TEST_ASSERT_TRUE(g_oidc.sleeps[1] >= 20000);
+    /* The interval is unchanged: the poll after that is at the interval held before. */
+    TEST_ASSERT_EQUAL_INT(2000, g_oidc.sleeps[2]);
+    TEST_ASSERT_EQUAL_STRING("the-access-token", axiam_sensitive_reveal(set.access_token));
+
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
+void test_a_429_without_retry_after_waits_the_interval_and_polls_again(void) {
+    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":2", 600), 0};
+    g_oidc.token_script[0] = (oidc_answer_t){429, "{\"error\":\"rate_limit_exceeded\"}", 0};
+    g_oidc.token_script[1] = (oidc_answer_t){200, SUCCESS_TOKENS, 0};
+    g_oidc.token_script_len = 2;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_INT(2, g_oidc.token_calls);
+    TEST_ASSERT_EQUAL_INT(2, g_oidc.n_sleeps);
+    TEST_ASSERT_EQUAL_INT(2000, g_oidc.sleeps[1]);
+    axiam_oidc_token_set_dispose(&set);
+    axiam_client_free(c);
+}
+
+void test_a_429_retry_after_past_the_deadline_is_capped_and_sends_nothing_after_it(void) {
+    /* §14.6, second case: Retry-After of an hour against a 30 s grant. The wait would
+     * pass the deadline, so the loop raises the typed expired_token and polls no more. */
+    g_oidc.device_answer = (oidc_answer_t){200, DEVICE_AUTH_BODY(",\"interval\":1", 30), 0};
+    g_oidc.token_script[0] = (oidc_answer_t){429, "{\"error\":\"rate_limit_exceeded\"}", 0, "3600"};
+    g_oidc.token_script_len = 1;
+
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, axiam_device_login(c, NULL, NULL, NULL, NULL, &set, &err));
+    TEST_ASSERT_EQUAL_STRING("expired_token", err.oauth_error);
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.n_sleeps);
+    axiam_client_free(c);
+}
+
 void test_a_500_mid_poll_is_retried_rather_than_treated_as_terminal(void) {
     /*
      * §14.2 rule 6, and §16.2's one token-endpoint exception. A server restart
@@ -815,6 +881,9 @@ int main(void) {
     RUN_TEST(test_slow_down_raises_the_interval_permanently);
     RUN_TEST(test_polling_stops_at_expires_in_even_without_an_expired_token_answer);
     RUN_TEST(test_a_slow_down_past_the_deadline_stops_the_loop_rather_than_overrunning);
+    RUN_TEST(test_a_429_on_a_poll_is_waited_out_and_leaves_the_interval_unchanged);
+    RUN_TEST(test_a_429_without_retry_after_waits_the_interval_and_polls_again);
+    RUN_TEST(test_a_429_retry_after_past_the_deadline_is_capped_and_sends_nothing_after_it);
     RUN_TEST(test_a_500_mid_poll_is_retried_rather_than_treated_as_terminal);
     RUN_TEST(test_a_delegation_narrows_scopes_and_reports_what_was_granted);
     RUN_TEST(test_omitting_scope_inherits_the_subjects_and_omitting_the_actor_asks_for_impersonation);

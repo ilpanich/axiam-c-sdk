@@ -116,6 +116,9 @@ char *oidc_s256_challenge(const char *verifier);
  * `device_login` and `token_exchange` as ineligible because their credentials
  * are single-use, and retrying replays a spent one.
  */
+/** `retryable` value: the §16 policy, except that a `429` is returned to the caller. */
+#define OIDC_RETRY_LOOP_OWNS_429 2
+
 int oidc_post(axiam_client_t *c, const char *url, const char *content_type,
               const char *body, int retryable, axiam_http_response_t *resp);
 
@@ -150,6 +153,14 @@ axiam_error_kind_t oidc_token_grant(axiam_client_t *c, oidc_form_t *form,
                                     const char *tenant_uuid, int retryable,
                                     const char *context, char **out_body,
                                     axiam_error_t *err);
+
+/** As oidc_token_grant(); on a non-2xx answer `*retry_after_ms` (when non-NULL) is the
+ *  `Retry-After` header in milliseconds, or -1 when the answer had none. */
+axiam_error_kind_t oidc_token_grant_ex(axiam_client_t *c, oidc_form_t *form,
+                                       const axiam_oidc_config_t *config,
+                                       const char *tenant_uuid, int retryable,
+                                       const char *context, char **out_body,
+                                       long *retry_after_ms, axiam_error_t *err);
 
 /**
  * Parse a `TokenResponse` and, when it carries an `id_token`, validate it

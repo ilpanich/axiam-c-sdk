@@ -57,6 +57,7 @@ typedef struct {
     long status;
     const char *body;
     int transport_fails;
+    const char *retry_after; /* the Retry-After header value, or NULL for none */
 } oidc_answer_t;
 
 typedef struct {
@@ -147,6 +148,9 @@ static int oidc_answer(const oidc_answer_t *a, long default_status, const char *
     }
     resp_fill(resp, (a && a->status) ? a->status : default_status,
               (a && a->body) ? a->body : default_body, NULL);
+    if (a && a->retry_after) {
+        resp->headers = axiam_kv_append(resp->headers, "Retry-After", a->retry_after);
+    }
     return 0;
 }
 
