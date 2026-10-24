@@ -11,7 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Contract **1.64** (§34.8, as amended 2026-10-23), the three Informational findings of the 1.63
 conformance review (#76) and the findings of the 1.64 review that name this SDK. `CONTRACT.md` is
 re-vendored byte for byte from ilpanich/axiam `b3f8687` (the second 1.64 amendment); `openapi.json` and
-`management-registry.json` from `fb92ec4`, which the amendments leave unchanged (this SDK vendors
+`management-registry.json` from `356a6da` (platform PR #793 merge) (this SDK vendors
 no `proto/`; the generated surface is unchanged, `gen_management.py --check` is clean). No
 operation is added, no signature changes and no struct grows, so this is a **patch** and the ABI
 version stays 2. Nothing is source-breaking. The observable changes are that a manifest refusal
