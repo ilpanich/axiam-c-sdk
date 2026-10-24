@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_scim_token_response_list" name="axiam_mgmt_scim_token_response_list">
+<area shape="rect" id="Node000001" title="A plain list of ScimTokenResponse objects." alt="" coords="5,108,196,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__scim__token__response.html" title="Metadata only." alt="" coords="5,5,196,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="103,59,103,108,98,108,98,59"/>
+</map>

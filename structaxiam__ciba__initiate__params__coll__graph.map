@@ -1,0 +1,7 @@
+<map id="axiam_ciba_initiate_params" name="axiam_ciba_initiate_params">
+<area shape="rect" id="Node000001" title="Arguments to axiam_ciba_initiate() — CibaInitiateRequest (§33.2)." alt="" coords="11,196,162,236"/>
+<area shape="rect" id="Node000002" href="$structaxiam__oidc__config.html" title="The OIDC discovery document (§12.1), read from /.well&#45;known/openid&#45;configuration." alt="" coords="15,108,158,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="89,147,89,196,84,196,84,147"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mtls__endpoint__aliases.html" title="RFC 8705 §5 mtls_endpoint_aliases — the seven endpoints re&#45;based on the host that performs the mutual..." alt="" coords="5,5,168,45"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="89,59,89,108,84,108,84,59"/>
+</map>

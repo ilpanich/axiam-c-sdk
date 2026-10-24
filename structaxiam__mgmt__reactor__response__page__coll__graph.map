@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_reactor_response_page" name="axiam_mgmt_reactor_response_page">
+<area shape="rect" id="Node000001" title="One page of ReactorResponse objects (27.4 rule 4)." alt="" coords="101,108,264,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__reactor__response.html" title="The ReactorResponse schema from the server&#39;s OpenAPI document." alt="" coords="5,5,168,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="116,54,167,106,163,110,112,57"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="192,13,368,38"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="261,50,203,110,199,106,257,46"/>
+</map>
