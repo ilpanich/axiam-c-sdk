@@ -1051,6 +1051,15 @@ axiam_error_kind_t axiam_device_authorize(axiam_client_t *client,
  * and never refreshed. This SDK generates no DPoP proof (§21.7.3), so a DPoP-bound client
  * cannot be driven and meets that refusal.
  *
+ * Contract 1.64 (§14.2 rules 6 and 9, as amended): the STATUS decides, not the body. A `5xx`
+ * is a transport failure whatever its body (AXIAM answers a datastore fault `500
+ * {"error":"server_error"}`): it is retried inside this call under §16 and then returned as
+ * AXIAM_ERR_NETWORK with an empty oauth_error, never as an `OAuthProtocolError`. A `429` is
+ * returned at once (not retried here) with transport_cause 429 and, for the platform's body,
+ * oauth_error `rate_limit_exceeded`; it is not terminal and never the polling signal, so a `429`
+ * whose body says `slow_down` does not raise the interval -- only the `400` does. A loop of
+ * your own waits at least the `Retry-After` (or one interval) and polls again.
+ *
  * axiam_device_login() is the loop most callers want; this exists for one that
  * needs its own.
  */
@@ -1086,7 +1095,18 @@ typedef void (*axiam_device_display_fn)(void *ctx,
  * A `5xx` or transport failure mid-poll is NOT terminal (§14.2 rule 6): it has
  * already been through the §16 bounded retry inside the poll, whose budget is
  * per attempt and separate from this loop, and a server restart mid-flow must
- * not lose a grant the user already approved.
+ * not lose a grant the user already approved. The status is read before the body
+ * (contract 1.64, as amended), so a `500 {"error":"server_error"}` is such a failure too.
+ *
+ * The §16 retry inside a poll never waits past the grant's deadline (§14.2 rule 4): when the
+ * full wait (the backoff, floored at a `Retry-After`) would reach `expires_in`, nothing more is
+ * sent, the 5xx ends that one poll and the loop raises `expired_token`. (A bare
+ * axiam_device_poll() has no deadline.)
+ *
+ * Any `429` on a poll is waited out whatever its body names (contract 1.64, §14.2 rule 9, as
+ * amended): the wait is at least its `Retry-After` and at least one interval, it is capped at
+ * the `expires_in` deadline, and it does not raise the interval -- a `429` whose body says
+ * `slow_down` included; only a `400 slow_down` raises it.
  *
  * The token set is RETURNED, not adopted — the same posture
  * axiam_login_client_credentials() takes, which §14.3 rule 4 requires an SDK to

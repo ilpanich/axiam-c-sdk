@@ -232,7 +232,9 @@ typedef struct axiam_ciba_clock {
  * - Polling stops at `received_at + expires_in`, even if the server has not said
  *   `expired_token`: when the next poll would not fall before the deadline, the same
  *   `expired_token` (AXIAM_ERR_AUTH, `oauth_error` "expired_token") is raised locally,
- *   with no request.
+ *   with no request. The §16 retry inside a poll obeys the same deadline (§34.2 P10): when its
+ *   full wait (the backoff, floored at a `Retry-After`) would reach it, nothing more is sent
+ *   and the wait runs on `clock`, never past it. (A bare axiam_ciba_poll() has no deadline.)
  * - Anything else (`access_denied`, `expired_token`, `invalid_grant`, an unknown code,
  *   a refused call) is returned as it came.
  *

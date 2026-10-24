@@ -276,6 +276,41 @@ static void test_adopted_token_rides_as_bearer_on_check_access(void) {
     axiam_client_free(c);
 }
 
+/* Contract 1.63 / C163-20, §6.1 rule 11: no /oauth2/* request carries an adopted credential.
+ * GET /oauth2/jwks and /oauth2/revocations go through the client's own header builder (the
+ * token, device and PAR endpoints do not). The control: the next /api/v1 request still carries
+ * the bearer, so the absence cannot be for want of an adopted credential. */
+static void test_adopted_bearer_is_not_sent_on_jwks_or_revocations(void) {
+    axiam_client_t *c = make_client_with_cert();
+    g_fake.next_status = 200;
+    g_fake.next_body = "{\"access_token\":\"dev-tok\",\"token_type\":\"Bearer\","
+                       "\"expires_in\":900}";
+    axiam_device_auth_result_t out;
+    axiam_error_t err;
+    axiam_authenticate_device(c, &out, &err);
+    axiam_device_auth_result_dispose(&out);
+
+    const char *paths[] = {"/oauth2/jwks", "/oauth2/revocations"};
+    for (size_t i = 0; i < 2; i++) {
+        g_fake.next_status = 200;
+        g_fake.next_body = "{\"keys\":[]}";
+        char *body = NULL;
+        TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_raw_get(c, paths[i], &body, &err));
+        free(body);
+        TEST_ASSERT_NOT_NULL(strstr(g_fake.rec.url, paths[i]));
+        TEST_ASSERT_FALSE_MESSAGE(g_fake.last_had_authorization, paths[i]);
+    }
+
+    g_fake.next_status = 200;
+    g_fake.next_body = "{\"allowed\":true}";
+    axiam_check_result_t res;
+    axiam_check_access(c, "read", "r1", NULL, NULL, &res, &err);
+    TEST_ASSERT_TRUE(g_fake.last_had_authorization);
+    TEST_ASSERT_EQUAL_STRING("Bearer dev-tok", g_fake.last_authorization);
+    axiam_check_result_dispose(&res);
+    axiam_client_free(c);
+}
+
 /* ------------------------------------------------------------------------
  * "No refresh on the device login's 401 or a later 401."
  * ---------------------------------------------------------------------- */
@@ -363,6 +398,7 @@ int main(void) {
     RUN_TEST(test_posts_no_body_to_the_device_path);
     RUN_TEST(test_401_maps_to_auth_error);
     RUN_TEST(test_429_is_not_an_auth_error_and_is_not_retried);
+    RUN_TEST(test_adopted_bearer_is_not_sent_on_jwks_or_revocations);
     RUN_TEST(test_adopted_token_rides_as_bearer_on_check_access);
     RUN_TEST(test_later_401_on_device_credential_is_not_refreshed);
     RUN_TEST(test_later_401_on_cookie_session_is_refreshed);

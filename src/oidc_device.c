@@ -16,6 +16,9 @@
  *   - Polling stops at `expires_in`, whether or not the server has said
  *     `expired_token` yet. The deadline is authoritative and the extra requests
  *     are pure load.
+ *   - A `429 rate_limit_exceeded` is waited out (contract 1.64): `Retry-After` is a
+ *     minimum, the wait stands in for one interval and does not raise it, and the
+ *     deadline caps it.
  */
 
 #include <stdio.h>
@@ -176,8 +179,15 @@ static axiam_error_kind_t device_poll_with(axiam_client_t *client,
                                            const axiam_oidc_config_t *config,
                                            const char *device_code, const char *client_id,
                                            const char *tenant,
-                                           axiam_oidc_token_set_t *out,
-                                           axiam_error_t *err) {
+                                           axiam_oidc_token_set_t *out, long *retry_after_ms,
+                                           time_t deadline, axiam_error_t *err) {
+    /* The status decides below (§14.2 rule 6), and that reads the error struct; a caller that
+     * passes NULL gets the same kind as one that does not. */
+    axiam_error_t local;
+    if (!err) {
+        axiam_error_reset(&local);
+        err = &local;
+    }
     oidc_form_t form;
     oidc_form_init(&form);
     oidc_form_add(&form, "grant_type", AXIAM_DEVICE_CODE_GRANT_TYPE);
@@ -201,9 +211,20 @@ static axiam_error_kind_t device_poll_with(axiam_client_t *client,
      * is per poll ATTEMPT and does not consume the grant's own `expires_in`
      * loop below.
      */
-    axiam_error_kind_t kind = oidc_token_grant(client, &form, config, tenant, 1,
-                                               "device poll failed", &body, err);
+    /* A 429 is not retried here: the polling loop waits it out (§14.2 rule 9, contract
+     * 1.64), so one poll answers it once and reports its Retry-After. */
+    axiam_error_kind_t kind = oidc_token_grant_ex(client, &form, config, tenant,
+                                                  OIDC_RETRY_LOOP_OWNS_429, "device poll failed",
+                                                  &body, retry_after_ms, deadline, err);
     oidc_form_dispose(&form);
+    if (kind == AXIAM_ERR_AUTH && err && err->transport_cause >= 500 && err->transport_cause <= 599) {
+        /* §14.2 rule 6 (contract 1.64, amended): a 5xx is a transport failure whatever its body.
+         * AXIAM answers a datastore fault `500 {"error":"server_error"}`; the status is read
+         * before the body, so this is the §2 NetworkError the loop does not end on. */
+        err->kind = AXIAM_ERR_NETWORK;
+        err->oauth_error[0] = '\0';
+        kind = AXIAM_ERR_NETWORK;
+    }
     if (kind == AXIAM_OK) {
         /* §12.4 rules 1-5 and 7 apply to any id_token; rule 6 is skipped —
          * there was no authorization request in this flow to carry a nonce. */
@@ -238,7 +259,7 @@ axiam_error_kind_t axiam_device_poll(axiam_client_t *client,
     axiam_oidc_config_t config;
     axiam_error_kind_t kind = axiam_oidc_discover(client, &config, err);
     if (kind != AXIAM_OK) return kind;
-    kind = device_poll_with(client, &config, raw, client_id, tenant, out, err);
+    kind = device_poll_with(client, &config, raw, client_id, tenant, out, NULL, 0, err);
     axiam_oidc_config_dispose(&config);
     return kind;
 }
@@ -277,6 +298,9 @@ axiam_error_kind_t axiam_device_login(axiam_client_t *client, const char *scope,
     time_t deadline = client->clock_fn(client->clock_ctx) + (time_t)authorization.expires_in;
     const char *device_code = axiam_sensitive_reveal(authorization.device_code);
 
+    /* The next wait, in ms: the interval, or longer after a 429 (rule 9). The interval
+     * itself is only ever raised by a `slow_down`. */
+    long wait_ms = interval * 1000L;
     for (;;) {
         /*
          * §14.2 rule 4, and the subtlety that makes it worth a comment: it is
@@ -287,7 +311,8 @@ axiam_error_kind_t axiam_device_login(axiam_client_t *client, const char *scope,
          * and polls anyway. That request is exactly the "pure load" this rule
          * exists to prevent.
          */
-        if (client->clock_fn(client->clock_ctx) + (time_t)interval >= deadline) {
+        if (client->clock_fn(client->clock_ctx) + (time_t)((wait_ms + 999L) / 1000L) >=
+            deadline) {
             axiam_error_set(err, AXIAM_ERR_AUTH, 0,
                             "expired_token: the device grant expired before the "
                             "user approved it");
@@ -295,14 +320,25 @@ axiam_error_kind_t axiam_device_login(axiam_client_t *client, const char *scope,
             kind = AXIAM_ERR_AUTH;
             break;
         }
-        client->sleep_fn(client->sleep_ctx, interval * 1000L);
+        client->sleep_fn(client->sleep_ctx, wait_ms);
+        wait_ms = interval * 1000L;
 
         axiam_error_t poll_err;
         axiam_error_reset(&poll_err);
-        kind = device_poll_with(client, &config, device_code, client_id, tenant, out, &poll_err);
+        long retry_after_ms = -1;
+        kind = device_poll_with(client, &config, device_code, client_id, tenant, out,
+                                &retry_after_ms, deadline, &poll_err);
         if (kind == AXIAM_OK) break;
 
         const char *code = poll_err.oauth_error;
+        if (poll_err.transport_cause == 429) {
+            /* Rule 9 (contract 1.64, amended): the STATUS decides. Any 429 on a poll is this
+             * wait, whatever its body names (a `slow_down` or no OAuth body at all included);
+             * `Retry-After` is a minimum, the wait counts as this poll's interval and does NOT
+             * raise it, and the deadline check at the top of the loop caps it (rule 4). */
+            if (retry_after_ms > wait_ms) wait_ms = retry_after_ms;
+            continue;
+        }
         if (!code[0]) {
             /* §14.2 rule 6: a 5xx or transport failure is not terminal — it has
              * already been through the §16 bounded retry inside the poll. */
@@ -312,6 +348,7 @@ axiam_error_kind_t axiam_device_login(axiam_client_t *client, const char *scope,
         if (strcmp(code, "slow_down") == 0) {
             /* Rule 1: permanent, cumulative, never reset. */
             interval += AXIAM_DEVICE_SLOW_DOWN_INCREMENT_S;
+            wait_ms = interval * 1000L;
             continue;
         }
         /* access_denied, expired_token, invalid_grant — and anything else the

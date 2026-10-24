@@ -6,6 +6,109 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-23
+
+Contract **1.64** (§34.8, as amended 2026-10-23), the three Informational findings of the 1.63
+conformance review (#76) and the findings of the 1.64 review that name this SDK. `CONTRACT.md` is
+re-vendored byte for byte from ilpanich/axiam `b3f8687` (the second 1.64 amendment); `openapi.json` and
+`management-registry.json` from `356a6da` (platform PR #793 merge) (this SDK vendors
+no `proto/`; the generated surface is unchanged, `gen_management.py --check` is clean). No
+operation is added, no signature changes and no struct grows, so this is a **patch** and the ABI
+version stays 2. Nothing is source-breaking. The observable changes are that a manifest refusal
+reports `transport_cause` 400 where it reported 0 (the value is documented now), and that a single
+`axiam_device_poll()` answered `5xx` with an OAuth error body returns `AXIAM_ERR_NETWORK` where it
+returned `AXIAM_ERR_AUTH` (see Fixed); neither is a documented behaviour.
+
+### Fixed
+
+- **A `429 rate_limit_exceeded` on a device-code poll is waited out (contract 1.64, §14.2 rule 9,
+  item (b)).** `axiam_device_login()` no longer ends on it: it waits the `Retry-After` as a
+  minimum, caps the wait at the `expires_in` deadline (past it the loop raises `expired_token` and
+  sends nothing more), counts the wait as one interval and does not raise the interval for it,
+  then polls again. A single `axiam_device_poll()` still returns the
+  `rate_limit_exceeded` error of the 1.63 paragraph. The poll no longer retries the `429` inside
+  itself under §16 (a `5xx` and a transport failure still are). Tests: `test_oidc_grants`.
+- **No adopted device bearer on `/oauth2/jwks` and `/oauth2/revocations` (C163-20, §6.1 rule
+  11).** `build_headers()` withheld the cookie jar there since 1.1.1 but still sent the bearer
+  an `axiam_authenticate_device()` login had adopted. Test: `test_device_auth`
+  (`test_adopted_bearer_is_not_sent_on_jwks_or_revocations`).
+
+- **The status decides on a device poll (contract 1.64 as amended, §14.2 rules 6 and 9; C164-03,
+  C164-04, C164-17).** A `5xx` on a poll is a transport failure whatever its body: AXIAM answers a
+  datastore fault `500 {"error":"server_error"}`, which used to end `axiam_device_login()`; a single
+  `axiam_device_poll()` now returns it as `AXIAM_ERR_NETWORK` with no `oauth_error` (it was
+  `AXIAM_ERR_AUTH`/`server_error`). Any `429` on a poll is the wait, whatever its body: a `429`
+  whose body says `slow_down` no longer raises the interval (only a `400` does), and a `429` with no
+  OAuth body honours its `Retry-After` as the floor. Tests: `test_oidc_grants`.
+
+- **The 5xx rule does not depend on the caller's error struct (C164-27).** A single
+  `axiam_device_poll()` answered `500 {"error":"server_error"}` returns `AXIAM_ERR_NETWORK` also when
+  `err` is `NULL`. The header docs of `axiam_device_poll()` and `axiam_device_login()` and the README
+  state the status-decides rules (C164-32). Test: `test_oidc_grants`.
+
+- **The §16 retry inside a device poll never waits past the grant's deadline (C164-36, §14.2
+  rule 4, §14.6).** With a `5xx` carrying `Retry-After` the in-poll retry used to sleep the floor
+  (up to 3600 s) and send again, so `axiam_device_login()` could poll long after `expires_in` and
+  even return tokens from a request sent after it. Before each retry the full wait (backoff
+  floored at `Retry-After`) is checked against the deadline; if it would reach it nothing more is
+  sent, the `5xx` ends that poll and the loop raises `expired_token`. A bare `axiam_device_poll()`
+  has no deadline and keeps the §16 behaviour. Test: `test_oidc_grants`
+  (`test_the_in_poll_retry_never_waits_past_the_grants_deadline`).
+
+- **The §16 retry inside a CIBA poll never waits past `axiam_ciba_await()`'s deadline (C164-43,
+  §33.7 rule 5, §34.2 P10, §33.8 test 7).** The same fault as the device poll's, found in the
+  CIBA loop: a `5xx` with `Retry-After: 120` made `axiam_ciba_await()` send at 125 s and 245 s
+  against a 30 s request, and the in-poll waits ran on the client's clock, not the caller's
+  `axiam_ciba_clock_t`. The full wait is now checked against `received_at + expires_in` before
+  each retry; if it would reach it nothing more is sent and the loop raises `expired_token`, and
+  the wait is slept on the injected clock. A bare `axiam_ciba_poll()` keeps the unbounded §16
+  behaviour. Test: `test_ciba` (`test_t07_a_retry_after_past_the_deadline_inside_a_poll_is_not_served`),
+  with the boundary (`>=`) pinned.
+  The README now says that the in-poll retry stays inside the deadline (C164-48).
+- **A CIBA in-poll backoff is served in milliseconds unless the caller supplied a clock (C164-51,
+  a regression of the C164-43 change, §16.1).** Without an `axiam_ciba_clock_t` the wait had been
+  rounded up to a whole second, quantising the jitter and ending a recoverable grant early (interval
+  28, `expires_in` 30, `500`, `500`, tokens: `expired_token` instead of the tokens). The deadline
+  check still rounds up on both paths; only a caller's own whole-second clock sleeps whole seconds.
+  Test: `test_ciba` (`test_t07_without_a_clock_a_sub_second_backoff_is_served_in_milliseconds`).
+  C164-53 adds the jittered deadline case (`test_t07_a_jittered_backoff_past_the_deadline_inside_a_poll_is_not_served`:
+  a bare `500` one second before the deadline gets no retry), which pins the rounding and the
+  jittered backoff in the check.
+
+### Changed
+
+- **Every manifest refusal carries `transport_cause` 400 (C164-08).** Not only the network
+  section's: the duplicate key, missing key or `resource_type`, dangling `depends_on`, cycle,
+  role-binding and ambiguous service-account refusals of `axiam_mgmt_manifest_validate()` and
+  `axiam_mgmt_plan()` too, as `management_manifest.h` documents. An out-of-memory stays 0, and
+  `error.h` no longer says "nothing was sent" (a `plan` has sent reads). Tests:
+  `test_management_manifest`, which now asserts it for every site: the role-binding checks, a
+  missing `resource_type` and the ambiguous service account too (C164-33).
+- **The refusal at `axiam_mgmt_plan()` of an unknown network enum says the value is unknown
+  (C163-10, contract 1.64 (c), §27.6.2 item 4).** The message names the member and states that
+  its value is unknown to this SDK (the decoded enum keeps no text, so no raw value is kept and
+  no struct changes). Test: `strstr(err.message, "unknown")` in `test_manifest_network`, plus a
+  test that a manifest stating an unknown `termination_action` or `service_type` is refused.
+- **The manifest's refusals carry `transport_cause` 400, like the generated builders' local
+  refusals (C163-20).** `error.h` and `management_manifest.h` now say that 400 on an
+  `AXIAM_ERR_NETWORK` with no HTTP exchange is a local refusal.
+
+### Tests
+
+- The device poll's in-attempt retry is tested (contract 1.64, second amendment, §14.6; C164-25):
+  two `500`s then `200` make three requests and return the tokens, a third `500` surfaces after
+  three, a transport failure is retried alike, a `429` is one request, and retry disabled makes one
+  per poll. This SDK already met it; `test_oidc_grants`. The `device_login` sub-case also counts
+  the waits now (C164-41).
+- `test_client_failing_transport` runs serially (`RUN_SERIAL`): its single-flight window is
+  60 ms and it failed once under `ctest -j8` with sanitizers (C164-23).
+
+### Documentation
+
+- C163-18: the `CMakeLists.txt` version note, the doc of
+  `axiam_mgmt_scim_target_response_to_input()` (it sets `expected_updated_at`) and the
+  `fill_profile_input` comment (the unknown branch is unreachable from an Update).
+
 ## [1.1.1] - 2026-10-20
 
 Contract **1.63** (§34.7) and the two Low findings of the 1.62 conformance review (#74).

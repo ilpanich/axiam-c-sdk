@@ -484,10 +484,19 @@ static int has_oauth_error(const axiam_http_response_t *resp) {
  * One CIBA token request against a resolved configuration. `*transient` is set to 1
  * when the failure is one §33.7 rule 5 says the loop survives: a transport failure, a
  * 5xx, 408 or 429 that outlived §16, or the `rate_limit_exceeded` answer.
+ *
+ * `clk` and `deadline` are those of axiam_ciba_await() (§34.2 P10, C164-43): a §16 retry
+ * inside a poll never waits past the deadline, and when the caller supplied a clock
+ * (`clk_injected`) the wait runs on it, in whole seconds, rounded up. Without one the wait
+ * is the millisecond delay on the client's sleep (§16.1's jitter is not quantised, C164-51),
+ * while the deadline check still rounds up. axiam_ciba_poll() passes NULL and 0 and keeps
+ * the unbounded §16 behaviour.
  */
 static axiam_error_kind_t ciba_poll_with(axiam_client_t *c, const axiam_oidc_config_t *config,
                                          const char *auth_req_id, const char *client_id,
                                          const char *secret, const char *tenant,
+                                         const axiam_ciba_clock_t *clk, int clk_injected,
+                                         time_t deadline,
                                          axiam_oidc_token_set_t *out, int *transient,
                                          axiam_error_t *err) {
     *transient = 0;
@@ -527,8 +536,13 @@ static axiam_error_kind_t ciba_poll_with(axiam_client_t *c, const axiam_oidc_con
         if (!retry) break;
         long retry_after = axiam_retry_after_ms(axiam_kv_get(resp.headers, "Retry-After"));
         long delay = axiam_retry_delay_ms(attempt, retry_after, c->jitter_fn(c->jitter_ctx));
+        long wait_s = (delay + 999L) / 1000L;
+        /* §34.2 P10: when the full wait (backoff floored at Retry-After) would reach the
+         * deadline, send nothing more; the 5xx is transient and the loop raises expired_token. */
+        if (deadline && clk && clk->now(clk->ctx) + (time_t)wait_s >= deadline) break;
         axiam_http_response_dispose(&resp);
-        c->sleep_fn(c->sleep_ctx, delay);
+        if (clk_injected) clk->sleep(clk->ctx, wait_s);
+        else c->sleep_fn(c->sleep_ctx, delay);
     }
     free(url);
     oidc_form_dispose(&form);
@@ -589,7 +603,7 @@ axiam_error_kind_t axiam_ciba_poll(axiam_client_t *c, const axiam_sensitive_t *a
     kind = ciba_config(c, config, &fetched, &use, &owned, err);
     if (kind != AXIAM_OK) return kind;
     int transient = 0;
-    kind = ciba_poll_with(c, use, raw, client_id, secret, tenant, out, &transient, err);
+    kind = ciba_poll_with(c, use, raw, client_id, secret, tenant, NULL, 0, 0, out, &transient, err);
     if (owned) axiam_oidc_config_dispose(&fetched);
     return kind;
 }
@@ -636,7 +650,8 @@ axiam_error_kind_t axiam_ciba_await(axiam_client_t *c, const axiam_ciba_initiate
     if (kind != AXIAM_OK) return kind;
 
     axiam_ciba_clock_t own = {client_now, client_sleep, c};
-    const axiam_ciba_clock_t *clk = (clock && clock->now && clock->sleep) ? clock : &own;
+    int clock_injected = clock && clock->now && clock->sleep;
+    const axiam_ciba_clock_t *clk = clock_injected ? clock : &own;
     long interval = initiated->interval > 0 ? initiated->interval : AXIAM_CIBA_DEFAULT_INTERVAL_S;
     time_t deadline = initiated->received_at + (time_t)initiated->expires_in;
 
@@ -656,7 +671,8 @@ axiam_error_kind_t axiam_ciba_await(axiam_client_t *c, const axiam_ciba_initiate
         axiam_error_t poll_err;
         axiam_error_reset(&poll_err);
         int transient = 0;
-        kind = ciba_poll_with(c, use, raw, client_id, secret, tenant, out, &transient, &poll_err);
+        kind = ciba_poll_with(c, use, raw, client_id, secret, tenant, clk, clock_injected, deadline, out, &transient,
+                              &poll_err);
         if (kind == AXIAM_OK) break;
         if (transient || strcmp(poll_err.oauth_error, "authorization_pending") == 0) continue;
         if (strcmp(poll_err.oauth_error, "slow_down") == 0) {

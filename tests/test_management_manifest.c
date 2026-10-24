@@ -221,6 +221,8 @@ static void test_a_dangling_reference_is_refused_before_any_request(void) {
     TEST_ASSERT_NOT_EQUAL(AXIAM_OK, rc);
     TEST_ASSERT_NULL(plan);
     TEST_ASSERT_NOT_NULL(strstr(err.message, "does not declare"));
+    /* C164-08: every manifest refusal is a local one, `transport_cause` 400. */
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
     TEST_ASSERT_EQUAL_INT(1, mgmt_request_count()); /* only the login */
     axiam_client_free(c);
 }
@@ -242,6 +244,7 @@ static void test_a_cycle_is_refused_before_any_request(void) {
 
     TEST_ASSERT_NOT_EQUAL(AXIAM_OK, rc);
     TEST_ASSERT_NOT_NULL(strstr(err.message, "cycle"));
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
     TEST_ASSERT_EQUAL_INT(1, mgmt_request_count());
     axiam_client_free(c);
 }
@@ -257,6 +260,16 @@ static void test_a_duplicate_key_is_refused(void) {
 
     TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_mgmt_manifest_validate(&m, &err));
     TEST_ASSERT_NOT_NULL(strstr(err.message, "twice"));
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
+
+    /* The same refusal at `plan`: also a local one, and no request after the sign-in. */
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_mgmt_plan_t *plan = NULL;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_mgmt_plan(c, &m, &plan, &err));
+    TEST_ASSERT_NULL(plan);
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
+    TEST_ASSERT_EQUAL_INT(1, mgmt_request_count());
+    axiam_client_free(c);
 }
 
 static void test_an_entity_without_a_key_is_refused(void) {
@@ -269,6 +282,63 @@ static void test_an_entity_without_a_key_is_refused(void) {
     axiam_mgmt_manifest_t m = { &e, 1 };
 
     TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_mgmt_manifest_validate(&m, &err));
+    TEST_ASSERT_EQUAL_INT(400, (int) err.transport_cause);
+}
+
+/* C164-33: the remaining local refusals of the manifest (the role-binding checks and the missing
+ * resource_type) also carry `transport_cause` 400, and none of them sends a request. */
+static void expect_local_refusal(const axiam_mgmt_manifest_t *m, const char *needle) {
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_mgmt_manifest_validate(m, &err));
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(err.message, needle), err.message);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(400, (int) err.transport_cause, err.message);
+}
+
+static void test_the_other_local_refusals_carry_400(void) {
+    axiam_mgmt_manifest_entity_t e[3];
+
+    memset(e, 0, sizeof e);
+    e[0].kind = AXIAM_MGMT_MANIFEST_RESOURCE; e[0].key = "r"; e[0].name = "r"; /* no resource_type */
+    axiam_mgmt_manifest_t m1 = { e, 1 };
+    expect_local_refusal(&m1, "resource_type");
+
+    /* A role binding to a role the manifest does not declare. */
+    axiam_mgmt_role_binding_t ghost = { .role_key = "ghost" };
+    memset(e, 0, sizeof e);
+    e[0].kind = AXIAM_MGMT_MANIFEST_GROUP; e[0].key = "g"; e[0].name = "g";
+    e[0].roles = &ghost; e[0].roles_count = 1;
+    axiam_mgmt_manifest_t m2 = { e, 1 };
+    expect_local_refusal(&m2, "does not declare as a role");
+
+    /* A role binding scoped to a resource the manifest does not declare. */
+    axiam_mgmt_role_binding_t scoped = { .role_key = "role", .resource_key = "ghost" };
+    memset(e, 0, sizeof e);
+    e[0].kind = AXIAM_MGMT_MANIFEST_ROLE; e[0].key = "role"; e[0].name = "role";
+    e[1].kind = AXIAM_MGMT_MANIFEST_GROUP; e[1].key = "g"; e[1].name = "g";
+    e[1].roles = &scoped; e[1].roles_count = 1;
+    axiam_mgmt_manifest_t m3 = { e, 2 };
+    expect_local_refusal(&m3, "does not declare as a resource");
+
+    /* One role bound to one subject twice. */
+    axiam_mgmt_role_binding_t twice[2] = { { .role_key = "role" }, { .role_key = "role" } };
+    e[1].roles = twice; e[1].roles_count = 2;
+    expect_local_refusal(&m3, "twice");
+
+    /* inherit:false with no resource, and inherit:false on a global role. */
+    axiam_mgmt_role_binding_t noscope = { .role_key = "role", .inherit_false = 1 };
+    e[1].roles = &noscope; e[1].roles_count = 1;
+    expect_local_refusal(&m3, "no resource");
+
+    axiam_mgmt_role_binding_t global_scoped = { .role_key = "role", .resource_key = "res",
+                                                .inherit_false = 1 };
+    memset(e, 0, sizeof e);
+    e[0].kind = AXIAM_MGMT_MANIFEST_ROLE; e[0].key = "role"; e[0].name = "role"; e[0].is_global = 1;
+    e[1].kind = AXIAM_MGMT_MANIFEST_RESOURCE; e[1].key = "res"; e[1].name = "res";
+    e[1].resource_type = "folder";
+    e[2].kind = AXIAM_MGMT_MANIFEST_GROUP; e[2].key = "g"; e[2].name = "g";
+    e[2].roles = &global_scoped; e[2].roles_count = 1;
+    axiam_mgmt_manifest_t m4 = { e, 3 };
+    expect_local_refusal(&m4, "global role");
 }
 
 /* ---- apply stops at the first failure, without rolling back ---------- */
@@ -493,6 +563,7 @@ int main(void) {
     RUN_TEST(test_a_cycle_is_refused_before_any_request);
     RUN_TEST(test_a_duplicate_key_is_refused);
     RUN_TEST(test_an_entity_without_a_key_is_refused);
+    RUN_TEST(test_the_other_local_refusals_carry_400);
     RUN_TEST(test_apply_stops_at_the_first_failure_and_does_not_roll_back);
     RUN_TEST(test_omission_is_never_deletion);
     RUN_TEST(test_plan_free_tolerates_null);

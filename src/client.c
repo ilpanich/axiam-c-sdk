@@ -252,7 +252,8 @@ static char *current_acting_tenant(axiam_client_t *c) {
     return copy;
 }
 
-static axiam_kv_t *build_headers(axiam_client_t *c, int state_changing, int has_body) {
+static axiam_kv_t *build_headers(axiam_client_t *c, int state_changing, int has_body,
+                                 int oauth2) {
     axiam_kv_t *h = NULL;
     /* §5: X-Tenant-ID on every request. */
     h = axiam_kv_append(h, "X-Tenant-ID", tenant_header_value(c));
@@ -274,11 +275,16 @@ static axiam_kv_t *build_headers(axiam_client_t *c, int state_changing, int has_
      * transport that has no cookie jar at all can ignore an empty Cookie
      * entry with no ill effect: this header exists to name the intent
      * (§6.1 rule 6), not to demand a literal wire byte. */
-    pthread_mutex_lock(&c->state_mtx);
-    char *bearer = c->device_access_token
-                       ? axiam_strdup0(axiam_sensitive_reveal(c->device_access_token))
-                       : NULL;
-    pthread_mutex_unlock(&c->state_mtx);
+    char *bearer = NULL;
+    /* §6.1 rule 11: no /oauth2/* request carries an adopted credential (GET /oauth2/jwks and
+     * /oauth2/revocations go through here; the token, device and PAR endpoints do not). */
+    if (!oauth2) {
+        pthread_mutex_lock(&c->state_mtx);
+        bearer = c->device_access_token
+                     ? axiam_strdup0(axiam_sensitive_reveal(c->device_access_token))
+                     : NULL;
+        pthread_mutex_unlock(&c->state_mtx);
+    }
     if (bearer) {
         char value[2048];
         snprintf(value, sizeof(value), "Bearer %s", bearer);
@@ -318,7 +324,7 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
     /* Contract 1.63, §6.1 rule 11 / §12.1 rule 3: an /oauth2/ ... request carries no session
      * cookie and no X-CSRF-Token -- the endpoint authenticates by the client and the grant. */
     int oauth2 = strncmp(path, "/oauth2/", 8) == 0;
-    axiam_kv_t *headers = build_headers(c, state_changing && !oauth2, body != NULL);
+    axiam_kv_t *headers = build_headers(c, state_changing && !oauth2, body != NULL, oauth2);
     if (oauth2) headers = axiam_kv_append(headers, "Cookie", ""); /* withhold the jar */
 
     axiam_http_request_t req = {0};

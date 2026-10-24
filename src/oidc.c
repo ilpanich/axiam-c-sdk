@@ -443,6 +443,12 @@ static int oidc_transport_once(axiam_client_t *c, const char *method, const char
 
 int oidc_post(axiam_client_t *c, const char *url, const char *content_type,
               const char *body, int retryable, axiam_http_response_t *resp) {
+    return oidc_post_ex(c, url, content_type, body, retryable, 0, resp);
+}
+
+int oidc_post_ex(axiam_client_t *c, const char *url, const char *content_type,
+                 const char *body, int retryable, time_t deadline,
+                 axiam_http_response_t *resp) {
     int budget = (retryable && c->retry_enabled) ? AXIAM_RETRY_MAX_ATTEMPTS : 1;
 
     /*
@@ -456,9 +462,18 @@ int oidc_post(axiam_client_t *c, const char *url, const char *content_type,
         rc = oidc_transport_once(c, "POST", url, content_type, body, budget > 1, resp);
         if (attempt == budget) break;
         if (!axiam_retry_should_retry(rc != 0, resp->status)) break;
+        /* §14.2 rule 9 (contract 1.64): the device loop owns a 429, because its wait is
+         * capped at the grant's deadline and counted as one interval. */
+        if (retryable == OIDC_RETRY_LOOP_OWNS_429 && rc == 0 && resp->status == 429) break;
 
         long retry_after = axiam_retry_after_ms(axiam_kv_get(resp->headers, "Retry-After"));
         long delay = axiam_retry_delay_ms(attempt, retry_after, c->jitter_fn(c->jitter_ctx));
+        /* §14.2 rule 4 / §14.6 (C164-36): a retry inside a device poll is a poll request, so
+         * nothing is sent after the grant's deadline. The full wait (backoff floored at
+         * `Retry-After`) is what is checked, and when it would reach the deadline the last
+         * answer is returned and the loop's own check ends the flow with `expired_token`. */
+        if (deadline && c->clock_fn(c->clock_ctx) + (time_t)((delay + 999L) / 1000L) >= deadline)
+            break;
         axiam_http_response_dispose(resp);
         c->sleep_fn(c->sleep_ctx, delay);
     }
@@ -874,12 +889,14 @@ axiam_error_kind_t axiam_oidc_begin(axiam_client_t *client,
 /* ------------------------------------------------------------------ */
 
 /* See oidc_internal.h for why `retryable` is a parameter. */
-axiam_error_kind_t oidc_token_grant(axiam_client_t *c, oidc_form_t *form,
-                                    const axiam_oidc_config_t *config,
-                                    const char *tenant_uuid, int retryable,
-                                    const char *context, char **out_body,
-                                    axiam_error_t *err) {
+axiam_error_kind_t oidc_token_grant_ex(axiam_client_t *c, oidc_form_t *form,
+                                       const axiam_oidc_config_t *config,
+                                       const char *tenant_uuid, int retryable,
+                                       const char *context, char **out_body,
+                                       long *retry_after_ms, time_t deadline,
+                                       axiam_error_t *err) {
     *out_body = NULL;
+    if (retry_after_ms) *retry_after_ms = -1;
     if (form->failed) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "out of memory");
         return AXIAM_ERR_NETWORK;
@@ -896,7 +913,7 @@ axiam_error_kind_t oidc_token_grant(axiam_client_t *c, oidc_form_t *form,
     }
 
     axiam_http_response_t resp;
-    int rc = oidc_post(c, url, FORM_CONTENT_TYPE, form->buf, retryable, &resp);
+    int rc = oidc_post_ex(c, url, FORM_CONTENT_TYPE, form->buf, retryable, deadline, &resp);
     free(url);
 
     axiam_error_kind_t kind;
@@ -913,9 +930,21 @@ axiam_error_kind_t oidc_token_grant(axiam_client_t *c, oidc_form_t *form,
         }
     } else {
         kind = oidc_map_grant_error(&resp, context, err);
+        if (retry_after_ms) {
+            *retry_after_ms = axiam_retry_after_ms(axiam_kv_get(resp.headers, "Retry-After"));
+        }
     }
     axiam_http_response_dispose(&resp);
     return kind;
+}
+
+axiam_error_kind_t oidc_token_grant(axiam_client_t *c, oidc_form_t *form,
+                                    const axiam_oidc_config_t *config,
+                                    const char *tenant_uuid, int retryable,
+                                    const char *context, char **out_body,
+                                    axiam_error_t *err) {
+    return oidc_token_grant_ex(c, form, config, tenant_uuid, retryable, context, out_body,
+                               NULL, 0, err);
 }
 
 /* Add `client_id` plus, when the client is confidential, `client_secret`
