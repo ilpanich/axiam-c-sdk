@@ -23,8 +23,11 @@ class AxiamCSdkConan(ConanFile):
     # for 8.6.0/8.11.1 fail on Linux in _patch_autotools (stale "AC_CHECK_LIB(z,"
     # patch that no longer matches curl's configure.ac). That patch was removed
     # upstream, so the freshest published recipe revision builds cleanly.
-    # openssl 3.2.1 stays within the recipe's accepted OpenSSL range.
-    requires = ("libcurl/8.21.0", "openssl/3.2.1")
+    # openssl is pinned to the 3.5 LTS line (supported to April 2030): it sits
+    # inside libcurl's accepted range (openssl/[>=3 <4]), whereas 3.2 reached
+    # end of life in November 2025 and the newer 3.6 feature release goes EOL
+    # in November 2026. 4.x is outside libcurl's range.
+    requires = ("libcurl/8.23.0", "openssl/3.5.9")
 
     exports_sources = (
         "CMakeLists.txt",
