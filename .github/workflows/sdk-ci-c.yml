@@ -69,6 +69,82 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  # The four build-test legs above use the runner's DISTRO toolchain on purpose:
+  # ubuntu-24.04's gcc 13 and clang 18 are what a long-lived LTS consumer compiles
+  # with, and the coverage gates were measured on that gcc 13. They are the oldest
+  # compilers CI covers. They are not the newest, and new compiler releases are
+  # where diagnostics turn into errors (gcc 14 made implicit function declarations
+  # and incompatible-pointer conversions hard errors in every -std mode).
+  #
+  # These legs cover the newest GA releases, at both ends of the standard range.
+  # gcc comes from the official `gcc` image (Debian trixie); clang from the LLVM
+  # project's own apt repository, since no Ubuntu release ships the newest major.
+  # Bump the major here when a new one goes GA.
+  build-test-newest-gcc:
+    name: build & test (gcc 16, C${{ matrix.std }})
+    runs-on: ubuntu-24.04
+    container: gcc:16
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [11, 23]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends cmake libcurl4-openssl-dev libssl-dev openssl
+          gcc --version
+
+      - name: Configure
+        env:
+          CC: gcc
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          -DAXIAM_BUILD_TESTS=ON -DAXIAM_BUILD_EXAMPLES=ON
+          -DCMAKE_C_STANDARD=${{ matrix.std }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  build-test-newest-clang:
+    name: build & test (clang 23, C${{ matrix.std }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [11, 23]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - name: Install dependencies
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+            | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc > /dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-23 main" \
+            | sudo tee /etc/apt/sources.list.d/llvm-23.list
+          sudo apt-get update
+          sudo apt-get install -y cmake libcurl4-openssl-dev libssl-dev clang-23
+          clang-23 --version
+
+      - name: Configure
+        env:
+          CC: clang-23
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          -DAXIAM_BUILD_TESTS=ON -DAXIAM_BUILD_EXAMPLES=ON
+          -DCMAKE_C_STANDARD=${{ matrix.std }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
   sanitizers:
     # §13.4 observation 10 / §12.6.1. OBS-4 was a signed-integer overflow (UB)
     # on the token-decode path in the C++ SDK that survived three security

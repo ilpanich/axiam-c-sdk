@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Vendored cJSON 1.7.18 → 1.7.19** (`third_party/cjson`, byte for byte from the upstream tag).
+  A bug-fix release that also bounds circular-reference depth (`CJSON_CIRCULAR_LIMIT`). The
+  bundled cJSON stays internal; nothing in the public API changes.
+- **Vendored Unity 2.6.0 → 2.7.0** (`third_party/unity`, test-only).
+- **Conan recipe: `libcurl/8.21.0` → `libcurl/8.23.0`, `openssl/3.2.1` → `openssl/3.5.9`.** The
+  3.2 line is end of life; 3.5 is the OpenSSL LTS (supported to April 2030) and sits inside the
+  libcurl recipe's `openssl/[>=3 <4]` range. Consumers building from system packages are
+  unaffected.
+- **CI compiles and tests with the newest compilers too.** gcc 16 and clang 23 join the gcc 13 /
+  clang 18 distro legs, each at C11 and C23. The C11 floor, CMake ≥ 3.16 and every other stated
+  requirement are unchanged.
+
 ## [1.1.2] - 2026-10-23
 
 Contract **1.64** (§34.8, as amended 2026-10-23), the three Informational findings of the 1.63

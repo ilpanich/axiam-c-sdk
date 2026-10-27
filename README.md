@@ -187,7 +187,9 @@ framework-agnostic route guard and declarative authorization helpers.
 C17 is a bug-fix revision of C11 and sits between the two.
 
 **The SDK is built at the floor and additionally compiled and tested at C23**, on
-**both gcc and clang** — four legs in `sdk-ci-c.yml`. In C the upper end deserves
+**both gcc and clang** — four legs in `sdk-ci-c.yml` with the ubuntu-24.04 distro
+compilers (gcc 13, clang 18: the oldest CI covers), and four more with the newest GA
+releases (gcc 16, clang 23). In C the upper end deserves
 this more than the version count suggests, because newer standards *remove* things
 rather than only adding them: K&R declarations are gone in C23, `bool`/`true`/`false`
 became keywords, and an implicit function declaration is an error rather than a
