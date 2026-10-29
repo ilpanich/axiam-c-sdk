@@ -1,0 +1,5 @@
+<map id="axiam_oidc_token_set" name="axiam_oidc_token_set">
+<area shape="rect" id="Node000001" title="The result of every §12 token&#45;endpoint grant (§12.1)." alt="" coords="9,93,176,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__id__token__claims.html" title="The validated claims of an ID token (§12.4)." alt="" coords="5,5,180,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="95,45,95,93,90,93,90,45"/>
+</map>

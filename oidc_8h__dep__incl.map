@@ -1,0 +1,8 @@
+<map id="include/axiam/oidc.h" name="include/axiam/oidc.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="12,5,169,31"/>
+<area shape="rect" id="Node000002" href="$axiam_8h.html" title=" " alt="" coords="5,152,176,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="77,43,61,79,60,99,66,118,84,150,79,153,61,120,55,99,56,78,72,41"/>
+<area shape="rect" id="Node000003" href="$ciba_8h.html" title="CONTRACT.md §33 — CIBA, client&#45;initiated backchannel authentication (contract 1.58),..." alt="" coords="71,79,228,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="111,40,142,77,138,80,107,43"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="133,116,102,154,98,150,129,113"/>
+</map>
