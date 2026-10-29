@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-29
+
 ### Changed
 
 - **Vendored cJSON 1.7.18 → 1.7.19** (`third_party/cjson`, byte for byte from the upstream tag).
@@ -19,6 +21,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **CI compiles and tests with the newest compilers too.** gcc 16 and clang 23 join the gcc 13 /
   clang 18 distro legs, each at C11 and C23. The C11 floor, CMake ≥ 3.16 and every other stated
   requirement are unchanged.
+
+- Build and test with the newest GA compilers (gcc 16, clang 23)
+
+- Conan recipe to libcurl 8.23.0 and OpenSSL 3.5 LTS
+
+- Update vendored cJSON 1.7.19 and Unity 2.7.0
 
 ## [1.1.2] - 2026-10-23
 

@@ -226,7 +226,7 @@ when `CMakeLists.txt`, the header macros and the CI matrix stop agreeing.
 include(FetchContent)
 FetchContent_Declare(axiam-c-sdk
   GIT_REPOSITORY https://github.com/ilpanich/axiam-c-sdk.git
-  GIT_TAG v1.1.2)
+  GIT_TAG v1.1.3)
 FetchContent_MakeAvailable(axiam-c-sdk)
 
 target_link_libraries(my_app PRIVATE axiam::axiam)
@@ -250,7 +250,7 @@ vcpkg install axiam-c-sdk --overlay-ports=./ports
 ### Conan
 
 ```sh
-conan create . --version=1.1.2
+conan create . --version=1.1.3
 ```
 
 ## Quickstart
