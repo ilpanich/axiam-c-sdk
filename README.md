@@ -30,19 +30,25 @@ framework-agnostic route guard and declarative authorization helpers.
 > optional member — **and a removal waits for 2.0.0.** 1.1.0 is such a release; its
 > [change log](CHANGELOG.md) names every struct that grew.
 > A struct that grows bumps the shared library's `SOVERSION` (its ABI version), which moves
-> independently of the package's Semantic Version: 1.1.2 is `libaxiam.so.1.1.2` with SONAME
-> `libaxiam.so.2`, so a binary built against 1.0.x keeps loading `libaxiam.so.1` and the
-> loader refuses to run it against 1.1.0 until it is rebuilt.
+> independently of the package's Semantic Version: a 1.1.x release is `libaxiam.so.1.1.x` with
+> SONAME `libaxiam.so.3` (contract 1.65 moved it from `.so.2`), so a binary built against 1.0.x
+> keeps loading `libaxiam.so.1`, one built against 1.1.x keeps loading `libaxiam.so.2`, and the
+> loader refuses to run either against this library until it is rebuilt.
 >
 > **Manifest pruning: not offered in any namespace** (§27.10; §27.6 rule 4 makes it a MAY).
 > Omission from a manifest is never deletion.
 >
-> **Contract 1.65** (§34.9, wire-additive, nothing breaking; adds §37 to the list above, and
+> **Contract 1.65** (§34.9, wire-additive; **the ABI breaks, SONAME `libaxiam.so.3`: rebuild**,
+> see the [change log](CHANGELOG.md#unreleased); adds §37 to the list above, and
 > the `idp_hint` input of §12.1 and §26.2 rule 8 is part of the §12 and §26 claims already made).
 > In this SDK: native sign-in with a provider ID token, `axiam_login_with_provider_id_token()`,
 > with `axiam_native_nonce()` (§37.4, a SHOULD, shipped); `idp_hint` on `axiam_oidc_begin_with_hint()`
 > and `axiam_oidc_par_with_hint()`; and the regenerated §27 members `default_idp`,
-> `refresh_reuse_response` and `native_login`. See [Native sign-in with a provider ID
+> `refresh_reuse_response` and `native_login`. **Server floor:** the federation-config admin calls
+> (`axiam_federation_create_config()`, `_get_config()`, `_list_configs()`, `_update_config()`) of
+> this 1.2-line SDK need an AXIAM server **1.2.0 or later**: `native_login` is required in
+> `FederationConfigResponse` from 1.2.0, and a response from an older server leaves the member NULL
+> in this SDK. See [Native sign-in with a provider ID
 > token](#native-sign-in-with-a-provider-id-token-37) and [Choosing the provider:
 > `idp_hint`](#choosing-the-provider-idp_hint-121-262-rule-8). **A replayed refresh token now ends
 > the session server-side by default** (§9, the 1.65 paragraph): `axiam_oidc_refresh()` already
@@ -1688,6 +1694,11 @@ response is byte-identical to a request without one). This SDK's `axiam_oidc_beg
 accepts no other caller-supplied query parameters (rule 5 makes that a MAY), so the hint can only
 appear once.
 
+`axiam_oidc_par()`, `_par_ex()` and `_par_with_hint()` do read the begin URL (D-N36): when the
+call's own `idp_hint` is NULL, an `axiam_idp_hint` already in `req.url` is pushed, so
+`axiam_oidc_begin_with_hint(…, "corp-okta", &req, …)` followed by `axiam_oidc_par(…, &req, …)`
+carries the hint; an `idp_hint` argument wins when both are set.
+
 ### Native sign-in with a provider ID token (§37)
 
 An app that signs in with Google's, Apple's or Facebook's *native* SDK holds an ID token the
@@ -1732,7 +1743,8 @@ if (kind == AXIAM_OK) { /* set.access_token, set.refresh_token, set.id_claims ..
   not acceptable"). A transport failure after the request left is indeterminate (`AXIAM_ERR_NETWORK`).
   The recovery is a **fresh** provider ID token with a **fresh** nonce, never the same pair.
   `consent_required` has spent the token as well. A `429` spends nothing; retrying it after the
-  `Retry-After` is the caller's call.
+  `Retry-After` is the caller's call: it is in `err.oauth_retry_after_ms` (milliseconds, 0 when
+  absent), and the server's `error_description` in `err.oauth_error_description`.
 - **Empty `provider`, `id_token` or `nonce`** are refused locally (`AXIAM_ERR_NETWORK`,
   `transport_cause` 400, no request). A slug-only client is refused as for `axiam_oidc_exchange()`.
 - **Not adopted**, like `axiam_login_client_credentials()` and `axiam_device_login()`: the token set

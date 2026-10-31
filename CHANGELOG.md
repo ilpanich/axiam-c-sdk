@@ -6,14 +6,44 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Contract **1.65** (§34.9; wire-additive, nothing breaking). `CONTRACT.md`, `openapi.json` (info
-version 1.2.0) and `management-registry.json` are re-vendored byte for byte from ilpanich/axiam
-`76d35d9` (this SDK vendors no `proto/`). No existing signature changes and every addition below is
-a new function or an appended member, so nothing is source-breaking. The release number is the
-maintainer's.
+Contract **1.65** (§34.9; wire-additive on the wire, **but this SDK's ABI breaks: see Breaking
+changes**). `openapi.json` (info version 1.2.0) and `management-registry.json` are re-vendored byte
+for byte from ilpanich/axiam `76d35d9`; `CONTRACT.md` is re-vendored from `d93976b` (the 2026-10-31
+amendment of §34.9: sha256 `95ee87ba…9529`). This SDK vendors no `proto/`. No existing function
+signature changes. The release stays a minor one (D-N32); the release number is the maintainer's.
+
+### Breaking changes
+
+- **Rebuild against the new headers; the shared library's SONAME is now `libaxiam.so.3`
+  (C165-02).** These structs gained members **inside** the struct, so every member after the
+  insertion point moves (offsets change in the caller-allocated request structs and in the
+  library-allocated response structs alike): `axiam_mgmt_create_federation_config_request`,
+  `axiam_mgmt_update_federation_config_request` and `axiam_mgmt_federation_config_response`
+  (`native_login`); `axiam_mgmt_create_o_auth2_client_request`,
+  `axiam_mgmt_update_o_auth2_client_request` and `axiam_mgmt_o_auth2_client_response`
+  (`default_idp`); `axiam_mgmt_security_settings` (`oauth2`); `axiam_mgmt_set_org_settings` and
+  `axiam_mgmt_tenant_settings_override` (`refresh_reuse_response`, `has_refresh_reuse_response`).
+  `axiam_error_t` also grew, at its end (below). A binary built against 1.1.x names
+  `libaxiam.so.2` and the loader now refuses to run it against this library until it is rebuilt.
+  Designated initialisers of those structs are unaffected; **positional aggregate initialisers
+  must be updated** (they compile against the wrong members otherwise). The `abi_soname` test pins
+  `libaxiam.so.3`.
 
 ### Added
 
+- **`axiam_error_t.oauth_error_description` and `.oauth_retry_after_ms` (C165-21, C165-17).**
+  `oauth_error_description[256]` carries the `error_description` of an OAuth2ErrorResponse (it was
+  reachable only inside `message`; `message` is unchanged); `oauth_retry_after_ms` carries the
+  response's `Retry-After` in milliseconds (clamped at an hour, 0 when absent), so a caller can
+  honour the server's 60 s on the route-limiter `429`. Both are filled wherever the shared OAuth2
+  error mapper runs, cleared by `axiam_error_reset()` and `axiam_error_set()`, and are why the
+  SONAME moved together with the structs above.
+- **`axiam_oidc_par()` / `axiam_oidc_par_ex()` / `axiam_oidc_par_with_hint()` push the begin URL's
+  `axiam_idp_hint` (C165-11, D-N36, §26.2 rule 8).** When the call's own `idp_hint` is NULL, the
+  `axiam_idp_hint` that `axiam_oidc_begin_with_hint()` put in `request->url` is parsed
+  (percent-decoded, first occurrence, bounded like any hint) and pushed in the form body; an
+  argument wins when both are set. Before, `begin_with_hint(hint)` followed by `par(request)`
+  silently pushed no hint.
 - **Native sign-in with a provider ID token (CONTRACT §37).** `axiam_login_with_provider_id_token()`
   sends one `POST /oauth2/token` with
   `grant_type=urn:axiam:params:oauth:grant-type:provider-id-token` and returns the ordinary
@@ -50,6 +80,12 @@ maintainer's.
   waiters get that one error, the spent token is never presented again).
 
 ### Changed
+
+- **Server floor (C165-04, D-N33):** federation-config admin calls (`axiam_federation_create_config()`,
+  `_get_config()`, `_list_configs()`, `_update_config()`) of this 1.2-line SDK need an
+  AXIAM server **1.2.0 or later**: `native_login` is required in `FederationConfigResponse` from
+  1.2.0, and this SDK's decoder of a response from an older server leaves the member NULL rather
+  than failing.
 
 - **A replayed refresh token now ends the session server-side by default (contract 1.65, §9; server
   setting `oauth2.refresh_reuse_response = revoke_session`).** The refusal is still

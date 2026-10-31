@@ -385,6 +385,66 @@ void test_par_idp_hint_bounds_refuse_before_the_push(void) {
     axiam_client_free(c);
 }
 
+/* ------------------------------------------------------------------ */
+/* §26.6 (D-N36) — the begin URL's hint is pushed                     */
+/* ------------------------------------------------------------------ */
+
+/* begin_with_hint(begin_hint) then par_with_hint(par_hint) on one client; the pushed form. */
+static void begin_then_push(const char *begin_hint, const char *par_hint, params_t *pushed) {
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_oidc_config_t cfg;
+    axiam_authorization_request_t req;
+    axiam_pushed_authorization_request_t par;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_discover(c, &cfg, &err));
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_begin_with_hint(c, &cfg, OIDC_REDIRECT_URI,
+                                                           "openid profile", begin_hint, &req,
+                                                           &err));
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_par_with_hint(c, &cfg, &req, OIDC_REDIRECT_URI,
+                                                         "openid profile", NULL, NULL, par_hint,
+                                                         &par, &err));
+    int i = oidc_last_call("/oauth2/par");
+    TEST_ASSERT_TRUE(i >= 0);
+    parse(pushed, g_oidc.bodies[i]);
+    axiam_pushed_authorization_request_dispose(&par);
+    axiam_authorization_request_dispose(&req);
+    axiam_oidc_config_dispose(&cfg);
+    axiam_client_free(c);
+}
+
+void test_par_idp_hint_from_begin_url_pushed(void) {
+    params_t q;
+    /* oidc_begin(idp_hint=x) then oidc_par(request) with no hint of its own: x is pushed, once. */
+    begin_then_push("corp-okta", NULL, &q);
+    TEST_ASSERT_EQUAL_INT(1, count_of(&q, "axiam_idp_hint"));
+    TEST_ASSERT_EQUAL_STRING("corp-okta", value_of(&q, "axiam_idp_hint"));
+    TEST_ASSERT_EQUAL_INT(0, count_of(&q, "kc_idp_hint"));
+
+    /* A hint that needs percent-encoding in the URL arrives decoded in the form. */
+    oidc_reset();
+    g_oidc.discovery_body = PAR_DISCOVERY_BODY;
+    g_oidc.par_answer.body = "{\"request_uri\":\"" PAR_REQUEST_URI "\",\"expires_in\":90}";
+    begin_then_push("Okta Corp&x=1/é", NULL, &q);
+    TEST_ASSERT_EQUAL_INT(1, count_of(&q, "axiam_idp_hint"));
+    TEST_ASSERT_EQUAL_STRING("Okta Corp&x=1/é", value_of(&q, "axiam_idp_hint"));
+    TEST_ASSERT_EQUAL_INT(0, count_of(&q, "x"));
+
+    /* No hint on the begin URL and none on the call: nothing is pushed. */
+    oidc_reset();
+    g_oidc.discovery_body = PAR_DISCOVERY_BODY;
+    g_oidc.par_answer.body = "{\"request_uri\":\"" PAR_REQUEST_URI "\",\"expires_in\":90}";
+    begin_then_push(NULL, NULL, &q);
+    TEST_ASSERT_EQUAL_INT(0, count_of(&q, "axiam_idp_hint"));
+}
+
+void test_par_idp_hint_argument_wins(void) {
+    params_t q;
+    begin_then_push("from-begin-url", "from-argument", &q);
+    TEST_ASSERT_EQUAL_INT(1, count_of(&q, "axiam_idp_hint"));
+    TEST_ASSERT_EQUAL_STRING("from-argument", value_of(&q, "axiam_idp_hint"));
+    TEST_ASSERT_NULL(strstr(g_oidc.bodies[oidc_last_call("/oauth2/par")], "from-begin-url"));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_idp_hint_emitted_once);
@@ -393,5 +453,7 @@ int main(void) {
     RUN_TEST(test_idp_hint_bounds);
     RUN_TEST(test_par_idp_hint_in_pushed_body);
     RUN_TEST(test_par_idp_hint_bounds_refuse_before_the_push);
+    RUN_TEST(test_par_idp_hint_from_begin_url_pushed);
+    RUN_TEST(test_par_idp_hint_argument_wins);
     return UNITY_END();
 }

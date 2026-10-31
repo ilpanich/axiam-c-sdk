@@ -440,6 +440,9 @@ void test_generic_invalid_grant_mapped(void) {
                                             NULL, &set, &err));
     TEST_ASSERT_EQUAL_STRING("invalid_grant", err.oauth_error);
     TEST_ASSERT_EQUAL_STRING("invalid_grant: the provider ID token is not acceptable", err.message);
+    /* C165-21: error_description in a field of its own. */
+    TEST_ASSERT_EQUAL_STRING("the provider ID token is not acceptable", err.oauth_error_description);
+    TEST_ASSERT_EQUAL_INT(0, (int)err.oauth_retry_after_ms);
     TEST_ASSERT_EQUAL_INT(400, (int)err.transport_cause);
     TEST_ASSERT_NULL(set.access_token);
     /* Exactly ONE request: no retry, and nothing regenerated a nonce and re-sent. */
@@ -518,8 +521,11 @@ void test_rate_limit_with_retry_after_mapped(void) {
                                             NULL, &set, &err));
     TEST_ASSERT_EQUAL_STRING("rate_limit_exceeded", err.oauth_error);
     TEST_ASSERT_EQUAL_INT(429, (int)err.transport_cause);
-    /* Exactly one request, and no wait taken for it: this SDK exposes no Retry-After on
-     * axiam_error_t, and the sleep seam records that nothing slept. */
+    /* C165-17: the server's Retry-After (7 s) is exposed, in milliseconds. */
+    TEST_ASSERT_EQUAL_INT(7000, (int)err.oauth_retry_after_ms);
+    TEST_ASSERT_EQUAL_STRING("", err.oauth_error_description);
+    /* Exactly one request, and no wait taken for it: the SDK exposes Retry-After but does not
+     * act on it, and the sleep seam records that nothing slept. */
     TEST_ASSERT_EQUAL_INT(1, g_oidc.n_calls - base);
     TEST_ASSERT_EQUAL_INT(0, g_oidc.n_sleeps);
     axiam_client_free(c);

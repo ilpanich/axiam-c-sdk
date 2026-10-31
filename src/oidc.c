@@ -518,7 +518,17 @@ axiam_error_kind_t oidc_map_grant_error(const axiam_http_response_t *resp,
             snprintf(msg, sizeof(msg), "%s (%s)", code->valuestring, context);
         }
         axiam_error_set(err, AXIAM_ERR_AUTH, resp->status, msg);
-        if (err) snprintf(err->oauth_error, sizeof(err->oauth_error), "%s", code->valuestring);
+        if (err) {
+            snprintf(err->oauth_error, sizeof(err->oauth_error), "%s", code->valuestring);
+            /* C165-21: the description in a field of its own (also inside the message). */
+            if (cJSON_IsString(desc) && desc->valuestring) {
+                snprintf(err->oauth_error_description, sizeof(err->oauth_error_description), "%s",
+                         desc->valuestring);
+            }
+            /* C165-17: Retry-After, ms, 0 when absent or unparseable. */
+            long ra = axiam_retry_after_ms(axiam_kv_get(resp->headers, "Retry-After"));
+            err->oauth_retry_after_ms = ra > 0 ? ra : 0;
+        }
         cJSON_Delete(root);
         return AXIAM_ERR_AUTH;
     }
