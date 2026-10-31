@@ -81,9 +81,9 @@ static void test_version_string(void) {
      * routine version bumps don't break this test. */
     TEST_ASSERT_EQUAL_STRING_LEN(AXIAM_VERSION_PREFIX, axiam_version(),
                                  strlen(AXIAM_VERSION_PREFIX));
-    /* Contract 1.64's release is 1.1.2 (§34.8): the one place a test names it. The
-     * user-agent (`axiam-c-sdk/<AXIAM_VERSION>`) is built from the same macro. */
-    TEST_ASSERT_EQUAL_STRING("1.1.2", axiam_version());
+    /* The released version (1.1.3, AXIAM_VERSION in axiam.h): the one place a test names it.
+     * The user-agent (`axiam-c-sdk/<AXIAM_VERSION>`) is built from the same macro. */
+    TEST_ASSERT_EQUAL_STRING("1.1.3", axiam_version());
 }
 
 int main(void) {
