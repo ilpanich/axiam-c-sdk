@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.64 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33 and §36, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.65 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33, §36 and §37, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -36,6 +36,21 @@ framework-agnostic route guard and declarative authorization helpers.
 >
 > **Manifest pruning: not offered in any namespace** (§27.10; §27.6 rule 4 makes it a MAY).
 > Omission from a manifest is never deletion.
+>
+> **Contract 1.65** (§34.9, wire-additive, nothing breaking; adds §37 to the list above, and
+> the `idp_hint` input of §12.1 and §26.2 rule 8 is part of the §12 and §26 claims already made).
+> In this SDK: native sign-in with a provider ID token, `axiam_login_with_provider_id_token()`,
+> with `axiam_native_nonce()` (§37.4, a SHOULD, shipped); `idp_hint` on `axiam_oidc_begin_with_hint()`
+> and `axiam_oidc_par_with_hint()`; and the regenerated §27 members `default_idp`,
+> `refresh_reuse_response` and `native_login`. See [Native sign-in with a provider ID
+> token](#native-sign-in-with-a-provider-id-token-37) and [Choosing the provider:
+> `idp_hint`](#choosing-the-provider-idp_hint-121-262-rule-8). **A replayed refresh token now ends
+> the session server-side by default** (§9, the 1.65 paragraph): `axiam_oidc_refresh()` already
+> shares one wire call and one `invalid_grant` with every concurrent caller of a token and never
+> retries it, which is what keeps this SDK from causing it — but refreshing the same token from two
+> processes defeats the per-client guard, and from 1.65 that is a defect that costs the user the
+> session. Treat `invalid_grant` from `axiam_oidc_refresh()` as the end of the session and
+> authorize again.
 >
 > **Contract 1.64** (§34.8, released as **1.1.2**; no new operation, the section list above is
 > unchanged). In this SDK: a `429` on a device-code poll is waited out by
@@ -370,11 +385,11 @@ publishes one:
 
 | Operation | Endpoint aliased |
 |---|---|
-| `axiam_oidc_exchange`, `axiam_oidc_refresh`, `axiam_login_client_credentials`, `axiam_device_poll`, `axiam_token_exchange` | `token_endpoint` |
+| `axiam_oidc_exchange`, `axiam_oidc_refresh`, `axiam_login_client_credentials`, `axiam_login_with_provider_id_token`, `axiam_device_poll`, `axiam_token_exchange` | `token_endpoint` |
 | `axiam_introspect` | `introspection_endpoint` |
 | `axiam_revoke` | `revocation_endpoint` |
 | `axiam_device_authorize` | `device_authorization_endpoint` |
-| `axiam_oidc_par` | `pushed_authorization_request_endpoint` |
+| `axiam_oidc_par` (and `axiam_oidc_par_ex`, `axiam_oidc_par_with_hint`) | `pushed_authorization_request_endpoint` |
 | `axiam_ciba_initiate` (contract 1.58) | `backchannel_authentication_endpoint` |
 | `axiam_ciba_poll`, `axiam_ciba_await` | `token_endpoint` |
 
@@ -1645,6 +1660,85 @@ handle to a fully-formed authorization request.
 `/oauth2/par` and producing a 404 that reads like a broken request.
 
 Worked example: [`examples/par_login.c`](examples/par_login.c).
+
+### Choosing the provider: `idp_hint` (§12.1, §26.2 rule 8)
+
+A relying party that already knows which provider its user should use ("Sign in with Google" in its
+own UI) can send the browser straight to it instead of the provider chooser. The hint is the query
+parameter `axiam_idp_hint` — the ninth parameter of §12.1 rule 5, present only when set. There is no
+`kc_idp_hint` alias.
+
+```c
+axiam_authorization_request_t req;
+axiam_oidc_begin_with_hint(client, &doc, redirect_uri, "openid profile",
+                           "corp-okta" /* a provider's UUID, slug or branded kind name */,
+                           &req, &err);
+
+/* Under PAR the hint rides the pushed body; the redirect stays client_id + request_uri. */
+axiam_oidc_par_with_hint(client, &doc, &req, redirect_uri, "openid profile", NULL,
+                         NULL /* dpop_jkt */, "corp-okta", &pushed, &err);
+```
+
+`axiam_oidc_begin()` and `axiam_oidc_par()` / `axiam_oidc_par_ex()` are those calls with
+`idp_hint == NULL`, so nothing existing changes. The only validation is emptiness and length: an
+empty string or one over `AXIAM_IDP_HINT_MAX_BYTES` (256) bytes is refused locally with
+`AXIAM_ERR_NETWORK` and `transport_cause` 400, before any URL is built or request sent. The value is
+never trimmed, case-folded or looked up, and a hint the server cannot resolve is ignored by it (the
+response is byte-identical to a request without one). This SDK's `axiam_oidc_begin_with_hint()`
+accepts no other caller-supplied query parameters (rule 5 makes that a MAY), so the hint can only
+appear once.
+
+### Native sign-in with a provider ID token (§37)
+
+An app that signs in with Google's, Apple's or Facebook's *native* SDK holds an ID token the
+provider signed for it and no authorization code. `axiam_login_with_provider_id_token()` presents
+that token at `POST /oauth2/token` (`grant_type=urn:axiam:params:oauth:grant-type:provider-id-token`)
+and returns the client's ordinary token set. It is **not** token exchange (§15), which refuses ID
+tokens by name, and the SDK never falls back from one to the other.
+
+```c
+/* 1. Draw the pair. `hashed` goes to the provider's SDK, `raw` goes to AXIAM. */
+axiam_provider_nonce_t nonce;
+axiam_native_nonce(&nonce, &err);
+/* ... hand nonce.hashed (64 lower-case hex characters) to Google/Apple/Facebook ... */
+
+/* 2. The provider's SDK returns an ID token. Present it with the RAW nonce. A mobile app is a
+ *    PUBLIC client: configure client_id and no secret. */
+axiam_sensitive_t *id_token = axiam_sensitive_new(token_from_provider_sdk);
+axiam_oidc_token_set_t set;
+axiam_error_kind_t kind = axiam_login_with_provider_id_token(
+    client, "corp-google" /* the provider's UUID or provider_slug */, id_token, nonce.raw,
+    "openid" /* scopes, or NULL */, NULL /* resource */, NULL /* tenant UUID: the client's */,
+    &set, &err);
+
+axiam_sensitive_free(id_token);
+axiam_provider_nonce_dispose(&nonce); /* hold the raw nonce only for the attempt */
+if (kind == AXIAM_OK) { /* set.access_token, set.refresh_token, set.id_claims ... */
+    axiam_oidc_token_set_dispose(&set);
+}
+```
+
+- **The nonce on the wire is the raw one.** The SDK sends it byte for byte: it never hashes it,
+  never reads the token's `nonce` claim and never makes a nonce of its own. `axiam_native_nonce()`
+  (32 CSPRNG bytes, base64url without padding; `hashed` is the lower-case hex SHA-256 of `raw`) is
+  how an app gets the pair; `raw` is a `Sensitive` handle.
+- **`provider` is the provider's UUID or its `provider_slug`**, sent exactly as given. A kind name
+  such as `google` works only if the operator also chose it as the slug (the kind-name form
+  belongs to `idp_hint`). The SDK does no lookup.
+- **No scope is added**, and `openid` in particular is not: pass `"openid"` to receive an ID token
+  and `id_claims` (validated under §12.4 with the raw nonce as the expected one).
+- **Never retried**, and `invalid_grant` is never refined. The provider's token is single-use across
+  the deployment; every refusal of it is the one generic `invalid_grant` ("the provider ID token is
+  not acceptable"). A transport failure after the request left is indeterminate (`AXIAM_ERR_NETWORK`).
+  The recovery is a **fresh** provider ID token with a **fresh** nonce, never the same pair.
+  `consent_required` has spent the token as well. A `429` spends nothing; retrying it after the
+  `Retry-After` is the caller's call.
+- **Empty `provider`, `id_token` or `nonce`** are refused locally (`AXIAM_ERR_NETWORK`,
+  `transport_cause` 400, no request). A slug-only client is refused as for `axiam_oidc_exchange()`.
+- **Not adopted**, like `axiam_login_client_credentials()` and `axiam_device_login()`: the token set
+  is returned and the client holds nothing. Refresh it with `axiam_oidc_refresh()`.
+- **Neither secret is logged or kept.** The form body is scrubbed before it is released and no
+  error message carries either value.
 
 ## §22 Reactors — the protocol core over your own transport
 

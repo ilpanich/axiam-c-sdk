@@ -124,6 +124,18 @@ axiam_error_kind_t axiam_oidc_par_ex(axiam_client_t *client,
                                      const char *tenant_id, const char *dpop_jkt,
                                      axiam_pushed_authorization_request_t *out,
                                      axiam_error_t *err) {
+    return axiam_oidc_par_with_hint(client, config, request, redirect_uri, scope, tenant_id,
+                                    dpop_jkt, NULL, out, err);
+}
+
+axiam_error_kind_t axiam_oidc_par_with_hint(axiam_client_t *client,
+                                            const axiam_oidc_config_t *config,
+                                            const axiam_authorization_request_t *request,
+                                            const char *redirect_uri, const char *scope,
+                                            const char *tenant_id, const char *dpop_jkt,
+                                            const char *idp_hint,
+                                            axiam_pushed_authorization_request_t *out,
+                                            axiam_error_t *err) {
     axiam_error_reset(err);
     if (out) memset(out, 0, sizeof(*out));
     if (!client || !config || !request || !redirect_uri || !redirect_uri[0] || !out) {
@@ -133,6 +145,9 @@ axiam_error_kind_t axiam_oidc_par_ex(axiam_client_t *client,
         return AXIAM_ERR_NETWORK;
     }
     if (oidc_client_unusable(client, err)) return AXIAM_ERR_NETWORK;
+    /* §26.2 rule 8 / §12.1 rule 2: emptiness and length only, refused before any
+     * request. */
+    if (oidc_check_idp_hint(idp_hint, "oidc_par", err) != 0) return AXIAM_ERR_NETWORK;
 
     /* §21.3 rule 2: prefer the mTLS alias when this call presents a client
      * certificate. Absent at BOTH levels still means "unsupported" — never a
@@ -194,6 +209,11 @@ axiam_error_kind_t axiam_oidc_par_ex(axiam_client_t *client,
      * is not the same as no `dpop_jkt`, and the server would have to decide
      * which one it meant. */
     if (dpop_jkt && dpop_jkt[0]) oidc_form_add(&form, "dpop_jkt", dpop_jkt);
+    /* Contract 1.65 (§26.2 rule 8): the hint rides the PUSHED body, once, and is
+     * absent when unset. It is deliberately not added to build_redirect_url():
+     * the server reads the pushed copy, and rule 2 still pins the redirect to
+     * client_id and request_uri. */
+    if (idp_hint) oidc_form_add(&form, "axiam_idp_hint", idp_hint);
     if (client->cfg->oidc_client_secret) {
         oidc_form_add(&form, "client_secret",
                       axiam_sensitive_reveal(client->cfg->oidc_client_secret));

@@ -781,11 +781,38 @@ static void url_add_param(oidc_form_t *q, const char *key, const char *value) {
     oidc_form_add(q, key, value);
 }
 
+int oidc_check_idp_hint(const char *idp_hint, const char *operation, axiam_error_t *err) {
+    if (!idp_hint) return 0; /* unset */
+    size_t n = strlen(idp_hint);
+    if (n == 0 || n > AXIAM_IDP_HINT_MAX_BYTES) {
+        /* §12.1 rule 2: emptiness and length are the ONLY checks. The value is
+         * never trimmed, case-folded, parsed as a UUID or looked up. A local
+         * refusal is this SDK's §2 ValidationError: AXIAM_ERR_NETWORK with
+         * transport_cause 400 and no request sent. */
+        char msg[160];
+        snprintf(msg, sizeof(msg),
+                 "%s: idp_hint must be 1 to %d bytes when set (no request was sent)", operation,
+                 AXIAM_IDP_HINT_MAX_BYTES);
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 400, msg);
+        return -1;
+    }
+    return 0;
+}
+
 axiam_error_kind_t axiam_oidc_begin(axiam_client_t *client,
                                     const axiam_oidc_config_t *config,
                                     const char *redirect_uri, const char *scope,
                                     axiam_authorization_request_t *out,
                                     axiam_error_t *err) {
+    return axiam_oidc_begin_with_hint(client, config, redirect_uri, scope, NULL, out, err);
+}
+
+axiam_error_kind_t axiam_oidc_begin_with_hint(axiam_client_t *client,
+                                              const axiam_oidc_config_t *config,
+                                              const char *redirect_uri, const char *scope,
+                                              const char *idp_hint,
+                                              axiam_authorization_request_t *out,
+                                              axiam_error_t *err) {
     axiam_error_reset(err);
     if (!out) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid arguments");
@@ -798,6 +825,9 @@ axiam_error_kind_t axiam_oidc_begin(axiam_client_t *client,
                         "oidc_begin requires a discovery document and a redirect_uri");
         return AXIAM_ERR_NETWORK;
     }
+    /* §12.1 rule 2 (contract 1.65): refuse a bad hint before anything is drawn
+     * or built — no URL on a refusal. */
+    if (oidc_check_idp_hint(idp_hint, "oidc_begin", err) != 0) return AXIAM_ERR_NETWORK;
     /* NO closed-client check and NO transport acquisition here: §12.6 makes
      * oidc_begin synchronous and network-free in this SDK specifically, so it
      * must keep working on a client whose transport has been released. */
@@ -853,6 +883,10 @@ axiam_error_kind_t axiam_oidc_begin(axiam_client_t *client,
     url_add_param(&q, "nonce", nonce);
     url_add_param(&q, "code_challenge", challenge);
     url_add_param(&q, "code_challenge_method", "S256");
+    /* Contract 1.65 (§12.1 `idp_hint`): the ninth parameter, present only when
+     * set. This function accepts no caller-supplied extra parameters, so the
+     * hint is necessarily emitted exactly once; there is no kc_idp_hint alias. */
+    if (idp_hint) url_add_param(&q, "axiam_idp_hint", idp_hint);
 
     char *url = NULL;
     if (scopes && !q.failed) {

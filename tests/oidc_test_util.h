@@ -58,6 +58,7 @@ typedef struct {
     const char *body;
     int transport_fails;
     const char *retry_after; /* the Retry-After header value, or NULL for none */
+    const char *www_authenticate; /* the WWW-Authenticate header value, or NULL for none */
 } oidc_answer_t;
 
 typedef struct {
@@ -109,6 +110,9 @@ typedef struct {
     char content_types[OIDC_MAX_CALLS][64];
     char tenant_headers[OIDC_MAX_CALLS][128];
     char authorizations[OIDC_MAX_CALLS][256];
+    /* Whether the SDK put a Cookie / X-CSRF-Token header on the request it handed the transport. */
+    int cookie_headers[OIDC_MAX_CALLS];
+    int csrf_headers[OIDC_MAX_CALLS];
     char bodies[OIDC_MAX_CALLS][2048];
     int n_calls;
 
@@ -135,6 +139,11 @@ static void oidc_record(const axiam_http_request_t *req) {
     snprintf(g_oidc.tenant_headers[i], sizeof(g_oidc.tenant_headers[i]), "%s", tenant ? tenant : "");
     const char *auth = axiam_kv_get(req->headers, "Authorization");
     snprintf(g_oidc.authorizations[i], sizeof(g_oidc.authorizations[i]), "%s", auth ? auth : "");
+    /* An EMPTY Cookie header is the SDK's "withhold the jar" signal to the transport (it is
+     * what keeps a session cookie off /oauth2/*); only a non-empty one would reach the wire. */
+    const char *cookie = axiam_kv_get(req->headers, "Cookie");
+    g_oidc.cookie_headers[i] = cookie && cookie[0];
+    g_oidc.csrf_headers[i] = axiam_kv_get(req->headers, "X-CSRF-Token") != NULL;
     snprintf(g_oidc.bodies[i], sizeof(g_oidc.bodies[i]), "%s", req->body ? req->body : "");
 }
 
@@ -150,6 +159,9 @@ static int oidc_answer(const oidc_answer_t *a, long default_status, const char *
               (a && a->body) ? a->body : default_body, NULL);
     if (a && a->retry_after) {
         resp->headers = axiam_kv_append(resp->headers, "Retry-After", a->retry_after);
+    }
+    if (a && a->www_authenticate) {
+        resp->headers = axiam_kv_append(resp->headers, "WWW-Authenticate", a->www_authenticate);
     }
     return 0;
 }

@@ -40,6 +40,7 @@ typedef struct {
     pthread_mutex_t mtx;
     int token_calls;
     int discovery_calls;
+    int other_calls; /* anything that is neither discovery, JWKS nor the token endpoint */
     /* When set, the token endpoint refuses — the flight then has to share a
      * FAILURE with every waiter, which is the other half of §9 rule 2. */
     int refuse;
@@ -112,6 +113,9 @@ static int sf_transport(void *ctx, const axiam_http_request_t *req,
         resp_fill(resp, 200, st->token_body, NULL);
         return 0;
     }
+    pthread_mutex_lock(&st->mtx);
+    st->other_calls++;
+    pthread_mutex_unlock(&st->mtx);
     resp_fill(resp, 404, "{}", NULL);
     return 0;
 }
@@ -286,6 +290,86 @@ void test_a_failing_flight_shares_its_failure_with_every_waiter(void) {
     g_client = NULL;
 }
 
+/* Every worker of the burst records its own outcome here. */
+static int g_outcome_ok[N_THREADS];
+
+static void *invalid_grant_waiter(void *arg) {
+    int slot = (int)(intptr_t)arg;
+    axiam_sensitive_t *token = axiam_sensitive_new("the-spent-refresh-token");
+    pthread_barrier_wait(&g_barrier);
+    sf_gate_arrive();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    axiam_error_kind_t k = axiam_oidc_refresh(g_client, token, NULL, NULL, &set, &err);
+    /* The one shared error, with its code and the server's body intact, and nothing else. */
+    g_outcome_ok[slot] = (k == AXIAM_ERR_AUTH) && strcmp(err.oauth_error, "invalid_grant") == 0 &&
+                         strncmp(err.message, "invalid_grant", 13) == 0 &&
+                         set.access_token == NULL && set.refresh_token == NULL;
+    axiam_oidc_token_set_dispose(&set);
+    axiam_sensitive_free(token);
+    return NULL;
+}
+
+void test_invalid_grant_on_refresh_is_one_wire_call_one_shared_error_and_no_replay(void) {
+    /*
+     * CONTRACT.md §9, the contract-1.65 paragraph "A replayed refresh token ends the session".
+     *
+     * With the tenant setting `oauth2.refresh_reuse_response` at its default, a rotated refresh
+     * token presented again is answered `400 invalid_grant` AND ends the session: the
+     * legitimate successor is revoked with it. What that asks of an SDK is not new behaviour but
+     * the rules it already has, confirmed here against a mocked `400 invalid_grant`:
+     *
+     *   - exactly ONE wire call for a burst of N >= 5 concurrent callers (N-1 followers that each
+     *     made their own call would be N-1 replays, and from 1.65 each costs the user the
+     *     session);
+     *   - every waiter receives that ONE OAuthProtocolError;
+     *   - a later call made with no new token from the caller makes no request with the spent
+     *     token again — this SDK holds no refresh token of its own to present, so a call with
+     *     nothing to present is refused locally.
+     */
+    sf_prepare_tokens();
+    g.refuse = 1;
+    g_client = make_client();
+    axiam_error_t err;
+    axiam_oidc_config_t cfg;
+    axiam_oidc_discover(g_client, &cfg, &err);
+    axiam_oidc_config_dispose(&cfg);
+    TEST_ASSERT_TRUE(N_THREADS >= 5);
+
+    pthread_mutex_lock(&g.mtx);
+    g.gate_expect = N_THREADS;
+    g.gate_arrived = 0;
+    pthread_mutex_unlock(&g.mtx);
+    memset(g_outcome_ok, 0, sizeof g_outcome_ok);
+    pthread_barrier_init(&g_barrier, NULL, N_THREADS);
+    pthread_t th[N_THREADS];
+    for (int i = 0; i < N_THREADS; i++)
+        pthread_create(&th[i], NULL, invalid_grant_waiter, (void *)(intptr_t)i);
+    for (int i = 0; i < N_THREADS; i++) pthread_join(th[i], NULL);
+    pthread_barrier_destroy(&g_barrier);
+    pthread_mutex_lock(&g.mtx);
+    g.gate_expect = 0;
+    pthread_mutex_unlock(&g.mtx);
+
+    /* ONE wire call for the burst, and every one of the N waiters got that one error. */
+    TEST_ASSERT_EQUAL_INT(1, g.token_calls);
+    for (int i = 0; i < N_THREADS; i++) TEST_ASSERT_EQUAL_INT_MESSAGE(1, g_outcome_ok[i], "waiter");
+
+    /* A later call with no new token makes no request: nothing is retained to replay... */
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_oidc_refresh(g_client, NULL, NULL, NULL, &set, &err));
+    axiam_sensitive_t *empty = axiam_sensitive_new("");
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, axiam_oidc_refresh(g_client, empty, NULL, NULL, &set, &err));
+    axiam_sensitive_free(empty);
+    /* ...and no other path (the cookie-session refresh, the SDK's own retry) re-presented it. */
+    usleep(100 * 1000);
+    TEST_ASSERT_EQUAL_INT(1, g.token_calls);
+    TEST_ASSERT_EQUAL_INT(0, g.other_calls);
+
+    axiam_client_free(g_client);
+    g_client = NULL;
+}
+
 void test_distinct_refresh_tokens_do_not_contend(void) {
     sf_prepare_tokens();
     /* The guard is keyed on the TOKEN, not on the client. Coalescing unrelated
@@ -354,6 +438,7 @@ int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_concurrent_refreshes_of_one_token_make_exactly_one_wire_call);
     RUN_TEST(test_a_failing_flight_shares_its_failure_with_every_waiter);
+    RUN_TEST(test_invalid_grant_on_refresh_is_one_wire_call_one_shared_error_and_no_replay);
     RUN_TEST(test_distinct_refresh_tokens_do_not_contend);
     RUN_TEST(test_a_second_refresh_after_the_burst_is_a_new_flight);
     RUN_TEST(test_a_shared_outcome_without_optional_members_copies_cleanly);

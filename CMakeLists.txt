@@ -82,6 +82,8 @@ set(AXIAM_SOURCES
     src/oidc_exchange.c
     src/oidc_logout.c
     src/oidc_par.c
+    # CONTRACT.md §37 (contract 1.65): native sign-in with a provider ID token.
+    src/oidc_native.c
     # CONTRACT.md §28.12 (contract 1.53): RFC 7592 client configuration.
     src/registration.c
     src/reactor.c
