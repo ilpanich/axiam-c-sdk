@@ -167,6 +167,10 @@ axiam_mgmt_migrate_custody_response_t *axiam_mgmt_migrate_custody_response_parse
 cJSON *axiam_mgmt_migrate_custody_response_build(const axiam_mgmt_migrate_custody_response_t *value);
 axiam_mgmt_mtls_trust_anchor_response_t *axiam_mgmt_mtls_trust_anchor_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_anchor_response_t *value);
+axiam_mgmt_native_login_trust_request_t *axiam_mgmt_native_login_trust_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_native_login_trust_request_build(const axiam_mgmt_native_login_trust_request_t *value);
+axiam_mgmt_native_login_trust_response_t *axiam_mgmt_native_login_trust_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_native_login_trust_response_build(const axiam_mgmt_native_login_trust_response_t *value);
 axiam_mgmt_network_policy_response_t *axiam_mgmt_network_policy_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_network_policy_response_build(const axiam_mgmt_network_policy_response_t *value);
 axiam_mgmt_network_reply_profile_t *axiam_mgmt_network_reply_profile_parse(const cJSON *src);
@@ -184,6 +188,8 @@ axiam_mgmt_o_auth2_client_created_response_t *axiam_mgmt_o_auth2_client_created_
 cJSON *axiam_mgmt_o_auth2_client_created_response_build(const axiam_mgmt_o_auth2_client_created_response_t *value);
 axiam_mgmt_o_auth2_client_response_t *axiam_mgmt_o_auth2_client_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_o_auth2_client_response_build(const axiam_mgmt_o_auth2_client_response_t *value);
+axiam_mgmt_o_auth2_policy_t *axiam_mgmt_o_auth2_policy_parse(const cJSON *src);
+cJSON *axiam_mgmt_o_auth2_policy_build(const axiam_mgmt_o_auth2_policy_t *value);
 axiam_mgmt_oidc_authorize_request_t *axiam_mgmt_oidc_authorize_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_oidc_authorize_request_build(const axiam_mgmt_oidc_authorize_request_t *value);
 axiam_mgmt_oidc_authorize_response_t *axiam_mgmt_oidc_authorize_response_parse(const cJSON *src);
@@ -294,6 +300,7 @@ axiam_mgmt_set_org_email_config_t *axiam_mgmt_set_org_email_config_parse(const c
 cJSON *axiam_mgmt_set_org_email_config_build(const axiam_mgmt_set_org_email_config_t *value);
 axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *src);
 cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *value);
+const char *axiam_mgmt_set_org_settings_unsendable(const axiam_mgmt_set_org_settings_t *value);
 axiam_mgmt_sign_audit_batch_request_t *axiam_mgmt_sign_audit_batch_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_sign_audit_batch_request_build(const axiam_mgmt_sign_audit_batch_request_t *value);
 axiam_mgmt_sign_certificate_csr_request_t *axiam_mgmt_sign_certificate_csr_request_parse(const cJSON *src);
@@ -317,6 +324,7 @@ axiam_mgmt_tenant_t *axiam_mgmt_tenant_parse(const cJSON *src);
 cJSON *axiam_mgmt_tenant_build(const axiam_mgmt_tenant_t *value);
 axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse(const cJSON *src);
 cJSON *axiam_mgmt_tenant_settings_override_build(const axiam_mgmt_tenant_settings_override_t *value);
+const char *axiam_mgmt_tenant_settings_override_unsendable(const axiam_mgmt_tenant_settings_override_t *value);
 axiam_mgmt_token_exchange_trust_request_t *axiam_mgmt_token_exchange_trust_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_token_exchange_trust_request_build(const axiam_mgmt_token_exchange_trust_request_t *value);
 axiam_mgmt_token_exchange_trust_response_t *axiam_mgmt_token_exchange_trust_response_parse(const cJSON *src);
@@ -7226,6 +7234,12 @@ axiam_error_kind_t axiam_settings_get_org(axiam_client_t *c, const axiam_mgmt_ca
 
 axiam_error_kind_t axiam_settings_set_org(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_set_org_settings_t *body, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_set_org_settings_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "settings.set_org", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "org_id";
@@ -7287,6 +7301,12 @@ axiam_error_kind_t axiam_settings_get_effective(axiam_client_t *c, axiam_mgmt_se
 
 axiam_error_kind_t axiam_settings_set_effective(axiam_client_t *c, const axiam_mgmt_tenant_settings_override_t *body, axiam_mgmt_security_settings_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_tenant_settings_override_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "settings.set_effective", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     char *path = axiam_mgmt_path("/api/v1/settings", NULL, NULL, 0);
     if (!path) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "settings.set_effective: could not build the request path");
@@ -7348,6 +7368,12 @@ axiam_error_kind_t axiam_settings_get_tenant_override(axiam_client_t *c, const a
 
 axiam_error_kind_t axiam_settings_set_tenant_override(axiam_client_t *c, const axiam_mgmt_call_scope_t *scope, const axiam_mgmt_tenant_settings_override_t *body, axiam_mgmt_tenant_settings_override_t **out, axiam_error_t *err) {
     if (out) *out = NULL;
+    const char *unsendable = body ? axiam_mgmt_tenant_settings_override_unsendable(body) : NULL;
+    if (unsendable) {
+        axiam_local_refusal(err, "settings.set_tenant_override", unsendable,
+            "a value this SDK does not know (an _UNKNOWN constant) is never sent (CONTRACT.md \xc2\xa7" "34.2 P12.2)");
+        return AXIAM_ERR_NETWORK;
+    }
     const char *path_names[1];
     const char *path_values[1];
     path_names[0] = "tenant_id";

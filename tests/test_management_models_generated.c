@@ -161,6 +161,10 @@ axiam_mgmt_migrate_custody_response_t *axiam_mgmt_migrate_custody_response_parse
 cJSON *axiam_mgmt_migrate_custody_response_build(const axiam_mgmt_migrate_custody_response_t *value);
 axiam_mgmt_mtls_trust_anchor_response_t *axiam_mgmt_mtls_trust_anchor_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_anchor_response_t *value);
+axiam_mgmt_native_login_trust_request_t *axiam_mgmt_native_login_trust_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_native_login_trust_request_build(const axiam_mgmt_native_login_trust_request_t *value);
+axiam_mgmt_native_login_trust_response_t *axiam_mgmt_native_login_trust_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_native_login_trust_response_build(const axiam_mgmt_native_login_trust_response_t *value);
 axiam_mgmt_network_policy_response_t *axiam_mgmt_network_policy_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_network_policy_response_build(const axiam_mgmt_network_policy_response_t *value);
 axiam_mgmt_network_reply_profile_t *axiam_mgmt_network_reply_profile_parse(const cJSON *src);
@@ -177,6 +181,8 @@ axiam_mgmt_o_auth2_client_created_response_t *axiam_mgmt_o_auth2_client_created_
 cJSON *axiam_mgmt_o_auth2_client_created_response_build(const axiam_mgmt_o_auth2_client_created_response_t *value);
 axiam_mgmt_o_auth2_client_response_t *axiam_mgmt_o_auth2_client_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_o_auth2_client_response_build(const axiam_mgmt_o_auth2_client_response_t *value);
+axiam_mgmt_o_auth2_policy_t *axiam_mgmt_o_auth2_policy_parse(const cJSON *src);
+cJSON *axiam_mgmt_o_auth2_policy_build(const axiam_mgmt_o_auth2_policy_t *value);
 axiam_mgmt_oidc_authorize_request_t *axiam_mgmt_oidc_authorize_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_oidc_authorize_request_build(const axiam_mgmt_oidc_authorize_request_t *value);
 axiam_mgmt_oidc_authorize_response_t *axiam_mgmt_oidc_authorize_response_parse(const cJSON *src);
@@ -1618,7 +1624,7 @@ static void test_create_certificate_request_rejects_a_non_object(void) {
 
 /* `CreateFederationConfigRequest`: a full wire object parses, builds back and frees. */
 static void test_create_federation_config_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"native_login\": {\"client_ids\": [\"example\"], \"enabled\": true, \"max_token_age_secs\": 1}, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_create_federation_config_request_t *model = axiam_mgmt_create_federation_config_request_parse(src);
@@ -2030,7 +2036,7 @@ static void test_create_notification_rule_request_rejects_a_non_object(void) {
 
 /* `CreateOAuth2ClientRequest`: a full wire object parses, builds back and frees. */
 static void test_create_o_auth2_client_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}");
+    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"default_idp\": \"11111111-1111-4111-8111-111111111111\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_create_o_auth2_client_request_t *model = axiam_mgmt_create_o_auth2_client_request_parse(src);
@@ -3635,7 +3641,7 @@ static void test_encrypted_export_rejects_a_non_object(void) {
 
 /* `FederationConfigResponse`: a full wire object parses, builds back and frees. */
 static void test_federation_config_response_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"idp_metadata_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"mints_client_secret\": true, \"native_login\": {\"client_ids\": [\"example\"], \"enabled\": true, \"max_token_age_secs\": 1}, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"provider_slug\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"userinfo_endpoint\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_federation_config_response_t *model = axiam_mgmt_federation_config_response_parse(src);
@@ -3660,7 +3666,7 @@ static void test_federation_config_response_round_trips(void) {
 
 /* `FederationConfigResponse`: the server omitting every OPTIONAL field is not an error. */
 static void test_federation_config_response_parses_without_optionals(void) {
-    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"mints_client_secret\": true, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"attribute_map\": {}, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"effective_scopes\": [\"example\"], \"enabled\": true, \"has_bundled_mark\": true, \"id\": \"11111111-1111-4111-8111-111111111111\", \"mints_client_secret\": true, \"native_login\": {\"client_ids\": [\"example\"], \"enabled\": true, \"max_token_age_secs\": 1}, \"pkce_required\": true, \"protocol\": \"example\", \"provider\": \"example\", \"provider_kind\": \"example\", \"scopes\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_federation_config_response_t *model = axiam_mgmt_federation_config_response_parse(src);
@@ -4979,6 +4985,134 @@ static void test_mtls_trust_anchor_response_rejects_a_non_object(void) {
     cJSON_Delete(scalar);
 }
 
+/* `NativeLoginTrustRequest`: a full wire object parses, builds back and frees. */
+static void test_native_login_trust_request_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"client_ids\": [\"example\"], \"enabled\": true, \"max_token_age_secs\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_native_login_trust_request_t *model = axiam_mgmt_native_login_trust_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_native_login_trust_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_native_login_trust_request_free(model);
+    cJSON_Delete(src);
+}
+
+/* `NativeLoginTrustRequest`: the server omitting every OPTIONAL field is not an error. */
+static void test_native_login_trust_request_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_native_login_trust_request_t *model = axiam_mgmt_native_login_trust_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_native_login_trust_request_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_native_login_trust_request_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `NativeLoginTrustRequest`: an EMPTY object parses without crashing. A server that omits a
+ * field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_native_login_trust_request_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_native_login_trust_request_t *model = axiam_mgmt_native_login_trust_request_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_native_login_trust_request_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_native_login_trust_request_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_native_login_trust_request_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_native_login_trust_request_parse(scalar));
+    axiam_mgmt_native_login_trust_request_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `NativeLoginTrustResponse`: a full wire object parses, builds back and frees. */
+static void test_native_login_trust_response_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"client_ids\": [\"example\"], \"enabled\": true, \"max_token_age_secs\": 1}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_native_login_trust_response_t *model = axiam_mgmt_native_login_trust_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_native_login_trust_response_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_native_login_trust_response_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `NativeLoginTrustResponse`: an EMPTY object parses without crashing. A server that omits
+ * a field openapi.json marks required is malformed, and this SDK's answer is a model with
+ * that member unset rather than an abort -- the caller is in a position to decide, and a
+ * parser that segfaults on a bad response is a worse failure than one that hands back a
+ * null. This also reaches the ABSENT arm of every field guard, required ones included,
+ * which no well-formed fixture can.
+ */
+static void test_native_login_trust_response_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_native_login_trust_response_t *model = axiam_mgmt_native_login_trust_response_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_native_login_trust_response_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_native_login_trust_response_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_native_login_trust_response_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_native_login_trust_response_parse(scalar));
+    axiam_mgmt_native_login_trust_response_free(NULL);
+    cJSON_Delete(scalar);
+}
+
 /* `NetworkPolicyResponse`: a full wire object parses, builds back and frees. */
 static void test_network_policy_response_round_trips(void) {
     cJSON *src = cJSON_Parse("{\"session_timeout_max_secs\": 1, \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"updated_at\": \"2026-08-26T00:00:00Z\", \"updated_by\": \"11111111-1111-4111-8111-111111111111\", \"version\": 1}");
@@ -5462,7 +5596,7 @@ static void test_o_auth2_client_created_response_rejects_a_non_object(void) {
 
 /* `OAuth2ClientResponse`: a full wire object parses, builds back and frees. */
 static void test_o_auth2_client_response_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
+    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"PS256\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_token_delivery_mode\": \"poll\", \"browser_sso\": true, \"client_id\": \"example\", \"created_at\": \"2026-08-26T00:00:00Z\", \"default_idp\": \"11111111-1111-4111-8111-111111111111\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"id\": \"11111111-1111-4111-8111-111111111111\", \"jwks\": \"example\", \"jwks_uri\": \"example\", \"last_authorized_at\": \"2026-08-26T00:00:00Z\", \"managed_by\": \"admin\", \"name\": \"example\", \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\", \"updated_at\": \"2026-08-26T00:00:00Z\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_o_auth2_client_response_t *model = axiam_mgmt_o_auth2_client_response_parse(src);
@@ -5532,6 +5666,81 @@ static void test_o_auth2_client_response_rejects_a_non_object(void) {
     cJSON *scalar = cJSON_CreateString("nope");
     TEST_ASSERT_NULL(axiam_mgmt_o_auth2_client_response_parse(scalar));
     axiam_mgmt_o_auth2_client_response_free(NULL);
+    cJSON_Delete(scalar);
+}
+
+/* `OAuth2Policy`: a full wire object parses, builds back and frees. */
+static void test_o_auth2_policy_round_trips(void) {
+    cJSON *src = cJSON_Parse("{\"refresh_reuse_response\": \"revoke_session\"}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_o_auth2_policy_t *model = axiam_mgmt_o_auth2_policy_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_o_auth2_policy_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    /*
+     * Every key the server sent must survive parse AND build. A field the model can read
+     * but not write again is data it silently loses on anything the SDK re-sends.
+     */
+    for (const cJSON *f = src->child; f; f = f->next) {
+        if (cJSON_IsNull(f)) continue;
+        TEST_ASSERT_NOT_NULL_MESSAGE(
+            cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
+    }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_o_auth2_policy_free(model);
+    cJSON_Delete(src);
+}
+
+/* `OAuth2Policy`: the server omitting every OPTIONAL field is not an error. */
+static void test_o_auth2_policy_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_o_auth2_policy_t *model = axiam_mgmt_o_auth2_policy_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_o_auth2_policy_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_o_auth2_policy_free(model);
+    cJSON_Delete(src);
+}
+
+/*
+ * `OAuth2Policy`: an EMPTY object parses without crashing. A server that omits a field
+ * openapi.json marks required is malformed, and this SDK's answer is a model with that
+ * member unset rather than an abort -- the caller is in a position to decide, and a parser
+ * that segfaults on a bad response is a worse failure than one that hands back a null. This
+ * also reaches the ABSENT arm of every field guard, required ones included, which no
+ * well-formed fixture can.
+ */
+static void test_o_auth2_policy_parses_an_empty_object(void) {
+    cJSON *src = cJSON_Parse("{}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_o_auth2_policy_t *model = axiam_mgmt_o_auth2_policy_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    cJSON *rebuilt = axiam_mgmt_o_auth2_policy_build(model);
+    if (rebuilt) cJSON_Delete(rebuilt);
+    axiam_mgmt_o_auth2_policy_free(model);
+    cJSON_Delete(src);
+}
+
+static void test_o_auth2_policy_rejects_a_non_object(void) {
+    cJSON *scalar = cJSON_CreateString("nope");
+    TEST_ASSERT_NULL(axiam_mgmt_o_auth2_policy_parse(scalar));
+    axiam_mgmt_o_auth2_policy_free(NULL);
     cJSON_Delete(scalar);
 }
 
@@ -8225,7 +8434,7 @@ static void test_scope_rejects_a_non_object(void) {
 
 /* `SecuritySettings`: a full wire object parses, builds back and frees. */
 static void test_security_settings_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
+    cJSON *src = cJSON_Parse("{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oauth2\": {\"refresh_reuse_response\": \"revoke_session\"}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_security_settings_t *model = axiam_mgmt_security_settings_parse(src);
@@ -8242,6 +8451,28 @@ static void test_security_settings_round_trips(void) {
         TEST_ASSERT_NOT_NULL_MESSAGE(
             cJSON_GetObjectItemCaseSensitive(rebuilt, f->string), f->string);
     }
+
+    cJSON_Delete(rebuilt);
+    axiam_mgmt_security_settings_free(model);
+    cJSON_Delete(src);
+}
+
+/* `SecuritySettings`: the server omitting every OPTIONAL field is not an error. */
+static void test_security_settings_parses_without_optionals(void) {
+    cJSON *src = cJSON_Parse("{\"certificate\": {\"default_cert_validity_days\": 1, \"max_cert_validity_days\": 1, \"server_cert_allowed_names\": [\"example\"]}, \"created_at\": \"2026-08-26T00:00:00Z\", \"email\": {\"email_verification_grace_period_hours\": 1, \"email_verification_required\": true}, \"id\": \"11111111-1111-4111-8111-111111111111\", \"lockout\": {\"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1}, \"mfa\": {\"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true}, \"notification\": {\"admin_notifications_enabled\": true}, \"oidc\": {\"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_locale\": \"example\", \"dynamic_registration\": \"example\", \"external_client_allowed_resources\": [\"example\"], \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"ssf_enabled\": true, \"ssf_inactive_reason\": \"example\"}, \"opaque\": {\"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\"}, \"password\": {\"hibp_check_enabled\": true, \"min_length\": 1, \"password_history_count\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true}, \"privacy\": {\"deletion_grace_period_days\": 1}, \"scope\": \"Org\", \"scope_id\": \"11111111-1111-4111-8111-111111111111\", \"token\": {\"access_token_lifetime_secs\": 1, \"refresh_token_lifetime_secs\": 1}, \"updated_at\": \"2026-08-26T00:00:00Z\", \"webauthn\": {\"webauthn_user_verification\": \"example\"}}");
+    TEST_ASSERT_NOT_NULL(src);
+
+    axiam_mgmt_security_settings_t *model = axiam_mgmt_security_settings_parse(src);
+    TEST_ASSERT_NOT_NULL(model);
+
+    /*
+     * Building it back must not invent the fields that were absent: an unset member is
+     * OMITTED, not emitted as null (27.4 rule 5).
+     */
+    cJSON *rebuilt = axiam_mgmt_security_settings_build(model);
+    TEST_ASSERT_NOT_NULL(rebuilt);
+    for (const cJSON *f = rebuilt->child; f; f = f->next)
+        TEST_ASSERT_FALSE_MESSAGE(cJSON_IsNull(f), f->string);
 
     cJSON_Delete(rebuilt);
     axiam_mgmt_security_settings_free(model);
@@ -8709,7 +8940,7 @@ static void test_set_org_email_config_rejects_a_non_object(void) {
 
 /* `SetOrgSettings`: a full wire object parses, builds back and frees. */
 static void test_set_org_settings_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_reuse_response\": \"revoke_session\", \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_set_org_settings_t *model = axiam_mgmt_set_org_settings_parse(src);
@@ -9296,7 +9527,7 @@ static void test_tenant_rejects_a_non_object(void) {
 
 /* `TenantSettingsOverride`: a full wire object parses, builds back and frees. */
 static void test_tenant_settings_override_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"access_token_lifetime_secs\": 1, \"admin_notifications_enabled\": true, \"cimd\": {\"allow_http\": true, \"confidential_only\": true, \"enabled\": true, \"max_cache_secs\": 1, \"max_metadata_bytes\": 1, \"min_cache_secs\": 1, \"restrict_same_domain\": true, \"trusted_client_id_domains\": [\"example\"], \"trusted_redirect_domains\": [\"example\"]}, \"dcr_allowed_redirect_hosts\": [\"example\"], \"dcr_allowed_scopes\": [\"example\"], \"dcr_max_clients\": 1, \"dcr_unused_client_ttl_days\": 1, \"default_cert_validity_days\": 1, \"default_locale\": \"example\", \"deletion_grace_period_days\": 1, \"dynamic_registration\": \"example\", \"email_verification_grace_period_hours\": 1, \"email_verification_required\": true, \"external_client_allowed_resources\": [\"example\"], \"hibp_check_enabled\": true, \"lockout_backoff_multiplier\": 1.5, \"lockout_duration_secs\": 1, \"max_cert_validity_days\": 1, \"max_failed_login_attempts\": 1, \"max_lockout_duration_secs\": 1, \"mfa_challenge_lifetime_secs\": 1, \"mfa_enforced\": true, \"min_length\": 1, \"opaque_ksf\": \"example\", \"opaque_mode\": \"example\", \"opaque_suite\": \"example\", \"password_history_count\": 1, \"refresh_reuse_response\": \"revoke_session\", \"refresh_token_lifetime_secs\": 1, \"require_digits\": true, \"require_lowercase\": true, \"require_symbols\": true, \"require_uppercase\": true, \"saml_idp_enabled\": true, \"sensitive_scopes_enabled\": true, \"server_cert_allowed_names\": [\"example\"], \"ssf_enabled\": true, \"webauthn_user_verification\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_tenant_settings_override_t *model = axiam_mgmt_tenant_settings_override_parse(src);
@@ -9649,7 +9880,7 @@ static void test_update_directory_config_rejects_a_non_object(void) {
 
 /* `UpdateFederationConfigRequest`: a full wire object parses, builds back and frees. */
 static void test_update_federation_config_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
+    cJSON *src = cJSON_Parse("{\"allow_sha1_signatures\": true, \"allow_tenant_inheritance\": true, \"allowed_algorithms\": [\"example\"], \"allowed_issuer_tenants\": [\"example\"], \"apple_key_id\": \"example\", \"apple_team_id\": \"example\", \"attribute_map\": {}, \"authorization_endpoint\": \"example\", \"button_icon\": \"example\", \"client_id\": \"example\", \"client_secret\": \"example\", \"enabled\": true, \"idp_metadata_signing_cert_pem\": \"example\", \"idp_signing_cert_pem\": \"example\", \"metadata_url\": \"example\", \"native_login\": {\"client_ids\": [\"example\"], \"enabled\": true, \"max_token_age_secs\": 1}, \"provider\": \"example\", \"provider_slug\": \"example\", \"require_pkce\": true, \"scopes\": [\"example\"], \"token_endpoint\": \"example\", \"token_exchange\": {\"accepted_audiences\": [\"example\"], \"enabled\": true, \"max_lifetime_secs\": 1, \"max_token_age_secs\": 1, \"scope_map\": {}, \"subject_mapping\": \"example\"}, \"userinfo_endpoint\": \"example\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_update_federation_config_request_t *model = axiam_mgmt_update_federation_config_request_parse(src);
@@ -9880,7 +10111,7 @@ static void test_update_notification_rule_request_rejects_a_non_object(void) {
 
 /* `UpdateOAuth2ClientRequest`: a full wire object parses, builds back and frees. */
 static void test_update_o_auth2_client_request_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}");
+    cJSON *src = cJSON_Parse("{\"allowed_resources\": [\"example\"], \"authn_request_params\": \"ignore\", \"backchannel_authentication_request_signing_alg\": \"example\", \"backchannel_client_notification_endpoint\": \"example\", \"backchannel_logout_uri\": \"example\", \"backchannel_token_delivery_mode\": \"example\", \"backchannel_user_code_parameter\": true, \"browser_sso\": true, \"default_idp\": \"11111111-1111-4111-8111-111111111111\", \"dpop_bound_access_tokens\": true, \"dpop_require_nonce\": true, \"grant_types\": [\"example\"], \"jwks\": \"example\", \"jwks_uri\": \"example\", \"name\": \"example\", \"post_logout_redirect_uris\": [\"example\"], \"profile\": \"standard\", \"redirect_uris\": [\"example\"], \"require_par\": true, \"scopes\": [\"example\"], \"self_signed_tls_client_auth_thumbprints\": [\"example\"], \"tls_client_auth_san_dns\": \"example\", \"tls_client_auth_san_uri\": \"example\", \"tls_client_auth_subject_dn\": \"example\", \"tls_client_certificate_bound_access_tokens\": true, \"token_endpoint_auth_method\": \"client_secret_post\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_update_o_auth2_client_request_t *model = axiam_mgmt_update_o_auth2_client_request_parse(src);
@@ -11983,6 +12214,38 @@ static void test_reactor_mode_enum_round_trips(void) {
 }
 
 /*
+ * `RefreshReuseResponse`: every wire value round-trips through its constant, an
+ * unrecognised value decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and
+ * a NULL argument is refused.
+ */
+static void test_refresh_reuse_response_enum_round_trips(void) {
+    static const char *const wire[] = {
+        "revoke_session",
+        "refuse",
+    };
+    static const axiam_mgmt_refresh_reuse_response_t constant[] = {
+        AXIAM_MGMT_REFRESH_REUSE_RESPONSE_REVOKE_SESSION,
+        AXIAM_MGMT_REFRESH_REUSE_RESPONSE_REFUSE,
+    };
+    axiam_mgmt_refresh_reuse_response_t got;
+    for (size_t i = 0; i < sizeof wire / sizeof wire[0]; i++) {
+        TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_refresh_reuse_response_from_wire(wire[i], &got));
+        TEST_ASSERT_EQUAL_INT(constant[i], got);
+        TEST_ASSERT_EQUAL_STRING(wire[i], axiam_mgmt_refresh_reuse_response_to_wire(constant[i]));
+    }
+    TEST_ASSERT_EQUAL_INT(0, axiam_mgmt_refresh_reuse_response_from_wire("not-a-server-value", &got));
+    TEST_ASSERT_EQUAL_INT(AXIAM_MGMT_REFRESH_REUSE_RESPONSE_UNKNOWN, got);
+    TEST_ASSERT_EQUAL_STRING("", axiam_mgmt_refresh_reuse_response_to_wire(got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_refresh_reuse_response_from_wire(NULL, &got));
+    TEST_ASSERT_EQUAL_INT(-1, axiam_mgmt_refresh_reuse_response_from_wire(wire[0], NULL));
+    /*
+     * A value outside the enumeration (a corrupted struct) encodes as the first wire value
+     * rather than reading past a table.
+     */
+    TEST_ASSERT_EQUAL_STRING(wire[0], axiam_mgmt_refresh_reuse_response_to_wire((axiam_mgmt_refresh_reuse_response_t) 0x7fff));
+}
+
+/*
  * `SamlBinding`: every wire value round-trips through its constant, an unrecognised value
  * decodes to UNKNOWN (27.11 rule 1) and encodes as the empty string, and a NULL argument is
  * refused.
@@ -12514,6 +12777,7 @@ int main(void) {
     RUN_TEST(test_radius_service_type_enum_round_trips);
     RUN_TEST(test_radius_termination_action_enum_round_trips);
     RUN_TEST(test_reactor_mode_enum_round_trips);
+    RUN_TEST(test_refresh_reuse_response_enum_round_trips);
     RUN_TEST(test_saml_binding_enum_round_trips);
     RUN_TEST(test_saml_idp_credential_status_enum_round_trips);
     RUN_TEST(test_saml_idp_slot_enum_round_trips);
@@ -12779,6 +13043,13 @@ int main(void) {
     RUN_TEST(test_mtls_trust_anchor_response_parses_without_optionals);
     RUN_TEST(test_mtls_trust_anchor_response_parses_an_empty_object);
     RUN_TEST(test_mtls_trust_anchor_response_rejects_a_non_object);
+    RUN_TEST(test_native_login_trust_request_round_trips);
+    RUN_TEST(test_native_login_trust_request_parses_without_optionals);
+    RUN_TEST(test_native_login_trust_request_parses_an_empty_object);
+    RUN_TEST(test_native_login_trust_request_rejects_a_non_object);
+    RUN_TEST(test_native_login_trust_response_round_trips);
+    RUN_TEST(test_native_login_trust_response_parses_an_empty_object);
+    RUN_TEST(test_native_login_trust_response_rejects_a_non_object);
     RUN_TEST(test_network_policy_response_round_trips);
     RUN_TEST(test_network_policy_response_parses_without_optionals);
     RUN_TEST(test_network_policy_response_parses_an_empty_object);
@@ -12809,6 +13080,10 @@ int main(void) {
     RUN_TEST(test_o_auth2_client_response_parses_without_optionals);
     RUN_TEST(test_o_auth2_client_response_parses_an_empty_object);
     RUN_TEST(test_o_auth2_client_response_rejects_a_non_object);
+    RUN_TEST(test_o_auth2_policy_round_trips);
+    RUN_TEST(test_o_auth2_policy_parses_without_optionals);
+    RUN_TEST(test_o_auth2_policy_parses_an_empty_object);
+    RUN_TEST(test_o_auth2_policy_rejects_a_non_object);
     RUN_TEST(test_oidc_authorize_request_round_trips);
     RUN_TEST(test_oidc_authorize_request_parses_an_empty_object);
     RUN_TEST(test_oidc_authorize_request_rejects_a_non_object);
@@ -12957,6 +13232,7 @@ int main(void) {
     RUN_TEST(test_scope_parses_an_empty_object);
     RUN_TEST(test_scope_rejects_a_non_object);
     RUN_TEST(test_security_settings_round_trips);
+    RUN_TEST(test_security_settings_parses_without_optionals);
     RUN_TEST(test_security_settings_parses_an_empty_object);
     RUN_TEST(test_security_settings_rejects_a_non_object);
     RUN_TEST(test_service_account_created_response_round_trips);

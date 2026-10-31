@@ -842,6 +842,33 @@ const char *axiam_mgmt_reactor_mode_to_wire(axiam_mgmt_reactor_mode_t value) {
     return "intercept";
 }
 
+int axiam_mgmt_refresh_reuse_response_from_wire(const char *value, axiam_mgmt_refresh_reuse_response_t *out) {
+    if (!value || !out) return -1;
+    if (strcmp(value, "revoke_session") == 0) { *out = AXIAM_MGMT_REFRESH_REUSE_RESPONSE_REVOKE_SESSION; return 0; }
+    if (strcmp(value, "refuse") == 0) { *out = AXIAM_MGMT_REFRESH_REUSE_RESPONSE_REFUSE; return 0; }
+    /*
+     * §27.11 rule 1: an unrecognised value decodes, it does not fail. Reporting it here
+     * would make the caller drop the whole record over one field it did not ask about. It
+     * is still never read as one of the KNOWN constants -- that would turn a new server
+     * state into a wrong one, and on this surface these values gate access.
+     */
+    *out = AXIAM_MGMT_REFRESH_REUSE_RESPONSE_UNKNOWN;
+    return 0;
+}
+
+const char *axiam_mgmt_refresh_reuse_response_to_wire(axiam_mgmt_refresh_reuse_response_t value) {
+    switch (value) {
+        case AXIAM_MGMT_REFRESH_REUSE_RESPONSE_REVOKE_SESSION: return "revoke_session";
+        case AXIAM_MGMT_REFRESH_REUSE_RESPONSE_REFUSE: return "refuse";
+        /*
+         * The empty string, which no server value is. Never sent: every operation whose
+         * body can carry it refuses it locally first (_unsendable(), R-22).
+         */
+        case AXIAM_MGMT_REFRESH_REUSE_RESPONSE_UNKNOWN: return "";
+    }
+    return "revoke_session";
+}
+
 int axiam_mgmt_saml_binding_from_wire(const char *value, axiam_mgmt_saml_binding_t *out) {
     if (!value || !out) return -1;
     if (strcmp(value, "http_post") == 0) { *out = AXIAM_MGMT_SAML_BINDING_HTTP_POST; return 0; }
@@ -1408,6 +1435,10 @@ axiam_mgmt_migrate_custody_response_t *axiam_mgmt_migrate_custody_response_parse
 cJSON *axiam_mgmt_migrate_custody_response_build(const axiam_mgmt_migrate_custody_response_t *value);
 axiam_mgmt_mtls_trust_anchor_response_t *axiam_mgmt_mtls_trust_anchor_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_anchor_response_t *value);
+axiam_mgmt_native_login_trust_request_t *axiam_mgmt_native_login_trust_request_parse(const cJSON *src);
+cJSON *axiam_mgmt_native_login_trust_request_build(const axiam_mgmt_native_login_trust_request_t *value);
+axiam_mgmt_native_login_trust_response_t *axiam_mgmt_native_login_trust_response_parse(const cJSON *src);
+cJSON *axiam_mgmt_native_login_trust_response_build(const axiam_mgmt_native_login_trust_response_t *value);
 axiam_mgmt_network_policy_response_t *axiam_mgmt_network_policy_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_network_policy_response_build(const axiam_mgmt_network_policy_response_t *value);
 axiam_mgmt_network_reply_profile_t *axiam_mgmt_network_reply_profile_parse(const cJSON *src);
@@ -1424,6 +1455,8 @@ axiam_mgmt_o_auth2_client_created_response_t *axiam_mgmt_o_auth2_client_created_
 cJSON *axiam_mgmt_o_auth2_client_created_response_build(const axiam_mgmt_o_auth2_client_created_response_t *value);
 axiam_mgmt_o_auth2_client_response_t *axiam_mgmt_o_auth2_client_response_parse(const cJSON *src);
 cJSON *axiam_mgmt_o_auth2_client_response_build(const axiam_mgmt_o_auth2_client_response_t *value);
+axiam_mgmt_o_auth2_policy_t *axiam_mgmt_o_auth2_policy_parse(const cJSON *src);
+cJSON *axiam_mgmt_o_auth2_policy_build(const axiam_mgmt_o_auth2_policy_t *value);
 axiam_mgmt_oidc_authorize_request_t *axiam_mgmt_oidc_authorize_request_parse(const cJSON *src);
 cJSON *axiam_mgmt_oidc_authorize_request_build(const axiam_mgmt_oidc_authorize_request_t *value);
 axiam_mgmt_oidc_authorize_response_t *axiam_mgmt_oidc_authorize_response_parse(const cJSON *src);
@@ -1613,8 +1646,10 @@ const char *axiam_mgmt_replace_network_reply_profile_request_unsendable(const ax
 const char *axiam_mgmt_saml_service_provider_input_unsendable(const axiam_mgmt_saml_service_provider_input_t *value);
 const char *axiam_mgmt_scim_target_input_unsendable(const axiam_mgmt_scim_target_input_t *value);
 const char *axiam_mgmt_set_directory_config_unsendable(const axiam_mgmt_set_directory_config_t *value);
+const char *axiam_mgmt_set_org_settings_unsendable(const axiam_mgmt_set_org_settings_t *value);
 const char *axiam_mgmt_sign_certificate_csr_request_unsendable(const axiam_mgmt_sign_certificate_csr_request_t *value);
 const char *axiam_mgmt_ssf_stream_input_unsendable(const axiam_mgmt_ssf_stream_input_t *value);
+const char *axiam_mgmt_tenant_settings_override_unsendable(const axiam_mgmt_tenant_settings_override_t *value);
 const char *axiam_mgmt_update_directory_config_unsendable(const axiam_mgmt_update_directory_config_t *value);
 const char *axiam_mgmt_update_o_auth2_client_request_unsendable(const axiam_mgmt_update_o_auth2_client_request_t *value);
 const char *axiam_mgmt_update_reactor_request_unsendable(const axiam_mgmt_update_reactor_request_t *value);
@@ -2742,6 +2777,7 @@ void axiam_mgmt_create_federation_config_request_free(axiam_mgmt_create_federati
     free(value->idp_metadata_signing_cert_pem);
     free(value->idp_signing_cert_pem);
     free(value->metadata_url);
+    axiam_mgmt_native_login_trust_request_free(value->native_login);
     free(value->protocol);
     free(value->provider);
     free(value->provider_kind);
@@ -2810,6 +2846,8 @@ axiam_mgmt_create_federation_config_request_t *axiam_mgmt_create_federation_conf
     if (cJSON_IsString(item)) out->idp_signing_cert_pem = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
     if (cJSON_IsString(item)) out->metadata_url = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "native_login");
+    if (cJSON_IsObject(item)) out->native_login = axiam_mgmt_native_login_trust_request_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "protocol");
     if (cJSON_IsString(item)) out->protocol = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "provider");
@@ -2891,6 +2929,10 @@ cJSON *axiam_mgmt_create_federation_config_request_build(const axiam_mgmt_create
     }
     if (value->metadata_url) {
         cJSON_AddStringToObject(obj, "metadata_url", value->metadata_url);
+    }
+    if (value->native_login) {
+        cJSON *sub = axiam_mgmt_native_login_trust_request_build(value->native_login);
+        if (sub && !cJSON_AddItemToObject(obj, "native_login", sub)) cJSON_Delete(sub);
     }
     if (value->protocol) {
         cJSON_AddStringToObject(obj, "protocol", value->protocol);
@@ -3205,6 +3247,7 @@ void axiam_mgmt_create_o_auth2_client_request_free(axiam_mgmt_create_o_auth2_cli
     free(value->backchannel_client_notification_endpoint);
     free(value->backchannel_logout_uri);
     free(value->backchannel_token_delivery_mode);
+    free(value->default_idp);
     if (value->grant_types) {
         for (size_t i = 0; i < value->grant_types_count; i++) free(value->grant_types[i]);
         free(value->grant_types);
@@ -3269,6 +3312,8 @@ axiam_mgmt_create_o_auth2_client_request_t *axiam_mgmt_create_o_auth2_client_req
     item = cJSON_GetObjectItemCaseSensitive(src, "browser_sso");
     if (cJSON_IsBool(item)) { out->browser_sso = cJSON_IsTrue(item) ? 1 : 0;
         out->has_browser_sso = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "default_idp");
+    if (cJSON_IsString(item)) out->default_idp = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "dpop_bound_access_tokens");
     if (cJSON_IsBool(item)) { out->dpop_bound_access_tokens = cJSON_IsTrue(item) ? 1 : 0;
         out->has_dpop_bound_access_tokens = 1; }
@@ -3388,6 +3433,9 @@ cJSON *axiam_mgmt_create_o_auth2_client_request_build(const axiam_mgmt_create_o_
     }
     if (value->has_browser_sso) {
         cJSON_AddBoolToObject(obj, "browser_sso", value->browser_sso);
+    }
+    if (value->default_idp) {
+        cJSON_AddStringToObject(obj, "default_idp", value->default_idp);
     }
     if (value->has_dpop_bound_access_tokens) {
         cJSON_AddBoolToObject(obj, "dpop_bound_access_tokens", value->dpop_bound_access_tokens);
@@ -4682,6 +4730,7 @@ void axiam_mgmt_federation_config_response_free(axiam_mgmt_federation_config_res
     free(value->id);
     free(value->idp_metadata_signing_cert_pem);
     free(value->metadata_url);
+    axiam_mgmt_native_login_trust_response_free(value->native_login);
     free(value->protocol);
     free(value->provider);
     free(value->provider_kind);
@@ -4772,6 +4821,8 @@ axiam_mgmt_federation_config_response_t *axiam_mgmt_federation_config_response_p
     item = cJSON_GetObjectItemCaseSensitive(src, "mints_client_secret");
     if (cJSON_IsBool(item)) { out->mints_client_secret = cJSON_IsTrue(item) ? 1 : 0;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "native_login");
+    if (cJSON_IsObject(item)) out->native_login = axiam_mgmt_native_login_trust_response_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "pkce_required");
     if (cJSON_IsBool(item)) { out->pkce_required = cJSON_IsTrue(item) ? 1 : 0;
     }
@@ -4871,6 +4922,10 @@ cJSON *axiam_mgmt_federation_config_response_build(const axiam_mgmt_federation_c
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "mints_client_secret", value->mints_client_secret);
+    }
+    if (value->native_login) {
+        cJSON *sub = axiam_mgmt_native_login_trust_response_build(value->native_login);
+        if (sub && !cJSON_AddItemToObject(obj, "native_login", sub)) cJSON_Delete(sub);
     }
     if (1) {
         cJSON_AddBoolToObject(obj, "pkce_required", value->pkce_required);
@@ -6020,6 +6075,112 @@ cJSON *axiam_mgmt_mtls_trust_anchor_response_build(const axiam_mgmt_mtls_trust_a
     return obj;
 }
 
+void axiam_mgmt_native_login_trust_request_free(axiam_mgmt_native_login_trust_request_t *value) {
+    if (!value) return;
+    if (value->client_ids) {
+        for (size_t i = 0; i < value->client_ids_count; i++) free(value->client_ids[i]);
+        free(value->client_ids);
+    }
+    free(value);
+}
+
+axiam_mgmt_native_login_trust_request_t *axiam_mgmt_native_login_trust_request_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_native_login_trust_request_t *out = (axiam_mgmt_native_login_trust_request_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "client_ids");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        out->client_ids = (char **) calloc(n ? n : 1, sizeof(char *));
+        if (!out->client_ids) { axiam_mgmt_native_login_trust_request_free(out); return NULL; }
+        for (size_t i = 0; i < n; i++) {
+            const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+            if (cJSON_IsString(e)) out->client_ids[i] = axiam_strdup0(e->valuestring);
+        }
+        out->client_ids_count = n;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
+    if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
+        out->has_enabled = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "max_token_age_secs");
+    if (cJSON_IsNumber(item)) { out->max_token_age_secs = (long) item->valuedouble;
+        out->has_max_token_age_secs = 1; }
+    return out;
+}
+
+cJSON *axiam_mgmt_native_login_trust_request_build(const axiam_mgmt_native_login_trust_request_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->client_ids) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "client_ids");
+        for (size_t i = 0; arr && i < value->client_ids_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->client_ids[i]));
+    }
+    if (value->has_enabled) {
+        cJSON_AddBoolToObject(obj, "enabled", value->enabled);
+    }
+    if (value->has_max_token_age_secs) {
+        cJSON_AddNumberToObject(obj, "max_token_age_secs", (double) value->max_token_age_secs);
+    }
+    return obj;
+}
+
+void axiam_mgmt_native_login_trust_response_free(axiam_mgmt_native_login_trust_response_t *value) {
+    if (!value) return;
+    if (value->client_ids) {
+        for (size_t i = 0; i < value->client_ids_count; i++) free(value->client_ids[i]);
+        free(value->client_ids);
+    }
+    free(value);
+}
+
+axiam_mgmt_native_login_trust_response_t *axiam_mgmt_native_login_trust_response_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_native_login_trust_response_t *out = (axiam_mgmt_native_login_trust_response_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "client_ids");
+    if (cJSON_IsArray(item)) {
+        size_t n = (size_t) cJSON_GetArraySize(item);
+        out->client_ids = (char **) calloc(n ? n : 1, sizeof(char *));
+        if (!out->client_ids) { axiam_mgmt_native_login_trust_response_free(out); return NULL; }
+        for (size_t i = 0; i < n; i++) {
+            const cJSON *e = cJSON_GetArrayItem(item, (int) i);
+            if (cJSON_IsString(e)) out->client_ids[i] = axiam_strdup0(e->valuestring);
+        }
+        out->client_ids_count = n;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "enabled");
+    if (cJSON_IsBool(item)) { out->enabled = cJSON_IsTrue(item) ? 1 : 0;
+    }
+    item = cJSON_GetObjectItemCaseSensitive(src, "max_token_age_secs");
+    if (cJSON_IsNumber(item)) { out->max_token_age_secs = (long) item->valuedouble;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_native_login_trust_response_build(const axiam_mgmt_native_login_trust_response_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->client_ids) {
+        cJSON *arr = cJSON_AddArrayToObject(obj, "client_ids");
+        for (size_t i = 0; arr && i < value->client_ids_count; i++)
+            cJSON_AddItemToArray(arr, cJSON_CreateString(value->client_ids[i]));
+    }
+    if (1) {
+        cJSON_AddBoolToObject(obj, "enabled", value->enabled);
+    }
+    if (1) {
+        cJSON_AddNumberToObject(obj, "max_token_age_secs", (double) value->max_token_age_secs);
+    }
+    return obj;
+}
+
 void axiam_mgmt_network_policy_response_free(axiam_mgmt_network_policy_response_t *value) {
     if (!value) return;
     free(value->tenant_id);
@@ -6618,6 +6779,7 @@ void axiam_mgmt_o_auth2_client_response_free(axiam_mgmt_o_auth2_client_response_
     free(value->backchannel_client_notification_endpoint);
     free(value->client_id);
     free(value->created_at);
+    free(value->default_idp);
     if (value->grant_types) {
         for (size_t i = 0; i < value->grant_types_count; i++) free(value->grant_types[i]);
         free(value->grant_types);
@@ -6685,6 +6847,8 @@ axiam_mgmt_o_auth2_client_response_t *axiam_mgmt_o_auth2_client_response_parse(c
     if (cJSON_IsString(item)) out->client_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "created_at");
     if (cJSON_IsString(item)) out->created_at = axiam_strdup0(item->valuestring);
+    item = cJSON_GetObjectItemCaseSensitive(src, "default_idp");
+    if (cJSON_IsString(item)) out->default_idp = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "dpop_bound_access_tokens");
     if (cJSON_IsBool(item)) { out->dpop_bound_access_tokens = cJSON_IsTrue(item) ? 1 : 0;
     }
@@ -6806,6 +6970,9 @@ cJSON *axiam_mgmt_o_auth2_client_response_build(const axiam_mgmt_o_auth2_client_
     if (value->created_at) {
         cJSON_AddStringToObject(obj, "created_at", value->created_at);
     }
+    if (value->default_idp) {
+        cJSON_AddStringToObject(obj, "default_idp", value->default_idp);
+    }
     if (1) {
         cJSON_AddBoolToObject(obj, "dpop_bound_access_tokens", value->dpop_bound_access_tokens);
     }
@@ -6876,6 +7043,34 @@ cJSON *axiam_mgmt_o_auth2_client_response_build(const axiam_mgmt_o_auth2_client_
     }
     if (value->updated_at) {
         cJSON_AddStringToObject(obj, "updated_at", value->updated_at);
+    }
+    return obj;
+}
+
+void axiam_mgmt_o_auth2_policy_free(axiam_mgmt_o_auth2_policy_t *value) {
+    if (!value) return;
+    free(value);
+}
+
+axiam_mgmt_o_auth2_policy_t *axiam_mgmt_o_auth2_policy_parse(const cJSON *src) {
+    if (!cJSON_IsObject(src)) return NULL;
+    axiam_mgmt_o_auth2_policy_t *out = (axiam_mgmt_o_auth2_policy_t *) calloc(1, sizeof(*out));
+    if (!out) return NULL;
+    const cJSON *item;
+    (void) item;
+    item = cJSON_GetObjectItemCaseSensitive(src, "refresh_reuse_response");
+    if (cJSON_IsString(item) && axiam_mgmt_refresh_reuse_response_from_wire(item->valuestring, &out->refresh_reuse_response) == 0) {
+        out->has_refresh_reuse_response = 1;
+    }
+    return out;
+}
+
+cJSON *axiam_mgmt_o_auth2_policy_build(const axiam_mgmt_o_auth2_policy_t *value) {
+    if (!value) return NULL;
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj) return NULL;
+    if (value->has_refresh_reuse_response) {
+        cJSON_AddStringToObject(obj, "refresh_reuse_response", axiam_mgmt_refresh_reuse_response_to_wire(value->refresh_reuse_response));
     }
     return obj;
 }
@@ -9832,6 +10027,7 @@ void axiam_mgmt_security_settings_free(axiam_mgmt_security_settings_t *value) {
     axiam_mgmt_lockout_policy_free(value->lockout);
     axiam_mgmt_mfa_policy_free(value->mfa);
     axiam_mgmt_notification_policy_free(value->notification);
+    axiam_mgmt_o_auth2_policy_free(value->oauth2);
     axiam_mgmt_oidc_policy_free(value->oidc);
     axiam_mgmt_opaque_policy_free(value->opaque);
     axiam_mgmt_password_policy_free(value->password);
@@ -9863,6 +10059,8 @@ axiam_mgmt_security_settings_t *axiam_mgmt_security_settings_parse(const cJSON *
     if (cJSON_IsObject(item)) out->mfa = axiam_mgmt_mfa_policy_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "notification");
     if (cJSON_IsObject(item)) out->notification = axiam_mgmt_notification_policy_parse(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "oauth2");
+    if (cJSON_IsObject(item)) out->oauth2 = axiam_mgmt_o_auth2_policy_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "oidc");
     if (cJSON_IsObject(item)) out->oidc = axiam_mgmt_oidc_policy_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "opaque");
@@ -9915,6 +10113,10 @@ cJSON *axiam_mgmt_security_settings_build(const axiam_mgmt_security_settings_t *
     if (value->notification) {
         cJSON *sub = axiam_mgmt_notification_policy_build(value->notification);
         if (sub && !cJSON_AddItemToObject(obj, "notification", sub)) cJSON_Delete(sub);
+    }
+    if (value->oauth2) {
+        cJSON *sub = axiam_mgmt_o_auth2_policy_build(value->oauth2);
+        if (sub && !cJSON_AddItemToObject(obj, "oauth2", sub)) cJSON_Delete(sub);
     }
     if (value->oidc) {
         cJSON *sub = axiam_mgmt_oidc_policy_build(value->oidc);
@@ -10566,6 +10768,10 @@ axiam_mgmt_set_org_settings_t *axiam_mgmt_set_org_settings_parse(const cJSON *sr
     item = cJSON_GetObjectItemCaseSensitive(src, "password_history_count");
     if (cJSON_IsNumber(item)) { out->password_history_count = (long) item->valuedouble;
     }
+    item = cJSON_GetObjectItemCaseSensitive(src, "refresh_reuse_response");
+    if (cJSON_IsString(item) && axiam_mgmt_refresh_reuse_response_from_wire(item->valuestring, &out->refresh_reuse_response) == 0) {
+        out->has_refresh_reuse_response = 1;
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "refresh_token_lifetime_secs");
     if (cJSON_IsNumber(item)) { out->refresh_token_lifetime_secs = (long) item->valuedouble;
     }
@@ -10697,6 +10903,9 @@ cJSON *axiam_mgmt_set_org_settings_build(const axiam_mgmt_set_org_settings_t *va
     }
     if (1) {
         cJSON_AddNumberToObject(obj, "password_history_count", (double) value->password_history_count);
+    }
+    if (value->has_refresh_reuse_response) {
+        cJSON_AddStringToObject(obj, "refresh_reuse_response", axiam_mgmt_refresh_reuse_response_to_wire(value->refresh_reuse_response));
     }
     if (1) {
         cJSON_AddNumberToObject(obj, "refresh_token_lifetime_secs", (double) value->refresh_token_lifetime_secs);
@@ -11536,6 +11745,10 @@ axiam_mgmt_tenant_settings_override_t *axiam_mgmt_tenant_settings_override_parse
     item = cJSON_GetObjectItemCaseSensitive(src, "password_history_count");
     if (cJSON_IsNumber(item)) { out->password_history_count = (long) item->valuedouble;
         out->has_password_history_count = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "refresh_reuse_response");
+    if (cJSON_IsString(item) && axiam_mgmt_refresh_reuse_response_from_wire(item->valuestring, &out->refresh_reuse_response) == 0) {
+        out->has_refresh_reuse_response = 1;
+    }
     item = cJSON_GetObjectItemCaseSensitive(src, "refresh_token_lifetime_secs");
     if (cJSON_IsNumber(item)) { out->refresh_token_lifetime_secs = (long) item->valuedouble;
         out->has_refresh_token_lifetime_secs = 1; }
@@ -11667,6 +11880,9 @@ cJSON *axiam_mgmt_tenant_settings_override_build(const axiam_mgmt_tenant_setting
     }
     if (value->has_password_history_count) {
         cJSON_AddNumberToObject(obj, "password_history_count", (double) value->password_history_count);
+    }
+    if (value->has_refresh_reuse_response) {
+        cJSON_AddStringToObject(obj, "refresh_reuse_response", axiam_mgmt_refresh_reuse_response_to_wire(value->refresh_reuse_response));
     }
     if (value->has_refresh_token_lifetime_secs) {
         cJSON_AddNumberToObject(obj, "refresh_token_lifetime_secs", (double) value->refresh_token_lifetime_secs);
@@ -12061,6 +12277,7 @@ void axiam_mgmt_update_federation_config_request_free(axiam_mgmt_update_federati
     free(value->idp_metadata_signing_cert_pem);
     free(value->idp_signing_cert_pem);
     free(value->metadata_url);
+    axiam_mgmt_native_login_trust_request_free(value->native_login);
     free(value->provider);
     free(value->provider_slug);
     if (value->scopes) {
@@ -12137,6 +12354,8 @@ axiam_mgmt_update_federation_config_request_t *axiam_mgmt_update_federation_conf
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata_url");
     if (cJSON_IsString(item)) { out->metadata_url = axiam_strdup0(item->valuestring); out->has_metadata_url = 1; }
     else if (cJSON_IsNull(item)) out->has_metadata_url = 1;
+    item = cJSON_GetObjectItemCaseSensitive(src, "native_login");
+    if (cJSON_IsObject(item)) out->native_login = axiam_mgmt_native_login_trust_request_parse(item);
     item = cJSON_GetObjectItemCaseSensitive(src, "provider");
     if (cJSON_IsString(item)) out->provider = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "provider_slug");
@@ -12234,6 +12453,10 @@ cJSON *axiam_mgmt_update_federation_config_request_build(const axiam_mgmt_update
         cJSON_AddStringToObject(obj, "metadata_url", value->metadata_url);
     } else if (value->has_metadata_url) {
         cJSON_AddNullToObject(obj, "metadata_url");
+    }
+    if (value->native_login) {
+        cJSON *sub = axiam_mgmt_native_login_trust_request_build(value->native_login);
+        if (sub && !cJSON_AddItemToObject(obj, "native_login", sub)) cJSON_Delete(sub);
     }
     if (value->provider) {
         cJSON_AddStringToObject(obj, "provider", value->provider);
@@ -12390,6 +12613,7 @@ void axiam_mgmt_update_o_auth2_client_request_free(axiam_mgmt_update_o_auth2_cli
     free(value->backchannel_client_notification_endpoint);
     free(value->backchannel_logout_uri);
     free(value->backchannel_token_delivery_mode);
+    free(value->default_idp);
     if (value->grant_types) {
         for (size_t i = 0; i < value->grant_types_count; i++) free(value->grant_types[i]);
         free(value->grant_types);
@@ -12454,6 +12678,8 @@ axiam_mgmt_update_o_auth2_client_request_t *axiam_mgmt_update_o_auth2_client_req
     item = cJSON_GetObjectItemCaseSensitive(src, "browser_sso");
     if (cJSON_IsBool(item)) { out->browser_sso = cJSON_IsTrue(item) ? 1 : 0;
         out->has_browser_sso = 1; }
+    item = cJSON_GetObjectItemCaseSensitive(src, "default_idp");
+    if (cJSON_IsString(item)) out->default_idp = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "dpop_bound_access_tokens");
     if (cJSON_IsBool(item)) { out->dpop_bound_access_tokens = cJSON_IsTrue(item) ? 1 : 0;
         out->has_dpop_bound_access_tokens = 1; }
@@ -12573,6 +12799,9 @@ cJSON *axiam_mgmt_update_o_auth2_client_request_build(const axiam_mgmt_update_o_
     }
     if (value->has_browser_sso) {
         cJSON_AddBoolToObject(obj, "browser_sso", value->browser_sso);
+    }
+    if (value->default_idp) {
+        cJSON_AddStringToObject(obj, "default_idp", value->default_idp);
     }
     if (value->has_dpop_bound_access_tokens) {
         cJSON_AddBoolToObject(obj, "dpop_bound_access_tokens", value->dpop_bound_access_tokens);
@@ -13596,6 +13825,12 @@ const char *axiam_mgmt_set_directory_config_unsendable(const axiam_mgmt_set_dire
     return NULL;
 }
 
+const char *axiam_mgmt_set_org_settings_unsendable(const axiam_mgmt_set_org_settings_t *value) {
+    if (!value) return NULL;
+    if (value->has_refresh_reuse_response && (unsigned) value->refresh_reuse_response >= (unsigned) AXIAM_MGMT_REFRESH_REUSE_RESPONSE_UNKNOWN) return "refresh_reuse_response";
+    return NULL;
+}
+
 const char *axiam_mgmt_sign_certificate_csr_request_unsendable(const axiam_mgmt_sign_certificate_csr_request_t *value) {
     if (!value) return NULL;
     if ((unsigned) value->cert_type >= (unsigned) AXIAM_MGMT_CERTIFICATE_TYPE_UNKNOWN) return "cert_type";
@@ -13607,6 +13842,12 @@ const char *axiam_mgmt_ssf_stream_input_unsendable(const axiam_mgmt_ssf_stream_i
     if ((unsigned) value->delivery_method >= (unsigned) AXIAM_MGMT_SSF_DELIVERY_METHOD_UNKNOWN) return "delivery_method";
     if (value->has_status && (unsigned) value->status >= (unsigned) AXIAM_MGMT_SSF_STREAM_STATUS_UNKNOWN) return "status";
     if (value->has_subject_format && (unsigned) value->subject_format >= (unsigned) AXIAM_MGMT_SSF_SUBJECT_FORMAT_UNKNOWN) return "subject_format";
+    return NULL;
+}
+
+const char *axiam_mgmt_tenant_settings_override_unsendable(const axiam_mgmt_tenant_settings_override_t *value) {
+    if (!value) return NULL;
+    if (value->has_refresh_reuse_response && (unsigned) value->refresh_reuse_response >= (unsigned) AXIAM_MGMT_REFRESH_REUSE_RESPONSE_UNKNOWN) return "refresh_reuse_response";
     return NULL;
 }
 
