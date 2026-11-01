@@ -84,6 +84,13 @@ static const char *pat_str(const axiam_sensitive_t *s) {
  */
 static axiam_error_kind_t map_oauth2_error(const axiam_http_response_t *resp,
                                            axiam_error_t *err) {
+    /* C165-30 / §12.1 rule 3: a 3xx is never an OAuth2ErrorResponse. No redirect is
+     * followed, and whatever body an intermediary attached is not read: it surfaces
+     * as NetworkError, whatever `error` the body carries. */
+    if (resp->status >= 300 && resp->status < 400) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, resp->status, "uma ticket exchange failed");
+        return AXIAM_ERR_NETWORK;
+    }
     cJSON *root = resp->body ? cJSON_Parse(resp->body) : NULL;
     const cJSON *code = root ? cJSON_GetObjectItemCaseSensitive(root, "error") : NULL;
 

@@ -1120,6 +1120,64 @@ int axiam_mgmt_reactor_mode_from_wire(const char *value, axiam_mgmt_reactor_mode
 const char *axiam_mgmt_reactor_mode_to_wire(axiam_mgmt_reactor_mode_t value);
 
 /**
+ * What the token endpoint does when a refresh token that has already been rotated is
+ * presented again and **refused** (G-C, #818 — the T-254 amendment).
+ *
+ * Two values, ordered by strictness:
+ *
+ * * `revoke_session` — the default (D-N2). The refusal also invalidates the session the
+ * replayed token names (which publishes to the revocation feed) and revokes every refresh
+ * token issued under that session — whichever client it was issued to, the console sign-in
+ * included, with no back-channel logout sent — as the authorization-code replay path does
+ * for a code (RFC 6749 §10.5; OAuth 2.0 Security BCP §4.14.2). Only a presentation by the
+ * token's own client, passing the token's sender constraint, triggers it (#821). On a
+ * client with no grace window the honest holder of a replayed token has nothing left to
+ * lose — its token is already dead and it never received the successor — so the revocation
+ * costs it nothing and costs whoever holds the successor everything. * `refuse` — the 1.1.x
+ * behaviour: the presentation is refused, marked on the session and audited, and nothing
+ * else is revoked.
+ *
+ * Neither value changes what is *accepted*. A `fapi2` client's presentation inside the
+ * grace window is accepted and marked whatever this says (D-N4); a token revoked at logout
+ * is not a replay and revokes nothing.
+ *
+ * This text is published as the schema's description in `sdks/openapi.json`, so it carries
+ * no rustdoc intra-doc links (F4-W1-08, #824).
+ */
+typedef enum axiam_mgmt_refresh_reuse_response {
+    AXIAM_MGMT_REFRESH_REUSE_RESPONSE_REVOKE_SESSION = 0, /**< Wire value `revoke_session`. */
+    AXIAM_MGMT_REFRESH_REUSE_RESPONSE_REFUSE, /**< Wire value `refuse`. */
+    AXIAM_MGMT_REFRESH_REUSE_RESPONSE_UNKNOWN, /**< A value this SDK's copy of the spec does not list. */
+} axiam_mgmt_refresh_reuse_response_t;
+
+/**
+ * Parse a wire value into an RefreshReuseResponse.
+ *
+ * Returns 0 and yields `AXIAM_MGMT_REFRESH_REUSE_RESPONSE_UNKNOWN` for a value this SDK's
+ * copy of the spec does not list, rather than reporting a failure the caller would have to
+ * fail the whole record over (CONTRACT.md §27.11 rule 1). Returns -1 only for a NULL
+ * argument.
+ *
+ * It is never mapped to one of the KNOWN constants, which is the trap this used to avoid by
+ * failing: reading a new state as whichever constant happens to be first turns a new server
+ * state into a wrong one, and on this surface these values gate access. The unknown
+ * constant is appended LAST, so it is never the zero value a calloc'd struct starts at
+ * either.
+ */
+int axiam_mgmt_refresh_reuse_response_from_wire(const char *value, axiam_mgmt_refresh_reuse_response_t *out);
+
+/**
+ * The wire spelling of an RefreshReuseResponse. Never NULL.
+ *
+ * `AXIAM_MGMT_REFRESH_REUSE_RESPONSE_UNKNOWN` spells as the empty string, which no server
+ * value is. It is never SENT: an operation whose body carries it -- a read-modify-write of
+ * a record holding a value this SDK does not know -- refuses it locally, before any
+ * request, with the validation error naming the member (CONTRACT.md §34.2 P12.2, contract
+ * 1.60).
+ */
+const char *axiam_mgmt_refresh_reuse_response_to_wire(axiam_mgmt_refresh_reuse_response_t value);
+
+/**
  * A SAML 2.0 protocol binding (SAML Bindings §3).
  *
  * The response binding for Web Browser SSO is always [`Self::HttpPost`], but the enum keeps
@@ -1739,6 +1797,8 @@ typedef struct axiam_mgmt_mfa_method_response axiam_mgmt_mfa_method_response_t;
 typedef struct axiam_mgmt_mfa_policy axiam_mgmt_mfa_policy_t;
 typedef struct axiam_mgmt_migrate_custody_response axiam_mgmt_migrate_custody_response_t;
 typedef struct axiam_mgmt_mtls_trust_anchor_response axiam_mgmt_mtls_trust_anchor_response_t;
+typedef struct axiam_mgmt_native_login_trust_request axiam_mgmt_native_login_trust_request_t;
+typedef struct axiam_mgmt_native_login_trust_response axiam_mgmt_native_login_trust_response_t;
 typedef struct axiam_mgmt_network_policy_response axiam_mgmt_network_policy_response_t;
 typedef struct axiam_mgmt_network_reply_profile axiam_mgmt_network_reply_profile_t;
 typedef struct axiam_mgmt_network_reply_profile_input axiam_mgmt_network_reply_profile_input_t;
@@ -1747,6 +1807,7 @@ typedef struct axiam_mgmt_notification_policy axiam_mgmt_notification_policy_t;
 typedef struct axiam_mgmt_notification_rule_response axiam_mgmt_notification_rule_response_t;
 typedef struct axiam_mgmt_o_auth2_client_created_response axiam_mgmt_o_auth2_client_created_response_t;
 typedef struct axiam_mgmt_o_auth2_client_response axiam_mgmt_o_auth2_client_response_t;
+typedef struct axiam_mgmt_o_auth2_policy axiam_mgmt_o_auth2_policy_t;
 typedef struct axiam_mgmt_oidc_authorize_request axiam_mgmt_oidc_authorize_request_t;
 typedef struct axiam_mgmt_oidc_authorize_response axiam_mgmt_oidc_authorize_response_t;
 typedef struct axiam_mgmt_oidc_callback_request axiam_mgmt_oidc_callback_request_t;
@@ -2794,6 +2855,10 @@ struct axiam_mgmt_create_federation_config_request {
      */
     char *metadata_url;
     /**
+     * The server's `native_login` field. Optional.
+     */
+    axiam_mgmt_native_login_trust_request_t *native_login;
+    /**
      * Federation protocol: "OidcConnect" or "Saml".
      */
     char *protocol;
@@ -3092,6 +3157,16 @@ struct axiam_mgmt_create_o_auth2_client_request {
      */
     int browser_sso;
     int has_browser_sso; /**< 1 when `browser_sso` is set. */
+    /**
+     * G-B (#817) — the federation provider (a federation config `id`) this client's sign-in
+     * page starts with when an authorization request carries no `axiam_idp_hint`; a hint
+     * that names a provider overrides it. Must name a provider this tenant can sign in with
+     * — its own enabled configs, or the organization's enabled ones it inherits — or the
+     * registration is refused with `400`. If that provider is later disabled or deleted the
+     * default is ignored at the authorization endpoint (the provider chooser is shown),
+     * never an error. Omit for none. Optional.
+     */
+    char *default_idp;
     /**
      * RFC 9449 §5.2 — issue DPoP-bound (sender-constrained) access tokens to this client.
      * Independent of both the authentication method and
@@ -4088,6 +4163,10 @@ struct axiam_mgmt_federation_config_response {
      */
     int mints_client_secret;
     /**
+     * Native sign-in trust (G-A).
+     */
+    axiam_mgmt_native_login_trust_response_t *native_login;
+    /**
      * Whether PKCE is sent on the authorization request. Always true for the OAuth2 variant
      * regardless of the stored flag.
      */
@@ -4950,6 +5029,76 @@ struct axiam_mgmt_mtls_trust_anchor_response {
 void axiam_mgmt_mtls_trust_anchor_response_free(axiam_mgmt_mtls_trust_anchor_response_t *value);
 
 /**
+ * Native sign-in trust (G-A): which ID tokens this provider issued to an app are accepted
+ * as a sign-in at the token endpoint. Mirrors the domain block on the wire, as
+ * `TokenExchangeTrustRequest` does, so an omitted member takes its documented default
+ * rather than failing deserialization. Only an `OidcConnect` provider may enable it.
+ *
+ * Every member is optional, so this is a SPARSE body (27.4 rule 5): a NULL pointer -- or a
+ * `has_` flag left 0 -- means the field is OMITTED from the request entirely, not sent as
+ * null. On a sparse update those say opposite things, and only omission means "leave it
+ * alone".
+ */
+struct axiam_mgmt_native_login_trust_request {
+    /**
+     * The audiences a presented ID token may carry: the iOS bundle ID, Android client ID or
+     * Apple app ID the native SDK was configured with. Required (non-empty) when `enabled`;
+     * at most 64 entries of at most 512 characters, none blank, none repeated. The web
+     * `client_id` is accepted only when it is listed here. Optional.
+     */
+    char **client_ids;
+    size_t client_ids_count; /**< Entries in `client_ids`. */
+    /**
+     * Off unless explicitly enabled. Configuring a provider for browser login is not
+     * agreement to accept its ID tokens from apps. Optional.
+     */
+    int enabled;
+    int has_enabled; /**< 1 when `enabled` is set. */
+    /**
+     * Bound on `now - iat` for a presented ID token, 1 to 3600 seconds. Omitted: 300.
+     * Optional.
+     */
+    long max_token_age_secs;
+    int has_max_token_age_secs; /**< 1 when `max_token_age_secs` is set. */
+};
+
+/**
+ * Free a NativeLoginTrustRequest and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_native_login_trust_request_free(axiam_mgmt_native_login_trust_request_t *value);
+
+/**
+ * Native sign-in trust as returned to an administrator. Nothing here is secret; it is never
+ * part of the unauthenticated providers listing.
+ */
+struct axiam_mgmt_native_login_trust_response {
+    /**
+     * The accepted ID-token audiences.
+     */
+    char **client_ids;
+    size_t client_ids_count; /**< Entries in `client_ids`. */
+    /**
+     * Whether ID tokens from apps are accepted as a sign-in.
+     */
+    int enabled;
+    /**
+     * Bound on `now - iat`, in seconds.
+     */
+    long max_token_age_secs;
+};
+
+/**
+ * Free a NativeLoginTrustResponse and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_native_login_trust_response_free(axiam_mgmt_native_login_trust_response_t *value);
+
+/**
  * The tenant's network policy, as the management API returns it.
  */
 struct axiam_mgmt_network_policy_response {
@@ -5365,6 +5514,12 @@ struct axiam_mgmt_o_auth2_client_response {
      */
     char *created_at;
     /**
+     * G-B (#817) — the provider this client's sign-in page starts with when a request
+     * carries no hint; absent for none. Echoed as stored: a value whose provider has since
+     * been disabled is shown, and ignored at the authorization endpoint. Optional.
+     */
+    char *default_idp;
+    /**
      * The server's `dpop_bound_access_tokens` field.
      */
     int dpop_bound_access_tokens;
@@ -5476,6 +5631,36 @@ struct axiam_mgmt_o_auth2_client_response {
  * and there is never a question of which half you own.
  */
 void axiam_mgmt_o_auth2_client_response_free(axiam_mgmt_o_auth2_client_response_t *value);
+
+/**
+ * OAuth 2.0 authorization-server behaviour that is a tenant's to decide (G-C, #818). A
+ * struct of its own rather than a field on `TokenPolicy` because it is not a lifetime, and
+ * so the resolved setting reads by its documented name, `oauth2.refresh_reuse_response`.
+ *
+ * Every member is optional, so this is a SPARSE body (27.4 rule 5): a NULL pointer -- or a
+ * `has_` flag left 0 -- means the field is OMITTED from the request entirely, not sent as
+ * null. On a sparse update those say opposite things, and only omission means "leave it
+ * alone".
+ */
+struct axiam_mgmt_o_auth2_policy {
+    /**
+     * What a refused refresh-token replay does besides refusing. Ordered: a tenant may move
+     * from `refuse` to `revoke_session` and never back while its organization's baseline is
+     * `revoke_session`. Published as a reference to the `RefreshReuseResponse` schema, so
+     * the two legal values reach the SDK generators as an `enum` (F4-W1-06, #823).
+     * Optional.
+     */
+    axiam_mgmt_refresh_reuse_response_t refresh_reuse_response;
+    int has_refresh_reuse_response; /**< 1 when `refresh_reuse_response` is set. */
+};
+
+/**
+ * Free a OAuth2Policy and everything it owns. Safe to pass NULL.
+ *
+ * Frees the struct itself as well as its members, so it pairs with whatever allocated it
+ * and there is never a question of which half you own.
+ */
+void axiam_mgmt_o_auth2_policy_free(axiam_mgmt_o_auth2_policy_t *value);
 
 /**
  * The `OidcAuthorizeRequest` schema from the server's OpenAPI document.
@@ -7529,6 +7714,11 @@ struct axiam_mgmt_security_settings {
      */
     axiam_mgmt_notification_policy_t *notification;
     /**
+     * G-C (#818) — `oauth2.refresh_reuse_response`. Defaulted so a document written before
+     * the field reads as the default. Optional.
+     */
+    axiam_mgmt_o_auth2_policy_t *oauth2;
+    /**
      * The server's `oidc` field.
      */
     axiam_mgmt_oidc_policy_t *oidc;
@@ -7999,6 +8189,15 @@ struct axiam_mgmt_set_org_settings {
      * The server's `password_history_count` field.
      */
     long password_history_count;
+    /**
+     * G-C (#818) — defaulted to `revoke_session` (D-N2): an API client written before the
+     * field lands on the new default. `refuse` restores the 1.1.x behaviour. Because it is
+     * defaulted, a `PUT` from a client written before 1.2.0 (which omits it) sets an
+     * organization on `refuse` back to `revoke_session` — the stricter direction
+     * (F4-W1-06). Optional.
+     */
+    axiam_mgmt_refresh_reuse_response_t refresh_reuse_response;
+    int has_refresh_reuse_response; /**< 1 when `refresh_reuse_response` is set. */
     /**
      * The server's `refresh_token_lifetime_secs` field.
      */
@@ -8635,6 +8834,11 @@ struct axiam_mgmt_tenant_settings_override {
     long password_history_count;
     int has_password_history_count; /**< 1 when `password_history_count` is set. */
     /**
+     * The server's `refresh_reuse_response` field. Optional.
+     */
+    axiam_mgmt_refresh_reuse_response_t refresh_reuse_response;
+    int has_refresh_reuse_response; /**< 1 when `refresh_reuse_response` is set. */
+    /**
      * The server's `refresh_token_lifetime_secs` field. Optional.
      */
     long refresh_token_lifetime_secs;
@@ -9050,6 +9254,10 @@ struct axiam_mgmt_update_federation_config_request {
      */
     int has_metadata_url;
     /**
+     * The server's `native_login` field. Optional.
+     */
+    axiam_mgmt_native_login_trust_request_t *native_login;
+    /**
      * The server's `provider` field. Optional.
      */
     char *provider;
@@ -9233,6 +9441,12 @@ struct axiam_mgmt_update_o_auth2_client_request {
      */
     int browser_sso;
     int has_browser_sso; /**< 1 when `browser_sso` is set. */
+    /**
+     * G-B (#817) — see [`CreateOAuth2ClientRequest::default_idp`]. Omitted leaves it;
+     * `null` clears it; an id is held to the create rule (`400` unless it names a provider
+     * this tenant can sign in with). Optional.
+     */
+    char *default_idp;
     /**
      * The server's `dpop_bound_access_tokens` field. Optional.
      */

@@ -82,6 +82,8 @@ set(AXIAM_SOURCES
     src/oidc_exchange.c
     src/oidc_logout.c
     src/oidc_par.c
+    # CONTRACT.md §37 (contract 1.65): native sign-in with a provider ID token.
+    src/oidc_native.c
     # CONTRACT.md §28.12 (contract 1.53): RFC 7592 client configuration.
     src/registration.c
     src/reactor.c
@@ -130,8 +132,9 @@ set(AXIAM_INSTALL_TARGETS "")
 # package's Semantic Version and is bumped whenever a caller-allocated public struct changes
 # size (axiam_error_t, axiam_mgmt_manifest_t, ...): the loader then refuses a binary built
 # against the old headers instead of letting the library write past its objects.
-# 1 = 1.0.x; 2 = 1.1.0 (contract 1.62 grew four structs).
-set(AXIAM_SOVERSION 2)
+# 1 = 1.0.x; 2 = 1.1.0 (contract 1.62 grew four structs); 3 = contract 1.65 (C165-02: nine
+# structs gained members inside, and axiam_error_t gained two at its end).
+set(AXIAM_SOVERSION 3)
 
 # Shared library — the canonical `axiam` target.
 if(AXIAM_BUILD_SHARED)

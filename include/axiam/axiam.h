@@ -42,7 +42,7 @@ extern "C" {
 
 #define AXIAM_VERSION_MAJOR 1
 #define AXIAM_VERSION_MINOR 1
-#define AXIAM_VERSION_PATCH 2
+#define AXIAM_VERSION_PATCH 3
 /** Full version string, including the pre-release qualifier. */
 #define AXIAM_VERSION "1.1.3"
 

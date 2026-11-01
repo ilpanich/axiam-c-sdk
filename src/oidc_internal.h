@@ -34,6 +34,21 @@ void oidc_form_add(oidc_form_t *f, const char *key, const char *value);
  *  client secret, a refresh token or an authorization code (§7). */
 void oidc_form_dispose(oidc_form_t *f);
 
+/**
+ * Contract 1.65 (§12.1 rule 2): validate an `idp_hint`. NULL is "unset" and passes; an
+ * empty value or one over AXIAM_IDP_HINT_MAX_BYTES bytes is a local ValidationError
+ * (AXIAM_ERR_NETWORK, `transport_cause` 400, no request sent). Nothing else is checked.
+ * Returns 0 when usable, -1 after filling `err`.
+ */
+int oidc_check_idp_hint(const char *idp_hint, const char *operation, axiam_error_t *err);
+
+/**
+ * §37.4: `SHA-256` of the bytes of `raw`, as 64 lower-case hexadecimal characters.
+ * malloc'd, or NULL. Not static, because §37.4 requires a fixed-vector unit test for the
+ * hashing step alone (`raw` itself is random).
+ */
+char *oidc_nonce_hash_hex(const char *raw);
+
 /** 1 when `s` is an 8-4-4-4-12 hex UUID. A tenant SLUG is not one, and §12.3
  *  rule 4 forbids substituting it in `?tenant_id=`. */
 int oidc_is_uuid(const char *s);

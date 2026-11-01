@@ -6,6 +6,106 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Contract **1.65** (§34.9; wire-additive on the wire, **but this SDK's ABI breaks: see Breaking
+changes**). `openapi.json` (info version 1.2.0) and `management-registry.json` are re-vendored byte
+for byte from ilpanich/axiam `76d35d9`; `CONTRACT.md` is re-vendored from `d93976b` (the 2026-10-31
+amendment of §34.9: sha256 `95ee87ba…9529`). This SDK vendors no `proto/`. No existing function
+signature changes. The release stays a minor one (D-N32); the release number is the maintainer's.
+
+### Fixed
+
+- A `3xx` answer to a POST to an `/oauth2/*` endpoint is now `AXIAM_ERR_NETWORK` even when its body
+  carries an OAuth `error` (C165-25, §12.1 rule 3): the shared OAuth2 error mapping checks the status
+  before reading the body. Before, such an answer surfaced as an OAuth error. No redirect was ever followed.
+- The UMA ticket exchange (`axiam_uma_exchange_ticket`) now does the same (C165-30): a `3xx` is
+  `AXIAM_ERR_NETWORK` whatever `error` its body carries; its own error mapper had read the body first.
+
+### Breaking changes
+
+- **Rebuild against the new headers; the shared library's SONAME is now `libaxiam.so.3`
+  (C165-02).** These structs gained members **inside** the struct, so every member after the
+  insertion point moves (offsets change in the caller-allocated request structs and in the
+  library-allocated response structs alike): `axiam_mgmt_create_federation_config_request`,
+  `axiam_mgmt_update_federation_config_request` and `axiam_mgmt_federation_config_response`
+  (`native_login`); `axiam_mgmt_create_o_auth2_client_request`,
+  `axiam_mgmt_update_o_auth2_client_request` and `axiam_mgmt_o_auth2_client_response`
+  (`default_idp`); `axiam_mgmt_security_settings` (`oauth2`); `axiam_mgmt_set_org_settings` and
+  `axiam_mgmt_tenant_settings_override` (`refresh_reuse_response`, `has_refresh_reuse_response`).
+  `axiam_error_t` also grew, at its end (below). A binary built against 1.1.x names
+  `libaxiam.so.2` and the loader now refuses to run it against this library until it is rebuilt.
+  Designated initialisers of those structs are unaffected; **positional aggregate initialisers
+  must be updated** (they compile against the wrong members otherwise). The `abi_soname` test pins
+  `libaxiam.so.3`.
+
+### Added
+
+- **`axiam_error_t.oauth_error_description` and `.oauth_retry_after_ms` (C165-21, C165-17).**
+  `oauth_error_description[256]` carries the `error_description` of an OAuth2ErrorResponse (it was
+  reachable only inside `message`; `message` is unchanged); `oauth_retry_after_ms` carries the
+  response's `Retry-After` in milliseconds (clamped at an hour, 0 when absent), so a caller can
+  honour the server's 60 s on the route-limiter `429`. Both are filled wherever the shared OAuth2
+  error mapper runs, cleared by `axiam_error_reset()` and `axiam_error_set()`, and are why the
+  SONAME moved together with the structs above.
+- **`axiam_oidc_par()` / `axiam_oidc_par_ex()` / `axiam_oidc_par_with_hint()` push the begin URL's
+  `axiam_idp_hint` (C165-11, D-N36, §26.2 rule 8).** When the call's own `idp_hint` is NULL, the
+  `axiam_idp_hint` that `axiam_oidc_begin_with_hint()` put in `request->url` is parsed
+  (percent-decoded, first occurrence, bounded like any hint) and pushed in the form body; an
+  argument wins when both are set. Before, `begin_with_hint(hint)` followed by `par(request)`
+  silently pushed no hint.
+- **Native sign-in with a provider ID token (CONTRACT §37).** `axiam_login_with_provider_id_token()`
+  sends one `POST /oauth2/token` with
+  `grant_type=urn:axiam:params:oauth:grant-type:provider-id-token` and returns the ordinary
+  `axiam_oidc_token_set_t` (`src/oidc_native.c`). The raw nonce goes on the wire byte for byte; no
+  scope (`openid` included) is added; a public client sends `client_id` alone; `provider` is sent
+  verbatim; empty inputs are refused locally; the grant is never retried and `invalid_grant` is
+  never refined; an `id_token` in the answer is validated under §12.4 with the raw nonce as the
+  expected one; nothing is adopted (the posture of `axiam_login_client_credentials()` and
+  `axiam_device_login()`); neither the provider's token nor the nonce is logged or kept, and the
+  form body is scrubbed before release.
+- **`axiam_native_nonce()`, `axiam_provider_nonce_t` and `axiam_provider_nonce_dispose()`
+  (§37.4, a SHOULD).** A network-free nonce pair: `raw` is 32 CSPRNG bytes as unpadded base64url,
+  wrapped in a `Sensitive` handle; `hashed` is the lower-case hex SHA-256 of `raw`, the value the
+  provider's SDK is given.
+- **`idp_hint` (§12.1, §26.2 rule 8).** `axiam_oidc_begin_with_hint()` emits the optional
+  `axiam_idp_hint` query parameter once; `axiam_oidc_par_with_hint()` pushes it in the form body and
+  never puts it on the redirect URL. `axiam_oidc_begin()` and `axiam_oidc_par()` /
+  `axiam_oidc_par_ex()` are those calls with no hint, unchanged. Only emptiness and length (256
+  bytes, `AXIAM_IDP_HINT_MAX_BYTES`) are checked, as a local `AXIAM_ERR_NETWORK` with
+  `transport_cause` 400 and no URL built or request sent; there is no `kc_idp_hint`.
+- **`AXIAM_PROVIDER_ID_TOKEN_GRANT_TYPE` and `AXIAM_IDP_HINT_MAX_BYTES`** in `axiam/oidc.h`.
+- **Regenerated §27 members** (`scripts/gen_management.py`, drift-check clean): `default_idp` on
+  the OAuth2 client create/update/response models; the `refresh_reuse_response` enum
+  (`revoke_session` | `refuse`) on `OAuth2Policy`, `SetOrgSettings` and `TenantSettingsOverride`,
+  carried through the read-modify-write update forms so an organization on `refuse` is not moved
+  back to `revoke_session` by a `PUT` (§34.9 (i)); `native_login` (`NativeLoginTrustRequest` /
+  `NativeLoginTrustResponse`) on the federation-config models; `TokenRequest.provider`,
+  `id_token` and `nonce` and `PushedAuthorizationRequest.axiam_idp_hint` in the models.
+- Tests: `test_native_sign_in` (the thirteen tests of §37.9 by the contract's names, plus the
+  fixed `native_nonce` vector), `test_idp_hint` (`idp_hint_emitted_once`,
+  `idp_hint_omitted_when_unset`, `idp_hint_not_duplicated`, `idp_hint_bounds`,
+  `par_idp_hint_in_pushed_body`) and the §9 refresh-reuse confirmation in `test_oidc_singleflight`
+  (a mocked `400 invalid_grant` on `axiam_oidc_refresh()`: one wire call, all eight concurrent
+  waiters get that one error, the spent token is never presented again).
+
+### Changed
+
+- **Server floor (C165-04, D-N33):** federation-config admin calls (`axiam_federation_create_config()`,
+  `_get_config()`, `_list_configs()`, `_update_config()`) of this 1.2-line SDK need an
+  AXIAM server **1.2.0 or later**: `native_login` is required in `FederationConfigResponse` from
+  1.2.0, and this SDK's decoder of a response from an older server leaves the member NULL rather
+  than failing.
+
+- **A replayed refresh token now ends the session server-side by default (contract 1.65, §9; server
+  setting `oauth2.refresh_reuse_response = revoke_session`).** The refusal is still
+  `400 invalid_grant`; it now also invalidates the session and revokes every refresh token issued
+  under it, the legitimate successor included. No SDK code changed: `axiam_oidc_refresh()` already
+  coalesces concurrent callers of one token into a single wire call and a single shared error and
+  never retries `invalid_grant`, which is what keeps this SDK from causing it. Treat
+  `invalid_grant` from `axiam_oidc_refresh()` as the end of the session and authorize again;
+  refreshing one token from two places (two processes sharing a token store) defeats the
+  per-client guard and is a defect.
+- README: the conformance statement names contract 1.65 and §37.
+
 ## [1.1.3] - 2026-10-29
 
 ### Changed

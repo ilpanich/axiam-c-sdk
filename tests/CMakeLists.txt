@@ -279,6 +279,18 @@ endif()
 add_test(NAME test_oidc_logout COMMAND test_oidc_logout)
 
 axiam_add_test(test_oidc_grants test_oidc_grants.c)
+
+# Contract 1.65 (CONTRACT.md §37.9): native sign-in with a provider ID token, native_nonce.
+add_executable(test_native_sign_in test_native_sign_in.c)
+target_include_directories(test_native_sign_in PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_native_sign_in PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_native_sign_in PRIVATE --coverage)
+endif()
+add_test(NAME test_native_sign_in COMMAND test_native_sign_in)
+
+# Contract 1.65 (CONTRACT.md §12.1 / §26.2 rule 8): idp_hint on oidc_begin and oidc_par.
+axiam_add_test(test_idp_hint test_idp_hint.c)
 # Contract 1.62 (§14.1, §14.6): the device grant authenticates its client at both endpoints.
 axiam_add_test(test_device_grant_client_auth test_device_grant_client_auth.c)
 
@@ -469,11 +481,12 @@ target_compile_definitions(test_contract_162_network
 # Contract 1.62 (§27.6.2, §27.9 "Manifest, network"): the network namespace in a manifest.
 axiam_add_test(test_manifest_network test_manifest_network.c management_test_util.c)
 # C162-01: the shared library's ABI version. Four caller-allocated structs grew in 1.1.0, so
-# the SONAME must be libaxiam.so.2 for the loader to refuse a binary built against 1.0.x.
+# the SONAME is libaxiam.so.2 from 1.1.0 (the loader refuses a binary built against 1.0.x) and
+# libaxiam.so.3 from contract 1.65 (C165-02: members inserted inside nine structs).
 # Reads the dynamic section of the built library; ELF only.
 if(AXIAM_BUILD_SHARED AND UNIX AND NOT APPLE)
     add_test(NAME abi_soname
         COMMAND ${CMAKE_COMMAND}
-            -DLIB=$<TARGET_FILE:axiam> -DEXPECTED=libaxiam.so.2
+            -DLIB=$<TARGET_FILE:axiam> -DEXPECTED=libaxiam.so.3
             -P ${CMAKE_CURRENT_SOURCE_DIR}/check_soname.cmake)
 endif()

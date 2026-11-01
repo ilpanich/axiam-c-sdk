@@ -83,6 +83,21 @@ typedef struct axiam_error {
      * names none.
      */
     char resource_id[64];
+    /**
+     * CONTRACT.md §37.3 / §12.3 rule 3 (contract 1.65, C165-21): the `error_description` of an
+     * OAuth2ErrorResponse, verbatim (truncated to 255 bytes), or "" when the body carried none
+     * or the failure was not an OAuth2 protocol error. Server free text: display it, never
+     * branch on it -- `oauth_error` is the code. It is also inside `message`
+     * ("<error>: <error_description>"), which stays as it was.
+     */
+    char oauth_error_description[256];
+    /**
+     * CONTRACT.md §37.3 429 row (C165-17): the `Retry-After` of the OAuth2 error response, in
+     * milliseconds (delta-seconds or HTTP-date, clamped at one hour), or 0 when the response
+     * carried none or the failure was not an OAuth2 protocol error. Informational: this SDK
+     * does not wait on it for a grant it never retries; the caller may.
+     */
+    long oauth_retry_after_ms;
 } axiam_error_t;
 
 /** Map an HTTP status code to an error kind (CONTRACT.md §2 table). */

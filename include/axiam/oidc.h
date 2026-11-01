@@ -38,7 +38,9 @@
  *  4. It does not retry a grant. §16.2 lists `oidc_exchange`, `device_authorize`,
  *     `device_login` and `token_exchange` as ineligible, because their
  *     credentials are single-use: retrying replays a spent authorization code or
- *     device code and turns a blip into a hard `invalid_grant`. Only the
+ *     device code and turns a blip into a hard `invalid_grant`. The same holds
+ *     for axiam_login_with_provider_id_token() (§37.2 rule 10): the provider's
+ *     ID token is single-use across the deployment. Only the
  *     read-only calls here — discovery, introspection, a `device_poll` that hit
  *     a 5xx — go through §16.
  *
@@ -81,6 +83,15 @@ extern "C" {
  * network call and fails immediately.
  */
 #define AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S 60L
+
+/** Contract 1.65 (§12.1 `idp_hint`, rule 2): the longest `idp_hint`, in UTF-8 bytes. An
+ *  empty value and a longer one are refused locally, before any URL is built or any
+ *  request sent. */
+#define AXIAM_IDP_HINT_MAX_BYTES 256
+
+/** Contract 1.65 (§37.1): `grant_type` of the native sign-in with a provider ID token. It is
+ *  NOT token exchange (§15), which refuses ID tokens by name. */
+#define AXIAM_PROVIDER_ID_TOKEN_GRANT_TYPE "urn:axiam:params:oauth:grant-type:provider-id-token"
 
 /** RFC 8628 §3.2 default poll interval when the response omits one (§14.2 rule 2). */
 #define AXIAM_DEVICE_DEFAULT_INTERVAL_S 5L
@@ -635,6 +646,34 @@ axiam_error_kind_t axiam_oidc_begin(axiam_client_t *client,
                                     const char *scope,
                                     axiam_authorization_request_t *out,
                                     axiam_error_t *err);
+
+/**
+ * As axiam_oidc_begin(), plus the optional `idp_hint` of CONTRACT.md §12.1 (contract 1.65):
+ * the provider a relying party that already knows which one its user wants ("Sign in with
+ * Google" in its own UI) sends the browser straight to, skipping the provider chooser.
+ *
+ * `axiam_oidc_begin()` is this call with `idp_hint == NULL`, so nothing existing changes.
+ *
+ * When set, the URL carries it as the query parameter **`axiam_idp_hint`** — the ninth
+ * parameter of §12.1 rule 5 — exactly once. There is no `kc_idp_hint` alias and this SDK
+ * emits none. The value is a provider's UUID, its `provider_slug` or a branded kind name
+ * (`google`, `github`, `facebook`, `apple`, `microsoft`); the server resolves it, and ignores
+ * one that resolves to nothing (so the response is byte-identical to a request without one).
+ *
+ * The ONLY validation is emptiness and length: an empty string or one longer than
+ * AXIAM_IDP_HINT_MAX_BYTES (256) bytes is refused with AXIAM_ERR_NETWORK, `transport_cause`
+ * 400 (this SDK's local ValidationError) and NO URL built. The value is never trimmed,
+ * case-folded, parsed as a UUID or looked up against axiam_sso_providers().
+ *
+ * @param idp_hint NULL for none (the parameter is then absent, not empty).
+ */
+axiam_error_kind_t axiam_oidc_begin_with_hint(axiam_client_t *client,
+                                              const axiam_oidc_config_t *config,
+                                              const char *redirect_uri,
+                                              const char *scope,
+                                              const char *idp_hint,
+                                              axiam_authorization_request_t *out,
+                                              axiam_error_t *err);
 
 /** Arguments to axiam_oidc_exchange(). All borrowed. */
 typedef struct axiam_oidc_exchange_params {
@@ -1341,6 +1380,142 @@ axiam_error_kind_t axiam_oidc_par_ex(axiam_client_t *client,
                                      const char *tenant_id, const char *dpop_jkt,
                                      axiam_pushed_authorization_request_t *out,
                                      axiam_error_t *err);
+
+/**
+ * axiam_oidc_par_ex() plus the optional `idp_hint` of CONTRACT.md §26.2 rule 8 (contract
+ * 1.65).
+ *
+ * axiam_oidc_par_ex() is this call with `idp_hint == NULL`, so no existing caller changes.
+ *
+ * When set, the PUSHED form body carries `axiam_idp_hint=<value>` exactly once, beside the
+ * other fields, and the field is absent when it is NULL. It is NEVER added to the
+ * redirect URL in the result: that stays exactly `client_id` and `request_uri` (plus the
+ * tenant when the discovery document named one) — the server reads the pushed hint, which is
+ * authoritative (RFC 9126 §4), and a copy beside a `request_uri` is ignored. There is no
+ * `kc_idp_hint`.
+ *
+ * Validation is §12.1's and nothing more: an empty string or one longer than
+ * AXIAM_IDP_HINT_MAX_BYTES bytes is refused locally (AXIAM_ERR_NETWORK, `transport_cause`
+ * 400) before any request. See axiam_oidc_begin_with_hint().
+ */
+axiam_error_kind_t axiam_oidc_par_with_hint(axiam_client_t *client,
+                                            const axiam_oidc_config_t *config,
+                                            const axiam_authorization_request_t *request,
+                                            const char *redirect_uri, const char *scope,
+                                            const char *tenant_id, const char *dpop_jkt,
+                                            const char *idp_hint,
+                                            axiam_pushed_authorization_request_t *out,
+                                            axiam_error_t *err);
+
+/* ------------------------------------------------------------------ */
+/* §37 — native sign-in with a provider ID token (contract 1.65)      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * `POST /oauth2/token?tenant_id=<uuid>` with
+ * `grant_type=urn:axiam:params:oauth:grant-type:provider-id-token` (CONTRACT.md §37) — the
+ * native sign-in: a mobile or desktop app that used Google's, Apple's or Facebook's native
+ * SDK holds an ID token the provider signed for it, and presents it here for the AXIAM
+ * client's ordinary sign-in token set.
+ *
+ * NOT TOKEN EXCHANGE. §15's axiam_token_exchange() refuses ID tokens by name; this SDK does
+ * not route one through the other and offers no fallback in either direction.
+ *
+ * THE WIRE FORM is exactly `grant_type`, `client_id`, `provider`, `id_token`, `nonce`, plus
+ * `scope` and `resource` when given, plus `client_secret` when — and only when — the client
+ * was configured with one. A PUBLIC client (the normal registration of a mobile app) sends
+ * `client_id` alone and is not refused for holding no secret. `tenant_id` travels in the
+ * query, never the body.
+ *
+ * THE NONCE IS THE RAW ONE (§37.2 rule 3). The app generates a raw nonce, gives the
+ * provider's SDK `SHA-256(raw)` as lower-case hex, and sends AXIAM the RAW value, which this
+ * sends byte for byte: it is never hashed, never replaced with the hash, never read back
+ * from the token and never generated here. axiam_native_nonce() hands an app the pair.
+ *
+ * @param provider A federation config's UUID or its `provider_slug`, sent exactly as given
+ *                 (no trimming, case-folding, resolution or lookup). A provider KIND name
+ *                 such as "google" is accepted only if the operator also chose it as the
+ *                 slug; the kind-name form belongs to `idp_hint`.
+ * @param id_token The provider's ID token. A credential: wrapped, never logged, never kept.
+ * @param nonce    The RAW nonce (axiam_provider_nonce_t::raw). A credential, for the same
+ *                 reason; hold it only for the length of the attempt.
+ * @param scope    Space-separated, or NULL. Omitted rather than sent empty, and NO scope is
+ *                 added: unlike axiam_oidc_begin() this does NOT add `openid`. Without
+ *                 `openid` the response carries no ID token, so pass "openid" to get
+ *                 `id_claims`. A scope outside the client's registration is `invalid_scope`
+ *                 and is not narrowed and re-sent.
+ * @param resource Optional RFC 8707 resource indicator, or NULL.
+ * @param tenant_id Tenant UUID, or NULL for the client's configured one. A slug is never a
+ *                 substitute (§12.3 rule 4) and is refused client-side, with no wire call.
+ * @param out      Filled on success; dispose with axiam_oidc_token_set_dispose(). When the
+ *                 response carries an `id_token` it is validated under §12.4 with the RAW
+ *                 nonce as the expected nonce; a failure discards the whole set (rule 7).
+ *
+ * LOCAL REFUSALS, no request sent: an empty `provider`, `id_token` or `nonce` (this SDK's
+ * ValidationError — AXIAM_ERR_NETWORK, `transport_cause` 400), and a slug-only client.
+ *
+ * NEVER RETRIED (§37.2 rule 10, §16.2). The provider's token is single-use across the whole
+ * deployment, so a status or a transport failure is surfaced as it is. Every refusal of the
+ * provider token is the ONE generic `invalid_grant` ("the provider ID token is not
+ * acceptable"): the causes are not refined and the description is not interpreted. The
+ * recovery is a fresh provider ID token with a FRESH nonce — never the same pair again. A
+ * transport failure after the request left is indeterminate (the token may have been spent):
+ * AXIAM_ERR_NETWORK, same recovery. `consent_required` has spent the token as well and is
+ * never turned into a browser flow. A `429` spends nothing; the caller MAY retry the same
+ * pair after the `Retry-After`, but this SDK does not do it for them.
+ *
+ * ADOPTION: none. Like axiam_login_client_credentials() and axiam_device_login(), the token
+ * set is returned and nothing is installed on the client (§37.2 rule 9). Refresh it with
+ * axiam_oidc_refresh(), which goes through the §9 single-flight guard.
+ *
+ * NO SECRET LEAVES: neither `id_token` nor the raw nonce is logged, put in an error message
+ * or kept after the call returns; the form body is scrubbed before it is released (§37.2
+ * rule 12).
+ */
+axiam_error_kind_t axiam_login_with_provider_id_token(axiam_client_t *client,
+                                                      const char *provider,
+                                                      const axiam_sensitive_t *id_token,
+                                                      const axiam_sensitive_t *nonce,
+                                                      const char *scope,
+                                                      const char *resource,
+                                                      const char *tenant_id,
+                                                      axiam_oidc_token_set_t *out,
+                                                      axiam_error_t *err);
+
+/**
+ * The pair axiam_native_nonce() returns (§37.4): the value this SDK sends AXIAM and the
+ * value the provider's SDK is given.
+ */
+typedef struct axiam_provider_nonce {
+    /**
+     * The RAW nonce: 32 CSPRNG bytes, base64url without padding (43 ASCII characters).
+     * Pass it to axiam_login_with_provider_id_token(). A credential (§37.6) — it is what
+     * makes holding the provider's token insufficient to spend it — so it is wrapped:
+     * axiam_sensitive_to_string() renders it redacted and the handle is zeroed on free.
+     */
+    axiam_sensitive_t *raw;
+    /**
+     * `SHA-256` of the bytes of `raw` as lower-case hexadecimal, 64 characters. Give THIS to
+     * the provider's SDK as its nonce. Not a secret (it travels to the provider and into the
+     * token).
+     */
+    char *hashed;
+} axiam_provider_nonce_t;
+
+/**
+ * Draw a fresh nonce pair for the native sign-in (§37.4). PURE LOCAL COMPUTATION — no
+ * network I/O, no client, and nothing is stored: each call returns a new pair, and the app
+ * keeps `raw` only for the length of the attempt.
+ *
+ * Returns AXIAM_ERR_NETWORK, with `out` zeroed, only when the CSPRNG fails or memory runs
+ * out.
+ *
+ * @param out Filled on success; dispose with axiam_provider_nonce_dispose().
+ */
+axiam_error_kind_t axiam_native_nonce(axiam_provider_nonce_t *out, axiam_error_t *err);
+
+/** Zero and release `raw`, release `hashed`. Safe on NULL and on a zeroed struct. */
+void axiam_provider_nonce_dispose(axiam_provider_nonce_t *n);
 
 #ifdef __cplusplus
 }
