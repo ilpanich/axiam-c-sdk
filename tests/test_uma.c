@@ -432,6 +432,37 @@ void test_the_ticket_grant_is_not_retried_on_invalid_grant(void) {
     axiam_client_free(c);
 }
 
+void test_a_3xx_with_an_error_body_on_the_ticket_grant_is_network_error(void) {
+    static const long statuses[] = {301, 302, 303, 307, 308};
+    for (size_t k = 0; k < sizeof statuses / sizeof statuses[0]; k++) {
+        memset(&g, 0, sizeof g);
+        g.token_status = statuses[k];
+        g.token_body = "{\"error\":\"invalid_grant\",\"error_description\":\"moved\"}";
+
+        axiam_client_t *c = make_client();
+        axiam_error_t err;
+        axiam_error_reset(&err);
+        axiam_uma_rpt_t rpt;
+
+        /* C165-30 / §12.1 rule 3: NetworkError, not the body's OAuth error. */
+        TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, exchange(c, &rpt, &err));
+        TEST_ASSERT_EQUAL_STRING("", err.oauth_error);
+        TEST_ASSERT_EQUAL_INT((int)statuses[k], (int)err.transport_cause);
+        /* One request, and none went anywhere but the configured host. */
+        TEST_ASSERT_EQUAL_INT(1, g.token_calls);
+        for (int i = 0; i < g.n_calls; i++)
+            TEST_ASSERT_EQUAL_INT(0, strncmp(g.urls[i], "https://api.test/", 17));
+        /* Nothing secret in the error. */
+        TEST_ASSERT_NULL(strstr(err.message, UMA_TICKET));
+        TEST_ASSERT_NULL(strstr(err.message, UMA_CLAIM));
+        TEST_ASSERT_NULL(strstr(err.message, "resource-server-secret"));
+        TEST_ASSERT_NULL(strstr(err.message, "invalid_grant"));
+
+        axiam_uma_rpt_dispose(&rpt);
+        axiam_client_free(c);
+    }
+}
+
 void test_a_403_access_denied_is_surfaced_and_not_auto_narrowed(void) {
     g.token_status = 403;
     g.token_body = "{\"error\":\"access_denied\","
@@ -723,6 +754,7 @@ int main(void) {
     RUN_TEST(test_the_ticket_grant_is_not_retried_on_a_5xx);
     RUN_TEST(test_the_ticket_grant_is_not_retried_on_a_transport_failure);
     RUN_TEST(test_the_ticket_grant_is_not_retried_on_invalid_grant);
+    RUN_TEST(test_a_3xx_with_an_error_body_on_the_ticket_grant_is_network_error);
     RUN_TEST(test_a_403_access_denied_is_surfaced_and_not_auto_narrowed);
     RUN_TEST(test_a_non_oauth2_error_body_still_gets_the_status_mapping);
     RUN_TEST(test_the_grant_sends_the_required_claim_token_and_its_format);

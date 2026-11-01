@@ -17,6 +17,8 @@ signature changes. The release stays a minor one (D-N32); the release number is 
 - A `3xx` answer to a POST to an `/oauth2/*` endpoint is now `AXIAM_ERR_NETWORK` even when its body
   carries an OAuth `error` (C165-25, §12.1 rule 3): the shared OAuth2 error mapping checks the status
   before reading the body. Before, such an answer surfaced as an OAuth error. No redirect was ever followed.
+- The UMA ticket exchange (`axiam_uma_exchange_ticket`) now does the same (C165-30): a `3xx` is
+  `AXIAM_ERR_NETWORK` whatever `error` its body carries; its own error mapper had read the body first.
 
 ### Breaking changes
 
