@@ -531,6 +531,36 @@ void test_rate_limit_with_retry_after_mapped(void) {
     axiam_client_free(c);
 }
 
+/* C165-25 / §12.1 rule 3: a 3xx answer to a POST to /oauth2/* is NetworkError even when its body
+ * carries an OAuth `error`. No redirect is followed (one request, nothing sent anywhere else), and
+ * no secret reaches the error. */
+void test_a_3xx_with_an_error_body_is_network_error(void) {
+    static const long statuses[] = {301, 302, 303, 307, 308};
+    for (size_t k = 0; k < sizeof statuses / sizeof statuses[0]; k++) {
+        oidc_reset();
+        script(statuses[k], "{\"error\":\"invalid_grant\",\"error_description\":\"moved\"}");
+        axiam_client_t *c = make_public_client();
+        int base = warm(c);
+        axiam_error_t err;
+        axiam_oidc_token_set_t set;
+
+        TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, login(c, "corp-okta", NATIVE_ID_TOKEN, NATIVE_NONCE,
+                                                   NULL, NULL, &set, &err));
+        TEST_ASSERT_EQUAL_STRING("", err.oauth_error);
+        TEST_ASSERT_EQUAL_STRING("", err.oauth_error_description);
+        TEST_ASSERT_EQUAL_INT((int)statuses[k], (int)err.transport_cause);
+        TEST_ASSERT_EQUAL_INT(1, g_oidc.n_calls - base);
+        TEST_ASSERT_EQUAL_INT(1, g_oidc.token_calls);
+        /* Every request that reached the transport stayed on the configured host. */
+        for (int i = 0; i < g_oidc.n_calls; i++)
+            TEST_ASSERT_EQUAL_INT(0, strncmp(g_oidc.urls[i], OIDC_BASE, strlen(OIDC_BASE)));
+        TEST_ASSERT_NULL(strstr(err.message, NATIVE_ID_TOKEN));
+        TEST_ASSERT_NULL(strstr(err.message, NATIVE_NONCE));
+        TEST_ASSERT_NULL(strstr(err.message, "invalid_grant"));
+        axiam_client_free(c);
+    }
+}
+
 void test_server_error_not_retried(void) {
     /* A 500 WITH a well-formed body is dispatched on the body. */
     script(500, "{\"error\":\"server_error\",\"error_description\":\"datastore unavailable\"}");
@@ -867,6 +897,7 @@ int main(void) {
     RUN_TEST(test_client_and_scope_refusals_surfaced);
     RUN_TEST(test_rate_limit_with_retry_after_mapped);
     RUN_TEST(test_server_error_not_retried);
+    RUN_TEST(test_a_3xx_with_an_error_body_is_network_error);
     RUN_TEST(test_result_is_the_ordinary_token_set);
     RUN_TEST(test_no_secret_in_logs_or_errors);
     RUN_TEST(test_native_nonce_pair);

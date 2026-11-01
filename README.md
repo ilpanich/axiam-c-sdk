@@ -30,10 +30,11 @@ framework-agnostic route guard and declarative authorization helpers.
 > optional member — **and a removal waits for 2.0.0.** 1.1.0 is such a release; its
 > [change log](CHANGELOG.md) names every struct that grew.
 > A struct that grows bumps the shared library's `SOVERSION` (its ABI version), which moves
-> independently of the package's Semantic Version: a 1.1.x release is `libaxiam.so.1.1.x` with
-> SONAME `libaxiam.so.3` (contract 1.65 moved it from `.so.2`), so a binary built against 1.0.x
-> keeps loading `libaxiam.so.1`, one built against 1.1.x keeps loading `libaxiam.so.2`, and the
-> loader refuses to run either against this library until it is rebuilt.
+> independently of the package's Semantic Version: a 1.1.x release is `libaxiam.so.1.1.x` and
+> ships SONAME `libaxiam.so.2`; the next release, the contract-1.65 one (the 1.2 line, D-N32), ships
+> `libaxiam.so.3`. A binary built against 1.0.x keeps loading `libaxiam.so.1` and one built against
+> 1.1.x keeps loading `libaxiam.so.2`, and the loader refuses to run either against a library with a
+> newer SONAME until it is rebuilt.
 >
 > **Manifest pruning: not offered in any namespace** (§27.10; §27.6 rule 4 makes it a MAY).
 > Omission from a manifest is never deletion.

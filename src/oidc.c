@@ -494,6 +494,13 @@ static int oidc_get(axiam_client_t *c, const char *url, axiam_http_response_t *r
 
 axiam_error_kind_t oidc_map_grant_error(const axiam_http_response_t *resp,
                                         const char *context, axiam_error_t *err) {
+    /* C165-25 / §12.1 rule 3: a 3xx is never an OAuth2ErrorResponse. No redirect is
+     * followed, and whatever body an intermediary attached to the 3xx is not read:
+     * it surfaces as NetworkError, whatever `error` the body carries. */
+    if (resp->status >= 300 && resp->status < 400) {
+        axiam_error_set(err, AXIAM_ERR_NETWORK, resp->status, context);
+        return AXIAM_ERR_NETWORK;
+    }
     cJSON *root = resp->body ? cJSON_Parse(resp->body) : NULL;
     const cJSON *code = root ? cJSON_GetObjectItemCaseSensitive(root, "error") : NULL;
     const cJSON *desc = root ? cJSON_GetObjectItemCaseSensitive(root, "error_description") : NULL;

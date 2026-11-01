@@ -12,6 +12,12 @@ for byte from ilpanich/axiam `76d35d9`; `CONTRACT.md` is re-vendored from `d9397
 amendment of §34.9: sha256 `95ee87ba…9529`). This SDK vendors no `proto/`. No existing function
 signature changes. The release stays a minor one (D-N32); the release number is the maintainer's.
 
+### Fixed
+
+- A `3xx` answer to a POST to an `/oauth2/*` endpoint is now `AXIAM_ERR_NETWORK` even when its body
+  carries an OAuth `error` (C165-25, §12.1 rule 3): the shared OAuth2 error mapping checks the status
+  before reading the body. Before, such an answer surfaced as an OAuth error. No redirect was ever followed.
+
 ### Breaking changes
 
 - **Rebuild against the new headers; the shared library's SONAME is now `libaxiam.so.3`
