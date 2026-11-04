@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`AXIAM_VERSION_MINOR` / `AXIAM_VERSION_PATCH` said 1.1.3 in the 1.2.2 release.** The
+  release bump rewrote the `AXIAM_VERSION` string but not the numeric macros, so
+  `AXIAM_VERSION_MAJOR.MINOR.PATCH` read `1.1.3` while the string read `1.2.2`, and
+  `test_sensitive`'s version checks failed every CI leg on `main` and on the `v1.2.2` tag.
+  Both macros and the test's pinned literal now read 1.2.2.
+
 ## [1.2.2] - 2026-11-04
 
 Contract **1.66** (§34.10; no new operation, **no API change**). `CONTRACT.md`, `openapi.json` and
