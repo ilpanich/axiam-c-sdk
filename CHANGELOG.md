@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Contract **1.66** (§34.10; no new operation, **no API change**). `CONTRACT.md`, `openapi.json` and
+`management-registry.json` are re-vendored byte for byte from ilpanich/axiam (`openapi.json`
+spec digest `sha256:09419a6e…656e`; the registry changes only in that digest, and
+`scripts/gen_management.py --check` reports the committed §27 surface current). No function
+signature or struct changes.
+
 Contract **1.65** (§34.9; wire-additive on the wire, **but this SDK's ABI breaks: see Breaking
 changes**). `openapi.json` (info version 1.2.0) and `management-registry.json` are re-vendored byte
 for byte from ilpanich/axiam `76d35d9`; `CONTRACT.md` is re-vendored from `d93976b` (the 2026-10-31
@@ -14,6 +20,14 @@ signature changes. The release stays a minor one (D-N32); the release number is 
 
 ### Fixed
 
+- **A federated sign-in now presents the browser-binding cookie at its completion (§12.1 rule 12b,
+  contract 1.66).** `axiam_sso_start()`, `axiam_sso_start_oauth2()`, `axiam_sso_complete()`,
+  `axiam_sso_complete_oauth2()` and `axiam_sso_complete_handoff()` withheld the §4 cookie jar, as
+  the `/oauth2/*` requests do (the contract 1.63 change), so the `axiam_fed_bind` /
+  `__Host-axiam_fed_bind` cookie the start sets never reached the completion and a 1.66 server
+  refuses that completion with `401`. These `/api/v1/auth/federation/*` requests now go through the
+  jar; every `/oauth2/*` request still withholds it. Start and complete one sign-in on the same
+  `axiam_client_t`.
 - A `3xx` answer to a POST to an `/oauth2/*` endpoint is now `AXIAM_ERR_NETWORK` even when its body
   carries an OAuth `error` (C165-25, §12.1 rule 3): the shared OAuth2 error mapping checks the status
   before reading the body. Before, such an answer surfaced as an OAuth error. No redirect was ever followed.
@@ -39,6 +53,9 @@ signature changes. The release stays a minor one (D-N32); the release number is 
 
 ### Added
 
+- `tests/test_fed_bind_cookie.c` (rule 12b's required confirmation): against the real libcurl
+  cookie engine, the `Set-Cookie: axiam_fed_bind=…` of an `axiam_sso_start()` response is presented
+  on the following `axiam_sso_complete()` from the same client, and absent from a second client's.
 - **`axiam_error_t.oauth_error_description` and `.oauth_retry_after_ms` (C165-21, C165-17).**
   `oauth_error_description[256]` carries the `error_description` of an OAuth2ErrorResponse (it was
   reachable only inside `message`; `message` is unchanged); `oauth_retry_after_ms` carries the
