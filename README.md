@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.65 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33, §36 and §37, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.66 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33, §36 and §37, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -38,6 +38,15 @@ framework-agnostic route guard and declarative authorization helpers.
 >
 > **Manifest pruning: not offered in any namespace** (§27.10; §27.6 rule 4 makes it a MAY).
 > Omission from a manifest is never deletion.
+>
+> **Contract 1.66** (§34.10; no new operation, the section list above is unchanged, no API
+> change). A federated sign-in is now bound to the client that started it (§12.1 rule 12b): the
+> start answers with an `axiam_fed_bind` browser-binding cookie, and the completion is refused
+> `401` without it. In this SDK `axiam_sso_start()`, `axiam_sso_start_oauth2()`,
+> `axiam_sso_complete()`, `axiam_sso_complete_oauth2()` and `axiam_sso_complete_handoff()` go
+> through the §4 cookie jar (the `/oauth2/*` operations still withhold it); start and complete one
+> sign-in on the **same** `axiam_client_t`. The optional `reauthenticate` input (§12.1 rule 12c)
+> is not exposed.
 >
 > **Contract 1.65** (§34.9, wire-additive; **the ABI breaks, SONAME `libaxiam.so.3`: rebuild**,
 > see the [change log](CHANGELOG.md#unreleased); adds §37 to the list above, and

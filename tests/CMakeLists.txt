@@ -52,6 +52,8 @@ axiam_add_test(test_device_auth test_device_auth.c)
 axiam_add_test(test_integration_curl test_integration_curl.c)
 # CONTRACT.md §6.1 rule 11 / §12.1 rule 3 (contract 1.63): no session cookie, no CSRF header on /oauth2/*.
 axiam_add_test(test_oauth2_no_session test_oauth2_no_session.c)
+# CONTRACT.md §12.1 rule 12b (contract 1.66): a federated sign-in completes through the jar that started it.
+axiam_add_test(test_fed_bind_cookie test_fed_bind_cookie.c)
 axiam_add_test(test_webhook test_webhook.c)
 axiam_add_test(test_mcp test_mcp.c)
 axiam_add_test(test_uma test_uma.c)

@@ -413,9 +413,9 @@ int oidc_endpoint_names_tenant(const char *endpoint) {
 /* One round trip against an absolute URL. §5 rule 2 is unconditional, so
  * X-Tenant-ID goes out here even on the /oauth2/ paths where the server reads
  * the tenant only from the query parameter and the header is inert. */
-static int oidc_transport_once(axiam_client_t *c, const char *method, const char *url,
-                               const char *content_type, const char *body, int replayable,
-                               axiam_http_response_t *resp) {
+static int oidc_transport_jar(axiam_client_t *c, const char *method, const char *url,
+                              const char *content_type, const char *body, int replayable,
+                              int present_jar, axiam_http_response_t *resp) {
     memset(resp, 0, sizeof(*resp));
     axiam_kv_t *headers = NULL;
     headers = axiam_kv_append(headers, "X-Tenant-ID",
@@ -425,8 +425,11 @@ static int oidc_transport_once(axiam_client_t *c, const char *method, const char
     if (content_type) headers = axiam_kv_append(headers, "Content-Type", content_type);
     /* §12.1 note 8 and rule 3 (contract 1.63): no X-CSRF-Token is added, and an explicit empty
      * Cookie entry withholds the jar -- a cookie login's session cookies never ride an
-     * /oauth2/ ... request (§6.1 rule 11; axiam_curl_transport() reads the entry as a signal). */
-    headers = axiam_kv_append(headers, "Cookie", "");
+     * /oauth2/ ... request (§6.1 rule 11; axiam_curl_transport() reads the entry as a signal).
+     * §12.1 rule 12b (contract 1.66) is the exception: a federated start and its completion are
+     * /api/v1/auth/federation/* requests that MUST go through the jar, which carries the
+     * `axiam_fed_bind` browser-binding cookie from the one to the other. */
+    if (!present_jar) headers = axiam_kv_append(headers, "Cookie", "");
 
     axiam_http_request_t req = {0};
     req.method = method;
@@ -439,6 +442,12 @@ static int oidc_transport_once(axiam_client_t *c, const char *method, const char
     int rc = c->transport(c->transport_ctx, &req, resp);
     axiam_kv_free(headers);
     return rc;
+}
+
+static int oidc_transport_once(axiam_client_t *c, const char *method, const char *url,
+                               const char *content_type, const char *body, int replayable,
+                               axiam_http_response_t *resp) {
+    return oidc_transport_jar(c, method, url, content_type, body, replayable, 0, resp);
 }
 
 int oidc_post(axiam_client_t *c, const char *url, const char *content_type,
@@ -1318,8 +1327,11 @@ static axiam_error_kind_t oidc_json_post_ex(axiam_client_t *c, const char *path,
     memcpy(url, c->cfg->base_url, blen);
     strcpy(url + blen, path);
 
+    /* §12.1 rule 12b (contract 1.66): every caller of this helper is a POST
+     * /api/v1/auth/federation/* start or completion, sent once (never retried) and
+     * THROUGH the §4 jar, so the completion presents the start's `axiam_fed_bind`. */
     axiam_http_response_t resp;
-    int rc = oidc_post(c, url, "application/json", json, 0, &resp);
+    int rc = oidc_transport_jar(c, "POST", url, "application/json", json, 0, 1, &resp);
     free(url);
 
     axiam_error_kind_t kind;
