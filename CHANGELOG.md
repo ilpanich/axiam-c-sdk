@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-04
+
 Contract **1.66** (§34.10; no new operation, **no API change**). `CONTRACT.md`, `openapi.json` and
 `management-registry.json` are re-vendored byte for byte from ilpanich/axiam (`openapi.json`
 spec digest `sha256:09419a6e…656e`; the registry changes only in that digest, and
@@ -33,6 +35,14 @@ signature changes. The release stays a minor one (D-N32); the release number is 
   before reading the body. Before, such an answer surfaced as an OAuth error. No redirect was ever followed.
 - The UMA ticket exchange (`axiam_uma_exchange_ticket`) now does the same (C165-30): a `3xx` is
   `AXIAM_ERR_NETWORK` whatever `error` its body carries; its own error mapper had read the body first.
+
+- Contract 1.65 review sweep 2 (C165-30)
+
+- Contract 1.65 review sweep 2 (C165-25, C165-27)
+
+- Contract 1.65 review findings (C165-02, -21, -17, -04, -11)
+
+- AXIAM_VERSION_PATCH to 3 and the version test to 1.1.3
 
 ### Breaking changes
 
@@ -104,6 +114,8 @@ signature changes. The release stays a minor one (D-N32); the release number is 
   (a mocked `400 invalid_grant` on `axiam_oidc_refresh()`: one wire call, all eight concurrent
   waiters get that one error, the spent token is never presented again).
 
+- Native sign-in with a provider ID token and idp_hint (contract 1.65 §37)
+
 ### Changed
 
 - **Server floor (C165-04, D-N33):** federation-config admin calls (`axiam_federation_create_config()`,
@@ -122,6 +134,16 @@ signature changes. The release stays a minor one (D-N32); the release number is 
   refreshing one token from two places (two processes sharing a token store) defeats the
   per-client guard and is a defect.
 - README: the conformance statement names contract 1.65 and §37.
+
+- re-vendor CONTRACT.md 1.66 as amended at ilpanich/axiam 5f9d079
+
+- re-sync contract 1.66 and openapi.json; confirm the federated sign-in cookie binding (§12.1 rule 12b)
+
+- re-vendor openapi.json and the management registry (logout/reset-mfa 500, D-N44)
+
+- re-vendor openapi.json and the management registry (end_session 500, D-N42)
+
+- re-vendor contract 1.65, openapi 1.2.0 and the management registry
 
 ## [1.1.3] - 2026-10-29
 
