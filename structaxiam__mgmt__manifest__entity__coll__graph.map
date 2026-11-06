@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_manifest_entity" name="axiam_mgmt_manifest_entity">
+<area shape="rect" id="Node000001" title="One entity a manifest declares must exist." alt="" coords="16,93,191,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__role__binding.html" title="One role&#45;binding declaration inside a groups[] or service_accounts[] entity&#39;s roles[] list (CONTRACT...." alt="" coords="5,5,201,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="106,44,106,93,101,93,101,44"/>
+</map>

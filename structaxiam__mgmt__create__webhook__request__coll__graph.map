@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_create_webhook_request" name="axiam_mgmt_create_webhook_request">
+<area shape="rect" id="Node000001" title="The CreateWebhookRequest schema from the server&#39;s OpenAPI document." alt="" coords="5,93,228,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__retry__policy.html" title="Retry policy for failed webhook deliveries." alt="" coords="20,5,213,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="119,44,119,93,114,93,114,44"/>
+</map>

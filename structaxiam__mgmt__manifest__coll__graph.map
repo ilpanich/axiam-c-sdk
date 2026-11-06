@@ -1,0 +1,13 @@
+<map id="axiam_mgmt_manifest" name="axiam_mgmt_manifest">
+<area shape="rect" id="Node000001" title="A declarative description of the state a tenant must be in." alt="" coords="639,109,813,134"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__manifest__entity.html" title="One entity a manifest declares must exist." alt="" coords="287,5,461,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="475,41,615,76,696,106,694,111,614,81,474,47"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__role__binding.html" title="One role&#45;binding declaration inside a groups[] or service_accounts[] entity&#39;s roles[] list (CONTRACT...." alt="" coords="5,13,201,38"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="215,23,286,23,286,28,215,28"/>
+<area shape="rect" id="Node000004" href="$structaxiam__mgmt__network__segment__spec.html" title="One network.segments[] entry (CONTRACT.md §27.6.2 item 1, contract 1.62)." alt="" coords="289,69,459,109"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="473,96,639,111,638,116,472,101"/>
+<area shape="rect" id="Node000005" href="$structaxiam__mgmt__network__profile__spec.html" title="One network.profiles[] entry (§27.6.2 item 1)." alt="" coords="289,133,459,173"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="472,142,638,127,639,132,473,147"/>
+<area shape="rect" id="Node000006" href="$structaxiam__mgmt__network__policy__spec.html" title="The network.policy singleton (§27.6.2 item 1): the tenant&#39;s Session&#45;Timeout cap." alt="" coords="289,197,459,237"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="472,196,614,160,693,132,695,137,615,165,473,201"/>
+</map>

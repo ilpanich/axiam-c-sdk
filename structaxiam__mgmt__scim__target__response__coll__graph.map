@@ -1,0 +1,9 @@
+<map id="axiam_mgmt_scim_target_response" name="axiam_mgmt_scim_target_response">
+<area shape="rect" id="Node000001" title="A registered SCIM target, as the management API returns it." alt="" coords="325,55,519,95"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__scim__target__auth.html" title="How AXIAM authenticates to the downstream service provider, without the credential itself." alt="" coords="5,5,235,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="201,31,325,54,324,60,200,36"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__scim__target__scope.html" title="Which users a target provisions." alt="" coords="23,55,217,95"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="230,73,325,73,325,78,230,78"/>
+<area shape="rect" id="Node000004" href="$structaxiam__mgmt__scim__target__delivery__state.html" title="A target&#39;s delivery state, as GET projects it." alt="" coords="23,119,217,159"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="228,114,327,93,328,98,229,119"/>
+</map>

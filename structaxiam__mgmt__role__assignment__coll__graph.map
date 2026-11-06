@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_role_assignment" name="axiam_mgmt_role_assignment">
+<area shape="rect" id="Node000001" title="A role together with its assignment context (the resource it is scoped to)." alt="" coords="5,93,229,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__role.html" title="The Role schema from the server&#39;s OpenAPI document." alt="" coords="47,5,188,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="120,45,120,93,115,93,115,45"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_replace_network_reply_profile_request" name="axiam_mgmt_replace_network_reply_profile_request">
+<area shape="rect" id="Node000001" title="The body of PUT /api/v1/network/profiles/{segment_id}." alt="" coords="5,108,176,163"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__network__reply__profile__input.html" title="What a writer supplies for a profile." alt="" coords="6,5,175,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="93,59,93,108,88,108,88,59"/>
+</map>

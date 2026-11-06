@@ -1,0 +1,5 @@
+<map id="axiam_ssf_receiver_config" name="axiam_ssf_receiver_config">
+<area shape="rect" id="Node000001" title="A receiver configuration (§32.7: { issuer, audience, jwks_uri | discovery_url, access_token_provider ..." alt="" coords="5,93,155,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__error.html" title="Error detail carrier." alt="" coords="29,5,131,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="83,44,83,93,77,93,77,44"/>
+</map>

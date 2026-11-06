@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_role_user_assignment_list" name="axiam_mgmt_role_user_assignment_list">
+<area shape="rect" id="Node000001" title="A plain list of RoleUserAssignment objects." alt="" coords="23,196,199,236"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__role__user__assignment.html" title="A user together with the resource scope of their assignment of this role." alt="" coords="23,93,199,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="113,147,113,196,108,196,108,147"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__user__response.html" title="Public&#45;safe user representation (no password_hash, no mfa_secret)." alt="" coords="5,5,216,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="113,44,113,93,108,93,108,44"/>
+</map>
