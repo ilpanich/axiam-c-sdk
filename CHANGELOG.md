@@ -8,11 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **`AXIAM_VERSION_MINOR` / `AXIAM_VERSION_PATCH` said 1.1.3 in the 1.2.2 release.** The
-  release bump rewrote the `AXIAM_VERSION` string but not the numeric macros, so
-  `AXIAM_VERSION_MAJOR.MINOR.PATCH` read `1.1.3` while the string read `1.2.2`, and
-  `test_sensitive`'s version checks failed every CI leg on `main` and on the `v1.2.2` tag.
-  Both macros and the test's pinned literal now read 1.2.2.
+- **`test_sensitive` pinned a stale version literal.** The 1.2.2 release left
+  `AXIAM_VERSION_MINOR` / `AXIAM_VERSION_PATCH` at 1.1.3 and the test's pinned literal at
+  `"1.1.3"`, so its version checks failed every CI leg on `main` and on the `v1.2.2` tag.
+  The 1.2.5 bump corrected the macros; the pinned literal now reads 1.2.5 too, and the
+  release script (ilpanich/axiam `scripts/mass-tag.sh`) now rewrites both on every bump.
+
 ## [1.2.5] - 2026-11-06
 
 ### Changed
