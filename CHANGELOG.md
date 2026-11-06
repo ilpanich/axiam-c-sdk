@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-11-06
+
+### Changed
+
+- re-vendor openapi.json and the management registry (axiam 1.2.3)
+
 ## [1.2.2] - 2026-11-04
 
 Contract **1.66** (§34.10; no new operation, **no API change**). `CONTRACT.md`, `openapi.json` and
