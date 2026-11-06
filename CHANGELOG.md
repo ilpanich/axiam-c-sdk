@@ -13,6 +13,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `AXIAM_VERSION_MAJOR.MINOR.PATCH` read `1.1.3` while the string read `1.2.2`, and
   `test_sensitive`'s version checks failed every CI leg on `main` and on the `v1.2.2` tag.
   Both macros and the test's pinned literal now read 1.2.2.
+## [1.2.5] - 2026-11-06
+
+### Changed
+
+- re-vendor openapi.json and the management registry (axiam 1.2.3)
 
 ## [1.2.2] - 2026-11-04
 
