@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-08
+
+### Changed
+
+- Pin the 1.2.5 version literal after merging the 1.2.5 bump
+
 ### Fixed
 
 - **`test_sensitive` pinned a stale version literal.** The 1.2.2 release left
@@ -13,6 +19,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `"1.1.3"`, so its version checks failed every CI leg on `main` and on the `v1.2.2` tag.
   The 1.2.5 bump corrected the macros; the pinned literal now reads 1.2.5 too, and the
   release script (ilpanich/axiam `scripts/mass-tag.sh`) now rewrites both on every bump.
+
+- Numeric version macros and the version test said 1.1.3 in 1.2.2
 
 ## [1.2.5] - 2026-11-06
 
