@@ -303,11 +303,17 @@ static void test_an_oversized_document_drops_everything_rather_than_truncating(v
     TEST_ASSERT_NOT_NULL(body);
     char entry[AXIAM_REVOCATION_ENTRY_CAP];
     axiam_revocation_entry_for(REVOKED_SID, entry, sizeof(entry));
-    size_t o = (size_t)snprintf(body, cap, "{\"alg\":\"SHA-256\",\"revoked\":[\"%s\"", entry);
+    size_t o = 0;
+    int n = snprintf(body + o, cap - o, "{\"alg\":\"SHA-256\",\"revoked\":[\"%s\"", entry);
+    TEST_ASSERT_TRUE(n >= 0 && (size_t)n < cap - o);
+    o += (size_t)n;
     for (unsigned i = 0; i <= AXIAM_REVOCATION_MAX_ENTRIES; i++) {
-        o += (size_t)snprintf(body + o, cap - o, ",\"e%u\"", i);
+        n = snprintf(body + o, cap - o, ",\"e%u\"", i);
+        TEST_ASSERT_TRUE(n >= 0 && (size_t)n < cap - o);
+        o += (size_t)n;
     }
-    snprintf(body + o, cap - o, "]}");
+    n = snprintf(body + o, cap - o, "]}");
+    TEST_ASSERT_TRUE(n >= 0 && (size_t)n < cap - o);
 
     g.feed_body = body;
     axiam_client_t *c = make_client();
