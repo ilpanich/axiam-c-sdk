@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_scim_target_input" name="axiam_mgmt_scim_target_input">
+<area shape="rect" id="Node000001" title="create and update (a replacement) body." alt="" coords="141,108,334,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__scim__target__auth.html" title="How AXIAM authenticates to the downstream service provider, without the credential itself." alt="" coords="5,13,235,38"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="146,45,217,106,214,110,142,49"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__scim__target__scope.html" title="Which users a target provisions." alt="" coords="259,5,453,45"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="325,56,261,110,258,106,321,52"/>
+</map>

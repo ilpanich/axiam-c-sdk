@@ -1,0 +1,13 @@
+<map id="include/axiam/management.h" name="include/axiam/management.h">
+<area shape="rect" id="Node000001" title="CONTRACT.md §27 management API — shared core." alt="" coords="229,5,446,31"/>
+<area shape="rect" id="Node000002" href="$management__manifest_8h.html" title="CONTRACT.md §27.6/§27.7 declarative layer — describe a tenant, plan, apply." alt="" coords="5,167,211,207"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="299,39,262,58,224,81,170,126,127,168,123,164,166,122,221,76,259,53,296,34"/>
+<area shape="rect" id="Node000003" href="$management__models_8h.html" title=" " alt="" coords="235,79,440,119"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="340,44,340,79,335,79,335,44"/>
+<area shape="rect" id="Node000005" href="$management__ops_8h.html" title=" " alt="" coords="464,167,669,207"/>
+<area shape="poly" id="edge6_Node000001_Node000005" title=" " alt="" coords="378,34,416,53,454,76,509,122,551,164,547,168,505,126,450,81,413,58,376,39"/>
+<area shape="poly" id="edge4_Node000003_Node000002" title=" " alt="" coords="275,126,159,169,157,164,274,121"/>
+<area shape="rect" id="Node000004" href="$management__helpers_8h.html" title="Hand&#45;written conveniences around the generated §27 models for §29 – §32." alt="" coords="235,167,440,207"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="340,133,340,166,335,166,335,133"/>
+<area shape="poly" id="edge5_Node000003_Node000005" title=" " alt="" coords="401,121,517,164,516,169,399,126"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_reactor_event_descriptor_list" name="axiam_mgmt_reactor_event_descriptor_list">
+<area shape="rect" id="Node000001" title="A plain list of ReactorEventDescriptor objects." alt="" coords="5,108,171,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__reactor__event__descriptor.html" title="One hookable event, as the registry describes it." alt="" coords="7,5,169,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="91,59,91,108,85,108,85,59"/>
+</map>

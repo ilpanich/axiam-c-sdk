@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_set_org_settings" name="axiam_mgmt_set_org_settings">
+<area shape="rect" id="Node000001" title="Input for setting organization&#45;level security settings." alt="" coords="21,93,185,133"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__cimd__policy.html" title="Whether, and on what terms, a client_id that is a URL is resolved by fetching the document it names (..." alt="" coords="5,5,200,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="105,44,105,93,100,93,100,44"/>
+</map>
