@@ -242,14 +242,23 @@ char *axiam_mgmt_query(char *path, const char *const *names,
     char *out = (char *) malloc(need);
     if (!out) { free(path); return NULL; }
 
-    size_t used = (size_t) snprintf(out, need, "%s", path);
+    int n = snprintf(out, need, "%s", path);
+    if (n < 0 || (size_t) n >= need) { free(out); free(path); return NULL; }
+    size_t used = (size_t) n;
     int first = 1;
     for (size_t i = 0; i < count; i++) {
         if (!values[i]) continue;   /* an unset optional query parameter is OMITTED */
         char *encoded = axiam_url_encode(values[i]);
         if (!encoded) { free(out); free(path); return NULL; }
-        used += (size_t) snprintf(out + used, need - used, "%c%s=%s",
-                                  first ? '?' : '&', names[i], encoded);
+        n = snprintf(out + used, need - used, "%c%s=%s",
+                     first ? '?' : '&', names[i], encoded);
+        if (n < 0 || (size_t) n >= need - used) {
+            free(encoded);
+            free(out);
+            free(path);
+            return NULL;
+        }
+        used += (size_t) n;
         free(encoded);
         first = 0;
     }
