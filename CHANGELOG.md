@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-11
+
+### Changed
+
+- Bump actions/checkout from 4.4.0 to 7.0.1
+
+- Bump softprops/action-gh-release from 2.6.2 to 3.0.4
+
+- Configure Dependabot ecosystems and least-privilege workflow tokens
+
+- Potential fix for code scanning alert no. 2: Potentially overflowing call to snprintf
+
+- Potential fix for code scanning alert no. 1: Potentially overflowing call to snprintf
+
+- Fix formatting in dependabot.yml
+
 ## [1.3.0] - 2026-11-08
 
 ### Changed
