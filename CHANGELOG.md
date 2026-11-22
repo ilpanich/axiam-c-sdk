@@ -6,6 +6,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-22
+
+### Security
+
+- **Access-token verification applies CONTRACT §10.1 rules 10-12 (SA-29, N14).** AXIAM signs its
+  MFA-challenge and WebAuthn-state tokens with the access-token key, with no `aud` and no `kid`; a
+  guard with no expected audience (the default) and a single-key fallback admitted them as access
+  tokens. `AXIAM_JWT_VERIFY_STRICT` (so `axiam_require_auth`, `axiam_require_access*`,
+  `axiam_require_role` and `axiam_jwt_verify`) now also sets the new
+  `AXIAM_JWT_VERIFY_ACCESS_TOKEN` flag: a JOSE `typ`, when present, must be `at+jwt`
+  (case-insensitive, optional `application/` prefix); a token whose claims carry a `purpose`
+  member is refused whatever its value; a token with no `kid` is refused and the "only key in
+  the set" fallback is gone on this path. ID-token, logout-token and SSF verification are
+  unchanged.
+  **Migration:** an access token minted before AXIAM server 1.67 carries `typ: JWT` and is now
+  refused by the guards (its holder refreshes; at most one access-token lifetime). A caller that
+  composes its own policy with `axiam_jwt_verify_ex` must OR in `AXIAM_JWT_VERIFY_ACCESS_TOKEN`
+  to get the rules.
+- The libcurl transport caps a response body at 16 MiB (`AXIAM_MAX_RESPONSE_BYTES`); a larger
+  one aborts the transfer as a transport error instead of growing the buffer without bound.
+- Range-check a JSON double before the integer cast in the OPAQUE key-stretching cost reader and
+  in the reactor's canonical-event builder (`timeout_ms`, `key_version`); an out-of-range value
+  was undefined behaviour. The reactor now refuses such an event as `MALFORMED`.
+
+### Changed
+
+- Re-vendored `CONTRACT.md` (1.68), `openapi.json` and `management-registry.json` from
+  `ilpanich/axiam`; regenerated the §27 management surface (`scripts/gen_management.py`).
+
 ## [1.3.1] - 2026-11-11
 
 ### Changed

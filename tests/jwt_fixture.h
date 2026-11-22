@@ -14,6 +14,13 @@ char *jwt_b64url_encode(const unsigned char *data, size_t len);
 int jwt_make(const char *kid, const char *payload_json,
              char **out_token, char **out_jwks);
 
+/* As jwt_make(), but the JOSE header is the caller's: `kid_header` and `typ` are each omitted
+ * from the header when NULL. The emitted JWKS always holds exactly ONE key, under kid "k1" --
+ * so a token with no `kid` is the shape the single-key fallback (CONTRACT 10.1 rule 12)
+ * used to admit. */
+int jwt_make_hdr(const char *kid_header, const char *typ, const char *payload_json,
+                 char **out_token, char **out_jwks);
+
 /* Mint an algorithm-confusion token: the header declares `alg` (e.g. "none" or
  * "HS256") while the emitted JWKS still publishes a genuine Ed25519 key under
  * `kid`. CONTRACT §10.1 rule 1 requires both shapes to be refused before any

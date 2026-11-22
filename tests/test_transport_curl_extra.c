@@ -401,6 +401,81 @@ static void test_a_get_keeps_the_connection_pool(void) {
     axiam_client_free(c);
 }
 
+/* Ride-along to N14: write_cb used to grow its buffer without a limit, so a server (or
+ * anything on the path of a plain-HTTP deployment) could make the SDK allocate until it
+ * was killed. A body past AXIAM_MAX_RESPONSE_BYTES now aborts the transfer. */
+typedef struct {
+    int listen_fd;
+    size_t total;
+} flood_srv_t;
+
+static void *flood_server(void *arg) {
+    flood_srv_t *s = arg;
+    int cfd = accept(s->listen_fd, NULL, NULL);
+    if (cfd < 0) return NULL;
+    char buf[4096];
+    (void)recv(cfd, buf, sizeof(buf), 0);
+    char head[160];
+    int hn = snprintf(head, sizeof(head),
+                      "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                      "Content-Length: %zu\r\nConnection: close\r\n\r\n", s->total);
+    (void)send(cfd, head, (size_t)hn, MSG_NOSIGNAL);
+    static char chunk[65536];
+    memset(chunk, 'a', sizeof(chunk));
+    size_t sent = 0;
+    while (sent < s->total) {
+        size_t n = s->total - sent < sizeof(chunk) ? s->total - sent : sizeof(chunk);
+        ssize_t w = send(cfd, chunk, n, MSG_NOSIGNAL);
+        if (w <= 0) break; /* the client aborted: expected */
+        sent += (size_t)w;
+    }
+    close(cfd);
+    return NULL;
+}
+
+static axiam_error_kind_t raw_get_flood(size_t total, char **body, axiam_error_t *err) {
+    int port;
+    int fd = bind_ephemeral(&port);
+    TEST_ASSERT_TRUE(fd >= 0);
+    TEST_ASSERT_EQUAL_INT(0, listen(fd, 4));
+    flood_srv_t srv = { .listen_fd = fd, .total = total };
+    pthread_t th;
+    pthread_create(&th, NULL, flood_server, &srv);
+
+    char base[64];
+    snprintf(base, sizeof(base), "http://127.0.0.1:%d", port);
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, base);
+    axiam_client_config_set_tenant_slug(cfg, "acme");
+    axiam_client_config_set_timeout_ms(cfg, 20000);
+    axiam_client_t *c = axiam_client_new(cfg, err);
+    axiam_client_config_free(cfg);
+    TEST_ASSERT_NOT_NULL(c);
+    axiam_error_kind_t k = axiam_client_raw_get(c, "/oauth2/jwks", body, err);
+    pthread_join(th, NULL);
+    close(fd);
+    axiam_client_free(c);
+    return k;
+}
+
+static void test_a_response_body_past_the_cap_is_refused(void) {
+    char *body = NULL;
+    axiam_error_t err;
+    axiam_error_kind_t k = raw_get_flood(AXIAM_MAX_RESPONSE_BYTES + 4096, &body, &err);
+    TEST_ASSERT_NOT_EQUAL_INT(AXIAM_OK, k);
+    TEST_ASSERT_NULL(body);
+}
+
+static void test_a_response_body_at_the_cap_is_still_read(void) {
+    char *body = NULL;
+    axiam_error_t err;
+    axiam_error_kind_t k = raw_get_flood(AXIAM_MAX_RESPONSE_BYTES, &body, &err);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, k);
+    TEST_ASSERT_NOT_NULL(body);
+    TEST_ASSERT_EQUAL_size_t(AXIAM_MAX_RESPONSE_BYTES, strlen(body));
+    free(body);
+}
+
 int main(int argc, char **argv) {
     if (argc > 1) snprintf(g_pki_dir, sizeof(g_pki_dir), "%s", argv[1]);
     else snprintf(g_pki_dir, sizeof(g_pki_dir), ".");
@@ -410,5 +485,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_closed_port_failure_with_tls_material_configured);
     RUN_TEST(test_a_write_a_server_drops_unanswered_arrives_exactly_once_A6);
     RUN_TEST(test_a_get_keeps_the_connection_pool);
+    RUN_TEST(test_a_response_body_past_the_cap_is_refused);
+    RUN_TEST(test_a_response_body_at_the_cap_is_still_read);
     return UNITY_END();
 }

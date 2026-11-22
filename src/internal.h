@@ -121,6 +121,13 @@ void axiam_telemetry_ssf_unjudged(const axiam_telemetry_t *t, size_t unjudged_co
 /** Monotonic milliseconds, for event durations. */
 double axiam_now_ms(void);
 
+/** Upper bound on one HTTP response body the real transport will buffer. The body is held in
+ *  memory whole, so an unbounded read lets a hostile or broken peer exhaust the process.
+ *  16 MiB: far above any AXIAM response (the largest, a management listing page or the OpenAPI
+ *  discovery document, is well under 1 MiB). Past it the transfer is aborted and the request
+ *  fails as a transport error. */
+#define AXIAM_MAX_RESPONSE_BYTES ((size_t)16 * 1024 * 1024)
+
 /* ---- §16 bounded read-only retry ---- */
 
 /** §16.1: 1 initial attempt + 2 retries. NOT configurable upward. */

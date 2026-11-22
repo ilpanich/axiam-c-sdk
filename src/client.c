@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -916,7 +917,11 @@ static const char *opaque_json_str(const cJSON *root, const char *name) {
  * perfectly good. */
 static void opaque_json_cost(const cJSON *root, const char *name, int *has, unsigned *out) {
     const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, name);
-    if (item && cJSON_IsNumber(item) && item->valuedouble >= 0) {
+    /* Range-checked BEFORE the cast: converting a double outside the target type's range is
+     * undefined behaviour in C. NaN fails both comparisons. A cost the server sent that does
+     * not fit is treated as absent, as a negative one already was. */
+    if (item && cJSON_IsNumber(item) && item->valuedouble >= 0 &&
+        item->valuedouble <= (double)UINT_MAX) {
         *has = 1;
         *out = (unsigned)item->valuedouble;
     } else {

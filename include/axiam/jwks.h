@@ -63,11 +63,22 @@ extern "C" {
  * fails closed.
  */
 #define AXIAM_JWT_VERIFY_ISSUER_AUDIENCE (1u << 2)
+/**
+ * The token is being admitted as an ACCESS token (CONTRACT §10.1 rules 10-12, contract 1.68):
+ * a JOSE `typ`, when present, must be `at+jwt` (ASCII case-insensitive, with or without the
+ * `application/` prefix); a token whose claims carry a `purpose` member is refused whatever
+ * its value; and a token with no `kid` is refused -- the key is selected by `kid` alone, with
+ * no "only key in the set" fallback. AXIAM's MFA-challenge and WebAuthn-state tokens are
+ * signed with the access-token key and carry `sub`/`tenant_id`/`iss`/`exp`, so each rule alone
+ * refuses them. Part of AXIAM_JWT_VERIFY_STRICT; do not use it for an ID token, a logout
+ * token or a Security Event Token.
+ */
+#define AXIAM_JWT_VERIFY_ACCESS_TOKEN (1u << 3)
 /** The default policy: signature + lifetime + tenant binding + configured
- *  issuer/audience (§10.1). */
+ *  issuer/audience + the access-token rules 10-12 (§10.1). */
 #define AXIAM_JWT_VERIFY_STRICT                                              \
     (AXIAM_JWT_VERIFY_EXPIRY | AXIAM_JWT_VERIFY_TENANT |                     \
-     AXIAM_JWT_VERIFY_ISSUER_AUDIENCE)
+     AXIAM_JWT_VERIFY_ISSUER_AUDIENCE | AXIAM_JWT_VERIFY_ACCESS_TOKEN)
 
 /**
  * Verify a compact JWS (header.payload.signature) using the client's cached

@@ -1,5 +1,6 @@
 #include <curl/curl.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -24,7 +25,12 @@ typedef struct {
 
 static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
     growbuf_t *g = userdata;
+    /* size * nmemb cannot overflow in practice, but the sum with len must not be allowed to
+     * wrap either. A body past the cap aborts the transfer: returning a count other than
+     * size * nmemb makes libcurl fail the request with CURLE_WRITE_ERROR. */
+    if (nmemb != 0 && size > SIZE_MAX / nmemb) return 0;
     size_t add = size * nmemb;
+    if (add > AXIAM_MAX_RESPONSE_BYTES || g->len > AXIAM_MAX_RESPONSE_BYTES - add) return 0;
     char *nb = realloc(g->buf, g->len + add + 1);
     if (!nb) return 0;
     g->buf = nb;

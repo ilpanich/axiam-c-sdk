@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 
 #include <openssl/evp.h>
@@ -152,6 +153,16 @@ static axiam_error_kind_t check_claims(axiam_client_t *client, const char *claim
         return AXIAM_ERR_AUTH;
     }
     axiam_error_kind_t kind = AXIAM_OK;
+
+    /* §10.1 rule 11: a token with a `purpose` member is a purpose token (MFA challenge,
+     * WebAuthn state, ...), never an access token -- whatever its value (`null` included) and
+     * whatever its `typ` says. Read from the verified payload itself. */
+    if ((flags & AXIAM_JWT_VERIFY_ACCESS_TOKEN) &&
+        cJSON_GetObjectItemCaseSensitive(root, "purpose")) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "not an access token (purpose claim present)");
+        kind = AXIAM_ERR_AUTH;
+        goto done;
+    }
 
     if (flags & AXIAM_JWT_VERIFY_EXPIRY) {
         double now = (double)time(NULL);
@@ -345,6 +356,15 @@ static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
                                       char *reason, size_t reason_cap,
                                       axiam_error_t *err);
 
+/* §10.1 rule 10: is this JOSE `typ` the access-token type? RFC 9068 §2.1 `at+jwt`, compared
+ * ASCII case-insensitively with or without the `application/` prefix (RFC 7515 §4.1.9),
+ * exactly as the server compares it. */
+static int typ_is_access_token(const char *typ) {
+    static const char prefix[] = "application/";
+    if (strncasecmp(typ, prefix, sizeof(prefix) - 1) == 0) typ += sizeof(prefix) - 1;
+    return strcasecmp(typ, "at+jwt") == 0;
+}
+
 axiam_error_kind_t axiam_jwt_verify(axiam_client_t *client, const char *token,
                                     char **out_claims_json, axiam_error_t *err) {
     /* Safe by default: the guards' policy is also the plain entry point's. */
@@ -450,7 +470,20 @@ static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
     }
     const cJSON *alg = cJSON_GetObjectItemCaseSensitive(hjson, "alg");
     const cJSON *kid = cJSON_GetObjectItemCaseSensitive(hjson, "kid");
+    const cJSON *typ = cJSON_GetObjectItemCaseSensitive(hjson, "typ");
     char *kid_copy = NULL;
+    /* §10.1 rules 10 and 12, access-token path only (never the ID token or the logout token,
+     * which share this function). Decided from the header BEFORE any key is consulted. A
+     * `typ` that is present but not a string is not `at+jwt`; a header with no `typ` is not
+     * refused by rule 10. */
+    int access_hdr_ok = 1;
+    if (flags & AXIAM_JWT_VERIFY_ACCESS_TOKEN) {
+        if (typ && !(cJSON_IsString(typ) && typ->valuestring &&
+                     typ_is_access_token(typ->valuestring)))
+            access_hdr_ok = 0;
+        if (!(cJSON_IsString(kid) && kid->valuestring && kid->valuestring[0]))
+            access_hdr_ok = 0;
+    }
     int alg_ok = cJSON_IsString(alg) && alg->valuestring &&
                  strcmp(alg->valuestring, "EdDSA") == 0;
     if (cJSON_IsString(kid) && kid->valuestring) kid_copy = axiam_strdup0(kid->valuestring);
@@ -459,6 +492,12 @@ static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
         free(kid_copy);
         set_reason(reason, reason_cap, AXIAM_OIDC_REASON_INVALID_ALG);
         axiam_error_set(err, AXIAM_ERR_AUTH, 0, "unsupported token alg (EdDSA only)");
+        return AXIAM_ERR_AUTH;
+    }
+    if (!access_hdr_ok) {
+        free(kid_copy);
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0,
+                        "not an access token (typ must be at+jwt and kid is required)");
         return AXIAM_ERR_AUTH;
     }
 

@@ -693,6 +693,30 @@ void test_a_body_that_is_not_json_is_malformed(void) {
     axiam_sensitive_free(key);
 }
 
+void test_an_out_of_range_number_in_a_signed_field_is_malformed(void) {
+    /* Ride-along to N14: timeout_ms and key_version were cast double -> long long with no
+     * range check before the canonical form was built (undefined behaviour for 1e300). Such a
+     * number cannot be the server's; it is refused as malformed, not "bad signature". */
+    axiam_sensitive_t *key = signing_key();
+    const char *fields[] = {"timeout_ms", "key_version"};
+    for (int i = 0; i < 2; i++) {
+        cJSON *message = cJSON_Duplicate(
+            cJSON_GetObjectItemCaseSensitive(vec("server_to_reactor", "login_post_auth"),
+                                             "message"),
+            1);
+        cJSON_GetObjectItemCaseSensitive(message, fields[i])->valuedouble = 1e300;
+        char *body = cJSON_PrintUnformatted(message);
+        axiam_reactor_verified_t verified;
+        TEST_ASSERT_EQUAL(AXIAM_REACTOR_MALFORMED,
+                          axiam_reactor_verify_event(key, body, tenant_id(), verified_at(), NULL,
+                                                     &verified));
+        axiam_reactor_verified_dispose(&verified);
+        free(body);
+        cJSON_Delete(message);
+    }
+    axiam_sensitive_free(key);
+}
+
 void test_an_event_with_no_signature_at_all_is_refused(void) {
     axiam_sensitive_t *key = signing_key();
     cJSON *message = cJSON_Duplicate(
@@ -1402,6 +1426,7 @@ int main(void) {
     RUN_TEST(test_an_event_fails_under_any_other_key);
     RUN_TEST(test_tampering_with_any_signed_field_invalidates_the_event);
     RUN_TEST(test_key_version_below_two_is_refused_before_the_signature);
+    RUN_TEST(test_an_out_of_range_number_in_a_signed_field_is_malformed);
     RUN_TEST(test_freshness_is_refused_in_both_directions);
     RUN_TEST(test_a_repeated_nonce_is_refused_as_a_replay);
     RUN_TEST(test_an_event_for_another_tenant_is_refused_after_the_mac);
