@@ -21,7 +21,12 @@ typedef struct {
 typedef struct {
     char *buf;
     size_t len;
+    size_t cap;     /* body bound for this request */
+    int capped;     /* set when the bound aborted the transfer */
 } growbuf_t;
+
+_Static_assert(AXIAM_TRANSPORT_ERR_BODY_CAP == (int)CURLE_FILESIZE_EXCEEDED,
+               "AXIAM_TRANSPORT_ERR_BODY_CAP must equal CURLE_FILESIZE_EXCEEDED");
 
 static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
     growbuf_t *g = userdata;
@@ -30,7 +35,10 @@ static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
      * size * nmemb makes libcurl fail the request with CURLE_WRITE_ERROR. */
     if (nmemb != 0 && size > SIZE_MAX / nmemb) return 0;
     size_t add = size * nmemb;
-    if (add > AXIAM_MAX_RESPONSE_BYTES || g->len > AXIAM_MAX_RESPONSE_BYTES - add) return 0;
+    if (add > g->cap || g->len > g->cap - add) {
+        g->capped = 1;
+        return 0;
+    }
     char *nb = realloc(g->buf, g->len + add + 1);
     if (!nb) return 0;
     g->buf = nb;
@@ -124,6 +132,7 @@ int axiam_curl_transport(void *vctx, const axiam_http_request_t *req,
     curl_easy_setopt(c, CURLOPT_COOKIEFILE, "");
 
     growbuf_t body = {0};
+    body.cap = req->max_response_bytes ? req->max_response_bytes : AXIAM_MAX_RESPONSE_BYTES;
     curl_easy_setopt(c, CURLOPT_URL, req->url);
     curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(c, CURLOPT_WRITEDATA, &body);
@@ -252,8 +261,20 @@ int axiam_curl_transport(void *vctx, const axiam_http_request_t *req,
     int ret = 0;
     if (rc != CURLE_OK) {
         resp->status = 0;
-        resp->transport_err = (int)rc;
-        resp->transport_msg = axiam_strdup0(curl_easy_strerror(rc));
+        if (body.capped) {
+            /* Distinct from a network failure: the peer answered, and a non-idempotent request
+             * has already been applied server-side. */
+            char msg[200];
+            snprintf(msg, sizeof msg,
+                     "response body exceeded the %zu-byte size cap; the server processed the "
+                     "request, so it was not necessarily lost and must not be blindly repeated",
+                     body.cap);
+            resp->transport_err = AXIAM_TRANSPORT_ERR_BODY_CAP;
+            resp->transport_msg = axiam_strdup0(msg);
+        } else {
+            resp->transport_err = (int)rc;
+            resp->transport_msg = axiam_strdup0(curl_easy_strerror(rc));
+        }
         free(body.buf);
         ret = 1;
     } else {

@@ -123,10 +123,28 @@ double axiam_now_ms(void);
 
 /** Upper bound on one HTTP response body the real transport will buffer. The body is held in
  *  memory whole, so an unbounded read lets a hostile or broken peer exhaust the process.
- *  16 MiB: far above any AXIAM response (the largest, a management listing page or the OpenAPI
- *  discovery document, is well under 1 MiB). Past it the transfer is aborted and the request
- *  fails as a transport error. */
+ *  16 MiB: far above an ordinary JSON response (a management listing page or the OpenAPI
+ *  discovery document is well under 1 MiB). It is NOT above every AXIAM response: the two
+ *  export operations stream a whole archive and use AXIAM_MAX_EXPORT_RESPONSE_BYTES instead.
+ *  Past the bound the transfer is aborted and the request fails as a transport error
+ *  (AXIAM_TRANSPORT_ERR_BODY_CAP). */
 #define AXIAM_MAX_RESPONSE_BYTES ((size_t)16 * 1024 * 1024)
+
+/** The bound for the operations whose response IS an export: `tenants.export_audit` (the
+ *  tenant's complete audit trail as NDJSON) and `privacy.download_export` (a single-use
+ *  account-export download). Both are buffered whole, so the bound is a documented ceiling
+ *  rather than "unlimited": 1 GiB. */
+#define AXIAM_MAX_EXPORT_RESPONSE_BYTES ((size_t)1024 * 1024 * 1024)
+
+/** `transport_err` the libcurl transport reports when a body exceeded its cap. Equal to
+ *  CURLE_FILESIZE_EXCEEDED (asserted in transport_curl.c). A capped export is not retried:
+ *  the server already acted on the request. */
+#define AXIAM_TRANSPORT_ERR_BODY_CAP 63
+
+/** As axiam_client_send_raw(), with an explicit response-size bound (0 = the default). */
+int axiam_client_send_raw_capped(axiam_client_t *c, const char *method, const char *path,
+                                 const char *body, size_t max_response_bytes,
+                                 axiam_http_response_t *resp);
 
 /* ---- §16 bounded read-only retry ---- */
 

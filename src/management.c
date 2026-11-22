@@ -402,6 +402,12 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
 
     axiam_error_kind_t kind = AXIAM_ERR_NETWORK;
 
+    /* The two export operations return a whole archive, far past an ordinary JSON body. */
+    size_t max_response = 0;
+    if (operation && (strcmp(operation, "tenants.export_audit") == 0 ||
+                      strcmp(operation, "privacy.download_export") == 0))
+        max_response = AXIAM_MAX_EXPORT_RESPONSE_BYTES;
+
     for (int attempt = 1; attempt <= attempts; attempt++) {
         /* Rule 11: the TEMPLATE, never the substituted path. A metrics label carrying a
          * user id is an unbounded-cardinality series and, on this surface, a slow
@@ -411,7 +417,7 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
                                       path_template, attempt);
 
         axiam_http_response_t resp;
-        int rc = axiam_client_send_raw(c, method, path, body_json, &resp);
+        int rc = axiam_client_send_raw_capped(c, method, path, body_json, max_response, &resp);
         long status = (rc == 0) ? resp.status : 0;
 
         axiam_telemetry_request_end(&c->telemetry, operation, method,
@@ -425,7 +431,9 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
             axiam_error_set(err, AXIAM_ERR_NETWORK, resp.transport_err,
                             resp.transport_msg ? resp.transport_msg : "network failure");
             kind = AXIAM_ERR_NETWORK;
-            if (attempt < attempts) {
+            /* A body past the size cap is not a transient failure: the server answered (and a
+             * single-use download is already consumed), so repeating it only repeats the cost. */
+            if (attempt < attempts && resp.transport_err != AXIAM_TRANSPORT_ERR_BODY_CAP) {
                 mgmt_retry_wait(c, operation, attempt, &resp, 1, 0);
                 continue;
             }

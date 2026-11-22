@@ -22,10 +22,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unchanged.
   **Migration:** an access token minted before AXIAM server 1.67 carries `typ: JWT` and is now
   refused by the guards (its holder refreshes; at most one access-token lifetime). A caller that
-  composes its own policy with `axiam_jwt_verify_ex` must OR in `AXIAM_JWT_VERIFY_ACCESS_TOKEN`
-  to get the rules.
+  composes its own policy with `axiam_jwt_verify_ex` no longer needs to OR in
+  `AXIAM_JWT_VERIFY_ACCESS_TOKEN`: the library applies rules 10-12 under any policy other than
+  `AXIAM_JWT_VERIFY_SIGNATURE_ONLY`, so a binary compiled against a 1.3.x header (whose
+  `AXIAM_JWT_VERIFY_STRICT` lacks the new bit) is protected by the 1.4.0 library without a
+  rebuild. A caller that runs a non-access token (an ID token, say) through a claim policy
+  must use `AXIAM_JWT_VERIFY_SIGNATURE_ONLY` and check the claims itself.
 - The libcurl transport caps a response body at 16 MiB (`AXIAM_MAX_RESPONSE_BYTES`); a larger
-  one aborts the transfer as a transport error instead of growing the buffer without bound.
+  one aborts the transfer as a transport error (`transport_err` 63, `CURLE_FILESIZE_EXCEEDED`,
+  message naming the size cap, and not retried) instead of growing the buffer without bound.
+  The two operations whose response is a whole export -- `tenants.export_audit` and
+  `privacy.download_export` -- use a 1 GiB bound (`AXIAM_MAX_EXPORT_RESPONSE_BYTES`) through the
+  new trailing `max_response_bytes` member of `axiam_http_request_t` (0 = the 16 MiB default), so
+  a large audit trail is not reported as a failed export after the server has recorded it.
 - Range-check a JSON double before the integer cast in the OPAQUE key-stretching cost reader and
   in the reactor's canonical-event builder (`timeout_ms`, `key_version`); an out-of-range value
   was undefined behaviour. The reactor now refuses such an event as `MALFORMED`.

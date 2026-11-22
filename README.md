@@ -560,17 +560,28 @@ alone does not mean the token belongs to your tenant:
   never assumes an issuer. Once configured the claim becomes required, so a
   token that carries no `iss`/`aud` at all is refused rather than waved through.
   `aud` accepts both the bare-string and array-of-strings forms; a resource
-  server guarding a user-facing API should expect `axiam:user`.
+  server guarding a user-facing API should expect `axiam:user`;
+- the token must be an **access token** (§10.1 rules 10-12, contract 1.68; 1.4.0): a
+  JOSE `typ`, when present, must be `at+jwt` (case-insensitive, optional `application/`
+  prefix), so a pre-1.67 server's `typ: JWT` token is refused until its holder refreshes;
+  any `purpose` claim (an MFA-challenge or WebAuthn-state token) is refused whatever its
+  value; and `kid` is **required**, with no "only key in the set" fallback. AXIAM signs
+  its purpose tokens with the access-token key and gives them no `aud`, so each rule alone
+  refuses them even on a guard with no expected audience.
 
 Anything missing, wrong-typed or mismatched fails **closed**
-(`AXIAM_ERR_AUTH` / HTTP 401). This is CONTRACT §10.1's minimum
-local-verification set.
+(`AXIAM_ERR_AUTH` / HTTP 401). This is CONTRACT §10.1's local-verification set
+(rules 1-12).
 Because the token's `tenant_id` claim is a UUID, a client used for route
 guarding must be configured with `axiam_client_config_set_tenant_id()` (a slug
 alone cannot be compared against it, and a slug-only client that has not logged
 in refuses every token). `axiam_jwt_verify_ex()` exposes the policy flags —
 `AXIAM_JWT_VERIFY_SIGNATURE_ONLY` reduces the check to the signature and must
-never be used to admit a request.
+never be used to admit a request. The access-token rules 10-12 apply under **any**
+policy other than `AXIAM_JWT_VERIFY_SIGNATURE_ONLY`, so a binary built against a 1.3.x
+header that passes the old `AXIAM_JWT_VERIFY_STRICT` value gets them from the 1.4.0
+library without a rebuild; `AXIAM_JWT_VERIFY_ACCESS_TOKEN` names them and is kept for
+source compatibility.
 
 ### The session-revocation feed (§10.4, contract 1.44, opt-in)
 

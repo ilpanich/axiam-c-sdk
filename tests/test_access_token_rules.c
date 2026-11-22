@@ -167,6 +167,50 @@ static void test_normal_token_with_roles_and_scope_is_admitted(void) {
                          ",\"roles\":[\"admin\"],\"scope\":\"openid roles\""));
 }
 
+/* ---- C-R1-1: a binary built against 1.3.x ---- */
+/* The 1.3.1 header's AXIAM_JWT_VERIFY_STRICT was EXPIRY|TENANT|ISSUER_AUDIENCE = 0x7, with no
+ * access-token bit. A service compiled against it passes the literal 0x7; the 1.4.0 library
+ * must still apply rules 10-12 (fail closed), or the drop-in upgrade leaves N14 open. */
+#define STRICT_1_3_1 0x7u
+
+static void assert_refused_old_strict(char *token) {
+    axiam_client_t *c = make_client();
+    char *claims = NULL;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify_ex(c, token, STRICT_1_3_1, &claims, &err));
+    TEST_ASSERT_NULL(claims);
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH,
+                          axiam_jwt_verify_ex_with_evidence(c, token, STRICT_1_3_1, NULL, &claims,
+                                                            &err));
+    TEST_ASSERT_NULL(claims);
+    /* Any single claim policy is a claim policy. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH,
+                          axiam_jwt_verify_ex(c, token, AXIAM_JWT_VERIFY_EXPIRY, &claims, &err));
+    free(token);
+    axiam_client_free(c);
+}
+static void test_old_strict_value_refuses_mfa_challenge_shape(void) {
+    assert_refused_old_strict(mint(NULL, NULL, USER_UUID, ",\"purpose\":\"mfa_challenge\""));
+}
+static void test_old_strict_value_refuses_webauthn_state_shape(void) {
+    assert_refused_old_strict(mint("k1", "axiam-webauthn-state+jwt", NIL_UUID,
+                                   ",\"purpose\":\"webauthn_authenticate_discoverable\""));
+}
+static void test_old_strict_value_refuses_kidless_and_generic_typ(void) {
+    assert_refused_old_strict(mint(NULL, "at+jwt", USER_UUID, NULL));
+    assert_refused_old_strict(mint("k1", "JWT", USER_UUID, NULL));
+}
+static void test_old_strict_value_still_admits_a_normal_token(void) {
+    char *token = mint("k1", "at+jwt", USER_UUID, NULL);
+    axiam_client_t *c = make_client();
+    char *claims = NULL;
+    axiam_error_t err;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify_ex(c, token, STRICT_1_3_1, &claims, &err));
+    free(claims);
+    free(token);
+    axiam_client_free(c);
+}
+
 /* ---- scope of the rules: only the access-token path ---- */
 static void test_signature_only_path_keeps_kidless_fallback(void) {
     /* The back-channel logout token and the ID token do not go through the access-token
@@ -204,6 +248,10 @@ int main(void) {
     RUN_TEST(test_typ_application_prefix_upper_case_is_admitted);
     RUN_TEST(test_absent_typ_is_admitted);
     RUN_TEST(test_normal_token_with_roles_and_scope_is_admitted);
+    RUN_TEST(test_old_strict_value_refuses_mfa_challenge_shape);
+    RUN_TEST(test_old_strict_value_refuses_webauthn_state_shape);
+    RUN_TEST(test_old_strict_value_refuses_kidless_and_generic_typ);
+    RUN_TEST(test_old_strict_value_still_admits_a_normal_token);
     RUN_TEST(test_signature_only_path_keeps_kidless_fallback);
     return UNITY_END();
 }

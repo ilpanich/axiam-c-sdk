@@ -140,6 +140,13 @@ static int audience_contains(const cJSON *aud, const char *expected) {
     return 0;
 }
 
+/* §10.1 rules 10-12 apply whenever ANY claim policy is in force (flags != SIGNATURE_ONLY) --
+ * fail closed. The rules must not hinge on a bit that only a caller recompiled against the 1.4.0
+ * header can set: a binary built against 1.3.x passes the old AXIAM_JWT_VERIFY_STRICT value (0x7)
+ * and gets the rules from this library all the same. The internal ID-token and logout-token paths
+ * pass flags 0 and are unaffected. */
+static int axiam_access_rules_apply(unsigned flags) { return flags != 0; }
+
 /* Post-signature claim validation (SEC-071). A signature-valid token is NOT
  * yet an authenticated caller: the lifetime must still be inside its window
  * and the token must belong to this client's tenant (the JWKS trust anchor is
@@ -157,7 +164,7 @@ static axiam_error_kind_t check_claims(axiam_client_t *client, const char *claim
     /* §10.1 rule 11: a token with a `purpose` member is a purpose token (MFA challenge,
      * WebAuthn state, ...), never an access token -- whatever its value (`null` included) and
      * whatever its `typ` says. Read from the verified payload itself. */
-    if ((flags & AXIAM_JWT_VERIFY_ACCESS_TOKEN) &&
+    if (axiam_access_rules_apply(flags) &&
         cJSON_GetObjectItemCaseSensitive(root, "purpose")) {
         axiam_error_set(err, AXIAM_ERR_AUTH, 0, "not an access token (purpose claim present)");
         kind = AXIAM_ERR_AUTH;
@@ -477,7 +484,7 @@ static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
      * `typ` that is present but not a string is not `at+jwt`; a header with no `typ` is not
      * refused by rule 10. */
     int access_hdr_ok = 1;
-    if (flags & AXIAM_JWT_VERIFY_ACCESS_TOKEN) {
+    if (axiam_access_rules_apply(flags)) {
         if (typ && !(cJSON_IsString(typ) && typ->valuestring &&
                      typ_is_access_token(typ->valuestring)))
             access_hdr_ok = 0;

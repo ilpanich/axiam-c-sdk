@@ -7,7 +7,8 @@
  * 300 seconds.
  *
  * Verification is STRICT by default (SEC-071, CONTRACT §10.1): on top of the
- * signature, axiam_jwt_verify() enforces the `exp`/`nbf` lifetime, binds the
+ * signature, axiam_jwt_verify() enforces the access-token rules 10-12 (`typ`, `purpose`,
+ * required `kid`), the `exp`/`nbf` lifetime, binds the
  * token's `tenant_id` claim to the client's configured tenant, checks
  * `iss`/`aud` whenever the client was configured with an expected value, and
  * (contract 1.51, rule 9) REFUSES a token carrying a `cnf` sender constraint
@@ -21,7 +22,9 @@
  *
  * axiam_jwt_verify_ex() exposes the policy flags for callers deliberately
  * implementing their own policy; AXIAM_JWT_VERIFY_SIGNATURE_ONLY names the
- * omission at the call site and MUST NOT be used to admit a request.
+ * omission at the call site and MUST NOT be used to admit a request. Under any
+ * policy other than SIGNATURE_ONLY the access-token rules (§10.1 rules 10-12:
+ * `typ`, `purpose`, required `kid`) apply as well.
  */
 #ifndef AXIAM_JWKS_H
 #define AXIAM_JWKS_H
@@ -70,8 +73,12 @@ extern "C" {
  * its value; and a token with no `kid` is refused -- the key is selected by `kid` alone, with
  * no "only key in the set" fallback. AXIAM's MFA-challenge and WebAuthn-state tokens are
  * signed with the access-token key and carry `sub`/`tenant_id`/`iss`/`exp`, so each rule alone
- * refuses them. Part of AXIAM_JWT_VERIFY_STRICT; do not use it for an ID token, a logout
- * token or a Security Event Token.
+ * refuses them. Part of AXIAM_JWT_VERIFY_STRICT. The library applies these rules under ANY
+ * policy other than AXIAM_JWT_VERIFY_SIGNATURE_ONLY (fail closed: a binary compiled against a
+ * 1.3.x header, whose STRICT value lacks this bit, is protected too), so setting the bit is
+ * redundant and it is kept for source compatibility and as documentation. Do not run an ID
+ * token, a logout token or a Security Event Token through a claim policy; the SDK's own
+ * verifiers for those pass no flags.
  */
 #define AXIAM_JWT_VERIFY_ACCESS_TOKEN (1u << 3)
 /** The default policy: signature + lifetime + tenant binding + configured
@@ -91,14 +98,18 @@ extern "C" {
  * numeric and not in the past (± AXIAM_JWT_CLOCK_SKEW_SECS); `nbf`, when
  * present, must not be in the future; `tenant_id` must be present and equal to
  * the client's configured tenant; and `iss` / `aud` must match whenever the
- * client was configured with an expected issuer / audience. Tenant binding
+ * client was configured with an expected issuer / audience. The token must also be an
+ * ACCESS token (§10.1 rules 10-12): a JOSE `typ`, when present, must be `at+jwt`
+ * (case-insensitive, optional `application/` prefix); a token whose claims carry a
+ * `purpose` member is refused; and `kid` is required (no single-key fallback). Tenant binding
  * requires the client to know its tenant UUID — configure `tenant_id` (or
  * complete a login, which resolves it from the session claims); a slug-only
  * client cannot bind and fails closed.
  *
  * Failure modes: AXIAM_ERR_AUTH (malformed token, non-EdDSA alg, unknown kid,
  * bad signature, expired/not-yet-valid token, missing or foreign tenant,
- * issuer/audience mismatch when configured), AXIAM_ERR_NETWORK (JWKS could not
+ * issuer/audience mismatch when configured, not an access token (typ/purpose/kid)),
+ * AXIAM_ERR_NETWORK (JWKS could not
  * be fetched).
  */
 axiam_error_kind_t axiam_jwt_verify(axiam_client_t *client,

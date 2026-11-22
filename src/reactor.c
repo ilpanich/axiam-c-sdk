@@ -638,6 +638,15 @@ axiam_reactor_refusal_t axiam_reactor_verify_event(const axiam_sensitive_t *sign
         }
 
         if (out) {
+            /* timeout_ms already passed json_int64() into long long range in
+             * canonical_event(); it is handed on as a `long`, which is narrower on ILP32 and
+             * LLP64, so narrow it checked rather than by an unchecked cast. */
+            long long timeout64 = 0;
+            if (!json_int64(message, "timeout_ms", &timeout64) ||
+                (long long)(long)timeout64 != timeout64) {
+                refusal = AXIAM_REACTOR_MALFORMED;
+                goto done;
+            }
             verified_owned_t *owned = calloc(1, sizeof(*owned));
             if (!owned) {
                 refusal = AXIAM_REACTOR_MALFORMED;
@@ -668,8 +677,7 @@ axiam_reactor_refusal_t axiam_reactor_verify_event(const axiam_sensitive_t *sign
             out->event.correlation_id = owned->correlation_id;
             out->event.payload_json = owned->payload_json;
             out->event.nonce = owned->nonce;
-            out->event.timeout_ms =
-                (long)cJSON_GetObjectItemCaseSensitive(message, "timeout_ms")->valuedouble;
+            out->event.timeout_ms = (long)timeout64;
         }
         refusal = AXIAM_REACTOR_OK;
     }
