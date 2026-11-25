@@ -52,6 +52,7 @@ typedef struct {
     const char *mode;
     long plain_login_status;
 
+    const char *ksf_raw; /* when set, the verbatim ksf members of the start response */
     int login_start_count;
     int login_finish_count;
     int register_start_count;
@@ -66,6 +67,10 @@ typedef struct {
 static fake_state_t g_fake;
 
 static void ksf_fields(char *buf, size_t n) {
+    if (g_fake.ksf_raw) {
+        snprintf(buf, n, "%s", g_fake.ksf_raw);
+        return;
+    }
     if (g_fake.ksf && strcmp(g_fake.ksf, "scrypt") == 0) {
         snprintf(buf, n, "\"ksf\":\"scrypt\",\"log_n\":15,\"r\":8,\"p\":1");
     } else {
@@ -304,6 +309,21 @@ static void test_an_absent_cost_reaches_the_library_absent(void) {
     TEST_ASSERT_EQUAL_UINT(0xA0000u + 19456u + 2u + 1u, g_fake_opaque.last_ksf_tag);
 
     axiam_login_result_dispose(&res);
+    axiam_client_free(c);
+}
+
+static void test_an_out_of_range_cost_is_not_cast_into_the_library(void) {
+    /* Ride-along to N14: the server-named cost was cast double -> unsigned with no range
+     * check (undefined behaviour for 1e300). A cost that does not fit is treated as absent --
+     * as a negative one already was -- so the library is never handed a wrapped value and the
+     * login fails rather than stretching at a cost nobody named. */
+    g_fake.ksf_raw = "\"ksf\":\"argon2id\",\"memory_kib\":1e300,\"iterations\":2,"
+                     "\"parallelism\":1";
+    axiam_client_t *c = make_client();
+    axiam_login_result_t res;
+    axiam_error_t err;
+    TEST_ASSERT_NOT_EQUAL_INT(AXIAM_OK, axiam_login_opaque(c, TEST_USER, g_password, &res, &err));
+    TEST_ASSERT_EQUAL_INT(0, g_fake.login_finish_count);
     axiam_client_free(c);
 }
 
@@ -713,6 +733,7 @@ int main(void) {
     RUN_TEST(test_login_finish_echoes_the_session_handle_the_server_issued);
     RUN_TEST(test_the_server_named_ksf_is_the_one_used);
     RUN_TEST(test_an_absent_cost_reaches_the_library_absent);
+    RUN_TEST(test_an_out_of_range_cost_is_not_cast_into_the_library);
 
     RUN_TEST(test_a_successful_login_returns_what_login_returns);
     RUN_TEST(test_the_mfa_required_branch_survives_the_opaque_path);

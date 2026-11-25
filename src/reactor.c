@@ -216,6 +216,18 @@ static int constant_time_equals(const char *a, const char *b) {
     return diff == 0;
 }
 
+/* Reads a JSON number member as a long long, range-checked BEFORE the cast (converting an
+ * out-of-range double is undefined behaviour). 2^63 is exactly representable as a double, so
+ * the upper bound is exclusive; NaN fails both comparisons. */
+static int json_int64(const cJSON *message, const char *name, long long *out) {
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(message, name);
+    if (!cJSON_IsNumber(item)) return 0;
+    double d = item->valuedouble;
+    if (!(d >= -9223372036854775808.0 && d < 9223372036854775808.0)) return 0;
+    *out = (long long)d;
+    return 1;
+}
+
 /**
  * Field order, event (server → reactor): tenant_id, event, correlation_id,
  * payload, timeout_ms, key_version, nonce, issued_at, hmac_signature (null).
@@ -227,6 +239,13 @@ static int constant_time_equals(const char *a, const char *b) {
  * DECLARATION order, which no library will reproduce.
  */
 static char *canonical_event(const cJSON *message) {
+    long long timeout_ms = 0, key_version = 0;
+    /* An out-of-range number cannot be the server's: refuse it as malformed rather than sign
+     * over a truncated or undefined value. */
+    if (!json_int64(message, "timeout_ms", &timeout_ms) ||
+        !json_int64(message, "key_version", &key_version)) {
+        return NULL;
+    }
     const cJSON *payload = cJSON_GetObjectItemCaseSensitive(message, "payload");
     char *payload_text = cJSON_PrintUnformatted(payload);
     if (!payload_text) return NULL;
@@ -241,11 +260,9 @@ static char *canonical_event(const cJSON *message) {
     sb_quoted(&sb, cJSON_GetObjectItemCaseSensitive(message, "correlation_id")->valuestring);
     sb_puts(&sb, ",\"payload\":");
     sb_puts(&sb, payload_text);
-    snprintf(number, sizeof(number), ",\"timeout_ms\":%lld",
-             (long long)cJSON_GetObjectItemCaseSensitive(message, "timeout_ms")->valuedouble);
+    snprintf(number, sizeof(number), ",\"timeout_ms\":%lld", timeout_ms);
     sb_puts(&sb, number);
-    snprintf(number, sizeof(number), ",\"key_version\":%lld",
-             (long long)cJSON_GetObjectItemCaseSensitive(message, "key_version")->valuedouble);
+    snprintf(number, sizeof(number), ",\"key_version\":%lld", key_version);
     sb_puts(&sb, number);
     sb_puts(&sb, ",\"nonce\":");
     sb_quoted(&sb, cJSON_GetObjectItemCaseSensitive(message, "nonce")->valuestring);
@@ -621,6 +638,15 @@ axiam_reactor_refusal_t axiam_reactor_verify_event(const axiam_sensitive_t *sign
         }
 
         if (out) {
+            /* timeout_ms already passed json_int64() into long long range in
+             * canonical_event(); it is handed on as a `long`, which is narrower on ILP32 and
+             * LLP64, so narrow it checked rather than by an unchecked cast. */
+            long long timeout64 = 0;
+            if (!json_int64(message, "timeout_ms", &timeout64) ||
+                (long long)(long)timeout64 != timeout64) {
+                refusal = AXIAM_REACTOR_MALFORMED;
+                goto done;
+            }
             verified_owned_t *owned = calloc(1, sizeof(*owned));
             if (!owned) {
                 refusal = AXIAM_REACTOR_MALFORMED;
@@ -651,8 +677,7 @@ axiam_reactor_refusal_t axiam_reactor_verify_event(const axiam_sensitive_t *sign
             out->event.correlation_id = owned->correlation_id;
             out->event.payload_json = owned->payload_json;
             out->event.nonce = owned->nonce;
-            out->event.timeout_ms =
-                (long)cJSON_GetObjectItemCaseSensitive(message, "timeout_ms")->valuedouble;
+            out->event.timeout_ms = (long)timeout64;
         }
         refusal = AXIAM_REACTOR_OK;
     }

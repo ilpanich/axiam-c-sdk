@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -317,7 +318,7 @@ static void capture_csrf(axiam_client_t *c, const axiam_http_response_t *resp) {
 /* Perform one transport round-trip for a path. state_changing controls CSRF. */
 static int transport_once_ex(axiam_client_t *c, const char *method, const char *path,
                              const char *body, int state_changing, int replayable,
-                             axiam_http_response_t *resp) {
+                             size_t max_response_bytes, axiam_http_response_t *resp) {
     memset(resp, 0, sizeof(*resp));
     char *url = build_url(c, path);
     if (!url) return -1;
@@ -334,6 +335,7 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
     req.body = body;
     req.body_len = body ? strlen(body) : 0;
     req.replayable = replayable;
+    req.max_response_bytes = max_response_bytes;
 
     int rc = c->transport(c->transport_ctx, &req, resp);
     capture_csrf(c, resp);
@@ -348,12 +350,18 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
 static int transport_once(axiam_client_t *c, const char *method, const char *path,
                           const char *body, int state_changing,
                           axiam_http_response_t *resp) {
-    return transport_once_ex(c, method, path, body, state_changing, 0, resp);
+    return transport_once_ex(c, method, path, body, state_changing, 0, 0, resp);
 }
 
 int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *path,
                           const char *body, axiam_http_response_t *resp) {
     return transport_once(c, method, path, body, 1, resp);
+}
+
+int axiam_client_send_raw_capped(axiam_client_t *c, const char *method, const char *path,
+                                 const char *body, size_t max_response_bytes,
+                                 axiam_http_response_t *resp) {
+    return transport_once_ex(c, method, path, body, 1, 0, max_response_bytes, resp);
 }
 
 char *axiam_client_url(const axiam_client_t *c, const char *path) {
@@ -916,7 +924,11 @@ static const char *opaque_json_str(const cJSON *root, const char *name) {
  * perfectly good. */
 static void opaque_json_cost(const cJSON *root, const char *name, int *has, unsigned *out) {
     const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, name);
-    if (item && cJSON_IsNumber(item) && item->valuedouble >= 0) {
+    /* Range-checked BEFORE the cast: converting a double outside the target type's range is
+     * undefined behaviour in C. NaN fails both comparisons. A cost the server sent that does
+     * not fit is treated as absent, as a negative one already was. */
+    if (item && cJSON_IsNumber(item) && item->valuedouble >= 0 &&
+        item->valuedouble <= (double)UINT_MAX) {
         *has = 1;
         *out = (unsigned)item->valuedouble;
     } else {
@@ -1617,7 +1629,7 @@ static int transport_retrying(axiam_client_t *c, const char *op, const char *pat
         double started = axiam_telemetry_installed(&c->telemetry) ? axiam_now_ms() : 0.0;
 
         /* replayable: this loop is the §16 retry, and the request is an authorization check. */
-        rc = transport_once_ex(c, "POST", path, body, 1, 1, resp);
+        rc = transport_once_ex(c, "POST", path, body, 1, 1, 0, resp);
 
         int transport_failed = (rc != 0);
         long status = resp->status;

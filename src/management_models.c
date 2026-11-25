@@ -2009,6 +2009,7 @@ void axiam_mgmt_audit_log_entry_free(axiam_mgmt_audit_log_entry_t *value) {
     free(value->id);
     free(value->ip_address);
     free(value->metadata);
+    free(value->organization_id);
     free(value->resource_id);
     free(value->tenant_id);
     free(value->timestamp);
@@ -2035,6 +2036,8 @@ axiam_mgmt_audit_log_entry_t *axiam_mgmt_audit_log_entry_parse(const cJSON *src)
     if (cJSON_IsString(item)) out->ip_address = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "metadata");
     if (item) out->metadata = cJSON_PrintUnformatted(item);
+    item = cJSON_GetObjectItemCaseSensitive(src, "organization_id");
+    if (cJSON_IsString(item)) out->organization_id = axiam_strdup0(item->valuestring);
     item = cJSON_GetObjectItemCaseSensitive(src, "outcome");
     if (cJSON_IsString(item) && axiam_mgmt_audit_outcome_from_wire(item->valuestring, &out->outcome) == 0) {
         (void) 0;
@@ -2070,6 +2073,9 @@ cJSON *axiam_mgmt_audit_log_entry_build(const axiam_mgmt_audit_log_entry_t *valu
     if (value->metadata) {
         cJSON *sub = cJSON_Parse(value->metadata);
         if (sub && !cJSON_AddItemToObject(obj, "metadata", sub)) cJSON_Delete(sub);
+    }
+    if (value->organization_id) {
+        cJSON_AddStringToObject(obj, "organization_id", value->organization_id);
     }
     if (1) {
         cJSON_AddStringToObject(obj, "outcome", axiam_mgmt_audit_outcome_to_wire(value->outcome));

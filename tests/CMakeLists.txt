@@ -141,6 +141,15 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_jwt_claims COMMAND test_jwt_claims)
 
+# CONTRACT §10.1 rules 10-12 (contract 1.68, N14): typ, purpose and kid on the access-token path.
+add_executable(test_access_token_rules test_access_token_rules.c)
+target_include_directories(test_access_token_rules PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_access_token_rules PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_access_token_rules PRIVATE --coverage)
+endif()
+add_test(NAME test_access_token_rules COMMAND test_access_token_rules)
+
 # §11 rule 9 decision reason codes. Links the JWT fixture because the second
 # half of the clause is about the guard, which verifies a real token.
 add_executable(test_reason_code test_reason_code.c)

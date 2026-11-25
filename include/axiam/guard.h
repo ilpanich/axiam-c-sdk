@@ -10,8 +10,10 @@
  * Token verification is always AXIAM_JWT_VERIFY_STRICT (see jwks.h): signature
  * with `alg` pinned to EdDSA before key lookup, AND lifetime (`exp` required,
  * and `nbf` when present) AND the tenant binding AND the configured `iss` /
- * `aud` expectations. An expired token, one minted for a different tenant of
- * the same organization, or one from an unexpected issuer/audience is refused
+ * `aud` expectations AND the access-token rules (§10.1 rules 10-12: `typ`, when
+ * present, is `at+jwt`; no `purpose` claim; `kid` required). An expired token, one
+ * minted for a different tenant of the same organization, one from an unexpected
+ * issuer/audience, or an MFA-challenge / WebAuthn-state token is refused
  * with AXIAM_GUARD_UNAUTHENTICATED and never reaches the authorization check.
  *
  * The macros AXIAM_REQUIRE_ACCESS / AXIAM_REQUIRE_AUTH / AXIAM_REQUIRE_ROLE are

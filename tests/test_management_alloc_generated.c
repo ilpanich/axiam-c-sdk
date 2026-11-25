@@ -4558,7 +4558,7 @@ static void test_webauthn_policy_compliance_report_survives_oom(void) {
 static void test_audit_list_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -4579,7 +4579,7 @@ static void test_audit_list_survives_oom(void) {
 static void test_audit_list_all_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH_WALK; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
         mgmt_mount(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
@@ -4597,7 +4597,7 @@ static void test_audit_list_all_survives_oom(void) {
 static void test_audit_list_system_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;
         axiam_error_t err;
@@ -4618,7 +4618,7 @@ static void test_audit_list_system_survives_oom(void) {
 static void test_audit_list_system_all_survives_oom(void) {
     for (long n = 1; n <= ALLOC_DEPTH_WALK; n++) {
         mgmt_reset();
-        mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
+        mgmt_mount(200, "{\"items\": [{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}], \"total\": 1, \"offset\": 0, \"limit\": 50}");
         mgmt_mount(200, "{\"items\": [], \"total\": 1, \"offset\": 50, \"limit\": 50}");
         axiam_client_t *c = mgmt_signed_in_client();
         if (!c) continue;

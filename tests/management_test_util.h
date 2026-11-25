@@ -74,6 +74,9 @@ const char *mgmt_last_url(void);
 /** The body of the last management request, or "" when it sent none. */
 const char *mgmt_last_body(void);
 
+/** The `max_response_bytes` of the last management request that reached the transport. */
+size_t mgmt_last_max_response_bytes(void);
+
 /** How many requests have reached the transport, the login included. */
 int mgmt_request_count(void);
 

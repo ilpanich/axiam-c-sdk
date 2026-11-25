@@ -918,7 +918,7 @@ static void test_attribute_mapping_rejects_a_non_object(void) {
 
 /* `AuditLogEntry`: a full wire object parses, builds back and frees. */
 static void test_audit_log_entry_round_trips(void) {
-    cJSON *src = cJSON_Parse("{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}");
+    cJSON *src = cJSON_Parse("{\"action\": \"example\", \"actor_id\": \"11111111-1111-4111-8111-111111111111\", \"actor_type\": \"User\", \"id\": \"11111111-1111-4111-8111-111111111111\", \"ip_address\": \"example\", \"metadata\": {}, \"organization_id\": \"11111111-1111-4111-8111-111111111111\", \"outcome\": \"Success\", \"resource_id\": \"11111111-1111-4111-8111-111111111111\", \"tenant_id\": \"11111111-1111-4111-8111-111111111111\", \"timestamp\": \"2026-08-26T00:00:00Z\"}");
     TEST_ASSERT_NOT_NULL(src);
 
     axiam_mgmt_audit_log_entry_t *model = axiam_mgmt_audit_log_entry_parse(src);

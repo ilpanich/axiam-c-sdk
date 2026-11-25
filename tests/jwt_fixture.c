@@ -47,9 +47,10 @@ static char *concat3(const char *a, const char *b, const char *c) {
 
 /* Shared minting core. `alg` goes into the header verbatim; the signature is
  * chosen from it (see jwt_make_confused in the header for the rationale). */
-static int jwt_make_with_alg(const char *kid, const char *alg,
-                             const char *payload_json,
-                             char **out_token, char **out_jwks) {
+static int jwt_make_full(const char *kid_header, const char *jwks_kid, const char *typ,
+                         const char *alg, const char *payload_json,
+                         char **out_token, char **out_jwks) {
+    const char *kid = jwks_kid;
     int rc = -1;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL);
@@ -66,9 +67,16 @@ static int jwt_make_with_alg(const char *kid, const char *alg,
         goto done;
     x_b64 = jwt_b64url_encode(pub, 32);
 
-    char header[128];
-    snprintf(header, sizeof(header), "{\"alg\":\"%s\",\"typ\":\"JWT\",\"kid\":\"%s\"}",
-             alg, kid);
+    /* `typ` and `kid` are individually omittable: CONTRACT 10.1 rules 10 and 12 are about
+     * exactly those two header members being absent or wrong. */
+    char header[256];
+    {
+        int n = snprintf(header, sizeof(header), "{\"alg\":\"%s\"", alg);
+        if (typ) n += snprintf(header + n, sizeof(header) - (size_t)n, ",\"typ\":\"%s\"", typ);
+        if (kid_header)
+            n += snprintf(header + n, sizeof(header) - (size_t)n, ",\"kid\":\"%s\"", kid_header);
+        snprintf(header + n, sizeof(header) - (size_t)n, "}");
+    }
     hdr_b64 = jwt_b64url_encode((const unsigned char *)header, strlen(header));
     pl_b64 = jwt_b64url_encode((const unsigned char *)payload_json, strlen(payload_json));
     if (!hdr_b64 || !pl_b64 || !x_b64) goto done;
@@ -145,10 +153,16 @@ done:
 
 int jwt_make_confused(const char *kid, const char *alg, const char *payload_json,
                       char **out_token, char **out_jwks) {
-    return jwt_make_with_alg(kid, alg, payload_json, out_token, out_jwks);
+    return jwt_make_full(kid, kid, "JWT", alg, payload_json, out_token, out_jwks);
 }
 
+int jwt_make_hdr(const char *kid_header, const char *typ, const char *payload_json,
+                 char **out_token, char **out_jwks) {
+    return jwt_make_full(kid_header, "k1", typ, "EdDSA", payload_json, out_token, out_jwks);
+}
+
+/* An access token as the server mints it from 1.67 on: `typ: at+jwt` (RFC 9068) and a `kid`. */
 int jwt_make(const char *kid, const char *payload_json,
              char **out_token, char **out_jwks) {
-    return jwt_make_with_alg(kid, "EdDSA", payload_json, out_token, out_jwks);
+    return jwt_make_full(kid, kid, "at+jwt", "EdDSA", payload_json, out_token, out_jwks);
 }

@@ -117,10 +117,13 @@ static void record_path(const char *url) {
     g_path[n] = '\0';
 }
 
+static size_t g_max_response;
+
 static int fake_transport(void *ctx, const axiam_http_request_t *req,
                           axiam_http_response_t *resp) {
     (void) ctx;
     g_count++;
+    g_max_response = req->max_response_bytes;
     snprintf(g_method, sizeof g_method, "%s", req->method ? req->method : "");
     snprintf(g_url, sizeof g_url, "%s", req->url ? req->url : "");
     if (g_count - 1 < (int) (sizeof g_urls / sizeof g_urls[0]))
@@ -192,4 +195,5 @@ const char *mgmt_last_method(void) { return g_method; }
 const char *mgmt_last_path(void) { return g_path; }
 const char *mgmt_last_url(void) { return g_url; }
 const char *mgmt_last_body(void) { return g_body; }
+size_t mgmt_last_max_response_bytes(void) { return g_max_response; }
 int mgmt_request_count(void) { return g_count; }

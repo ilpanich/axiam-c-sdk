@@ -1045,6 +1045,29 @@ static void test_frees_tolerate_null(void) {
     TEST_PASS();
 }
 
+/* ---- C-R1-2: the response-size bound is per operation ---------------------- */
+
+static void test_export_operations_ask_for_the_export_size_bound(void) {
+    axiam_client_t *c = mgmt_signed_in_client();
+    axiam_error_t err;
+
+    mgmt_mount(200, "{}");
+    (void)axiam_tenants_export_audit(c, NULL, UUID, &err);
+    TEST_ASSERT_EQUAL_size_t(AXIAM_MAX_EXPORT_RESPONSE_BYTES, mgmt_last_max_response_bytes());
+
+    mgmt_mount(200, "{}");
+    (void)axiam_privacy_download_export(c, UUID, &err);
+    TEST_ASSERT_EQUAL_size_t(AXIAM_MAX_EXPORT_RESPONSE_BYTES, mgmt_last_max_response_bytes());
+
+    /* An ordinary operation keeps the transport default (0 = 16 MiB). */
+    mgmt_mount(200, ROLE_JSON);
+    axiam_mgmt_role_t *role = NULL;
+    (void)axiam_roles_get(c, UUID, &role, &err);
+    TEST_ASSERT_EQUAL_size_t(0, mgmt_last_max_response_bytes());
+    axiam_mgmt_role_free(role);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_without_a_session_nothing_is_sent);
@@ -1094,6 +1117,7 @@ int main(void) {
     RUN_TEST(test_a_non_json_body_is_a_network_error);
     RUN_TEST(test_a_path_parameter_is_url_encoded);
     RUN_TEST(test_an_unknown_enum_value_decodes_without_becoming_a_known_one);
+    RUN_TEST(test_export_operations_ask_for_the_export_size_bound);
     RUN_TEST(test_frees_tolerate_null);
     return UNITY_END();
 }

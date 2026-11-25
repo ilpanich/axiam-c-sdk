@@ -51,6 +51,17 @@ typedef struct axiam_http_request {
      * transport compiled against the older struct is unaffected.
      */
     int replayable;
+    /**
+     * Largest response body, in bytes, the transport may buffer for this request; 0 (the
+     * value an unset field has) selects the default, 16 MiB. A body past the bound aborts the
+     * transfer and fails the request as a transport error whose `transport_err` is 63
+     * (`CURLE_FILESIZE_EXCEEDED`) and whose message says the size cap was hit -- distinct from
+     * a network failure, because the server has ALREADY processed the request. Only the two
+     * operations that return a whole export (`tenants.export_audit`,
+     * `privacy.download_export`) ask for more. Appended last, so a transport compiled against
+     * the older struct is unaffected.
+     */
+    size_t max_response_bytes;
 } axiam_http_request_t;
 
 /** Response produced by a transport implementation. All owned/heap fields. */
