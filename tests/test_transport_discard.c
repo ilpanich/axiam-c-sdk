@@ -133,7 +133,7 @@ static void test_a_discarded_body_over_the_cap_is_refused_without_being_held(voi
 static void test_a_discarded_2xx_body_within_the_cap_is_counted_and_dropped(void) {
     axiam_http_response_t resp;
     int rc;
-    long grew = transfer(200, 3 * MIB, 4 * MIB, 1, &rc, &resp);
+    long grew = transfer(200, 7 * MIB, 8 * MIB, 1, &rc, &resp); /* larger than the previous test's peak */
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_INT(200, resp.status);
     TEST_ASSERT_NULL(resp.body);

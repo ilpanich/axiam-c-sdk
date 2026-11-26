@@ -66,6 +66,20 @@ jobs:
       - name: Build
         run: cmake --build build -j
 
+      # Every other configure here has AXIAM_BUILD_TESTS=ON, which compiles the reactor's test
+      # seam (AXIAM_TESTING) in. Build the shipped configuration once per PR, and check the seam
+      # symbol is not exported from it.
+      - name: Release configuration has no test seam
+        env:
+          CC: ${{ matrix.cc }}
+        run: |
+          cmake -S . -B build-noseam -DCMAKE_BUILD_TYPE=Release -DAXIAM_BUILD_TESTS=OFF \
+            -DAXIAM_BUILD_EXAMPLES=OFF -DCMAKE_C_STANDARD=${{ matrix.std }}
+          cmake --build build-noseam -j
+          lib=$(ls build-noseam/libaxiam.so)
+          nm -D "$lib" | grep -q axiam_reactor_timeout_limit && { echo "::error::test seam exported"; exit 1; }
+          echo "no test seam in $lib"
+
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
