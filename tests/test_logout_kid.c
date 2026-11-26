@@ -87,6 +87,8 @@ void test_a_kidless_logout_token_is_unknown_kid_against_a_one_key_jwks(void) {
     axiam_verified_logout_token_t t;
     TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, verify_logout(c, &t, &err));
     TEST_ASSERT_EQUAL_STRING(AXIAM_OIDC_REASON_UNKNOWN_KID, err.id_token_reason);
+    /* A NULL kid can never match: no re-fetch, no cooldown window opened for it. */
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.jwks_calls);
     axiam_client_free(c);
 }
 
@@ -99,6 +101,7 @@ void test_a_kidless_logout_token_is_unknown_kid_against_a_two_key_jwks(void) {
     axiam_verified_logout_token_t t;
     TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, verify_logout(c, &t, &err));
     TEST_ASSERT_EQUAL_STRING(AXIAM_OIDC_REASON_UNKNOWN_KID, err.id_token_reason);
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.jwks_calls);
     axiam_client_free(c);
 }
 
@@ -128,6 +131,7 @@ void test_a_kidless_id_token_is_unknown_kid_against_a_one_key_jwks(void) {
                       axiam_jwt_verify_reasoned(c, g_token, &claims, reason, sizeof(reason), &err));
     TEST_ASSERT_NULL(claims);
     TEST_ASSERT_EQUAL_STRING(AXIAM_OIDC_REASON_UNKNOWN_KID, reason);
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.jwks_calls);
     axiam_client_free(c);
 }
 
@@ -163,6 +167,32 @@ void test_rules_10_and_11_stay_off_the_logout_and_id_token_paths(void) {
     axiam_client_free(c);
 }
 
+/* A flood of kid-less tokens must not burn the unknown-kid window: a genuine token under a
+ * rotated-in key right after still gets its one re-fetch. */
+void test_kidless_tokens_do_not_burn_the_refetch_window(void) {
+    char payload[1024];
+    mint_one_key(NULL, "logout+jwt", logout_claims(payload, sizeof(payload)));
+    axiam_client_t *c = oidc_make_client();
+    axiam_error_t err;
+    axiam_verified_logout_token_t t;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, verify_logout(c, &t, &err));
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH, verify_logout(c, &t, &err));
+    TEST_ASSERT_EQUAL_INT(1, g_oidc.jwks_calls);
+
+    /* The server rotates: a new key is now published, and a genuine token names it. */
+    char *tok2 = NULL, *jwks2 = NULL;
+    TEST_ASSERT_EQUAL_INT(0, jwt_make_rotation("rotated-in", "rotated-in", "logout+jwt",
+                                               logout_claims(payload, sizeof(payload)),
+                                               &tok2, &jwks2));
+    g_oidc.jwks_body = jwks2;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_verify_logout_token(c, tok2, &t, &err));
+    axiam_verified_logout_token_dispose(&t);
+    free(tok2);
+    free(jwks2);
+    g_oidc.jwks_body = g_jwks;
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_a_server_shaped_logout_token_verifies_against_a_two_key_jwks);
@@ -170,6 +200,7 @@ int main(void) {
     RUN_TEST(test_a_kidless_logout_token_is_unknown_kid_against_a_two_key_jwks);
     RUN_TEST(test_an_unknown_kid_is_unknown_kid_after_one_refetch);
     RUN_TEST(test_a_kidless_id_token_is_unknown_kid_against_a_one_key_jwks);
+    RUN_TEST(test_kidless_tokens_do_not_burn_the_refetch_window);
     RUN_TEST(test_rules_10_and_11_stay_off_the_logout_and_id_token_paths);
     return UNITY_END();
 }

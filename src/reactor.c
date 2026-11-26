@@ -217,7 +217,9 @@ static int constant_time_equals(const char *a, const char *b) {
     return diff == 0;
 }
 
+#ifdef AXIAM_TESTING
 long long axiam_reactor_timeout_limit = LONG_MAX;
+#endif
 
 /* Reads a JSON number member as a long long, range-checked BEFORE the cast (converting an
  * out-of-range double is undefined behaviour). 2^63 is exactly representable as a double, so

@@ -11,6 +11,7 @@
 #ifndef AXIAM_INTERNAL_H
 #define AXIAM_INTERNAL_H
 
+#include <limits.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <time.h>
@@ -142,10 +143,16 @@ double axiam_now_ms(void);
  *  retry it (the server already acted on the request); the §16 authorization check does. */
 #define AXIAM_TRANSPORT_ERR_BODY_CAP 63
 
-/** Largest `timeout_ms` the reactor hands on, as the `long` of `axiam_reactor_event_t`.
- *  LONG_MAX, which on ILP32 and LLP64 is narrower than the long long the wire number is read
- *  into. A TEST SEAM: the suites lower it to reproduce a 32-bit `long` on an LP64 build. */
+/** Largest `timeout_ms` the reactor hands on, as the `long` of `axiam_reactor_event_t`:
+ *  LONG_MAX, narrower than the long long the wire number is read into on ILP32 and LLP64.
+ *  Only a build with the test suite (AXIAM_TESTING) makes it a writable variable, so a suite can
+ *  lower it to reproduce a 32-bit `long` on an LP64 build; otherwise it is a constant and the
+ *  library exports no such symbol. */
+#ifdef AXIAM_TESTING
 extern long long axiam_reactor_timeout_limit;
+#else
+#define axiam_reactor_timeout_limit ((long long)LONG_MAX)
+#endif
 
 /** With `discard_body` the transport keeps only this much of a body (a JSON error envelope). */
 #define AXIAM_DISCARD_BODY_KEEP_BYTES ((size_t)64 * 1024)

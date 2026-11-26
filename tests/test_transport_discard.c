@@ -113,12 +113,16 @@ static long transfer(int status, size_t total, size_t cap, int discard, int *rc,
     return grew;
 }
 
-#define HELD_LIMIT_KIB (16 * 1024)
+/* Sizes are small on purpose (loopback under ASan is slow): the bodies are 4-8 MiB, so a held
+ * body shows as several MiB of peak-RSS growth against a ~1 MiB allowance for the transport's
+ * own buffers. A warm-up transfer first takes libcurl's one-off allocations out of the delta. */
+#define HELD_LIMIT_KIB (2 * 1024)
+#define CONTROL_MIN_KIB (4 * 1024)
 
 static void test_a_discarded_body_over_the_cap_is_refused_without_being_held(void) {
     axiam_http_response_t resp;
     int rc;
-    long grew = transfer(200, 48 * MIB + 4096, 48 * MIB, 1, &rc, &resp);
+    long grew = transfer(200, 4 * MIB + 4096, 4 * MIB, 1, &rc, &resp);
     TEST_ASSERT_NOT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_INT(AXIAM_TRANSPORT_ERR_BODY_CAP, resp.transport_err);
     TEST_ASSERT_NULL(resp.body);
@@ -129,7 +133,7 @@ static void test_a_discarded_body_over_the_cap_is_refused_without_being_held(voi
 static void test_a_discarded_2xx_body_within_the_cap_is_counted_and_dropped(void) {
     axiam_http_response_t resp;
     int rc;
-    long grew = transfer(200, 40 * MIB, 48 * MIB, 1, &rc, &resp);
+    long grew = transfer(200, 3 * MIB, 4 * MIB, 1, &rc, &resp);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_INT(200, resp.status);
     TEST_ASSERT_NULL(resp.body);
@@ -140,7 +144,7 @@ static void test_a_discarded_2xx_body_within_the_cap_is_counted_and_dropped(void
 static void test_a_discarded_error_body_keeps_only_a_prefix(void) {
     axiam_http_response_t resp;
     int rc;
-    long grew = transfer(500, 40 * MIB, 48 * MIB, 1, &rc, &resp);
+    long grew = transfer(500, 3 * MIB, 4 * MIB, 1, &rc, &resp);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_EQUAL_INT(500, resp.status);
     TEST_ASSERT_NOT_NULL(resp.body);
@@ -154,14 +158,20 @@ static void test_a_discarded_error_body_keeps_only_a_prefix(void) {
 static void test_control_a_kept_body_is_held(void) {
     axiam_http_response_t resp;
     int rc;
-    long grew = transfer(200, 40 * MIB, 48 * MIB, 0, &rc, &resp);
+    long grew = transfer(200, 8 * MIB, 8 * MIB + 4096, 0, &rc, &resp);
     TEST_ASSERT_EQUAL_INT(0, rc);
     TEST_ASSERT_NOT_NULL(resp.body);
-    TEST_ASSERT_TRUE_MESSAGE(grew > 32 * 1024, "the control did not grow the peak RSS");
+    TEST_ASSERT_TRUE_MESSAGE(grew > CONTROL_MIN_KIB, "the control did not grow the peak RSS");
     axiam_http_response_dispose(&resp);
 }
 
 int main(void) {
+    {
+        axiam_http_response_t warm;
+        int rc;
+        (void)transfer(200, 64 * 1024, 4 * MIB, 1, &rc, &warm);
+        axiam_http_response_dispose(&warm);
+    }
     UNITY_BEGIN();
     RUN_TEST(test_a_discarded_body_over_the_cap_is_refused_without_being_held);
     RUN_TEST(test_a_discarded_2xx_body_within_the_cap_is_counted_and_dropped);

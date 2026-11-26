@@ -56,7 +56,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   access-token path was already protected by §10.1 rule 12 (a `kid` is required before any key
   is looked up), so its behaviour is unchanged. New server-shaped logout-token tests (a header of
   exactly `alg`, `typ: logout+jwt`, `kid`; a two-key JWKS with the signing key second) and a test
-  that §10.1 rules 10 and 11 stay off the logout and ID-token paths.
+  that §10.1 rules 10 and 11 stay off the logout and ID-token paths. A kid-less token no longer
+  forces a JWKS re-fetch or opens the §12.4 rule 2 cooldown window.
+  **Migration:** the public `axiam_jwt_verify_ex()` and `axiam_jwt_verify_ex_with_evidence()`
+  with `AXIAM_JWT_VERIFY_SIGNATURE_ONLY` (flags 0) now refuse a kid-less token that the one key
+  of the JWKS would have verified; the issuer must put a `kid` in the header (AXIAM does, from
+  server 1.69 for logout tokens).
 - The reactor refuses an event whose `timeout_ms` does not fit a `long` (ILP32, LLP64) as
   `MALFORMED` before the nonce is claimed and whether or not the caller asked for the event
   (it was decided after the nonce was recorded and only when `out` was set).

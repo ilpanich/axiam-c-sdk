@@ -337,6 +337,10 @@ static void set_reason(char *reason, size_t cap, const char *code) {
  */
 static int lookup_key(axiam_client_t *c, const char *kid, unsigned char pub[32],
                       axiam_error_t *err) {
+    /* A NULL kid can never match, so it is refused before the cooldown logic: otherwise a stream
+     * of kid-less tokens would force a re-fetch and burn the window a genuine rotated-key token
+     * needs. */
+    if (!kid) return 0;
     pthread_mutex_lock(&c->jwks_mtx);
     const struct axiam_jwk *key = find_key(c, kid);
     if (key) { memcpy(pub, key->x, 32); pthread_mutex_unlock(&c->jwks_mtx); return 1; }
