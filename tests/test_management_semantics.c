@@ -1054,17 +1054,68 @@ static void test_export_operations_ask_for_the_export_size_bound(void) {
     mgmt_mount(200, "{}");
     (void)axiam_tenants_export_audit(c, NULL, UUID, &err);
     TEST_ASSERT_EQUAL_size_t(AXIAM_MAX_EXPORT_RESPONSE_BYTES, mgmt_last_max_response_bytes());
+    TEST_ASSERT_EQUAL_INT(1, mgmt_last_discard_body()); /* C-R3-2: the body is dropped */
 
     mgmt_mount(200, "{}");
     (void)axiam_privacy_download_export(c, UUID, &err);
     TEST_ASSERT_EQUAL_size_t(AXIAM_MAX_EXPORT_RESPONSE_BYTES, mgmt_last_max_response_bytes());
+    TEST_ASSERT_EQUAL_INT(1, mgmt_last_discard_body());
 
     /* An ordinary operation keeps the transport default (0 = 16 MiB). */
     mgmt_mount(200, ROLE_JSON);
     axiam_mgmt_role_t *role = NULL;
     (void)axiam_roles_get(c, UUID, &role, &err);
     TEST_ASSERT_EQUAL_size_t(0, mgmt_last_max_response_bytes());
+    TEST_ASSERT_EQUAL_INT(0, mgmt_last_discard_body());
     axiam_mgmt_role_free(role);
+    axiam_client_free(c);
+}
+
+/* ---- C-R3-1: a capped response is not retried by the management surface ---- */
+
+static int g_capped_export_calls;
+
+static int capped_transport(void *ctx, const axiam_http_request_t *req,
+                            axiam_http_response_t *resp) {
+    (void)ctx;
+    memset(resp, 0, sizeof *resp);
+    if (strstr(req->url, "/account/export/")) {
+        g_capped_export_calls++;
+        resp->status = 0;
+        resp->transport_err = AXIAM_TRANSPORT_ERR_BODY_CAP;
+        resp->transport_msg = strdup("response body exceeded the size cap");
+        return 1;
+    }
+    resp->status = 200; /* the login */
+    resp->body = strdup("{\"authenticated\":true,\"mfa_required\":false}");
+    return 0;
+}
+
+static void capped_no_sleep(void *ctx, long ms) { (void)ctx; (void)ms; }
+
+/* `privacy.download_export` is a single-use GET. With §16 retry ENABLED a transport failure is
+ * retried, but a body past the size cap is the one failure that is not: the server answered and
+ * has already consumed the token, so a second GET would only turn the cap into a 404. */
+static void test_a_capped_download_export_is_sent_once_and_reported_as_the_size_cap(void) {
+    g_capped_export_calls = 0;
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, "https://iam.example.com/");
+    axiam_client_config_set_tenant_id(cfg, UUID);
+    axiam_client_config_set_org_id(cfg, UUID);
+    axiam_client_config_set_retry_enabled(cfg, 1);
+    axiam_client_config_set_transport(cfg, capped_transport, NULL);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    TEST_ASSERT_NOT_NULL(c);
+    c->sleep_fn = capped_no_sleep;
+    axiam_login_result_t res;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_login(c, "admin@example.com", "pw", &res, &err));
+    axiam_login_result_dispose(&res);
+
+    TEST_ASSERT_EQUAL(AXIAM_ERR_NETWORK, axiam_privacy_download_export(c, "tok-1", &err));
+    TEST_ASSERT_EQUAL_INT(1, g_capped_export_calls);
+    TEST_ASSERT_EQUAL_INT(AXIAM_TRANSPORT_ERR_BODY_CAP, (int)err.transport_cause);
     axiam_client_free(c);
 }
 
@@ -1118,6 +1169,7 @@ int main(void) {
     RUN_TEST(test_a_path_parameter_is_url_encoded);
     RUN_TEST(test_an_unknown_enum_value_decodes_without_becoming_a_known_one);
     RUN_TEST(test_export_operations_ask_for_the_export_size_bound);
+    RUN_TEST(test_a_capped_download_export_is_sent_once_and_reported_as_the_size_cap);
     RUN_TEST(test_frees_tolerate_null);
     return UNITY_END();
 }

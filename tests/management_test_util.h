@@ -76,6 +76,8 @@ const char *mgmt_last_body(void);
 
 /** The `max_response_bytes` of the last management request that reached the transport. */
 size_t mgmt_last_max_response_bytes(void);
+/** The `discard_body` of the last management request that reached the transport. */
+int mgmt_last_discard_body(void);
 
 /** How many requests have reached the transport, the login included. */
 int mgmt_request_count(void);

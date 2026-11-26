@@ -289,6 +289,16 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_oidc_logout COMMAND test_oidc_logout)
 
+add_executable(test_logout_kid test_logout_kid.c)
+target_include_directories(test_logout_kid PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_logout_kid PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_logout_kid PRIVATE --coverage)
+endif()
+add_test(NAME test_logout_kid COMMAND test_logout_kid)
+
+axiam_add_test(test_transport_discard test_transport_discard.c)
+
 axiam_add_test(test_oidc_grants test_oidc_grants.c)
 
 # Contract 1.65 (CONTRACT.md §37.9): native sign-in with a provider ID token, native_nonce.

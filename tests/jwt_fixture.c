@@ -48,14 +48,14 @@ static char *concat3(const char *a, const char *b, const char *c) {
 /* Shared minting core. `alg` goes into the header verbatim; the signature is
  * chosen from it (see jwt_make_confused in the header for the rationale). */
 static int jwt_make_full(const char *kid_header, const char *jwks_kid, const char *typ,
-                         const char *alg, const char *payload_json,
+                         const char *alg, const char *payload_json, int decoy_first,
                          char **out_token, char **out_jwks) {
     const char *kid = jwks_kid;
     int rc = -1;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL);
     char *hdr_b64 = NULL, *pl_b64 = NULL, *sig_b64 = NULL, *x_b64 = NULL;
-    char *signing_input = NULL, *token = NULL, *jwks = NULL;
+    char *signing_input = NULL, *token = NULL, *jwks = NULL, *decoy_json = NULL;
 
     if (!pctx || EVP_PKEY_keygen_init(pctx) <= 0 ||
         EVP_PKEY_keygen(pctx, &pkey) <= 0)
@@ -122,14 +122,36 @@ static int jwt_make_full(const char *kid_header, const char *jwks_kid, const cha
     token = concat3(signing_input, ".", sig_b64);
     if (!token) goto done;
 
+    if (decoy_first) {
+        /* A rotation: a second, unrelated Ed25519 key published BEFORE the signing key. */
+        EVP_PKEY *other = NULL;
+        EVP_PKEY_CTX *octx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL);
+        unsigned char opub[32];
+        size_t oplen = sizeof(opub);
+        int ok = octx && EVP_PKEY_keygen_init(octx) > 0 && EVP_PKEY_keygen(octx, &other) > 0 &&
+                 EVP_PKEY_get_raw_public_key(other, opub, &oplen) > 0 && oplen == 32;
+        EVP_PKEY_free(other);
+        EVP_PKEY_CTX_free(octx);
+        if (!ok) goto done;
+        char *ox = jwt_b64url_encode(opub, 32);
+        if (!ox) goto done;
+        size_t dn = strlen(ox) + 256;
+        decoy_json = malloc(dn);
+        if (decoy_json)
+            snprintf(decoy_json, dn,
+                     "{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"alg\":\"EdDSA\","
+                     "\"use\":\"sig\",\"kid\":\"rotated-out\",\"x\":\"%s\"},", ox);
+        free(ox);
+        if (!decoy_json) goto done;
+    }
     {
-        size_t jn = strlen(x_b64) + strlen(kid) + 256;
+        size_t jn = strlen(x_b64) + strlen(kid) + (decoy_json ? strlen(decoy_json) : 0) + 256;
         jwks = malloc(jn);
         if (!jwks) goto done;
         snprintf(jwks, jn,
-                 "{\"keys\":[{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"alg\":\"EdDSA\","
+                 "{\"keys\":[%s{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\"alg\":\"EdDSA\","
                  "\"use\":\"sig\",\"kid\":\"%s\",\"x\":\"%s\"}]}",
-                 kid, x_b64);
+                 decoy_json ? decoy_json : "", kid, x_b64);
     }
 
     *out_token = token;
@@ -148,21 +170,28 @@ done:
     free(signing_input);
     free(token);
     free(jwks);
+    free(decoy_json);
     return rc;
 }
 
 int jwt_make_confused(const char *kid, const char *alg, const char *payload_json,
                       char **out_token, char **out_jwks) {
-    return jwt_make_full(kid, kid, "JWT", alg, payload_json, out_token, out_jwks);
+    return jwt_make_full(kid, kid, "JWT", alg, payload_json, 0, out_token, out_jwks);
 }
 
 int jwt_make_hdr(const char *kid_header, const char *typ, const char *payload_json,
                  char **out_token, char **out_jwks) {
-    return jwt_make_full(kid_header, "k1", typ, "EdDSA", payload_json, out_token, out_jwks);
+    return jwt_make_full(kid_header, "k1", typ, "EdDSA", payload_json, 0, out_token, out_jwks);
+}
+
+int jwt_make_rotation(const char *kid_header, const char *signing_kid, const char *typ,
+                      const char *payload_json, char **out_token, char **out_jwks) {
+    return jwt_make_full(kid_header, signing_kid, typ, "EdDSA", payload_json, 1, out_token,
+                         out_jwks);
 }
 
 /* An access token as the server mints it from 1.67 on: `typ: at+jwt` (RFC 9068) and a `kid`. */
 int jwt_make(const char *kid, const char *payload_json,
              char **out_token, char **out_jwks) {
-    return jwt_make_full(kid, kid, "at+jwt", "EdDSA", payload_json, out_token, out_jwks);
+    return jwt_make_full(kid, kid, "at+jwt", "EdDSA", payload_json, 0, out_token, out_jwks);
 }

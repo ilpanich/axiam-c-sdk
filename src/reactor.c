@@ -13,6 +13,7 @@
  * getting that exactly right, and §22.13's committed vectors are what says it is.
  */
 #include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -216,6 +217,8 @@ static int constant_time_equals(const char *a, const char *b) {
     return diff == 0;
 }
 
+long long axiam_reactor_timeout_limit = LONG_MAX;
+
 /* Reads a JSON number member as a long long, range-checked BEFORE the cast (converting an
  * out-of-range double is undefined behaviour). 2^63 is exactly representable as a double, so
  * the upper bound is exclusive; NaN fails both comparisons. */
@@ -246,6 +249,11 @@ static char *canonical_event(const cJSON *message) {
         !json_int64(message, "key_version", &key_version)) {
         return NULL;
     }
+    /* `timeout_ms` is handed on as a `long`, narrower than long long on ILP32 and LLP64. It is
+     * refused HERE, before the MAC and so before the nonce is claimed, and whether or not the
+     * caller asked for the event: one verdict, no burned nonce. */
+    if (timeout_ms > axiam_reactor_timeout_limit || timeout_ms < -axiam_reactor_timeout_limit)
+        return NULL;
     const cJSON *payload = cJSON_GetObjectItemCaseSensitive(message, "payload");
     char *payload_text = cJSON_PrintUnformatted(payload);
     if (!payload_text) return NULL;
@@ -638,15 +646,10 @@ axiam_reactor_refusal_t axiam_reactor_verify_event(const axiam_sensitive_t *sign
         }
 
         if (out) {
-            /* timeout_ms already passed json_int64() into long long range in
-             * canonical_event(); it is handed on as a `long`, which is narrower on ILP32 and
-             * LLP64, so narrow it checked rather than by an unchecked cast. */
+            /* timeout_ms already passed json_int64() and the `long` limit in canonical_event(),
+             * ahead of the MAC and the nonce claim. */
             long long timeout64 = 0;
-            if (!json_int64(message, "timeout_ms", &timeout64) ||
-                (long long)(long)timeout64 != timeout64) {
-                refusal = AXIAM_REACTOR_MALFORMED;
-                goto done;
-            }
+            (void)json_int64(message, "timeout_ms", &timeout64);
             verified_owned_t *owned = calloc(1, sizeof(*owned));
             if (!owned) {
                 refusal = AXIAM_REACTOR_MALFORMED;

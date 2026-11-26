@@ -18,8 +18,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `AXIAM_JWT_VERIFY_ACCESS_TOKEN` flag: a JOSE `typ`, when present, must be `at+jwt`
   (case-insensitive, optional `application/` prefix); a token whose claims carry a `purpose`
   member is refused whatever its value; a token with no `kid` is refused and the "only key in
-  the set" fallback is gone on this path. ID-token, logout-token and SSF verification are
-  unchanged.
+  the set" fallback is gone. Rules 10 and 11 are not applied to ID-token, logout-token and SSF
+  verification (the kid-less fallback is removed there too, see Fixed).
   **Migration:** an access token minted before AXIAM server 1.67 carries `typ: JWT` and is now
   refused by the guards (its holder refreshes; at most one access-token lifetime). A caller that
   composes its own policy with `axiam_jwt_verify_ex` no longer needs to OR in
@@ -30,18 +30,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   must use `AXIAM_JWT_VERIFY_SIGNATURE_ONLY` and check the claims itself.
 - The libcurl transport caps a response body at 16 MiB (`AXIAM_MAX_RESPONSE_BYTES`); a larger
   one aborts the transfer as a transport error (`transport_err` 63, `CURLE_FILESIZE_EXCEEDED`,
-  message naming the size cap, and not retried) instead of growing the buffer without bound.
-  The two operations whose response is a whole export -- `tenants.export_audit` and
-  `privacy.download_export` -- use a 1 GiB bound (`AXIAM_MAX_EXPORT_RESPONSE_BYTES`) through the
-  new trailing `max_response_bytes` member of `axiam_http_request_t` (0 = the 16 MiB default), so
-  a large audit trail is not reported as a failed export after the server has recorded it.
+  message naming the size cap) instead of growing the buffer without bound. The management
+  surface does not retry it (`privacy.download_export` is a single-use GET: a second request
+  would turn the cap into a 404); the §16 authorization check, an idempotent POST, still treats
+  it as any other transport failure and retries. The two operations whose response is a whole
+  export -- `tenants.export_audit` and `privacy.download_export` -- use a 1 GiB bound
+  (`AXIAM_MAX_EXPORT_RESPONSE_BYTES`) through the new trailing `max_response_bytes` member of
+  `axiam_http_request_t` (0 = the 16 MiB default), so a large audit trail is not reported as a
+  failed export after the server has recorded it. The C API hands that export to nobody, so
+  these two requests also set the new trailing `discard_body` member: the transport counts the
+  body against the bound while reading, drops it as it arrives and keeps only a 64 KiB prefix
+  for a non-2xx error envelope; nothing near 1 GiB is held in memory, and the body is no longer
+  parsed (a 2xx whose body is not JSON used to be a network error and is now success).
 - Range-check a JSON double before the integer cast in the OPAQUE key-stretching cost reader and
   in the reactor's canonical-event builder (`timeout_ms`, `key_version`); an out-of-range value
   was undefined behaviour. The reactor now refuses such an event as `MALFORMED`.
 
+### Fixed
+
+- **Back-channel logout and ID-token key selection (contract 1.69, axiam#880).** The key is
+  selected by the token's `kid` (§12.7.3 rule 1, §12.7.6); a token with no `kid` is refused as
+  `unknown_kid` and an unknown `kid` follows §12.4 rule 2. The "only key of a one-key JWKS"
+  fallback in the JWKS lookup is removed: it admitted a kid-less ID token or logout token whose
+  signature the one key verified, ambiguous as soon as a rotation publishes a second key. The
+  access-token path was already protected by §10.1 rule 12 (a `kid` is required before any key
+  is looked up), so its behaviour is unchanged. New server-shaped logout-token tests (a header of
+  exactly `alg`, `typ: logout+jwt`, `kid`; a two-key JWKS with the signing key second) and a test
+  that §10.1 rules 10 and 11 stay off the logout and ID-token paths.
+- The reactor refuses an event whose `timeout_ms` does not fit a `long` (ILP32, LLP64) as
+  `MALFORMED` before the nonce is claimed and whether or not the caller asked for the event
+  (it was decided after the nonce was recorded and only when `out` was set).
+
 ### Changed
 
-- Re-vendored `CONTRACT.md` (1.68), `openapi.json` and `management-registry.json` from
+- Re-vendored `CONTRACT.md` (1.69), `openapi.json` and `management-registry.json` from
   `ilpanich/axiam`; regenerated the §27 management surface (`scripts/gen_management.py`).
 
 ## [1.3.1] - 2026-11-11

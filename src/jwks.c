@@ -92,16 +92,15 @@ static axiam_error_kind_t ensure_jwks(axiam_client_t *c, int force, axiam_error_
     return AXIAM_OK;
 }
 
-/* Find a cached key by kid; if kid is NULL and exactly one key exists, use it. */
+/* Find a cached key by kid. A NULL kid matches nothing: there is deliberately NO fallback to the
+ * only key of a one-key JWKS (§12.4 rule 2, §10.1 rule 12, §12.7.3 rule 1 from contract 1.69).
+ * A kid-less token is ambiguous as soon as a rotation publishes a second key, and a verifier that
+ * guesses the key for it accepts a token no rotation-aware verifier would. */
 static const struct axiam_jwk *find_key(axiam_client_t *c, const char *kid) {
-    const struct axiam_jwk *only = NULL;
-    int count = 0;
+    if (!kid) return NULL;
     for (const struct axiam_jwk *j = c->jwks; j; j = j->next) {
-        count++;
-        only = j;
-        if (kid && j->kid && strcmp(j->kid, kid) == 0) return j;
+        if (j->kid && strcmp(j->kid, kid) == 0) return j;
     }
-    if (!kid && count == 1) return only;
     return NULL;
 }
 

@@ -21,6 +21,13 @@ int jwt_make(const char *kid, const char *payload_json,
 int jwt_make_hdr(const char *kid_header, const char *typ, const char *payload_json,
                  char **out_token, char **out_jwks);
 
+/* A rotation: the JWKS holds TWO Ed25519 keys -- an unrelated one, kid "rotated-out", FIRST, and
+ * the signing key under `signing_kid` second -- so a verifier that takes the first or only key
+ * fails. The JOSE header carries exactly `alg` EdDSA plus `typ` and `kid` when they are non-NULL
+ * (the server's logout token is `typ: logout+jwt` with a `kid`; nothing else is added). */
+int jwt_make_rotation(const char *kid_header, const char *signing_kid, const char *typ,
+                      const char *payload_json, char **out_token, char **out_jwks);
+
 /* Mint an algorithm-confusion token: the header declares `alg` (e.g. "none" or
  * "HS256") while the emitted JWKS still publishes a genuine Ed25519 key under
  * `kid`. CONTRACT §10.1 rule 1 requires both shapes to be refused before any

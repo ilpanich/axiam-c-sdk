@@ -13,7 +13,7 @@ framework-agnostic route guard and declarative authorization helpers.
 
 **Platform documentation:** <https://ilpanich.github.io/axiam/> — getting started, the authorization model, the OAuth2/OIDC surface, and the operations guides. This README covers the SDK; the site covers the server it talks to.
 
-> **This SDK conforms to CONTRACT.md 1.66 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33, §36 and §37, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
+> **This SDK conforms to CONTRACT.md 1.69 §1–§7, §9–§13, §14, §15, §17, §19, §20, §21, §22, §23, §24, §25, §26, §27, §28, §28.12, §29, §30, §31, §32, §33, §36 and §37, with §32.7 and §33.2 signed (including §6.1 mTLS, §12.7 logout, the §11 rule 9 decision reason codes, the §23 OPAQUE login path — which binds `libaxiam_opaque_ffi` at run time, see below — and §24's eight wire operations with §24.6a's JSON bridge, but not §24.6b's ceremony helper, which has no authenticator to link on these targets).**
 >
 > Sections are named individually rather than folded into ranges: widening a
 > range silently turns a statement that was true when written into a different
@@ -38,6 +38,14 @@ framework-agnostic route guard and declarative authorization helpers.
 >
 > **Manifest pruning: not offered in any namespace** (§27.10; §27.6 rule 4 makes it a MAY).
 > Omission from a manifest is never deletion.
+>
+> **Contract 1.69** (§34.13; no new operation, the section list above is unchanged, no API
+> change). `axiam_verify_logout_token()` selects the signing key **by the token's `kid`**
+> (§12.7.3 rule 1): the server's logout token carries `{"alg":"EdDSA","typ":"logout+jwt",
+> "kid":"<kid>"}`, a token with no `kid` is refused as `unknown_kid`, and an unknown `kid`
+> follows §12.4 rule 2 (one re-fetch, then fail). The "only key of a one-key JWKS" fallback is
+> gone from every verification path, the ID token's included. A logout token from a server older
+> than 1.69, which signs it with no `kid`, is refused.
 >
 > **Contract 1.66** (§34.10; no new operation, the section list above is unchanged, no API
 > change). A federated sign-in is now bound to the client that started it (§12.1 rule 12b): the

@@ -132,18 +132,29 @@ double axiam_now_ms(void);
 
 /** The bound for the operations whose response IS an export: `tenants.export_audit` (the
  *  tenant's complete audit trail as NDJSON) and `privacy.download_export` (a single-use
- *  account-export download). Both are buffered whole, so the bound is a documented ceiling
- *  rather than "unlimited": 1 GiB. */
+ *  account-export download). The bound is a documented ceiling
+ *  rather than "unlimited": 1 GiB. The body is counted against it while it is read and
+ *  dropped, never buffered whole (the C API hands the archive to nobody). */
 #define AXIAM_MAX_EXPORT_RESPONSE_BYTES ((size_t)1024 * 1024 * 1024)
 
 /** `transport_err` the libcurl transport reports when a body exceeded its cap. Equal to
- *  CURLE_FILESIZE_EXCEEDED (asserted in transport_curl.c). A capped export is not retried:
- *  the server already acted on the request. */
+ *  CURLE_FILESIZE_EXCEEDED (asserted in transport_curl.c). The management surface does not
+ *  retry it (the server already acted on the request); the §16 authorization check does. */
 #define AXIAM_TRANSPORT_ERR_BODY_CAP 63
 
-/** As axiam_client_send_raw(), with an explicit response-size bound (0 = the default). */
+/** Largest `timeout_ms` the reactor hands on, as the `long` of `axiam_reactor_event_t`.
+ *  LONG_MAX, which on ILP32 and LLP64 is narrower than the long long the wire number is read
+ *  into. A TEST SEAM: the suites lower it to reproduce a 32-bit `long` on an LP64 build. */
+extern long long axiam_reactor_timeout_limit;
+
+/** With `discard_body` the transport keeps only this much of a body (a JSON error envelope). */
+#define AXIAM_DISCARD_BODY_KEEP_BYTES ((size_t)64 * 1024)
+
+/** As axiam_client_send_raw(), with an explicit response-size bound (0 = the default) and, when
+ *  `discard_body` is nonzero, a response body that is counted against the bound and dropped
+ *  rather than buffered (`axiam_http_request_t.discard_body`). */
 int axiam_client_send_raw_capped(axiam_client_t *c, const char *method, const char *path,
-                                 const char *body, size_t max_response_bytes,
+                                 const char *body, size_t max_response_bytes, int discard_body,
                                  axiam_http_response_t *resp);
 
 /* ---- §16 bounded read-only retry ---- */
