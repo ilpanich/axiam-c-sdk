@@ -149,7 +149,9 @@ static void test_key_entry_missing_kty(void) {
     axiam_client_t *c = make_client();
     axiam_error_t err;
     axiam_error_kind_t k = axiam_jwt_verify(c, token, NULL, &err);
-    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, k);
+    /* Contract 1.69 §12.4 rule 2: a `keys` array with no JWK object (no string `kty`) is not a
+     * JWKS document, so the fetch fails -- it is no longer adopted as an empty usable set. */
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, k);
     free(token); free(jwks);
     axiam_client_free(c);
 }

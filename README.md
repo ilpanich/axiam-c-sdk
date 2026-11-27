@@ -496,7 +496,13 @@ never use them.
 | §20  | UMA 2.0: Protection API (`rreg` CRUD + `perm`), the ticket grant, and both halves of the `WWW-Authenticate: UMA` challenge | `uma.h`, `uma.c` |
 
 JWKS: `GET {base}/oauth2/jwks`, EdDSA/Ed25519 only, verified with OpenSSL
-`EVP_DigestVerify`, cached 300s.
+`EVP_DigestVerify`. The cache TTL is the value from
+`axiam_client_config_set_jwks_cache_ttl()` or else the response's
+`Cache-Control: max-age`, default 300 s and never more than 300 s (a larger value is clamped and
+reported once as a `config_clamped` event). Refreshes are conditional (`If-None-Match`; a `304`
+re-confirms the held set). A failed refresh (transport error, other status, a non-JWKS body, an
+empty key set) keeps the held keys, which keep verifying until 300 s past the TTL, measured from the
+last successful fetch; after that every token is refused until a fetch succeeds (§12.4 rule 2).
 
 ### Retry, memo, shutdown and telemetry (§16–§19)
 

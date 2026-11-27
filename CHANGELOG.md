@@ -19,6 +19,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the 60 s re-fetch window, so a failing endpoint costs one fetch per window, and it never opens
   or extends the stale window. The cache reads the client clock (`clock_fn`) rather than
   `time()`, so it is testable with an injected clock.
+- The real libcurl transport now captures the `ETag` and `Cache-Control` response headers, so the
+  conditional refresh, the `304` re-confirmation (which also re-reads its own `max-age`) and an
+  advertised smaller `max-age` take effect on the default transport. A body whose `keys` array
+  holds no JWK object (`{"keys":[{}]}`, `[0]`, `[null]`) is a failed refresh, like the empty set;
+  a failing endpoint on a cold cache costs one fetch per 60 s window; a clock stepped backwards
+  makes a refresh due rather than counting as fresh; an ETag over 256 bytes or with a control
+  character is neither stored nor echoed.
 - The TTL is the configured value or the response's `Cache-Control: max-age`, default 300 s and
   **never more than 300 s**. New `axiam_client_config_set_jwks_cache_ttl()`; a configured value
   above 300 is clamped and reported once through the §19 `config_clamped` event

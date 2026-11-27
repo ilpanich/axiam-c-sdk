@@ -17,7 +17,7 @@
 
 #define TTL 300
 
-typedef enum { M_OK, M_FAIL, M_EMPTY, M_500, M_GARBAGE, M_304 } mode_t_;
+typedef enum { M_OK, M_FAIL, M_EMPTY, M_500, M_GARBAGE, M_304, M_ALT } mode_t_;
 
 typedef struct {
     const char *jwks_body;
@@ -25,6 +25,8 @@ typedef struct {
     int jwks_calls;
     const char *cache_control;
     const char *etag;
+    const char *alt_body;
+    const char *cache_control_304;
     char last_if_none_match[64];
 } fake_state_t;
 
@@ -49,10 +51,15 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req, axiam_http
     case M_500: resp_fill(resp, 500, "oops", NULL); return 0;
     case M_EMPTY: resp_fill(resp, 200, "{\"keys\":[]}", NULL); break;
     case M_GARBAGE: resp_fill(resp, 200, "<html>not jwks</html>", NULL); break;
-    case M_304: resp_fill(resp, 304, NULL, NULL); break;
+    case M_304:
+        resp_fill(resp, 304, NULL, NULL);
+        if (st->cache_control_304)
+            resp->headers = axiam_kv_append(resp->headers, "Cache-Control", st->cache_control_304);
+        break;
+    case M_ALT: resp_fill(resp, 200, st->alt_body, NULL); break;
     default: resp_fill(resp, 200, st->jwks_body, NULL); break;
     }
-    if (st->cache_control) resp->headers = axiam_kv_append(resp->headers, "Cache-Control", st->cache_control);
+    if (st->cache_control && st->mode != M_304) resp->headers = axiam_kv_append(resp->headers, "Cache-Control", st->cache_control);
     if (st->etag) resp->headers = axiam_kv_append(resp->headers, "ETag", st->etag);
     return 0;
 }
@@ -235,6 +242,109 @@ static void test_configured_ttl_clamped_with_event(void) {
     axiam_client_free(c);
 }
 
+static void bad_doc_keeps_held(const char *doc) {
+    axiam_client_t *c = make_client(0);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));
+    time_t t0 = g_now;
+    g.mode = M_ALT; g.alt_body = doc;
+    g_now = t0 + TTL + 1;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);
+    g_now = t0 + TTL + 301;                                /* anchor did not move */
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, verify(c, held_tok));
+    axiam_client_free(c);
+}
+static void test_keys_with_empty_object_is_not_a_jwks(void) { bad_doc_keeps_held("{\"keys\":[{}]}"); }
+static void test_keys_with_number_is_not_a_jwks(void) { bad_doc_keeps_held("{\"keys\":[0]}"); }
+static void test_keys_with_null_is_not_a_jwks(void) { bad_doc_keeps_held("{\"keys\":[null]}"); }
+
+/* PIN: the contract counts "a JWKS document holding at least one key" as success, so a set of
+ * valid JWKs with no Ed25519 key (RSA-only) replaces the held set. */
+static void test_rsa_only_set_is_a_successful_fetch_pin(void) {
+    axiam_client_t *c = make_client(0);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));
+    time_t t0 = g_now;
+    g.mode = M_ALT;
+    g.alt_body = "{\"keys\":[{\"kty\":\"RSA\",\"kid\":\"r\",\"n\":\"AQAB\",\"e\":\"AQAB\"}]}";
+    g_now = t0 + TTL + 1;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, verify(c, held_tok));   /* replaced: held kid gone */
+    axiam_client_free(c);
+}
+
+static void test_cold_cache_failing_endpoint_one_fetch_per_window(void) {
+    axiam_client_t *c = make_client(0);
+    g.mode = M_FAIL;
+    for (int i = 0; i < 20; i++) TEST_ASSERT_NOT_EQUAL(AXIAM_OK, verify(c, held_tok));
+    TEST_ASSERT_EQUAL_INT(1, g.jwks_calls);
+    g_now += 61;
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);
+    g.mode = M_OK;
+    g_now += 61;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));   /* recovers after the window */
+    axiam_client_free(c);
+}
+
+static void test_clock_moved_backwards_makes_refresh_due(void) {
+    axiam_client_t *c = make_client(0);
+    verify(c, held_tok);
+    g_now -= 1000;
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);
+    axiam_client_free(c);
+}
+
+static void test_304_rereads_max_age(void) {
+    g.etag = "\"v1\"";
+    g.cache_control = "max-age=300";
+    axiam_client_t *c = make_client(0);
+    verify(c, held_tok);
+    time_t t0 = g_now;
+    g.mode = M_304; g.cache_control_304 = "max-age=60";
+    g_now = t0 + TTL + 1;
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);
+    g_now += 61;                                            /* new TTL 60 honoured */
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_INT(3, g.jwks_calls);
+    axiam_client_free(c);
+}
+
+static void test_unusable_etag_is_never_echoed(void) {
+    char longtag[400];
+    memset(longtag, 'a', sizeof(longtag) - 1); longtag[0] = '"'; longtag[sizeof(longtag) - 1] = 0;
+    g.etag = longtag;
+    axiam_client_t *c = make_client(0);
+    verify(c, held_tok);
+    g_now += TTL + 1;
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_STRING("", g.last_if_none_match);
+    axiam_client_free(c);
+    memset(&g, 0, sizeof(g)); g.jwks_body = held_jwks;
+    g.etag = "\"a\x01" "b\"";
+    c = make_client(0);
+    g_now = 1900000000;
+    verify(c, held_tok);
+    g_now += TTL + 1;
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_STRING("", g.last_if_none_match);
+    axiam_client_free(c);
+}
+
+/* Owner note: a configured TTL wins over an advertised max-age (both clamped to 300). */
+static void test_configured_ttl_wins_over_advertised_max_age(void) {
+    g.cache_control = "max-age=30";
+    axiam_client_t *c = make_client(200);
+    verify(c, held_tok);
+    g_now += 100;                       /* past the advertised 30 s, inside the configured 200 s */
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_INT(1, g.jwks_calls);
+    g_now += 101;
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_stale_bound_transport_error);
@@ -247,5 +357,14 @@ int main(void) {
     RUN_TEST(test_304_moves_anchor);
 
     RUN_TEST(test_configured_ttl_clamped_with_event);
+    RUN_TEST(test_keys_with_empty_object_is_not_a_jwks);
+    RUN_TEST(test_keys_with_number_is_not_a_jwks);
+    RUN_TEST(test_keys_with_null_is_not_a_jwks);
+    RUN_TEST(test_rsa_only_set_is_a_successful_fetch_pin);
+    RUN_TEST(test_cold_cache_failing_endpoint_one_fetch_per_window);
+    RUN_TEST(test_clock_moved_backwards_makes_refresh_due);
+    RUN_TEST(test_304_rereads_max_age);
+    RUN_TEST(test_unusable_etag_is_never_echoed);
+    RUN_TEST(test_configured_ttl_wins_over_advertised_max_age);
     return UNITY_END();
 }

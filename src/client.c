@@ -331,7 +331,7 @@ static void capture_csrf(axiam_client_t *c, const axiam_http_response_t *resp) {
 static int transport_once_ex(axiam_client_t *c, const char *method, const char *path,
                              const char *body, int state_changing, int replayable,
                              size_t max_response_bytes, int discard_body,
-                             axiam_http_response_t *resp) {
+                             const char *if_none_match, axiam_http_response_t *resp) {
     memset(resp, 0, sizeof(*resp));
     char *url = build_url(c, path);
     if (!url) return -1;
@@ -340,6 +340,7 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
     int oauth2 = strncmp(path, "/oauth2/", 8) == 0;
     axiam_kv_t *headers = build_headers(c, state_changing && !oauth2, body != NULL, oauth2);
     if (oauth2) headers = axiam_kv_append(headers, "Cookie", ""); /* withhold the jar */
+    if (if_none_match) headers = axiam_kv_append(headers, "If-None-Match", if_none_match);
 
     axiam_http_request_t req = {0};
     req.method = method;
@@ -364,7 +365,7 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
 static int transport_once(axiam_client_t *c, const char *method, const char *path,
                           const char *body, int state_changing,
                           axiam_http_response_t *resp) {
-    return transport_once_ex(c, method, path, body, state_changing, 0, 0, 0, resp);
+    return transport_once_ex(c, method, path, body, state_changing, 0, 0, 0, NULL, resp);
 }
 
 int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *path,
@@ -375,28 +376,15 @@ int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *pat
 int axiam_client_send_raw_capped(axiam_client_t *c, const char *method, const char *path,
                                  const char *body, size_t max_response_bytes, int discard_body,
                                  axiam_http_response_t *resp) {
-    return transport_once_ex(c, method, path, body, 1, 0, max_response_bytes, discard_body, resp);
+    return transport_once_ex(c, method, path, body, 1, 0, max_response_bytes, discard_body, NULL, resp);
 }
 
 int axiam_client_get_conditional(axiam_client_t *c, const char *path, const char *etag,
                                  axiam_http_response_t *resp) {
     memset(resp, 0, sizeof(*resp));
-    if (!c || !path || client_is_closed(c)) return -1;
-    char *url = build_url(c, path);
-    if (!url) return -1;
-    axiam_kv_t *headers = build_headers(c, 0, 0, strncmp(path, "/oauth2/", 8) == 0);
-    if (strncmp(path, "/oauth2/", 8) == 0) headers = axiam_kv_append(headers, "Cookie", "");
-    if (etag && etag[0]) headers = axiam_kv_append(headers, "If-None-Match", etag);
-
-    axiam_http_request_t req = {0};
-    req.method = "GET";
-    req.url = url;
-    req.headers = headers;
-    int rc = c->transport(c->transport_ctx, &req, resp);
-    capture_csrf(c, resp);
-    axiam_kv_free(headers);
-    free(url);
-    return rc;
+    if (!c || !path) return -1;
+    if (client_is_closed(c)) return -1;   /* callers name the §18.1 rule 4 cause themselves */
+    return transport_once_ex(c, "GET", path, NULL, 0, 0, 0, 0, etag, resp);
 }
 
 char *axiam_client_url(const axiam_client_t *c, const char *path) {
@@ -1664,7 +1652,7 @@ static int transport_retrying(axiam_client_t *c, const char *op, const char *pat
         double started = axiam_telemetry_installed(&c->telemetry) ? axiam_now_ms() : 0.0;
 
         /* replayable: this loop is the §16 retry, and the request is an authorization check. */
-        rc = transport_once_ex(c, "POST", path, body, 1, 1, 0, 0, resp);
+        rc = transport_once_ex(c, "POST", path, body, 1, 1, 0, 0, NULL, resp);
 
         int transport_failed = (rc != 0);
         long status = resp->status;

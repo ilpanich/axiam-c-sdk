@@ -234,7 +234,7 @@ set_tests_properties(test_mtls PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
 # port CURLE_* failure, CA/mTLS blob wiring) — also needs the PKI fixture.
 add_executable(test_transport_curl_extra test_transport_curl_extra.c)
 target_include_directories(test_transport_curl_extra PRIVATE ${AXIAM_TEST_INCLUDES})
-target_link_libraries(test_transport_curl_extra PRIVATE ${AXIAM_TEST_LINK})
+target_link_libraries(test_transport_curl_extra PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
 if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_transport_curl_extra PRIVATE --coverage)
 endif()

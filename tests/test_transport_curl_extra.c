@@ -26,6 +26,8 @@
 #include "unity.h"
 #include "axiam/axiam.h"
 #include "internal.h"
+#include "jwt_fixture.h"
+#include "test_util.h"
 
 static char g_pki_dir[1024];
 
@@ -524,6 +526,84 @@ static void test_a_request_with_a_larger_bound_reads_a_body_past_16_mib(void) {
     axiam_http_response_dispose(&resp);
 }
 
+/* ---- §12.4 rule 2 over the REAL transport: ETag / Cache-Control reach the JWKS cache ---- */
+typedef struct {
+    int listen_fd;
+    int requests;
+    const char *jwks;
+    char second_req[2048];
+} jwks_srv_t;
+
+static void *jwks_two_request_server(void *arg) {
+    jwks_srv_t *s = arg;
+    for (int i = 0; i < 2; i++) {
+        int cfd = accept(s->listen_fd, NULL, NULL);
+        if (cfd < 0) return NULL;
+        char buf[4096];
+        ssize_t r = recv(cfd, buf, sizeof(buf) - 1, 0);
+        if (r < 0) r = 0;
+        buf[r] = '\0';
+        s->requests++;
+        char resp[4096];
+        if (i == 0) {
+            snprintf(resp, sizeof(resp),
+                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                     "ETag: \"v7\"\r\nCache-Control: public, max-age=5\r\n"
+                     "Content-Length: %zu\r\nConnection: close\r\n\r\n%s",
+                     strlen(s->jwks), s->jwks);
+        } else {
+            snprintf(s->second_req, sizeof(s->second_req), "%s", buf);
+            snprintf(resp, sizeof(resp), "HTTP/1.1 304 Not Modified\r\nConnection: close\r\n\r\n");
+        }
+        write(cfd, resp, strlen(resp));
+        close(cfd);
+    }
+    return NULL;
+}
+
+static time_t g_jwks_now;
+static time_t jwks_clock(void *ctx) { (void)ctx; return g_jwks_now; }
+
+static void test_jwks_etag_and_max_age_reach_the_cache_over_curl(void) {
+    char *token = NULL, *jwks = NULL;
+    char p[256];
+    TEST_ASSERT_EQUAL_INT(0, jwt_make("k1", test_claims(p, sizeof(p), "u", NULL), &token, &jwks));
+    int port;
+    int fd = bind_ephemeral(&port);
+    TEST_ASSERT_TRUE(fd >= 0);
+    TEST_ASSERT_EQUAL_INT(0, listen(fd, 4));
+    jwks_srv_t srv = { .listen_fd = fd, .jwks = jwks };
+    pthread_t th;
+    pthread_create(&th, NULL, jwks_two_request_server, &srv);
+
+    char base[64];
+    snprintf(base, sizeof(base), "http://127.0.0.1:%d", port);
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, base);
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
+    axiam_client_config_set_timeout_ms(cfg, 5000);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    TEST_ASSERT_NOT_NULL(c);
+    g_jwks_now = 1900000000;
+    c->clock_fn = jwks_clock;
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));  /* fetch 1 */
+    g_jwks_now += 3;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));  /* within max-age=5 */
+    TEST_ASSERT_EQUAL_INT(1, srv.requests);
+    g_jwks_now += 3;                         /* 6 s: past the advertised 5 s, far inside 300 s */
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));  /* 304 accepted */
+    shutdown(fd, SHUT_RDWR);    /* unblock accept() if the second request never came */
+    pthread_join(th, NULL);
+    close(fd);
+    TEST_ASSERT_EQUAL_INT(2, srv.requests);
+    TEST_ASSERT_NOT_NULL(strcasestr(srv.second_req, "If-None-Match: \"v7\""));
+    free(token); free(jwks);
+    axiam_client_free(c);
+}
+
 int main(int argc, char **argv) {
     if (argc > 1) snprintf(g_pki_dir, sizeof(g_pki_dir), "%s", argv[1]);
     else snprintf(g_pki_dir, sizeof(g_pki_dir), ".");
@@ -537,5 +617,6 @@ int main(int argc, char **argv) {
     RUN_TEST(test_a_response_body_at_the_cap_is_still_read);
     RUN_TEST(test_a_capped_post_is_reported_as_a_size_cap_not_a_write_failure);
     RUN_TEST(test_a_request_with_a_larger_bound_reads_a_body_past_16_mib);
+    RUN_TEST(test_jwks_etag_and_max_age_reach_the_cache_over_curl);
     return UNITY_END();
 }

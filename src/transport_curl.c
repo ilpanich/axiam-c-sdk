@@ -82,13 +82,16 @@ static void capture_header(axiam_http_response_t *resp, const char *buffer, size
     }
 }
 
-/* Capture the X-CSRF-Token (§3) and Set-Cookie (§4/D-14) response headers. */
+/* Capture the X-CSRF-Token (§3), Set-Cookie (§4/D-14), ETag and Cache-Control (§12.4 rule 2)
+ * response headers. */
 static size_t header_cb(char *buffer, size_t size, size_t nitems, void *userdata) {
     axiam_http_response_t *resp = userdata;
     size_t total = size * nitems;
     capture_header(resp, buffer, total, "X-CSRF-Token:", "X-CSRF-Token");
     capture_header(resp, buffer, total, "Set-Cookie:", "Set-Cookie");
-    return total;
+    /* §12.4 rule 2: the JWKS cache's validator and freshness hint. */
+    capture_header(resp, buffer, total, "ETag:", "ETag");
+    capture_header(resp, buffer, total, "Cache-Control:", "Cache-Control");    return total;
 }
 
 void *axiam_curl_ctx_new(const axiam_client_config_t *cfg) {
