@@ -4,6 +4,7 @@
  * itself is reported by ThreadSanitizer (build with -fsanitize=thread, see the `sanitizers` job
  * in .github/workflows/sdk-ci-c.yml), which makes the process exit non-zero. */
 #include <pthread.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "cJSON.h"
@@ -85,8 +86,19 @@ static void test_concurrent_parse_and_verify(void) {
     free(claims);
 
     pthread_t th[N_THREADS];
-    pthread_barrier_init(&g_barrier, NULL, N_THREADS);
-    for (int i = 0; i < N_THREADS; i++) pthread_create(&th[i], NULL, worker, NULL);
+    TEST_ASSERT_EQUAL_INT(0, pthread_barrier_init(&g_barrier, NULL, N_THREADS));
+    int started = 0;
+    for (int i = 0; i < N_THREADS; i++) {
+        if (pthread_create(&th[i], NULL, worker, NULL) != 0) break;
+        started++;
+    }
+    if (started != N_THREADS) {
+        /* The started workers are parked on the barrier, which never fills. pthread_barrier_wait is
+         * not a cancellation point, so they can be neither cancelled nor joined: detach them, fail,
+         * and let process exit reclaim them (never joining is what keeps this path from hanging). */
+        for (int i = 0; i < started; i++) pthread_detach(th[i]);
+        TEST_FAIL_MESSAGE("pthread_create failed");
+    }
     intptr_t failures = 0;
     for (int i = 0; i < N_THREADS; i++) {
         void *rv;

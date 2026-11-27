@@ -2,9 +2,9 @@
 
 Keep this list short; re-apply it when cJSON is re-vendored.
 
-1. `cJSON.c`, `global_error`: declared thread-local (`AXIAM_CJSON_TLS`: C23 `thread_local`,
-   else `__thread` on GCC/Clang, `_Thread_local` on other C11 compilers, `__declspec(thread)` on
-   MSVC; a compiler with none of these fails to build rather than silently racing). Upstream
+1. `cJSON.c`, `global_error`: declared thread-local (`AXIAM_CJSON_TLS`, chosen in this order:
+   `__declspec(thread)` on MSVC, `__thread` on GCC/Clang, C23 `thread_local`, C11
+   `_Thread_local`; a compiler with none of these fails to build rather than silently racing). Upstream
    keeps one process-global record that every parse resets and every failed parse overwrites, a
    data race under concurrent parsing (ilpanich/axiam-c-sdk#91). `cJSON_GetErrorPtr()` now
    reports the calling thread's last parse; the SDK never calls it. Covered by
