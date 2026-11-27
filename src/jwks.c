@@ -36,12 +36,25 @@ static int jwks_fresh(const axiam_client_t *c, time_t now) {
 }
 
 /* The held keys may verify until exactly TTL + 300 s after the anchor, and not after (§12.4
- * rule 2). Caller holds jwks_mtx. (A negative age -- a clock stepped backwards -- still passes
- * this test, so the refresh it makes due is attempted while the keys keep answering; they are
- * not retired early on a clock step.) */
+ * rule 2). They are NOT trusted while now < the anchor: a clock stepped backwards cannot show
+ * how old they are, so they answer only after a successful refresh re-anchors them. Caller
+ * holds jwks_mtx. */
 static int jwks_held_usable(const axiam_client_t *c, time_t now) {
-    if (!c->jwks_valid) return 0;
+    if (!c->jwks_valid || now < c->jwks_fetched_at) return 0;
     return (long)(now - c->jwks_fetched_at) <= jwks_effective_ttl(c) + AXIAM_JWKS_MAX_STALE_SECS;
+}
+
+static long parse_max_age(const char *cc);
+
+/* max-age from ANY Cache-Control header of the response (a later one counts when the first has
+ * none), or -1. */
+static long response_max_age(const axiam_kv_t *headers) {
+    for (const axiam_kv_t *h = headers; h; h = h->next) {
+        if (!h->key || strcasecmp(h->key, "Cache-Control") != 0) continue;
+        long v = parse_max_age(h->value);
+        if (v >= 0) return v;
+    }
+    return -1;
 }
 
 /* `Cache-Control: max-age=N` -> N, or -1 when absent/unparsable. The value is only ever the
@@ -170,13 +183,13 @@ static axiam_error_kind_t jwks_fetch(axiam_client_t *c, axiam_error_t *err) {
         if (c->jwks_valid) {
             c->jwks_fetched_at = c->clock_fn(c->clock_ctx);
             /* RFC 9111 §4.3.4: the 304's own freshness hint replaces the stored one. */
-            long adv = parse_max_age(axiam_kv_get(resp.headers, "Cache-Control"));
+            long adv = response_max_age(resp.headers);
             if (adv >= 0) c->jwks_advertised_ttl_s = adv == 0 ? -1 : adv;
         } else kind = AXIAM_ERR_NETWORK;
         pthread_mutex_unlock(&c->jwks_mtx);
         if (kind != AXIAM_OK) axiam_error_set(err, kind, 0, "invalid JWKS document");
-    } else if (resp.status >= 200 && resp.status < 300) {
-        long adv = parse_max_age(axiam_kv_get(resp.headers, "Cache-Control"));
+    } else if (resp.status == 200) {
+        long adv = response_max_age(resp.headers);
         /* An advertised max-age of 0 is stored as -1 ("honour 0"), distinct from "none". */
         long stored = adv < 0 ? 0 : (adv == 0 ? -1 : adv);
         pthread_mutex_lock(&c->jwks_mtx);
@@ -189,6 +202,8 @@ static axiam_error_kind_t jwks_fetch(axiam_client_t *c, axiam_error_t *err) {
         }
     } else {
         kind = axiam_error_kind_from_http_status(resp.status);
+        /* A 2xx other than 200 (203, 206, ...) is not a successful JWKS fetch either. */
+        if (kind == AXIAM_OK) kind = AXIAM_ERR_NETWORK;
         axiam_error_set(err, kind, resp.status, "request failed");
     }
     axiam_http_response_dispose(&resp);

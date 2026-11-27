@@ -531,7 +531,7 @@ typedef struct {
     int listen_fd;
     int requests;
     const char *jwks;
-    char second_req[2048];
+    char second_req[4096];
 } jwks_srv_t;
 
 static void *jwks_two_request_server(void *arg) {
@@ -544,18 +544,19 @@ static void *jwks_two_request_server(void *arg) {
         if (r < 0) r = 0;
         buf[r] = '\0';
         s->requests++;
-        char resp[4096];
         if (i == 0) {
-            snprintf(resp, sizeof(resp),
+            char head[256];
+            snprintf(head, sizeof(head),
                      "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
                      "ETag: \"v7\"\r\nCache-Control: public, max-age=5\r\n"
-                     "Content-Length: %zu\r\nConnection: close\r\n\r\n%s",
-                     strlen(s->jwks), s->jwks);
+                     "Content-Length: %zu\r\nConnection: close\r\n\r\n", strlen(s->jwks));
+            write(cfd, head, strlen(head));
+            write(cfd, s->jwks, strlen(s->jwks));
         } else {
             snprintf(s->second_req, sizeof(s->second_req), "%s", buf);
-            snprintf(resp, sizeof(resp), "HTTP/1.1 304 Not Modified\r\nConnection: close\r\n\r\n");
+            const char *nm = "HTTP/1.1 304 Not Modified\r\nConnection: close\r\n\r\n";
+            write(cfd, nm, strlen(nm));
         }
-        write(cfd, resp, strlen(resp));
         close(cfd);
     }
     return NULL;
@@ -600,6 +601,11 @@ static void test_jwks_etag_and_max_age_reach_the_cache_over_curl(void) {
     close(fd);
     TEST_ASSERT_EQUAL_INT(2, srv.requests);
     TEST_ASSERT_NOT_NULL(strcasestr(srv.second_req, "If-None-Match: \"v7\""));
+    /* The 304 re-anchored the cache at t0+6: 300 s later (t0+306, past the first fetch's
+     * TTL+300 = t0+305) the endpoint is gone, yet the held kid is still accepted -- only
+     * because the anchor moved. */
+    g_jwks_now += 300;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));
     free(token); free(jwks);
     axiam_client_free(c);
 }

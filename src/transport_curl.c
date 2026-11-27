@@ -91,7 +91,8 @@ static size_t header_cb(char *buffer, size_t size, size_t nitems, void *userdata
     capture_header(resp, buffer, total, "Set-Cookie:", "Set-Cookie");
     /* §12.4 rule 2: the JWKS cache's validator and freshness hint. */
     capture_header(resp, buffer, total, "ETag:", "ETag");
-    capture_header(resp, buffer, total, "Cache-Control:", "Cache-Control");    return total;
+    capture_header(resp, buffer, total, "Cache-Control:", "Cache-Control");
+    return total;
 }
 
 void *axiam_curl_ctx_new(const axiam_client_config_t *cfg) {

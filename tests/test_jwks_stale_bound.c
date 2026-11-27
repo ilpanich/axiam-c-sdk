@@ -17,7 +17,7 @@
 
 #define TTL 300
 
-typedef enum { M_OK, M_FAIL, M_EMPTY, M_500, M_GARBAGE, M_304, M_ALT } mode_t_;
+typedef enum { M_OK, M_FAIL, M_EMPTY, M_500, M_GARBAGE, M_304, M_ALT, M_203, M_206 } mode_t_;
 
 typedef struct {
     const char *jwks_body;
@@ -27,6 +27,7 @@ typedef struct {
     const char *etag;
     const char *alt_body;
     const char *cache_control_304;
+    const char *cache_control2;
     char last_if_none_match[64];
 } fake_state_t;
 
@@ -57,9 +58,12 @@ static int fake_transport(void *ctx, const axiam_http_request_t *req, axiam_http
             resp->headers = axiam_kv_append(resp->headers, "Cache-Control", st->cache_control_304);
         break;
     case M_ALT: resp_fill(resp, 200, st->alt_body, NULL); break;
+    case M_203: resp_fill(resp, 203, st->jwks_body, NULL); break;
+    case M_206: resp_fill(resp, 206, st->jwks_body, NULL); break;
     default: resp_fill(resp, 200, st->jwks_body, NULL); break;
     }
     if (st->cache_control && st->mode != M_304) resp->headers = axiam_kv_append(resp->headers, "Cache-Control", st->cache_control);
+    if (st->cache_control2) resp->headers = axiam_kv_append(resp->headers, "Cache-Control", st->cache_control2);
     if (st->etag) resp->headers = axiam_kv_append(resp->headers, "ETag", st->etag);
     return 0;
 }
@@ -142,6 +146,9 @@ static void conformance(mode_t_ failing_mode) {
 static void test_stale_bound_transport_error(void) { conformance(M_FAIL); }
 static void test_stale_bound_status_500(void) { conformance(M_500); }
 static void test_stale_bound_non_jwks_body(void) { conformance(M_GARBAGE); }
+/* Only a 200 (or a 304 to a conditional request) is a successful fetch. */
+static void test_stale_bound_status_203(void) { conformance(M_203); }
+static void test_stale_bound_status_206(void) { conformance(M_206); }
 
 static void test_empty_key_set_never_replaces_held_keys(void) {
     axiam_client_t *c = make_client(0);
@@ -345,11 +352,38 @@ static void test_configured_ttl_wins_over_advertised_max_age(void) {
     axiam_client_free(c);
 }
 
+static void test_negative_age_failed_refresh_refuses_held_keys(void) {
+    axiam_client_t *c = make_client(0);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));
+    g.mode = M_FAIL;
+    g_now -= 5000;                                          /* clock stepped back */
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, verify(c, held_tok));   /* not trusted while now < anchor */
+    g.mode = M_OK;
+    g_now += 61;                                            /* past the window */
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));   /* a successful refresh re-anchors */
+    axiam_client_free(c);
+}
+
+static void test_duplicate_cache_control_headers_find_later_max_age(void) {
+    g.cache_control = "public";
+    g.cache_control2 = "max-age=60";
+    axiam_client_t *c = make_client(0);
+    verify(c, held_tok);
+    g_now += 61;
+    verify(c, held_tok);
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_stale_bound_transport_error);
     RUN_TEST(test_stale_bound_status_500);
     RUN_TEST(test_stale_bound_non_jwks_body);
+    RUN_TEST(test_stale_bound_status_203);
+    RUN_TEST(test_stale_bound_status_206);
+    RUN_TEST(test_negative_age_failed_refresh_refuses_held_keys);
+    RUN_TEST(test_duplicate_cache_control_headers_find_later_max_age);
     RUN_TEST(test_empty_key_set_never_replaces_held_keys);
     RUN_TEST(test_failed_refresh_counts_toward_window);
     RUN_TEST(test_unknown_kid_failed_refresh_does_not_extend_window);
