@@ -263,6 +263,7 @@ void test_concurrent_refreshes_of_one_token_make_exactly_one_wire_call(void) {
     axiam_oidc_config_dispose(&cfg);
 
     run_workers(same_token_worker);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights); /* every slot vacated */
 
     /* §9 rule 2's observable: ONE wire call for the burst... */
     TEST_ASSERT_EQUAL_INT(1, g.token_calls);
@@ -292,6 +293,7 @@ void test_a_failing_flight_shares_its_failure_with_every_waiter(void) {
     axiam_oidc_config_dispose(&cfg);
 
     run_workers(failing_worker);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights); /* every slot vacated */
     TEST_ASSERT_EQUAL_INT(1, g.token_calls);
 
     axiam_client_free(g_client);
@@ -390,6 +392,7 @@ void test_distinct_refresh_tokens_do_not_contend(void) {
     axiam_oidc_config_dispose(&cfg);
 
     run_workers(distinct_token_worker);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights); /* every slot vacated */
 
     TEST_ASSERT_EQUAL_INT(N_THREADS, g.token_calls);
 
@@ -490,6 +493,7 @@ void test_the_same_token_for_a_different_tenant_is_a_separate_flight(void) {
     g_client = make_client_for_tenant(KEY_DEFAULT_TENANT_LC);
     key_call_t calls[2] = {{KEY_DEFAULT_TENANT_LC, NULL, NULL, 0}, {KEY_OTHER_TENANT, NULL, NULL, 0}};
     run_key_calls(calls, 2);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights);
     /* Two tenants, one token: each gets its own server check (its own wire tenant_id) and its
      * own outcome (every caller's success is asserted in run_key_calls). */
     TEST_ASSERT_EQUAL_INT(2, g.token_calls);
@@ -514,6 +518,7 @@ void test_the_default_tenant_explicit_in_either_case_or_omitted_is_one_flight(vo
                            {KEY_DEFAULT_TENANT_UC, NULL, NULL, 0},
                            {KEY_DEFAULT_TENANT_UC, "openid", NULL, 0}};
     run_key_calls(calls, 4);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights);
     TEST_ASSERT_EQUAL_INT(1, g.token_calls);
     /* The one wire call carries the canonical lower-case tenant, whichever spelling led. */
     TEST_ASSERT_EQUAL_STRING(KEY_DEFAULT_TENANT_LC, g.tenants_seen[0]);
@@ -527,6 +532,7 @@ void test_a_different_token_gets_its_own_call_while_a_second_caller_of_the_first
     key_call_t calls[3] = {{NULL, NULL, "token-A", 0}, {NULL, NULL, "token-A", 0},
                            {NULL, NULL, "token-B", 0}};
     run_key_calls(calls, 3);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights);
     TEST_ASSERT_EQUAL_INT(2, g.token_calls); /* A's two callers share one call; B has its own */
     axiam_client_free(g_client);
     g_client = NULL;

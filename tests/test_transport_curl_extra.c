@@ -414,6 +414,20 @@ typedef struct {
     size_t total;
 } flood_srv_t;
 
+/* A 16 MiB transfer takes 19-23 s under ThreadSanitizer, so the client timeout scales there. */
+#if defined(__SANITIZE_THREAD__)
+#define FLOOD_UNDER_TSAN 1
+#elif defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#define FLOOD_UNDER_TSAN 1
+#endif
+#endif
+#ifdef FLOOD_UNDER_TSAN
+#define FLOOD_TIMEOUT_MS 180000
+#else
+#define FLOOD_TIMEOUT_MS 20000
+#endif
+
 static void *flood_server(void *arg) {
     flood_srv_t *s = arg;
     int cfd = accept(s->listen_fd, NULL, NULL);
@@ -452,7 +466,7 @@ static axiam_error_kind_t raw_get_flood(size_t total, char **body, axiam_error_t
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, base);
     axiam_client_config_set_tenant_slug(cfg, "acme");
-    axiam_client_config_set_timeout_ms(cfg, 20000);
+    axiam_client_config_set_timeout_ms(cfg, FLOOD_TIMEOUT_MS);
     axiam_client_t *c = axiam_client_new(cfg, err);
     axiam_client_config_free(cfg);
     TEST_ASSERT_NOT_NULL(c);
@@ -469,6 +483,8 @@ static void test_a_response_body_past_the_cap_is_refused(void) {
     axiam_error_kind_t k = raw_get_flood(AXIAM_MAX_RESPONSE_BYTES + 4096, &body, &err);
     TEST_ASSERT_NOT_EQUAL_INT(AXIAM_OK, k);
     TEST_ASSERT_NULL(body);
+    /* The refusal names the size cap, so a timeout can no longer satisfy this test. */
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(err.message, "size cap"), err.message);
 }
 
 static void test_a_response_body_at_the_cap_is_still_read(void) {

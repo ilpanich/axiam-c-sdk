@@ -213,10 +213,9 @@ jobs:
       - name: Test under TSan
         env:
           TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
-        run: |
-          ./build-tsan/tests/test_cjson_threads
-          ./build-tsan/tests/test_ciba
-          ./build-tsan/tests/test_transport_curl_extra
+        # Through ctest, not the bare binaries: test_transport_curl_extra needs the PKI fixture
+        # (FIXTURES_REQUIRED AXIAM_PKI pulls in gen_pki and passes its directory).
+        run: ctest --test-dir build-tsan --output-on-failure -R '^(test_cjson_threads|test_ciba|test_transport_curl_extra)$'
 
       - name: Configure (plain, for valgrind)
         run: cmake -S . -B build-vg -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON
