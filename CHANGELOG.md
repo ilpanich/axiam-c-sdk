@@ -31,10 +31,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   above 300 is clamped and reported once through the §19 `config_clamped` event
   (`jwks_cache_ttl_s`). New `AXIAM_JWKS_MAX_STALE_SECS` (300).
 
-## [1.4.0] - 2026-11-22
-
-### Security
-
 - **Access-token verification applies CONTRACT §10.1 rules 10-12 (SA-29, N14).** AXIAM signs its
   MFA-challenge and WebAuthn-state tokens with the access-token key, with no `aud` and no `kid`; a
   guard with no expected audience (the default) and a single-key fallback admitted them as access
@@ -71,6 +67,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in the reactor's canonical-event builder (`timeout_ms`, `key_version`); an out-of-range value
   was undefined behaviour. The reactor now refuses such an event as `MALFORMED`.
 
+### Changed
+
+- Re-vendored `CONTRACT.md` (1.69), `openapi.json` and `management-registry.json` from
+  `ilpanich/axiam`; regenerated the §27 management surface (`scripts/gen_management.py`).
+
 ### Fixed
 
 - **Back-channel logout and ID-token key selection (contract 1.69, axiam#880).** The key is
@@ -90,11 +91,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The reactor refuses an event whose `timeout_ms` does not fit a `long` (ILP32, LLP64) as
   `MALFORMED` before the nonce is claimed and whether or not the caller asked for the event
   (it was decided after the nonce was recorded and only when `out` was set).
-
-### Changed
-
-- Re-vendored `CONTRACT.md` (1.69), `openapi.json` and `management-registry.json` from
-  `ilpanich/axiam`; regenerated the §27 management surface (`scripts/gen_management.py`).
 
 ## [1.3.1] - 2026-11-11
 
