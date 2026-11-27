@@ -209,8 +209,9 @@ static void *failing_worker(void *arg) {
     axiam_error_t err;
     axiam_oidc_token_set_t set;
     axiam_error_kind_t k = axiam_oidc_refresh(g_client, token, NULL, NULL, &set, &err);
+    /* The shared refusal never carries the refresh token it refused (no raw token in an error). */
     int ok = (k == AXIAM_ERR_AUTH) && strcmp(err.oauth_error, "invalid_grant") == 0 &&
-             set.access_token == NULL;
+             set.access_token == NULL && strstr(err.message, "the-spent-refresh-token") == NULL;
     axiam_oidc_token_set_dispose(&set);
     axiam_sensitive_free(token);
     return (void *)(intptr_t)(ok ? 0 : 1);
