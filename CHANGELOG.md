@@ -23,6 +23,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   read and written by the test body across a `usleep` (three ThreadSanitizer data races). They are
   now `atomic_int`, and the test joins the TSan leg of the `sanitizers` job. Test-only; nothing
   under `src/` changed (#93).
+- `oidc_refresh`'s single-flight is now keyed on the resolved tenant as well as the token
+  (CONTRACT §9 rule 7): a SHA-256 of the lower-case hyphenated tenant UUID, a NUL separator and
+  the refresh token. The same token presented for two tenants is two flights, each with its own
+  server check; the default tenant passed explicitly (in either case) or omitted is one flight
+  and one wire call. `scope` is not part of the key. Before, the key was the token alone (#94).
 - **The JWKS cache is stale-if-error, bounded (CONTRACT §12.4 rule 2, contract 1.69; D-10,
   OI-41, axiam#883).** The cache's age is measured from the last *successful* fetch (a `200` with
   at least one key, or a `304` to the conditional request the SDK now sends with the held set's
