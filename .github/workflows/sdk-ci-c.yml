@@ -195,6 +195,24 @@ jobs:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: ctest --test-dir build-asan --output-on-failure
 
+      # ThreadSanitizer cannot share a build with ASan, so it gets its own. Scoped to the test that
+      # runs parsing and token verification on several threads (ilpanich/axiam-c-sdk#91: the vendored
+      # cJSON's process-global error record). TSan exits non-zero on a report.
+      - name: Configure (TSan)
+        run: |
+          cmake -S . -B build-tsan \
+            -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON \
+            -DCMAKE_C_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+
+      - name: Build (TSan)
+        run: cmake --build build-tsan -j --target test_cjson_threads
+
+      - name: Test under TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+        run: ./build-tsan/tests/test_cjson_threads
+
       - name: Configure (plain, for valgrind)
         run: cmake -S . -B build-vg -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON
 

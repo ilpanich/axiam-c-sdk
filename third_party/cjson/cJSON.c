@@ -89,7 +89,20 @@ typedef struct {
     const unsigned char *json;
     size_t position;
 } error;
-static error global_error = { NULL, 0 };
+/* AXIAM local patch (see third_party/cjson/AXIAM-PATCHES.md, #1): the error record is per
+ * thread, so concurrent parses do not race on it. Upstream has one process-global record. */
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
+#define AXIAM_CJSON_TLS thread_local
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_THREADS__) && !defined(__GNUC__)
+#define AXIAM_CJSON_TLS _Thread_local
+#elif defined(__GNUC__) || defined(__clang__)
+#define AXIAM_CJSON_TLS __thread
+#elif defined(_MSC_VER)
+#define AXIAM_CJSON_TLS __declspec(thread)
+#else
+#error "cJSON: no thread-local storage keyword known for this compiler (AXIAM patch #1)"
+#endif
+static AXIAM_CJSON_TLS error global_error = { NULL, 0 };
 
 CJSON_PUBLIC(const char *) cJSON_GetErrorPtr(void)
 {

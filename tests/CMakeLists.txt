@@ -334,6 +334,17 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_oidc_singleflight COMMAND test_oidc_singleflight)
 
+# ilpanich/axiam-c-sdk#91: concurrent cJSON parses / token verifies must not race on the vendored
+# parser's error record. Only ThreadSanitizer can see the race; CI's `sanitizers` job builds this
+# with -fsanitize=thread.
+add_executable(test_cjson_threads test_cjson_threads.c)
+target_include_directories(test_cjson_threads PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_cjson_threads PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_cjson_threads PRIVATE --coverage)
+endif()
+add_test(NAME test_cjson_threads COMMAND test_cjson_threads)
+
 # ---- C2 branch-coverage depth: the §12/§12.7/§14/§15 refusal paths.
 axiam_add_test(test_oidc_branches test_oidc_branches.c)
 

@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- The vendored cJSON's parse-error record (`global_error`) is now thread-local
+  (`third_party/cjson/AXIAM-PATCHES.md`). Every parse reset it and every failed parse overwrote it,
+  so concurrent token verification was a data race on a process-global (undefined behaviour,
+  reported by ThreadSanitizer); the SDK never read it. A new `test_cjson_threads` runs parallel
+  parses and verifications and a TSan leg in the `sanitizers` CI job gates it (#91).
 - **The JWKS cache is stale-if-error, bounded (CONTRACT §12.4 rule 2, contract 1.69; D-10,
   OI-41, axiam#883).** The cache's age is measured from the last *successful* fetch (a `200` with
   at least one key, or a `304` to the conditional request the SDK now sends with the held set's
