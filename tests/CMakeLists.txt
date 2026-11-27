@@ -205,6 +205,15 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_jwks_branches COMMAND test_jwks_branches)
 
+# CONTRACT.md §12.4 rule 2 "Stale-if-error, bounded" (contract 1.69; D-10).
+add_executable(test_jwks_stale_bound test_jwks_stale_bound.c)
+target_include_directories(test_jwks_stale_bound PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_jwks_stale_bound PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_jwks_stale_bound PRIVATE --coverage)
+endif()
+add_test(NAME test_jwks_stale_bound COMMAND test_jwks_stale_bound)
+
 # ---- mTLS PEM wiring test, gated on a runtime-generated PKI fixture ----
 set(AXIAM_PKI_DIR ${CMAKE_CURRENT_BINARY_DIR}/pki)
 add_test(NAME gen_pki

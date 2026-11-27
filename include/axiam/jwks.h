@@ -4,7 +4,8 @@
  * GET {base}/oauth2/jwks. Only EdDSA/Ed25519 keys are accepted; any other
  * `alg` is rejected before key lookup. Signatures are verified with OpenSSL
  * EVP_DigestVerify over a raw Ed25519 public key. The key set is cached for
- * 300 seconds.
+ * 300 seconds (at most; see axiam_client_config_set_jwks_cache_ttl()); when a refresh fails the
+ * held keys keep verifying until 300 s past that TTL and are never used after (§12.4 rule 2).
  *
  * Verification is STRICT by default (SEC-071, CONTRACT §10.1): on top of the
  * signature, axiam_jwt_verify() enforces the access-token rules 10-12 (`typ`, `purpose`,
@@ -38,8 +39,14 @@
 extern "C" {
 #endif
 
-/** JWKS cache TTL in seconds (CONTRACT). */
+/** JWKS cache TTL in seconds (CONTRACT §12.4 rule 2): the default, and the most a configured or
+ *  advertised (`Cache-Control: max-age`) value is allowed to be -- a larger one is clamped. */
 #define AXIAM_JWKS_CACHE_TTL_SECS 300
+
+/** How long past the TTL held keys keep verifying while every refresh fails (§12.4 rule 2,
+ *  "Stale-if-error, bounded"). Measured from the last SUCCESSFUL fetch: the held keys verify
+ *  until TTL + this, and not after, whatever the cause and however many attempts failed. */
+#define AXIAM_JWKS_MAX_STALE_SECS 300
 
 /**
  * Clock-skew allowance, in seconds, applied to the `exp` and `nbf` checks.

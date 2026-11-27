@@ -15,13 +15,55 @@ static axiam_error_kind_t check_cnf_binding(const cJSON *root,
                                             const char *presented_thumbprint,
                                             axiam_error_t *err);
 
-/* Parse a JwksDocument into the client's key cache (EdDSA/Ed25519 only). */
-static int parse_jwks(axiam_client_t *c, const char *json) {
+/* The effective JWKS cache TTL in seconds (§12.4 rule 2, contract 1.69): the configured value,
+ * else the Cache-Control max-age the last response advertised, else 300; never more than 300.
+ * Caller holds jwks_mtx. */
+static long jwks_effective_ttl(const axiam_client_t *c) {
+    long ttl = c->cfg ? c->cfg->jwks_cache_ttl_s : 0;
+    if (ttl <= 0) ttl = c->jwks_advertised_ttl_s > 0 ? c->jwks_advertised_ttl_s
+                        : (c->jwks_advertised_ttl_s < 0 ? 0 : AXIAM_JWKS_CACHE_TTL_SECS);
+    if (ttl > AXIAM_JWKS_CACHE_TTL_SECS) ttl = AXIAM_JWKS_CACHE_TTL_SECS;
+    return ttl;
+}
+
+/* The held keys may verify until exactly TTL + 300 s after the anchor, and not after (§12.4
+ * rule 2). A clock that moved backwards never extends this: only age <= bound counts. Caller
+ * holds jwks_mtx. */
+static int jwks_held_usable(const axiam_client_t *c, time_t now) {
+    if (!c->jwks_valid) return 0;
+    return (long)(now - c->jwks_fetched_at) <= jwks_effective_ttl(c) + AXIAM_JWKS_MAX_STALE_SECS;
+}
+
+/* `Cache-Control: max-age=N` -> N, or -1 when absent/unparsable. The value is only ever the
+ * response's own freshness hint; the caller clamps it. */
+static long parse_max_age(const char *cc) {
+    if (!cc) return -1;
+    for (const char *p = cc; *p; p++) {
+        if (strncasecmp(p, "max-age=", 8) != 0) continue;
+        if (p != cc && p[-1] != ' ' && p[-1] != ',' && p[-1] != '\t') continue;
+        const char *d = p + 8;
+        if (*d < '0' || *d > '9') return -1;
+        long v = 0;
+        while (*d >= '0' && *d <= '9') {
+            v = v * 10 + (*d - '0');
+            if (v > 1000000L) v = 1000000L;
+            d++;
+        }
+        return v;
+    }
+    return -1;
+}
+
+/* Parse a JwksDocument into the client's key cache (EdDSA/Ed25519 only). Returns 1 when the
+ * document holds at least one key (usable or not) and the cache was replaced; 0 -- leaving the
+ * held set untouched -- for anything else, the empty set included (§12.4 rule 2: "What counts
+ * as a successful fetch"). Caller holds jwks_mtx. */
+static int parse_jwks(axiam_client_t *c, const char *json, time_t now, const char *etag,
+                      long advertised_ttl) {
     cJSON *root = cJSON_Parse(json);
     if (!root) return 0;
     const cJSON *keys = cJSON_GetObjectItemCaseSensitive(root, "keys");
-    if (!cJSON_IsArray(keys)) { cJSON_Delete(root); return 0; }
-
+    if (!cJSON_IsArray(keys) || cJSON_GetArraySize(keys) < 1) { cJSON_Delete(root); return 0; }
     struct axiam_jwk *head = NULL, *tail = NULL;
     const cJSON *k = NULL;
     cJSON_ArrayForEach(k, keys) {
@@ -58,8 +100,11 @@ static int parse_jwks(axiam_client_t *c, const char *json) {
     /* Swap into cache. */
     struct axiam_jwk *old = c->jwks;
     c->jwks = head;
-    c->jwks_fetched_at = time(NULL);
+    c->jwks_fetched_at = now;
     c->jwks_valid = 1;
+    free(c->jwks_etag);
+    c->jwks_etag = etag && etag[0] ? axiam_strdup0(etag) : NULL;
+    c->jwks_advertised_ttl_s = advertised_ttl;
     while (old) {
         struct axiam_jwk *n = old->next;
         free(old->kid);
@@ -69,35 +114,89 @@ static int parse_jwks(axiam_client_t *c, const char *json) {
     return 1;
 }
 
-static axiam_error_kind_t ensure_jwks(axiam_client_t *c, int force, axiam_error_t *err) {
-    time_t now = time(NULL);
+/* One refresh attempt (§12.4 rule 2). Success moves the anchor; EVERY failure -- transport
+ * error or timeout, any other status, a body that is not a JWKS document, an empty key set --
+ * leaves the held keys and the anchor exactly as they were. */
+static axiam_error_kind_t jwks_fetch(axiam_client_t *c, axiam_error_t *err) {
+    char *etag = NULL;
     pthread_mutex_lock(&c->jwks_mtx);
-    int fresh = !force && c->jwks_valid &&
-                (now - c->jwks_fetched_at) < AXIAM_JWKS_CACHE_TTL_SECS;
+    if (c->jwks_valid && c->jwks_etag) etag = axiam_strdup0(c->jwks_etag);
+    pthread_mutex_unlock(&c->jwks_mtx);
+
+    axiam_http_response_t resp;
+    int rc = axiam_client_get_conditional(c, "/oauth2/jwks", etag, &resp);
+    axiam_error_kind_t kind = AXIAM_OK;
+    if (rc != 0 || resp.status == 0) {
+        kind = AXIAM_ERR_NETWORK;
+        axiam_error_set(err, kind, resp.transport_err,
+                        resp.transport_msg ? resp.transport_msg : "network failure");
+    } else if (resp.status == 304 && etag) {
+        /* A 304 to OUR conditional request re-confirms the held set. */
+        pthread_mutex_lock(&c->jwks_mtx);
+        if (c->jwks_valid) c->jwks_fetched_at = c->clock_fn(c->clock_ctx);
+        else kind = AXIAM_ERR_NETWORK;
+        pthread_mutex_unlock(&c->jwks_mtx);
+        if (kind != AXIAM_OK) axiam_error_set(err, kind, 0, "invalid JWKS document");
+    } else if (resp.status >= 200 && resp.status < 300) {
+        long adv = parse_max_age(axiam_kv_get(resp.headers, "Cache-Control"));
+        /* An advertised max-age of 0 is stored as -1 ("honour 0"), distinct from "none". */
+        long stored = adv < 0 ? 0 : (adv == 0 ? -1 : adv);
+        pthread_mutex_lock(&c->jwks_mtx);
+        int ok = parse_jwks(c, resp.body ? resp.body : "", c->clock_fn(c->clock_ctx),
+                            axiam_kv_get(resp.headers, "ETag"), stored);
+        pthread_mutex_unlock(&c->jwks_mtx);
+        if (!ok) {
+            kind = AXIAM_ERR_NETWORK;
+            axiam_error_set(err, kind, 0, "invalid JWKS document");
+        }
+    } else {
+        kind = axiam_error_kind_from_http_status(resp.status);
+        axiam_error_set(err, kind, resp.status, "request failed");
+    }
+    axiam_http_response_dispose(&resp);
+    free(etag);
+    return kind;
+}
+
+/* Make the key set usable for a lookup (§12.4 rule 2). Returns AXIAM_OK when held keys may
+ * answer: within the TTL, after a successful refresh, or -- the refresh having failed or being
+ * rate-limited -- while the held set is inside TTL + 300 s of its last successful fetch. Past
+ * that bound, or with nothing ever fetched, the error is returned and no key is used. A failed
+ * refresh of a set that was once held opens the cooldown window, so a failing endpoint costs
+ * one fetch per window rather than one per token. */
+static axiam_error_kind_t ensure_jwks(axiam_client_t *c, axiam_error_t *err) {
+    time_t now = c->clock_fn(c->clock_ctx);
+    pthread_mutex_lock(&c->jwks_mtx);
+    int fresh = c->jwks_valid && (long)(now - c->jwks_fetched_at) < jwks_effective_ttl(c);
+    int ever_held = c->jwks_valid;
+    int rate_limited = ever_held && now < c->jwks_refetch_cooldown_until;
+    int usable = jwks_held_usable(c, now);
     pthread_mutex_unlock(&c->jwks_mtx);
     if (fresh) return AXIAM_OK;
-
-    char *body = NULL;
-    axiam_error_kind_t kind = axiam_client_raw_get(c, "/oauth2/jwks", &body, err);
-    if (kind != AXIAM_OK) return kind;
-
-    pthread_mutex_lock(&c->jwks_mtx);
-    int ok = parse_jwks(c, body ? body : "");
-    pthread_mutex_unlock(&c->jwks_mtx);
-    free(body);
-    if (!ok) {
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "invalid JWKS document");
+    if (rate_limited) {
+        if (usable) return AXIAM_OK;
+        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "JWKS unavailable and the held keys are stale");
         return AXIAM_ERR_NETWORK;
     }
-    return AXIAM_OK;
+
+    axiam_error_kind_t kind = jwks_fetch(c, err);
+    if (kind == AXIAM_OK) return AXIAM_OK;
+    if (!ever_held) return kind;
+
+    time_t after = c->clock_fn(c->clock_ctx);
+    pthread_mutex_lock(&c->jwks_mtx);
+    c->jwks_refetch_cooldown_until = after + AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S;
+    usable = jwks_held_usable(c, after);
+    pthread_mutex_unlock(&c->jwks_mtx);
+    return usable ? AXIAM_OK : kind;
 }
 
 /* Find a cached key by kid. A NULL kid matches nothing: there is deliberately NO fallback to the
  * only key of a one-key JWKS (§12.4 rule 2, §10.1 rule 12, §12.7.3 rule 1 from contract 1.69).
  * A kid-less token is ambiguous as soon as a rotation publishes a second key, and a verifier that
  * guesses the key for it accepts a token no rotation-aware verifier would. */
-static const struct axiam_jwk *find_key(axiam_client_t *c, const char *kid) {
-    if (!kid) return NULL;
+static const struct axiam_jwk *find_key(axiam_client_t *c, const char *kid, time_t now) {
+    if (!kid || !jwks_held_usable(c, now)) return NULL;
     for (const struct axiam_jwk *j = c->jwks; j; j = j->next) {
         if (j->kid && strcmp(j->kid, kid) == 0) return j;
     }
@@ -341,20 +440,24 @@ static int lookup_key(axiam_client_t *c, const char *kid, unsigned char pub[32],
      * of kid-less tokens would force a re-fetch and burn the window a genuine rotated-key token
      * needs. */
     if (!kid) return 0;
+    time_t now = c->clock_fn(c->clock_ctx);
     pthread_mutex_lock(&c->jwks_mtx);
-    const struct axiam_jwk *key = find_key(c, kid);
+    const struct axiam_jwk *key = find_key(c, kid, now);
     if (key) { memcpy(pub, key->x, 32); pthread_mutex_unlock(&c->jwks_mtx); return 1; }
 
-    time_t now = time(NULL);
     int may_refetch = now >= c->jwks_refetch_cooldown_until;
     if (may_refetch) c->jwks_refetch_cooldown_until = now + AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S;
     pthread_mutex_unlock(&c->jwks_mtx);
     if (!may_refetch) return 0;
 
-    if (ensure_jwks(c, 1, err) != AXIAM_OK) return 0;
+    /* The attempt counts toward the window whether it succeeds or not. A failed one refuses
+     * this token and changes nothing else: the held set and the anchor stay as they were, so it
+     * never opens, restarts or extends the stale window. */
+    if (jwks_fetch(c, err) != AXIAM_OK) return 0;
 
+    now = c->clock_fn(c->clock_ctx);
     pthread_mutex_lock(&c->jwks_mtx);
-    key = find_key(c, kid);
+    key = find_key(c, kid, now);
     if (key) memcpy(pub, key->x, 32);
     pthread_mutex_unlock(&c->jwks_mtx);
     return key != NULL;
@@ -511,7 +614,7 @@ static axiam_error_kind_t verify_core(axiam_client_t *client, const char *token,
         return AXIAM_ERR_AUTH;
     }
 
-    axiam_error_kind_t kk = ensure_jwks(client, 0, err);
+    axiam_error_kind_t kk = ensure_jwks(client, err);
     if (kk != AXIAM_OK) {
         free(kid_copy);
         /* §12.3 rule 3: a JWKS transport failure during the rule-2 re-fetch MAY

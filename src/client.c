@@ -90,6 +90,16 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
                                        requested, effective, "\xc2\xa7""17.1 rule 2");
     }
 
+    /* §12.4 rule 2: a configured JWKS TTL above 300 s is clamped, and the caller is told. */
+    if (c->cfg->jwks_cache_ttl_s > AXIAM_JWKS_CACHE_TTL_SECS) {
+        char requested[32];
+        char effective[32];
+        snprintf(requested, sizeof(requested), "%lds", c->cfg->jwks_cache_ttl_s);
+        snprintf(effective, sizeof(effective), "%ds", AXIAM_JWKS_CACHE_TTL_SECS);
+        axiam_telemetry_config_clamped(&c->telemetry, "jwks_cache_ttl_s", requested, effective,
+                                       "\xc2\xa7""12.4 rule 2");
+    }
+
     if (cfg->transport) {
         c->transport = cfg->transport;
         c->transport_ctx = cfg->transport_ctx;
@@ -159,6 +169,8 @@ void axiam_client_close(axiam_client_t *client) {
     jwks_free(client->jwks);
     client->jwks = NULL;
     client->jwks_valid = 0;
+    free(client->jwks_etag);
+    client->jwks_etag = NULL;
     client->jwks_refetch_cooldown_until = 0;
     pthread_mutex_unlock(&client->jwks_mtx);
 
@@ -364,6 +376,27 @@ int axiam_client_send_raw_capped(axiam_client_t *c, const char *method, const ch
                                  const char *body, size_t max_response_bytes, int discard_body,
                                  axiam_http_response_t *resp) {
     return transport_once_ex(c, method, path, body, 1, 0, max_response_bytes, discard_body, resp);
+}
+
+int axiam_client_get_conditional(axiam_client_t *c, const char *path, const char *etag,
+                                 axiam_http_response_t *resp) {
+    memset(resp, 0, sizeof(*resp));
+    if (!c || !path || client_is_closed(c)) return -1;
+    char *url = build_url(c, path);
+    if (!url) return -1;
+    axiam_kv_t *headers = build_headers(c, 0, 0, strncmp(path, "/oauth2/", 8) == 0);
+    if (strncmp(path, "/oauth2/", 8) == 0) headers = axiam_kv_append(headers, "Cookie", "");
+    if (etag && etag[0]) headers = axiam_kv_append(headers, "If-None-Match", etag);
+
+    axiam_http_request_t req = {0};
+    req.method = "GET";
+    req.url = url;
+    req.headers = headers;
+    int rc = c->transport(c->transport_ctx, &req, resp);
+    capture_csrf(c, resp);
+    axiam_kv_free(headers);
+    free(url);
+    return rc;
 }
 
 char *axiam_client_url(const axiam_client_t *c, const char *path) {

@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **The JWKS cache is stale-if-error, bounded (CONTRACT §12.4 rule 2, contract 1.69; D-10,
+  OI-41, axiam#883).** The cache's age is measured from the last *successful* fetch (a `200` with
+  at least one key, or a `304` to the conditional request the SDK now sends with the held set's
+  `ETag`). A failed refresh -- transport error, other status, a non-JWKS body, or an **empty key
+  set** -- no longer replaces anything and never moves that anchor: the held keys keep verifying
+  until exactly TTL + 300 s after it, after which every token is refused until a fetch succeeds.
+  Before, an outage after the 300 s TTL refused every token at once, and a `{"keys":[]}` answer
+  replaced the held set. A failed refresh (including one an unknown `kid` triggered) counts toward
+  the 60 s re-fetch window, so a failing endpoint costs one fetch per window, and it never opens
+  or extends the stale window. The cache reads the client clock (`clock_fn`) rather than
+  `time()`, so it is testable with an injected clock.
+- The TTL is the configured value or the response's `Cache-Control: max-age`, default 300 s and
+  **never more than 300 s**. New `axiam_client_config_set_jwks_cache_ttl()`; a configured value
+  above 300 is clamped and reported once through the §19 `config_clamped` event
+  (`jwks_cache_ttl_s`). New `AXIAM_JWKS_MAX_STALE_SECS` (300).
+
 ## [1.4.0] - 2026-11-22
 
 ### Security
