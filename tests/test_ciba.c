@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -502,16 +503,18 @@ static void test_t03_exactly_the_members_set_are_sent(void) {
 
 typedef struct {
     int fd;
-    int accepts;
-    volatile int stop;
+    /* Shared between the accept thread and the test body, so atomic: `volatile` is not
+     * synchronisation (ilpanich/axiam-c-sdk#92). */
+    atomic_int accepts;
+    atomic_int stop;
 } listener_t;
 
 static void *accept_and_drop(void *arg) {
     listener_t *l = arg;
-    while (!l->stop) {
+    while (!atomic_load(&l->stop)) {
         int s = accept(l->fd, NULL, NULL);
         if (s < 0) break;
-        l->accepts++;
+        atomic_fetch_add(&l->accepts, 1);
         close(s);
     }
     return NULL;
@@ -577,11 +580,11 @@ static void test_t04_initiate_is_sent_once_on_503_429_and_a_dropped_connection(v
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_ciba_initiate(c, &p, &r, &err));
     axiam_client_free(c);
     usleep(100 * 1000);
-    l.stop = 1;
+    atomic_store(&l.stop, 1);
     shutdown(l.fd, SHUT_RDWR);
     close(l.fd);
     pthread_join(th, NULL);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(1, l.accepts, "one connection, no retry");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, atomic_load(&l.accepts), "one connection, no retry");
 }
 
 /* ---- 5. Poll outcomes --------------------------------------------------------------- */
