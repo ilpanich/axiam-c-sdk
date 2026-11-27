@@ -402,6 +402,10 @@ struct axiam_client {
 
     /* JWKS cache */
     pthread_mutex_t jwks_mtx;
+    /* §12.4 rule 2: 1 while one thread is fetching the JWKS; the others use the held set or wait
+     * on jwks_cond. Both guarded by jwks_mtx; no lock is held across the transport call. */
+    int jwks_fetch_in_flight;
+    pthread_cond_t jwks_cond;
     struct axiam_jwk *jwks;
     /* §12.4 rule 2 (contract 1.69, D-10): the age's anchor -- the clock reading at the last
      * SUCCESSFUL fetch (a 200 with at least one key, or a 304 to a conditional request). A failed

@@ -44,6 +44,14 @@ static int jwks_held_usable(const axiam_client_t *c, time_t now) {
     return (long)(now - c->jwks_fetched_at) <= jwks_effective_ttl(c) + AXIAM_JWKS_MAX_STALE_SECS;
 }
 
+/* After a backward clock step of X a stored cooldown looks open for X + 60 s. A window can never
+ * be longer than the cooldown, so a deadline further out than that is expired. Caller holds
+ * jwks_mtx. */
+static void jwks_normalize_cooldown(axiam_client_t *c, time_t now) {
+    if (c->jwks_refetch_cooldown_until > now + AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S)
+        c->jwks_refetch_cooldown_until = 0;
+}
+
 static long parse_max_age(const char *cc);
 
 /* max-age from ANY Cache-Control header of the response (a later one counts when the first has
@@ -215,32 +223,54 @@ static axiam_error_kind_t jwks_fetch(axiam_client_t *c, axiam_error_t *err) {
  * answer: within the TTL, after a successful refresh, or -- the refresh having failed or being
  * rate-limited -- while the held set is inside TTL + 300 s of its last successful fetch. Past
  * that bound, or with nothing ever fetched, the error is returned and no key is used. A failed
- * refresh -- of a cold cache too -- opens the cooldown window, so a failing endpoint costs
+ * refresh -- successful or not, of a cold cache too -- opens the cooldown window, so a failing endpoint costs
  * one fetch per window rather than one per token. */
 static axiam_error_kind_t ensure_jwks(axiam_client_t *c, axiam_error_t *err) {
     if (axiam_client_is_shut(c)) return axiam_client_shut_error(err);
     time_t now = c->clock_fn(c->clock_ctx);
+    long wait_ms = (c->cfg && c->cfg->timeout_ms > 0) ? c->cfg->timeout_ms : 10000;
+    int had_held = 0;
     pthread_mutex_lock(&c->jwks_mtx);
-    int fresh = jwks_fresh(c, now);
-    int rate_limited = now < c->jwks_refetch_cooldown_until;
-    int usable = jwks_held_usable(c, now);
-    pthread_mutex_unlock(&c->jwks_mtx);
-    if (fresh) return AXIAM_OK;
-    if (rate_limited) {
-        if (usable) return AXIAM_OK;
-        axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "JWKS unavailable and the held keys are stale");
-        return AXIAM_ERR_NETWORK;
+    for (;;) {
+        jwks_normalize_cooldown(c, now);
+        if (jwks_fresh(c, now)) { pthread_mutex_unlock(&c->jwks_mtx); return AXIAM_OK; }
+        int usable = jwks_held_usable(c, now);
+        if (usable && (now < c->jwks_refetch_cooldown_until || c->jwks_fetch_in_flight)) {
+            pthread_mutex_unlock(&c->jwks_mtx);      /* rate-limited, or someone is refreshing */
+            return AXIAM_OK;
+        }
+        if (now < c->jwks_refetch_cooldown_until) break;   /* nothing usable, rate-limited */
+        if (!c->jwks_fetch_in_flight) {
+            had_held = c->jwks_valid;
+            c->jwks_fetch_in_flight = 1;                 /* this thread claims the fetch */
+            pthread_mutex_unlock(&c->jwks_mtx);
+            axiam_error_kind_t kind = jwks_fetch(c, err);
+            time_t after = c->clock_fn(c->clock_ctx);
+            pthread_mutex_lock(&c->jwks_mtx);
+            c->jwks_fetch_in_flight = 0;
+            /* Every TTL-driven REFRESH of a held set, successful or not, opens the window: an
+             * advertised max-age=0 must never mean one fetch per verification. The very first
+             * fill is not a refresh: a successful one leaves the unknown-kid re-fetch available;
+             * a failed one still opens the window (a cold cache must not fetch per token). */
+            if (had_held || kind != AXIAM_OK)
+                c->jwks_refetch_cooldown_until = after + AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S;
+            usable = jwks_held_usable(c, after);
+            pthread_cond_broadcast(&c->jwks_cond);
+            pthread_mutex_unlock(&c->jwks_mtx);
+            return (kind == AXIAM_OK || usable) ? AXIAM_OK : kind;
+        }
+        /* Nothing usable and a fetch is in flight: wait for it, bounded by the request timeout. */
+        struct timespec dl;
+        clock_gettime(CLOCK_REALTIME, &dl);
+        dl.tv_sec += wait_ms / 1000;
+        dl.tv_nsec += (wait_ms % 1000) * 1000000L;
+        if (dl.tv_nsec >= 1000000000L) { dl.tv_sec++; dl.tv_nsec -= 1000000000L; }
+        if (pthread_cond_timedwait(&c->jwks_cond, &c->jwks_mtx, &dl) != 0) break;
+        now = c->clock_fn(c->clock_ctx);
     }
-
-    axiam_error_kind_t kind = jwks_fetch(c, err);
-    if (kind == AXIAM_OK) return AXIAM_OK;
-
-    time_t after = c->clock_fn(c->clock_ctx);
-    pthread_mutex_lock(&c->jwks_mtx);
-    c->jwks_refetch_cooldown_until = after + AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S;
-    usable = jwks_held_usable(c, after);
     pthread_mutex_unlock(&c->jwks_mtx);
-    return usable ? AXIAM_OK : kind;
+    axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "JWKS unavailable and the held keys are stale");
+    return AXIAM_ERR_NETWORK;
 }
 
 /* Find a cached key by kid. A NULL kid matches nothing: there is deliberately NO fallback to the
@@ -497,15 +527,24 @@ static int lookup_key(axiam_client_t *c, const char *kid, unsigned char pub[32],
     const struct axiam_jwk *key = find_key(c, kid, now);
     if (key) { memcpy(pub, key->x, 32); pthread_mutex_unlock(&c->jwks_mtx); return 1; }
 
-    int may_refetch = now >= c->jwks_refetch_cooldown_until;
-    if (may_refetch) c->jwks_refetch_cooldown_until = now + AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S;
+    jwks_normalize_cooldown(c, now);
+    int may_refetch = now >= c->jwks_refetch_cooldown_until && !c->jwks_fetch_in_flight;
+    if (may_refetch) {
+        c->jwks_refetch_cooldown_until = now + AXIAM_OIDC_JWKS_REFETCH_COOLDOWN_S;
+        c->jwks_fetch_in_flight = 1;
+    }
     pthread_mutex_unlock(&c->jwks_mtx);
     if (!may_refetch) return 0;
 
     /* The attempt counts toward the window whether it succeeds or not. A failed one refuses
      * this token and changes nothing else: the held set and the anchor stay as they were, so it
      * never opens, restarts or extends the stale window. */
-    if (jwks_fetch(c, err) != AXIAM_OK) return 0;
+    axiam_error_kind_t fk = jwks_fetch(c, err);
+    pthread_mutex_lock(&c->jwks_mtx);
+    c->jwks_fetch_in_flight = 0;
+    pthread_cond_broadcast(&c->jwks_cond);
+    pthread_mutex_unlock(&c->jwks_mtx);
+    if (fk != AXIAM_OK) return 0;
 
     now = c->clock_fn(c->clock_ctx);
     pthread_mutex_lock(&c->jwks_mtx);

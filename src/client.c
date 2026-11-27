@@ -41,6 +41,7 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
     pthread_mutex_init(&c->refresh_mtx, NULL);
     pthread_cond_init(&c->refresh_cond, NULL);
     pthread_mutex_init(&c->jwks_mtx, NULL);
+    pthread_cond_init(&c->jwks_cond, NULL);
     pthread_mutex_init(&c->revocation_mtx, NULL);
     /* §10.4 is off until a caller enables it; the interval is only read
      * once it is on, but a sane default keeps the field from being a
@@ -207,6 +208,7 @@ void axiam_client_free(axiam_client_t *client) {
     axiam_revocation_dispose(client);
     pthread_mutex_destroy(&client->revocation_mtx);
     pthread_mutex_destroy(&client->jwks_mtx);
+    pthread_cond_destroy(&client->jwks_cond);
     pthread_mutex_destroy(&client->oidc_config_mtx);
     pthread_mutex_destroy(&client->oidc_refresh_mtx);
     pthread_cond_destroy(&client->oidc_refresh_cond);

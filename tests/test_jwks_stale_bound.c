@@ -7,7 +7,9 @@
  * Plus: TTL from Cache-Control max-age (clamped to 300), the configured TTL clamp and its
  * config_clamped event, and the 304 conditional re-confirmation.
  */
+#include <pthread.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "unity.h"
 #include "axiam/axiam.h"
@@ -17,7 +19,7 @@
 
 #define TTL 300
 
-typedef enum { M_OK, M_FAIL, M_EMPTY, M_500, M_GARBAGE, M_304, M_ALT, M_203, M_206 } mode_t_;
+typedef enum { M_OK, M_FAIL, M_EMPTY, M_500, M_GARBAGE, M_304, M_ALT, M_203, M_206, M_SLOW_FAIL, M_SLOW_OK } mode_t_;
 
 typedef struct {
     const char *jwks_body;
@@ -41,10 +43,19 @@ static time_t fake_clock(void *ctx) { (void)ctx; return g_now; }
 static int fake_transport(void *ctx, const axiam_http_request_t *req, axiam_http_response_t *resp) {
     fake_state_t *st = ctx;
     if (!strstr(req->url, "/oauth2/jwks")) { resp_fill(resp, 404, NULL, NULL); return 0; }
-    st->jwks_calls++;
+    __atomic_fetch_add(&st->jwks_calls, 1, __ATOMIC_SEQ_CST);
     const char *inm = axiam_kv_get(req->headers, "If-None-Match");
     snprintf(st->last_if_none_match, sizeof(st->last_if_none_match), "%s", inm ? inm : "");
     switch (st->mode) {
+    case M_SLOW_FAIL:
+        usleep(300000);
+        memset(resp, 0, sizeof(*resp));
+        resp->transport_err = 7;
+        return -1;
+    case M_SLOW_OK:
+        usleep(300000);
+        resp_fill(resp, 200, st->jwks_body, NULL);
+        break;
     case M_FAIL:
         memset(resp, 0, sizeof(*resp));
         resp->transport_err = 7;
@@ -375,11 +386,77 @@ static void test_duplicate_cache_control_headers_find_later_max_age(void) {
     axiam_client_free(c);
 }
 
+/* A backward clock step must not leave a cooldown that looks open for the size of the step. */
+static void test_backward_step_does_not_strand_the_cooldown(void) {
+    axiam_client_t *c = make_client(0);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));
+    time_t t0 = g_now;
+    g_now = t0 + 10;
+    TEST_ASSERT_NOT_EQUAL(AXIAM_OK, verify(c, unk_tok));    /* unknown-kid refetch: cooldown t0+70 */
+    int before = g.jwks_calls;
+    g_now = t0 - 5000;                                      /* clock stepped back, endpoint healthy */
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));   /* refresh happens, re-anchors */
+    TEST_ASSERT_TRUE(g.jwks_calls > before);
+    axiam_client_free(c);
+}
+
+#define NTHREADS 8
+static axiam_client_t *g_shared;
+static int g_ok_count;
+static void *verify_thread(void *arg) {
+    (void)arg;
+    if (verify(g_shared, held_tok) == AXIAM_OK) __atomic_fetch_add(&g_ok_count, 1, __ATOMIC_SEQ_CST);
+    return NULL;
+}
+static void run_threads(void) {
+    pthread_t th[NTHREADS];
+    g_ok_count = 0;
+    for (int i = 0; i < NTHREADS; i++) pthread_create(&th[i], NULL, verify_thread, NULL);
+    for (int i = 0; i < NTHREADS; i++) pthread_join(th[i], NULL);
+}
+
+/* Past the TTL with a usable held set: one thread refreshes, the rest answer from the held keys. */
+static void test_concurrent_refresh_past_ttl_is_one_fetch(void) {
+    g_shared = make_client(0);
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(g_shared, held_tok));
+    g.mode = M_SLOW_FAIL;
+    g_now += TTL + 1;
+    run_threads();
+    TEST_ASSERT_EQUAL_INT(NTHREADS, g_ok_count);
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);
+    axiam_client_free(g_shared);
+}
+
+/* Cold cache, nothing usable: one fetch, every waiter shares its result. */
+static void test_concurrent_cold_fetch_is_one_fetch(void) {
+    g_shared = make_client(0);
+    g.mode = M_SLOW_OK;
+    run_threads();
+    TEST_ASSERT_EQUAL_INT(NTHREADS, g_ok_count);
+    TEST_ASSERT_EQUAL_INT(1, g.jwks_calls);
+    axiam_client_free(g_shared);
+}
+
+static void test_max_age_zero_is_not_one_fetch_per_verification(void) {
+    g.cache_control = "max-age=0";
+    axiam_client_t *c = make_client(0);
+    for (int i = 0; i < 20; i++) TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));
+    TEST_ASSERT_EQUAL_INT(2, g.jwks_calls);                 /* the fill, then one refresh */
+    g_now += 61;                                            /* next window: one refresh */
+    for (int i = 0; i < 20; i++) TEST_ASSERT_EQUAL_INT(AXIAM_OK, verify(c, held_tok));
+    TEST_ASSERT_EQUAL_INT(3, g.jwks_calls);
+    axiam_client_free(c);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_stale_bound_transport_error);
     RUN_TEST(test_stale_bound_status_500);
     RUN_TEST(test_stale_bound_non_jwks_body);
+    RUN_TEST(test_backward_step_does_not_strand_the_cooldown);
+    RUN_TEST(test_concurrent_refresh_past_ttl_is_one_fetch);
+    RUN_TEST(test_concurrent_cold_fetch_is_one_fetch);
+    RUN_TEST(test_max_age_zero_is_not_one_fetch_per_verification);
     RUN_TEST(test_stale_bound_status_203);
     RUN_TEST(test_stale_bound_status_206);
     RUN_TEST(test_negative_age_failed_refresh_refuses_held_keys);
