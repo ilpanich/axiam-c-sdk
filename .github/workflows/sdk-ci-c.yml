@@ -198,7 +198,8 @@ jobs:
       # ThreadSanitizer cannot share a build with ASan, so it gets its own. Scoped to the test that
       # runs parsing and token verification on several threads (ilpanich/axiam-c-sdk#91: the vendored
       # cJSON's process-global error record), and to test_ciba, whose accept thread shares state
-      # with the test body (ilpanich/axiam-c-sdk#92). TSan exits non-zero on a report.
+      # with the test body (ilpanich/axiam-c-sdk#92), and to test_transport_curl_extra, whose server
+      # thread's counters the test body reads (ilpanich/axiam-c-sdk#93). TSan exits non-zero on a report.
       - name: Configure (TSan)
         run: |
           cmake -S . -B build-tsan \
@@ -207,7 +208,7 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
 
       - name: Build (TSan)
-        run: cmake --build build-tsan -j --target test_cjson_threads test_ciba
+        run: cmake --build build-tsan -j --target test_cjson_threads test_ciba test_transport_curl_extra
 
       - name: Test under TSan
         env:
@@ -215,6 +216,7 @@ jobs:
         run: |
           ./build-tsan/tests/test_cjson_threads
           ./build-tsan/tests/test_ciba
+          ./build-tsan/tests/test_transport_curl_extra
 
       - name: Configure (plain, for valgrind)
         run: cmake -S . -B build-vg -DCMAKE_BUILD_TYPE=Debug -DAXIAM_BUILD_TESTS=ON

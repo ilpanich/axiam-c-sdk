@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -235,17 +236,19 @@ static void test_closed_port_failure_with_tls_material_configured(void) {
  * them it counts one, whatever the library does. */
 typedef struct {
     int listen_fd;
-    volatile int stop;
-    int gets;
-    int writes;       /* requests whose method line is not GET */
-    int connections;
+    /* Written by the server thread, read by the test body while it runs: atomic, since
+     * `volatile` and a sleep are not synchronisation (ilpanich/axiam-c-sdk#93). */
+    atomic_int stop;
+    atomic_int gets;
+    atomic_int writes;       /* requests whose method line is not GET */
+    atomic_int connections;
 } drop_srv_t;
 
 static void *drop_writes_server(void *arg) {
     drop_srv_t *s = arg;
     int fds[16];
     int nfds = 0;
-    while (!s->stop) {
+    while (!atomic_load(&s->stop)) {
         fd_set rd;
         FD_ZERO(&rd);
         FD_SET(s->listen_fd, &rd);
@@ -260,7 +263,7 @@ static void *drop_writes_server(void *arg) {
             int cfd = accept(s->listen_fd, NULL, NULL);
             if (cfd >= 0) {
                 fds[nfds++] = cfd;
-                s->connections++;
+                atomic_fetch_add(&s->connections, 1);
             }
         }
         for (int i = 0; i < nfds; i++) {
@@ -275,14 +278,14 @@ static void *drop_writes_server(void *arg) {
             }
             buf[r] = '\0';
             if (strncmp(buf, "GET ", 4) == 0) {
-                s->gets++;
+                atomic_fetch_add(&s->gets, 1);
                 static const char ok[] =
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
                     "Content-Length: 11\r\nConnection: keep-alive\r\n\r\n{\"keys\":[]}";
                 if (write(fds[i], ok, sizeof(ok) - 1) < 0) {}
             } else {
                 /* A write: read it, count it, drop the connection with no answer. */
-                s->writes++;
+                atomic_fetch_add(&s->writes, 1);
                 close(fds[i]);
                 fds[i] = fds[--nfds];
                 i--;
@@ -347,7 +350,7 @@ static void test_a_write_a_server_drops_unanswered_arrives_exactly_once_A6(void)
 
         /* Give a (wrongly) re-sent copy time to arrive before counting. */
         usleep(150 * 1000);
-        TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes, srv.writes,
+        TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes, atomic_load(&srv.writes),
                                       "the write must reach the server exactly once");
     }
 
@@ -358,10 +361,10 @@ static void test_a_write_a_server_drops_unanswered_arrives_exactly_once_A6(void)
     axiam_login_result_t lr;
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_login(c, "alice", "pw", &lr, &err));
     usleep(150 * 1000);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes + 1, srv.writes,
+    TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes + 1, atomic_load(&srv.writes),
                                   "a login the server drops arrives exactly once");
 
-    srv.stop = 1;
+    atomic_store(&srv.stop, 1);
     pthread_join(th, NULL);
     close(fd);
     axiam_client_free(c);
@@ -395,11 +398,11 @@ static void test_a_get_keeps_the_connection_pool(void) {
         TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_raw_get(c, "/oauth2/jwks", &body, &err));
         free(body);
     }
-    srv.stop = 1;
+    atomic_store(&srv.stop, 1);
     pthread_join(th, NULL);
     close(fd);
-    TEST_ASSERT_EQUAL_INT(2, srv.gets);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(1, srv.connections, "reads share one connection");
+    TEST_ASSERT_EQUAL_INT(2, atomic_load(&srv.gets));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, atomic_load(&srv.connections), "reads share one connection");
     axiam_client_free(c);
 }
 

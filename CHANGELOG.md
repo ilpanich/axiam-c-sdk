@@ -18,6 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (ThreadSanitizer data race, undefined behaviour). They are now `atomic_int`, and `test_ciba`
   joins `test_cjson_threads` in the `sanitizers` job's TSan leg. Test-only; nothing under `src/`
   changed (#92).
+- The curl transport test helpers no longer race: in `test_transport_curl_extra`, the
+  `drop_writes_server` thread's `stop`, `gets`, `writes` and `connections` counters were plain ints
+  read and written by the test body across a `usleep` (three ThreadSanitizer data races). They are
+  now `atomic_int`, and the test joins the TSan leg of the `sanitizers` job. Test-only; nothing
+  under `src/` changed (#93).
 - **The JWKS cache is stale-if-error, bounded (CONTRACT §12.4 rule 2, contract 1.69; D-10,
   OI-41, axiam#883).** The cache's age is measured from the last *successful* fetch (a `200` with
   at least one key, or a `304` to the conditional request the SDK now sends with the held set's
