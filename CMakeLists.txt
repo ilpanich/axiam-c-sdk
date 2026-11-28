@@ -37,6 +37,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(AXIAM_BUILD_TESTS "Build the AXIAM C SDK test suite" OFF)
+if(AXIAM_BUILD_TESTS)
+    # Compiles the reactor's `timeout_ms` limit seam (src/internal.h) into test builds only; a
+    # build without the test suite (every release artefact) has it as a constant.
+    add_compile_definitions(AXIAM_TESTING)
+endif()
 option(AXIAM_BUILD_EXAMPLES "Build the AXIAM C SDK example programs" ON)
 option(AXIAM_ENABLE_COVERAGE "Instrument for gcov/lcov coverage" OFF)
 option(AXIAM_BUILD_SHARED "Build the shared library variant" ON)

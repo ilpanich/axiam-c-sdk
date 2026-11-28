@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +27,8 @@
 #include "unity.h"
 #include "axiam/axiam.h"
 #include "internal.h"
+#include "jwt_fixture.h"
+#include "test_util.h"
 
 static char g_pki_dir[1024];
 
@@ -233,17 +236,19 @@ static void test_closed_port_failure_with_tls_material_configured(void) {
  * them it counts one, whatever the library does. */
 typedef struct {
     int listen_fd;
-    volatile int stop;
-    int gets;
-    int writes;       /* requests whose method line is not GET */
-    int connections;
+    /* Written by the server thread, read by the test body while it runs: atomic, since
+     * `volatile` and a sleep are not synchronisation (ilpanich/axiam-c-sdk#93). */
+    atomic_int stop;
+    atomic_int gets;
+    atomic_int writes;       /* requests whose method line is not GET */
+    atomic_int connections;
 } drop_srv_t;
 
 static void *drop_writes_server(void *arg) {
     drop_srv_t *s = arg;
     int fds[16];
     int nfds = 0;
-    while (!s->stop) {
+    while (!atomic_load(&s->stop)) {
         fd_set rd;
         FD_ZERO(&rd);
         FD_SET(s->listen_fd, &rd);
@@ -258,7 +263,7 @@ static void *drop_writes_server(void *arg) {
             int cfd = accept(s->listen_fd, NULL, NULL);
             if (cfd >= 0) {
                 fds[nfds++] = cfd;
-                s->connections++;
+                atomic_fetch_add(&s->connections, 1);
             }
         }
         for (int i = 0; i < nfds; i++) {
@@ -273,14 +278,14 @@ static void *drop_writes_server(void *arg) {
             }
             buf[r] = '\0';
             if (strncmp(buf, "GET ", 4) == 0) {
-                s->gets++;
+                atomic_fetch_add(&s->gets, 1);
                 static const char ok[] =
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
                     "Content-Length: 11\r\nConnection: keep-alive\r\n\r\n{\"keys\":[]}";
                 if (write(fds[i], ok, sizeof(ok) - 1) < 0) {}
             } else {
                 /* A write: read it, count it, drop the connection with no answer. */
-                s->writes++;
+                atomic_fetch_add(&s->writes, 1);
                 close(fds[i]);
                 fds[i] = fds[--nfds];
                 i--;
@@ -345,7 +350,7 @@ static void test_a_write_a_server_drops_unanswered_arrives_exactly_once_A6(void)
 
         /* Give a (wrongly) re-sent copy time to arrive before counting. */
         usleep(150 * 1000);
-        TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes, srv.writes,
+        TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes, atomic_load(&srv.writes),
                                       "the write must reach the server exactly once");
     }
 
@@ -356,10 +361,10 @@ static void test_a_write_a_server_drops_unanswered_arrives_exactly_once_A6(void)
     axiam_login_result_t lr;
     TEST_ASSERT_EQUAL_INT(AXIAM_ERR_NETWORK, axiam_login(c, "alice", "pw", &lr, &err));
     usleep(150 * 1000);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes + 1, srv.writes,
+    TEST_ASSERT_EQUAL_INT_MESSAGE(expected_writes + 1, atomic_load(&srv.writes),
                                   "a login the server drops arrives exactly once");
 
-    srv.stop = 1;
+    atomic_store(&srv.stop, 1);
     pthread_join(th, NULL);
     close(fd);
     axiam_client_free(c);
@@ -393,11 +398,11 @@ static void test_a_get_keeps_the_connection_pool(void) {
         TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_client_raw_get(c, "/oauth2/jwks", &body, &err));
         free(body);
     }
-    srv.stop = 1;
+    atomic_store(&srv.stop, 1);
     pthread_join(th, NULL);
     close(fd);
-    TEST_ASSERT_EQUAL_INT(2, srv.gets);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(1, srv.connections, "reads share one connection");
+    TEST_ASSERT_EQUAL_INT(2, atomic_load(&srv.gets));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(1, atomic_load(&srv.connections), "reads share one connection");
     axiam_client_free(c);
 }
 
@@ -408,6 +413,20 @@ typedef struct {
     int listen_fd;
     size_t total;
 } flood_srv_t;
+
+/* A 16 MiB transfer takes 19-23 s under ThreadSanitizer, so the client timeout scales there. */
+#if defined(__SANITIZE_THREAD__)
+#define FLOOD_UNDER_TSAN 1
+#elif defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#define FLOOD_UNDER_TSAN 1
+#endif
+#endif
+#ifdef FLOOD_UNDER_TSAN
+#define FLOOD_TIMEOUT_MS 180000
+#else
+#define FLOOD_TIMEOUT_MS 20000
+#endif
 
 static void *flood_server(void *arg) {
     flood_srv_t *s = arg;
@@ -447,7 +466,7 @@ static axiam_error_kind_t raw_get_flood(size_t total, char **body, axiam_error_t
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, base);
     axiam_client_config_set_tenant_slug(cfg, "acme");
-    axiam_client_config_set_timeout_ms(cfg, 20000);
+    axiam_client_config_set_timeout_ms(cfg, FLOOD_TIMEOUT_MS);
     axiam_client_t *c = axiam_client_new(cfg, err);
     axiam_client_config_free(cfg);
     TEST_ASSERT_NOT_NULL(c);
@@ -464,6 +483,8 @@ static void test_a_response_body_past_the_cap_is_refused(void) {
     axiam_error_kind_t k = raw_get_flood(AXIAM_MAX_RESPONSE_BYTES + 4096, &body, &err);
     TEST_ASSERT_NOT_EQUAL_INT(AXIAM_OK, k);
     TEST_ASSERT_NULL(body);
+    /* The refusal names the size cap, so a timeout can no longer satisfy this test. */
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(err.message, "size cap"), err.message);
 }
 
 static void test_a_response_body_at_the_cap_is_still_read(void) {
@@ -524,6 +545,90 @@ static void test_a_request_with_a_larger_bound_reads_a_body_past_16_mib(void) {
     axiam_http_response_dispose(&resp);
 }
 
+/* ---- §12.4 rule 2 over the REAL transport: ETag / Cache-Control reach the JWKS cache ---- */
+typedef struct {
+    int listen_fd;
+    int requests;
+    const char *jwks;
+    char second_req[4096];
+} jwks_srv_t;
+
+static void *jwks_two_request_server(void *arg) {
+    jwks_srv_t *s = arg;
+    for (int i = 0; i < 2; i++) {
+        int cfd = accept(s->listen_fd, NULL, NULL);
+        if (cfd < 0) return NULL;
+        char buf[4096];
+        ssize_t r = recv(cfd, buf, sizeof(buf) - 1, 0);
+        if (r < 0) r = 0;
+        buf[r] = '\0';
+        s->requests++;
+        if (i == 0) {
+            char head[256];
+            snprintf(head, sizeof(head),
+                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                     "ETag: \"v7\"\r\nCache-Control: public, max-age=5\r\n"
+                     "Content-Length: %zu\r\nConnection: close\r\n\r\n", strlen(s->jwks));
+            write(cfd, head, strlen(head));
+            write(cfd, s->jwks, strlen(s->jwks));
+        } else {
+            snprintf(s->second_req, sizeof(s->second_req), "%s", buf);
+            const char *nm = "HTTP/1.1 304 Not Modified\r\nConnection: close\r\n\r\n";
+            write(cfd, nm, strlen(nm));
+        }
+        close(cfd);
+    }
+    return NULL;
+}
+
+static time_t g_jwks_now;
+static time_t jwks_clock(void *ctx) { (void)ctx; return g_jwks_now; }
+
+static void test_jwks_etag_and_max_age_reach_the_cache_over_curl(void) {
+    char *token = NULL, *jwks = NULL;
+    char p[256];
+    TEST_ASSERT_EQUAL_INT(0, jwt_make("k1", test_claims(p, sizeof(p), "u", NULL), &token, &jwks));
+    int port;
+    int fd = bind_ephemeral(&port);
+    TEST_ASSERT_TRUE(fd >= 0);
+    TEST_ASSERT_EQUAL_INT(0, listen(fd, 4));
+    jwks_srv_t srv = { .listen_fd = fd, .jwks = jwks };
+    pthread_t th;
+    pthread_create(&th, NULL, jwks_two_request_server, &srv);
+
+    char base[64];
+    snprintf(base, sizeof(base), "http://127.0.0.1:%d", port);
+    axiam_client_config_t *cfg = axiam_client_config_new();
+    axiam_client_config_set_base_url(cfg, base);
+    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
+    axiam_client_config_set_timeout_ms(cfg, 5000);
+    axiam_error_t err;
+    axiam_client_t *c = axiam_client_new(cfg, &err);
+    axiam_client_config_free(cfg);
+    TEST_ASSERT_NOT_NULL(c);
+    g_jwks_now = 1900000000;
+    c->clock_fn = jwks_clock;
+
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));  /* fetch 1 */
+    g_jwks_now += 3;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));  /* within max-age=5 */
+    TEST_ASSERT_EQUAL_INT(1, srv.requests);
+    g_jwks_now += 3;                         /* 6 s: past the advertised 5 s, far inside 300 s */
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));  /* 304 accepted */
+    shutdown(fd, SHUT_RDWR);    /* unblock accept() if the second request never came */
+    pthread_join(th, NULL);
+    close(fd);
+    TEST_ASSERT_EQUAL_INT(2, srv.requests);
+    TEST_ASSERT_NOT_NULL(strcasestr(srv.second_req, "If-None-Match: \"v7\""));
+    /* The 304 re-anchored the cache at t0+6: 300 s later (t0+306, past the first fetch's
+     * TTL+300 = t0+305) the endpoint is gone, yet the held kid is still accepted -- only
+     * because the anchor moved. */
+    g_jwks_now += 300;
+    TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify(c, token, NULL, &err));
+    free(token); free(jwks);
+    axiam_client_free(c);
+}
+
 int main(int argc, char **argv) {
     if (argc > 1) snprintf(g_pki_dir, sizeof(g_pki_dir), "%s", argv[1]);
     else snprintf(g_pki_dir, sizeof(g_pki_dir), ".");
@@ -537,5 +642,6 @@ int main(int argc, char **argv) {
     RUN_TEST(test_a_response_body_at_the_cap_is_still_read);
     RUN_TEST(test_a_capped_post_is_reported_as_a_size_cap_not_a_write_failure);
     RUN_TEST(test_a_request_with_a_larger_bound_reads_a_body_past_16_mib);
+    RUN_TEST(test_jwks_etag_and_max_age_reach_the_cache_over_curl);
     return UNITY_END();
 }

@@ -62,6 +62,16 @@ typedef struct axiam_http_request {
      * the older struct is unaffected.
      */
     size_t max_response_bytes;
+    /**
+     * Nonzero when the SDK will discard the response body of a successful answer (the two
+     * export operations return the archive to nobody: the C API reports only an error kind).
+     * The transport then counts the body against `max_response_bytes` while reading, drops it
+     * as it arrives, and keeps only a 64 KiB prefix -- enough for a JSON error envelope on a
+     * non-2xx answer; a 2xx answer comes back with `body == NULL`. A body past the bound still
+     * aborts the transfer as above. Appended last, so a transport compiled against the older
+     * struct is unaffected.
+     */
+    int discard_body;
 } axiam_http_request_t;
 
 /** Response produced by a transport implementation. All owned/heap fields. */

@@ -64,6 +64,8 @@ typedef struct {
      */
     int gate_expect;
     int gate_arrived;
+    /* The `tenant_id` query value of each token-endpoint request, in arrival order. */
+    char tenants_seen[8][40];
     char token_body[4096];
     char jwks_body[2048];
 } sf_state_t;
@@ -88,6 +90,10 @@ static int sf_transport(void *ctx, const axiam_http_request_t *req,
     }
     if (strstr(req->url, "/oauth2/token")) {
         pthread_mutex_lock(&st->mtx);
+        if (st->token_calls < 8) {
+            const char *q = strstr(req->url, "tenant_id=");
+            if (q) snprintf(st->tenants_seen[st->token_calls], 40, "%.36s", q + 10);
+        }
         st->token_calls++;
         int refuse = st->refuse;
         int expect = st->gate_expect;
@@ -143,10 +149,10 @@ static void sf_prepare_tokens(void) {
     free(jwks);
 }
 
-static axiam_client_t *make_client(void) {
+static axiam_client_t *make_client_for_tenant(const char *tenant_id) {
     axiam_client_config_t *cfg = axiam_client_config_new();
     axiam_client_config_set_base_url(cfg, "https://api.test");
-    axiam_client_config_set_tenant_id(cfg, AXIAM_TEST_TENANT_ID);
+    axiam_client_config_set_tenant_id(cfg, tenant_id);
     axiam_client_config_set_oidc_client_id(cfg, "rp-client");
     axiam_client_config_set_oidc_client_secret(cfg, "rp-secret");
     axiam_client_config_set_transport(cfg, sf_transport, &g);
@@ -155,6 +161,8 @@ static axiam_client_t *make_client(void) {
     axiam_client_config_free(cfg);
     return c;
 }
+
+static axiam_client_t *make_client(void) { return make_client_for_tenant(AXIAM_TEST_TENANT_ID); }
 
 void setUp(void) {
     memset(&g, 0, sizeof(g));
@@ -201,8 +209,9 @@ static void *failing_worker(void *arg) {
     axiam_error_t err;
     axiam_oidc_token_set_t set;
     axiam_error_kind_t k = axiam_oidc_refresh(g_client, token, NULL, NULL, &set, &err);
+    /* The shared refusal never carries the refresh token it refused (no raw token in an error). */
     int ok = (k == AXIAM_ERR_AUTH) && strcmp(err.oauth_error, "invalid_grant") == 0 &&
-             set.access_token == NULL;
+             set.access_token == NULL && strstr(err.message, "the-spent-refresh-token") == NULL;
     axiam_oidc_token_set_dispose(&set);
     axiam_sensitive_free(token);
     return (void *)(intptr_t)(ok ? 0 : 1);
@@ -255,6 +264,7 @@ void test_concurrent_refreshes_of_one_token_make_exactly_one_wire_call(void) {
     axiam_oidc_config_dispose(&cfg);
 
     run_workers(same_token_worker);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights); /* every slot vacated */
 
     /* §9 rule 2's observable: ONE wire call for the burst... */
     TEST_ASSERT_EQUAL_INT(1, g.token_calls);
@@ -284,6 +294,7 @@ void test_a_failing_flight_shares_its_failure_with_every_waiter(void) {
     axiam_oidc_config_dispose(&cfg);
 
     run_workers(failing_worker);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights); /* every slot vacated */
     TEST_ASSERT_EQUAL_INT(1, g.token_calls);
 
     axiam_client_free(g_client);
@@ -382,6 +393,7 @@ void test_distinct_refresh_tokens_do_not_contend(void) {
     axiam_oidc_config_dispose(&cfg);
 
     run_workers(distinct_token_worker);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights); /* every slot vacated */
 
     TEST_ASSERT_EQUAL_INT(N_THREADS, g.token_calls);
 
@@ -434,6 +446,137 @@ void test_a_shared_outcome_without_optional_members_copies_cleanly(void) {
     g_client = NULL;
 }
 
+/* CONTRACT §9 rule 7: the flight is keyed by the RESOLVED tenant and the token (scope is not
+ * part of the key). The tenant tests run their callers concurrently: the leader's call is held
+ * on the wire (the gate) until every caller has entered the operation. */
+#define KEY_DEFAULT_TENANT_LC "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+#define KEY_DEFAULT_TENANT_UC "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE"
+#define KEY_OTHER_TENANT      "22222222-2222-2222-2222-222222222222"
+
+typedef struct {
+    const char *tenant; /* NULL: omitted, so the client's default applies */
+    const char *scope;
+    const char *token; /* NULL: the common one */
+    int ok;
+} key_call_t;
+
+static void *key_worker(void *arg) {
+    key_call_t *kc = arg;
+    axiam_sensitive_t *token = axiam_sensitive_new(kc->token ? kc->token : "the-one-refresh-token");
+    pthread_barrier_wait(&g_barrier);
+    sf_gate_arrive();
+    axiam_error_t err;
+    axiam_oidc_token_set_t set;
+    kc->ok = axiam_oidc_refresh(g_client, token, kc->scope, kc->tenant, &set, &err) == AXIAM_OK;
+    axiam_oidc_token_set_dispose(&set);
+    axiam_sensitive_free(token);
+    return NULL;
+}
+
+static void run_key_calls(key_call_t *calls, int n) {
+    pthread_mutex_lock(&g.mtx);
+    g.gate_expect = n;
+    g.gate_arrived = 0;
+    pthread_mutex_unlock(&g.mtx);
+    pthread_barrier_init(&g_barrier, NULL, (unsigned) n);
+    pthread_t th[4];
+    for (int i = 0; i < n; i++) pthread_create(&th[i], NULL, key_worker, &calls[i]);
+    for (int i = 0; i < n; i++) pthread_join(th[i], NULL);
+    pthread_barrier_destroy(&g_barrier);
+    pthread_mutex_lock(&g.mtx);
+    g.gate_expect = 0;
+    pthread_mutex_unlock(&g.mtx);
+    for (int i = 0; i < n; i++) TEST_ASSERT_EQUAL_INT_MESSAGE(1, calls[i].ok, "call outcome");
+}
+
+void test_the_same_token_for_a_different_tenant_is_a_separate_flight(void) {
+    sf_prepare_tokens();
+    g_client = make_client_for_tenant(KEY_DEFAULT_TENANT_LC);
+    key_call_t calls[2] = {{KEY_DEFAULT_TENANT_LC, NULL, NULL, 0}, {KEY_OTHER_TENANT, NULL, NULL, 0}};
+    run_key_calls(calls, 2);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights);
+    /* Two tenants, one token: each gets its own server check (its own wire tenant_id) and its
+     * own outcome (every caller's success is asserted in run_key_calls). */
+    TEST_ASSERT_EQUAL_INT(2, g.token_calls);
+    int saw_default = 0, saw_other = 0;
+    for (int i = 0; i < 2; i++) {
+        saw_default += strcmp(g.tenants_seen[i], KEY_DEFAULT_TENANT_LC) == 0;
+        saw_other += strcmp(g.tenants_seen[i], KEY_OTHER_TENANT) == 0;
+    }
+    TEST_ASSERT_EQUAL_INT(1, saw_default);
+    TEST_ASSERT_EQUAL_INT(1, saw_other);
+    axiam_client_free(g_client);
+    g_client = NULL;
+}
+
+void test_the_default_tenant_explicit_in_either_case_or_omitted_is_one_flight(void) {
+    sf_prepare_tokens();
+    g_client = make_client_for_tenant(KEY_DEFAULT_TENANT_LC);
+    /* Omitted, explicit lower-case, explicit upper-case, and a different scope (not part of
+     * the key): one rotating token, so exactly one wire call. */
+    key_call_t calls[4] = {{NULL, NULL, NULL, 0},
+                           {KEY_DEFAULT_TENANT_LC, NULL, NULL, 0},
+                           {KEY_DEFAULT_TENANT_UC, NULL, NULL, 0},
+                           {KEY_DEFAULT_TENANT_UC, "openid", NULL, 0}};
+    run_key_calls(calls, 4);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights);
+    TEST_ASSERT_EQUAL_INT(1, g.token_calls);
+    /* The one wire call carries the canonical lower-case tenant, whichever spelling led. */
+    TEST_ASSERT_EQUAL_STRING(KEY_DEFAULT_TENANT_LC, g.tenants_seen[0]);
+    axiam_client_free(g_client);
+    g_client = NULL;
+}
+
+void test_a_different_token_gets_its_own_call_while_a_second_caller_of_the_first_joins(void) {
+    sf_prepare_tokens();
+    g_client = make_client_for_tenant(KEY_DEFAULT_TENANT_LC);
+    key_call_t calls[3] = {{NULL, NULL, "token-A", 0}, {NULL, NULL, "token-A", 0},
+                           {NULL, NULL, "token-B", 0}};
+    run_key_calls(calls, 3);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights);
+    TEST_ASSERT_EQUAL_INT(2, g.token_calls); /* A's two callers share one call; B has its own */
+    axiam_client_free(g_client);
+    g_client = NULL;
+}
+
+void test_an_invalid_tenant_fails_at_once_with_no_slot_and_no_request(void) {
+    sf_prepare_tokens();
+    g_client = make_client_for_tenant(KEY_DEFAULT_TENANT_LC);
+    axiam_error_t err;
+    axiam_sensitive_t *token = axiam_sensitive_new("the-one-refresh-token");
+    axiam_oidc_token_set_t set;
+    TEST_ASSERT_EQUAL(AXIAM_ERR_AUTH,
+                      axiam_oidc_refresh(g_client, token, NULL, "not-a-uuid", &set, &err));
+    TEST_ASSERT_EQUAL_INT(0, g.token_calls);
+    TEST_ASSERT_EQUAL_INT(0, g.discovery_calls);
+    TEST_ASSERT_NULL(g_client->oidc_refresh_flights);
+    axiam_sensitive_free(token);
+    axiam_client_free(g_client);
+    g_client = NULL;
+}
+
+/* Publish and vacate are ONE step under oidc_refresh_mtx in axiam_oidc_refresh (the flight is
+ * unlinked and its outcome published inside a single critical section), so no
+ * publish-before-vacate window exists to hold open: the same-window "joins" case is the
+ * after-vacate case, which test_a_second_refresh_after_the_burst_is_a_new_flight covers for
+ * the same token and tenant. Here the earliest reachable instant after A's outcome is
+ * published, a different tenant's call is a fresh wire call of its own. */
+void test_a_different_tenant_right_after_a_flight_makes_its_own_wire_call(void) {
+    sf_prepare_tokens();
+    g_client = make_client_for_tenant(KEY_DEFAULT_TENANT_LC);
+    axiam_error_t err;
+    axiam_sensitive_t *token = axiam_sensitive_new("the-one-refresh-token");
+    axiam_oidc_token_set_t a, b;
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_refresh(g_client, token, NULL, NULL, &a, &err));
+    TEST_ASSERT_EQUAL(AXIAM_OK, axiam_oidc_refresh(g_client, token, NULL, KEY_OTHER_TENANT, &b, &err));
+    TEST_ASSERT_EQUAL_INT(2, g.token_calls);
+    axiam_oidc_token_set_dispose(&a);
+    axiam_oidc_token_set_dispose(&b);
+    axiam_sensitive_free(token);
+    axiam_client_free(g_client);
+    g_client = NULL;
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_concurrent_refreshes_of_one_token_make_exactly_one_wire_call);
@@ -442,5 +585,10 @@ int main(void) {
     RUN_TEST(test_distinct_refresh_tokens_do_not_contend);
     RUN_TEST(test_a_second_refresh_after_the_burst_is_a_new_flight);
     RUN_TEST(test_a_shared_outcome_without_optional_members_copies_cleanly);
+    RUN_TEST(test_the_same_token_for_a_different_tenant_is_a_separate_flight);
+    RUN_TEST(test_the_default_tenant_explicit_in_either_case_or_omitted_is_one_flight);
+    RUN_TEST(test_a_different_token_gets_its_own_call_while_a_second_caller_of_the_first_joins);
+    RUN_TEST(test_an_invalid_tenant_fails_at_once_with_no_slot_and_no_request);
+    RUN_TEST(test_a_different_tenant_right_after_a_flight_makes_its_own_wire_call);
     return UNITY_END();
 }

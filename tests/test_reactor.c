@@ -17,6 +17,7 @@
  *  3. Freshness is two-sided. A future timestamp is not "extra fresh"; it is the
  *     shape of a captured message held for later.
  */
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -238,7 +239,7 @@ static axiam_reactor_decision_t always_step_up(const axiam_reactor_event_t *e, v
     return axiam_reactor_allow_with_step_up();
 }
 
-void setUp(void) {}
+void setUp(void) { axiam_reactor_timeout_limit = LONG_MAX; }
 void tearDown(void) {}
 
 /* ------------------------------------------------------------------ */
@@ -714,6 +715,37 @@ void test_an_out_of_range_number_in_a_signed_field_is_malformed(void) {
         free(body);
         cJSON_Delete(message);
     }
+    axiam_sensitive_free(key);
+}
+
+void test_a_timeout_that_does_not_fit_a_long_is_refused_before_the_nonce_is_claimed(void) {
+    /* C-R3-3. On ILP32 and LLP64 `long` is narrower than the long long the wire number is read
+     * into; the seam reproduces that on this build by lowering the limit below the vector's
+     * (validly MAC'd) timeout_ms of 1000. The refusal is one verdict whether or not the caller
+     * asked for the event (`out`), and it is reached BEFORE the nonce is claimed: the same
+     * event, once it fits, is accepted and not refused as a replay. */
+    axiam_sensitive_t *key = signing_key();
+    char *body = wire_body(vec("server_to_reactor", "login_post_auth"));
+    axiam_reactor_nonce_set_t *seen = axiam_reactor_nonce_set_new();
+    axiam_reactor_verified_t verified;
+
+    axiam_reactor_timeout_limit = 999;
+    TEST_ASSERT_EQUAL(AXIAM_REACTOR_MALFORMED,
+                      axiam_reactor_verify_event(key, body, tenant_id(), verified_at(), seen,
+                                                 NULL));
+    TEST_ASSERT_EQUAL(AXIAM_REACTOR_MALFORMED,
+                      axiam_reactor_verify_event(key, body, tenant_id(), verified_at(), seen,
+                                                 &verified));
+    axiam_reactor_verified_dispose(&verified);
+    axiam_reactor_timeout_limit = LONG_MAX;
+
+    TEST_ASSERT_EQUAL(AXIAM_REACTOR_OK,
+                      axiam_reactor_verify_event(key, body, tenant_id(), verified_at(), seen,
+                                                 &verified));
+    axiam_reactor_verified_dispose(&verified);
+
+    axiam_reactor_nonce_set_free(seen);
+    free(body);
     axiam_sensitive_free(key);
 }
 
@@ -1427,6 +1459,7 @@ int main(void) {
     RUN_TEST(test_tampering_with_any_signed_field_invalidates_the_event);
     RUN_TEST(test_key_version_below_two_is_refused_before_the_signature);
     RUN_TEST(test_an_out_of_range_number_in_a_signed_field_is_malformed);
+    RUN_TEST(test_a_timeout_that_does_not_fit_a_long_is_refused_before_the_nonce_is_claimed);
     RUN_TEST(test_freshness_is_refused_in_both_directions);
     RUN_TEST(test_a_repeated_nonce_is_refused_as_a_replay);
     RUN_TEST(test_an_event_for_another_tenant_is_refused_after_the_mac);

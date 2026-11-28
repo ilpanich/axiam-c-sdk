@@ -212,13 +212,24 @@ static void test_old_strict_value_still_admits_a_normal_token(void) {
 }
 
 /* ---- scope of the rules: only the access-token path ---- */
-static void test_signature_only_path_keeps_kidless_fallback(void) {
+static void test_signature_only_path_has_no_kidless_fallback(void) {
     /* The back-channel logout token and the ID token do not go through the access-token
-     * policy (§10.1 'Scope'): a SIGNATURE_ONLY verification is unchanged. */
-    char *token = mint(NULL, "logout+jwt", USER_UUID, ",\"purpose\":\"x\"");
+     * policy (§10.1 'Scope'): rules 10 and 11 stay off SIGNATURE_ONLY. But the key lookup is
+     * §12.4 rule 2's, and from contract 1.69 it has no single-key fallback on any path: a
+     * kid-less token is refused even though the one key in the JWKS did sign it. */
     axiam_client_t *c = make_client();
     char *claims = NULL;
     axiam_error_t err;
+    char *token = mint(NULL, "logout+jwt", USER_UUID, ",\"purpose\":\"x\"");
+    TEST_ASSERT_EQUAL_INT(AXIAM_ERR_AUTH, axiam_jwt_verify_ex(c, token, AXIAM_JWT_VERIFY_SIGNATURE_ONLY,
+                                                              &claims, &err));
+    TEST_ASSERT_NULL(claims);
+    free(token);
+    axiam_client_free(c);
+
+    /* With a kid, the same typ and claims verify: rules 10 and 11 do not apply here. */
+    c = make_client();
+    token = mint("k1", "logout+jwt", USER_UUID, ",\"purpose\":\"x\"");
     TEST_ASSERT_EQUAL_INT(AXIAM_OK, axiam_jwt_verify_ex(c, token, AXIAM_JWT_VERIFY_SIGNATURE_ONLY,
                                                         &claims, &err));
     free(claims);
@@ -252,6 +263,6 @@ int main(void) {
     RUN_TEST(test_old_strict_value_refuses_webauthn_state_shape);
     RUN_TEST(test_old_strict_value_refuses_kidless_and_generic_typ);
     RUN_TEST(test_old_strict_value_still_admits_a_normal_token);
-    RUN_TEST(test_signature_only_path_keeps_kidless_fallback);
+    RUN_TEST(test_signature_only_path_has_no_kidless_fallback);
     return UNITY_END();
 }

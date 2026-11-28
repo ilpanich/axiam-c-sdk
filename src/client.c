@@ -41,6 +41,7 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
     pthread_mutex_init(&c->refresh_mtx, NULL);
     pthread_cond_init(&c->refresh_cond, NULL);
     pthread_mutex_init(&c->jwks_mtx, NULL);
+    pthread_cond_init(&c->jwks_cond, NULL);
     pthread_mutex_init(&c->revocation_mtx, NULL);
     /* §10.4 is off until a caller enables it; the interval is only read
      * once it is on, but a sane default keeps the field from being a
@@ -88,6 +89,16 @@ axiam_client_t *axiam_client_new(const axiam_client_config_t *cfg, axiam_error_t
                  axiam_memo_effective_ttl_ms(&c->memo));
         axiam_telemetry_config_clamped(&c->telemetry, "decision_memo_ttl_ms",
                                        requested, effective, "\xc2\xa7""17.1 rule 2");
+    }
+
+    /* §12.4 rule 2: a configured JWKS TTL above 300 s is clamped, and the caller is told. */
+    if (c->cfg->jwks_cache_ttl_s > AXIAM_JWKS_CACHE_TTL_SECS) {
+        char requested[32];
+        char effective[32];
+        snprintf(requested, sizeof(requested), "%lds", c->cfg->jwks_cache_ttl_s);
+        snprintf(effective, sizeof(effective), "%ds", AXIAM_JWKS_CACHE_TTL_SECS);
+        axiam_telemetry_config_clamped(&c->telemetry, "jwks_cache_ttl_s", requested, effective,
+                                       "\xc2\xa7""12.4 rule 2");
     }
 
     if (cfg->transport) {
@@ -159,6 +170,8 @@ void axiam_client_close(axiam_client_t *client) {
     jwks_free(client->jwks);
     client->jwks = NULL;
     client->jwks_valid = 0;
+    free(client->jwks_etag);
+    client->jwks_etag = NULL;
     client->jwks_refetch_cooldown_until = 0;
     pthread_mutex_unlock(&client->jwks_mtx);
 
@@ -195,6 +208,7 @@ void axiam_client_free(axiam_client_t *client) {
     axiam_revocation_dispose(client);
     pthread_mutex_destroy(&client->revocation_mtx);
     pthread_mutex_destroy(&client->jwks_mtx);
+    pthread_cond_destroy(&client->jwks_cond);
     pthread_mutex_destroy(&client->oidc_config_mtx);
     pthread_mutex_destroy(&client->oidc_refresh_mtx);
     pthread_cond_destroy(&client->oidc_refresh_cond);
@@ -318,7 +332,8 @@ static void capture_csrf(axiam_client_t *c, const axiam_http_response_t *resp) {
 /* Perform one transport round-trip for a path. state_changing controls CSRF. */
 static int transport_once_ex(axiam_client_t *c, const char *method, const char *path,
                              const char *body, int state_changing, int replayable,
-                             size_t max_response_bytes, axiam_http_response_t *resp) {
+                             size_t max_response_bytes, int discard_body,
+                             const char *if_none_match, axiam_http_response_t *resp) {
     memset(resp, 0, sizeof(*resp));
     char *url = build_url(c, path);
     if (!url) return -1;
@@ -327,6 +342,7 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
     int oauth2 = strncmp(path, "/oauth2/", 8) == 0;
     axiam_kv_t *headers = build_headers(c, state_changing && !oauth2, body != NULL, oauth2);
     if (oauth2) headers = axiam_kv_append(headers, "Cookie", ""); /* withhold the jar */
+    if (if_none_match) headers = axiam_kv_append(headers, "If-None-Match", if_none_match);
 
     axiam_http_request_t req = {0};
     req.method = method;
@@ -336,6 +352,7 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
     req.body_len = body ? strlen(body) : 0;
     req.replayable = replayable;
     req.max_response_bytes = max_response_bytes;
+    req.discard_body = discard_body;
 
     int rc = c->transport(c->transport_ctx, &req, resp);
     capture_csrf(c, resp);
@@ -350,7 +367,7 @@ static int transport_once_ex(axiam_client_t *c, const char *method, const char *
 static int transport_once(axiam_client_t *c, const char *method, const char *path,
                           const char *body, int state_changing,
                           axiam_http_response_t *resp) {
-    return transport_once_ex(c, method, path, body, state_changing, 0, 0, resp);
+    return transport_once_ex(c, method, path, body, state_changing, 0, 0, 0, NULL, resp);
 }
 
 int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *path,
@@ -359,9 +376,17 @@ int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *pat
 }
 
 int axiam_client_send_raw_capped(axiam_client_t *c, const char *method, const char *path,
-                                 const char *body, size_t max_response_bytes,
+                                 const char *body, size_t max_response_bytes, int discard_body,
                                  axiam_http_response_t *resp) {
-    return transport_once_ex(c, method, path, body, 1, 0, max_response_bytes, resp);
+    return transport_once_ex(c, method, path, body, 1, 0, max_response_bytes, discard_body, NULL, resp);
+}
+
+int axiam_client_get_conditional(axiam_client_t *c, const char *path, const char *etag,
+                                 axiam_http_response_t *resp) {
+    memset(resp, 0, sizeof(*resp));
+    if (!c || !path) return -1;
+    if (client_is_closed(c)) return -1;   /* callers name the §18.1 rule 4 cause themselves */
+    return transport_once_ex(c, "GET", path, NULL, 0, 0, 0, 0, etag, resp);
 }
 
 char *axiam_client_url(const axiam_client_t *c, const char *path) {
@@ -1629,7 +1654,7 @@ static int transport_retrying(axiam_client_t *c, const char *op, const char *pat
         double started = axiam_telemetry_installed(&c->telemetry) ? axiam_now_ms() : 0.0;
 
         /* replayable: this loop is the §16 retry, and the request is an authorization check. */
-        rc = transport_once_ex(c, "POST", path, body, 1, 1, 0, resp);
+        rc = transport_once_ex(c, "POST", path, body, 1, 1, 0, 0, NULL, resp);
 
         int transport_failed = (rc != 0);
         long status = resp->status;

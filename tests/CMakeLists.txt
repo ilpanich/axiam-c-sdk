@@ -205,6 +205,15 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_jwks_branches COMMAND test_jwks_branches)
 
+# CONTRACT.md §12.4 rule 2 "Stale-if-error, bounded" (contract 1.69; D-10).
+add_executable(test_jwks_stale_bound test_jwks_stale_bound.c)
+target_include_directories(test_jwks_stale_bound PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_jwks_stale_bound PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_jwks_stale_bound PRIVATE --coverage)
+endif()
+add_test(NAME test_jwks_stale_bound COMMAND test_jwks_stale_bound)
+
 # ---- mTLS PEM wiring test, gated on a runtime-generated PKI fixture ----
 set(AXIAM_PKI_DIR ${CMAKE_CURRENT_BINARY_DIR}/pki)
 add_test(NAME gen_pki
@@ -225,7 +234,7 @@ set_tests_properties(test_mtls PROPERTIES FIXTURES_REQUIRED AXIAM_PKI)
 # port CURLE_* failure, CA/mTLS blob wiring) — also needs the PKI fixture.
 add_executable(test_transport_curl_extra test_transport_curl_extra.c)
 target_include_directories(test_transport_curl_extra PRIVATE ${AXIAM_TEST_INCLUDES})
-target_link_libraries(test_transport_curl_extra PRIVATE ${AXIAM_TEST_LINK})
+target_link_libraries(test_transport_curl_extra PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
 if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_transport_curl_extra PRIVATE --coverage)
 endif()
@@ -289,6 +298,16 @@ if(AXIAM_ENABLE_COVERAGE)
 endif()
 add_test(NAME test_oidc_logout COMMAND test_oidc_logout)
 
+add_executable(test_logout_kid test_logout_kid.c)
+target_include_directories(test_logout_kid PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_logout_kid PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_logout_kid PRIVATE --coverage)
+endif()
+add_test(NAME test_logout_kid COMMAND test_logout_kid)
+
+axiam_add_test(test_transport_discard test_transport_discard.c)
+
 axiam_add_test(test_oidc_grants test_oidc_grants.c)
 
 # Contract 1.65 (CONTRACT.md §37.9): native sign-in with a provider ID token, native_nonce.
@@ -314,6 +333,17 @@ if(AXIAM_ENABLE_COVERAGE)
     target_link_options(test_oidc_singleflight PRIVATE --coverage)
 endif()
 add_test(NAME test_oidc_singleflight COMMAND test_oidc_singleflight)
+
+# ilpanich/axiam-c-sdk#91: concurrent cJSON parses / token verifies must not race on the vendored
+# parser's error record. Only ThreadSanitizer can see the race; CI's `sanitizers` job builds this
+# with -fsanitize=thread.
+add_executable(test_cjson_threads test_cjson_threads.c)
+target_include_directories(test_cjson_threads PRIVATE ${AXIAM_TEST_INCLUDES})
+target_link_libraries(test_cjson_threads PRIVATE ${AXIAM_TEST_LINK} axiam_jwtfix)
+if(AXIAM_ENABLE_COVERAGE)
+    target_link_options(test_cjson_threads PRIVATE --coverage)
+endif()
+add_test(NAME test_cjson_threads COMMAND test_cjson_threads)
 
 # ---- C2 branch-coverage depth: the §12/§12.7/§14/§15 refusal paths.
 axiam_add_test(test_oidc_branches test_oidc_branches.c)

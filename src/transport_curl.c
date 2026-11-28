@@ -20,8 +20,10 @@ typedef struct {
 
 typedef struct {
     char *buf;
-    size_t len;
+    size_t len;     /* bytes held in buf */
+    size_t total;   /* bytes read from the wire, counted against cap */
     size_t cap;     /* body bound for this request */
+    int discard;    /* count, do not keep: only a prefix is held (C-R3-2) */
     int capped;     /* set when the bound aborted the transfer */
 } growbuf_t;
 
@@ -35,16 +37,26 @@ static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
      * size * nmemb makes libcurl fail the request with CURLE_WRITE_ERROR. */
     if (nmemb != 0 && size > SIZE_MAX / nmemb) return 0;
     size_t add = size * nmemb;
-    if (add > g->cap || g->len > g->cap - add) {
+    if (add > g->cap || g->total > g->cap - add) {
         g->capped = 1;
         return 0;
     }
-    char *nb = realloc(g->buf, g->len + add + 1);
-    if (!nb) return 0;
-    g->buf = nb;
-    memcpy(g->buf + g->len, ptr, add);
-    g->len += add;
-    g->buf[g->len] = '\0';
+    g->total += add;
+    /* A body the SDK will discard is counted, not buffered: only a prefix (a JSON error
+     * envelope) is kept. */
+    size_t keep = add;
+    if (g->discard) {
+        size_t room = g->len < AXIAM_DISCARD_BODY_KEEP_BYTES ? AXIAM_DISCARD_BODY_KEEP_BYTES - g->len : 0;
+        if (keep > room) keep = room;
+    }
+    if (keep) {
+        char *nb = realloc(g->buf, g->len + keep + 1);
+        if (!nb) return 0;
+        g->buf = nb;
+        memcpy(g->buf + g->len, ptr, keep);
+        g->len += keep;
+        g->buf[g->len] = '\0';
+    }
     return add;
 }
 
@@ -70,12 +82,16 @@ static void capture_header(axiam_http_response_t *resp, const char *buffer, size
     }
 }
 
-/* Capture the X-CSRF-Token (§3) and Set-Cookie (§4/D-14) response headers. */
+/* Capture the X-CSRF-Token (§3), Set-Cookie (§4/D-14), ETag and Cache-Control (§12.4 rule 2)
+ * response headers. */
 static size_t header_cb(char *buffer, size_t size, size_t nitems, void *userdata) {
     axiam_http_response_t *resp = userdata;
     size_t total = size * nitems;
     capture_header(resp, buffer, total, "X-CSRF-Token:", "X-CSRF-Token");
     capture_header(resp, buffer, total, "Set-Cookie:", "Set-Cookie");
+    /* §12.4 rule 2: the JWKS cache's validator and freshness hint. */
+    capture_header(resp, buffer, total, "ETag:", "ETag");
+    capture_header(resp, buffer, total, "Cache-Control:", "Cache-Control");
     return total;
 }
 
@@ -133,6 +149,7 @@ int axiam_curl_transport(void *vctx, const axiam_http_request_t *req,
 
     growbuf_t body = {0};
     body.cap = req->max_response_bytes ? req->max_response_bytes : AXIAM_MAX_RESPONSE_BYTES;
+    body.discard = req->discard_body;
     curl_easy_setopt(c, CURLOPT_URL, req->url);
     curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(c, CURLOPT_WRITEDATA, &body);
@@ -281,6 +298,10 @@ int axiam_curl_transport(void *vctx, const axiam_http_request_t *req,
         long status = 0;
         curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &status);
         resp->status = status;
+        if (body.discard && status >= 200 && status < 300) {
+            free(body.buf); /* a discarded body is not handed back */
+            body.buf = NULL;
+        }
         resp->body = body.buf; /* may be NULL if empty */
         ret = 0;
     }

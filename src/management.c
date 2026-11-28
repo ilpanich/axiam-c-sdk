@@ -404,9 +404,14 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
 
     /* The two export operations return a whole archive, far past an ordinary JSON body. */
     size_t max_response = 0;
+    int discard_body = 0;
     if (operation && (strcmp(operation, "tenants.export_audit") == 0 ||
-                      strcmp(operation, "privacy.download_export") == 0))
+                      strcmp(operation, "privacy.download_export") == 0)) {
+        /* The C API hands the archive to nobody: count it against the bound and drop it as it
+         * arrives instead of holding up to 1 GiB (and a parse tree of it). */
         max_response = AXIAM_MAX_EXPORT_RESPONSE_BYTES;
+        discard_body = 1;
+    }
 
     for (int attempt = 1; attempt <= attempts; attempt++) {
         /* Rule 11: the TEMPLATE, never the substituted path. A metrics label carrying a
@@ -417,7 +422,8 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
                                       path_template, attempt);
 
         axiam_http_response_t resp;
-        int rc = axiam_client_send_raw_capped(c, method, path, body_json, max_response, &resp);
+        int rc = axiam_client_send_raw_capped(c, method, path, body_json, max_response,
+                                              discard_body, &resp);
         long status = (rc == 0) ? resp.status : 0;
 
         axiam_telemetry_request_end(&c->telemetry, operation, method,
@@ -442,7 +448,8 @@ axiam_error_kind_t axiam_mgmt_send(axiam_client_t *c,
         }
 
         if (status >= 200 && status < 300) {
-            if (out_json && resp.body && *resp.body) {
+            /* A discarded body is never parsed, even from a custom transport that kept it. */
+            if (out_json && !discard_body && resp.body && *resp.body) {
                 *out_json = cJSON_Parse(resp.body);
                 if (!*out_json) {
                     axiam_error_set(err, AXIAM_ERR_NETWORK, status,

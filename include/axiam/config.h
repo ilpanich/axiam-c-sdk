@@ -200,6 +200,17 @@ void axiam_client_config_set_retry_enabled(axiam_client_config_t *cfg, int enabl
  */
 void axiam_client_config_set_decision_memo_ttl(axiam_client_config_t *cfg, long ttl_ms);
 
+/**
+ * JWKS cache TTL in seconds (CONTRACT.md §12.4 rule 2, contract 1.69). Unset (the default), the
+ * TTL is the `Cache-Control: max-age` the JWKS response advertises, else 300. A value above
+ * 300 is **clamped to 300**, not rejected, and the clamp is reported through the §19
+ * `config_clamped` event (setting `jwks_cache_ttl_s`). A value <= 0 means unset.
+ *
+ * Held keys keep verifying for 300 s beyond the TTL when a refresh fails, and not after; see
+ * axiam_jwt_verify().
+ */
+void axiam_client_config_set_jwks_cache_ttl(axiam_client_config_t *cfg, long ttl_seconds);
+
 /* --- §19 telemetry --- */
 
 /**

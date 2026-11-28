@@ -183,6 +183,12 @@ void axiam_client_config_set_decision_memo_ttl(axiam_client_config_t *cfg, long 
     if (cfg) cfg->decision_memo_ttl_ms = ttl_ms;
 }
 
+void axiam_client_config_set_jwks_cache_ttl(axiam_client_config_t *cfg, long ttl_seconds) {
+    /* Stored UNCLAMPED, like the memo TTL: the construction-time config_clamped event reports
+     * what the caller asked for. A value <= 0 means "unset" (the default). */
+    if (cfg) cfg->jwks_cache_ttl_s = ttl_seconds > 0 ? ttl_seconds : 0;
+}
+
 void axiam_client_config_set_telemetry_hook(axiam_client_config_t *cfg,
                                             axiam_telemetry_hook_fn fn, void *ctx) {
     if (!cfg) return;
@@ -304,6 +310,7 @@ axiam_client_config_t *axiam_client_config_clone(const axiam_client_config_t *sr
     c->transport_ctx = src->transport_ctx;
     c->retry_enabled = src->retry_enabled;
     c->decision_memo_ttl_ms = src->decision_memo_ttl_ms;
+    c->jwks_cache_ttl_s = src->jwks_cache_ttl_s;
     c->telemetry_hook = src->telemetry_hook;
     c->telemetry_ctx = src->telemetry_ctx;
     return c;

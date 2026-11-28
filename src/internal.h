@@ -11,6 +11,7 @@
 #ifndef AXIAM_INTERNAL_H
 #define AXIAM_INTERNAL_H
 
+#include <limits.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <time.h>
@@ -80,6 +81,8 @@ struct axiam_client_config {
      * unclamped so the §19 config_clamped event can report what was asked
      * for; the effective value lives on the memo. */
     long decision_memo_ttl_ms;
+    /* §12.4 rule 2: requested JWKS cache TTL in seconds, BEFORE clamping. 0 = unset. */
+    long jwks_cache_ttl_s;
     /* §19 */
     axiam_telemetry_hook_fn telemetry_hook;
     void *telemetry_ctx;
@@ -132,18 +135,35 @@ double axiam_now_ms(void);
 
 /** The bound for the operations whose response IS an export: `tenants.export_audit` (the
  *  tenant's complete audit trail as NDJSON) and `privacy.download_export` (a single-use
- *  account-export download). Both are buffered whole, so the bound is a documented ceiling
- *  rather than "unlimited": 1 GiB. */
+ *  account-export download). The bound is a documented ceiling
+ *  rather than "unlimited": 1 GiB. The body is counted against it while it is read and
+ *  dropped, never buffered whole (the C API hands the archive to nobody). */
 #define AXIAM_MAX_EXPORT_RESPONSE_BYTES ((size_t)1024 * 1024 * 1024)
 
 /** `transport_err` the libcurl transport reports when a body exceeded its cap. Equal to
- *  CURLE_FILESIZE_EXCEEDED (asserted in transport_curl.c). A capped export is not retried:
- *  the server already acted on the request. */
+ *  CURLE_FILESIZE_EXCEEDED (asserted in transport_curl.c). The management surface does not
+ *  retry it (the server already acted on the request); the §16 authorization check does. */
 #define AXIAM_TRANSPORT_ERR_BODY_CAP 63
 
-/** As axiam_client_send_raw(), with an explicit response-size bound (0 = the default). */
+/** Largest `timeout_ms` the reactor hands on, as the `long` of `axiam_reactor_event_t`:
+ *  LONG_MAX, narrower than the long long the wire number is read into on ILP32 and LLP64.
+ *  Only a build with the test suite (AXIAM_TESTING) makes it a writable variable, so a suite can
+ *  lower it to reproduce a 32-bit `long` on an LP64 build; otherwise it is a constant and the
+ *  library exports no such symbol. */
+#ifdef AXIAM_TESTING
+extern long long axiam_reactor_timeout_limit;
+#else
+#define axiam_reactor_timeout_limit ((long long)LONG_MAX)
+#endif
+
+/** With `discard_body` the transport keeps only this much of a body (a JSON error envelope). */
+#define AXIAM_DISCARD_BODY_KEEP_BYTES ((size_t)64 * 1024)
+
+/** As axiam_client_send_raw(), with an explicit response-size bound (0 = the default) and, when
+ *  `discard_body` is nonzero, a response body that is counted against the bound and dropped
+ *  rather than buffered (`axiam_http_request_t.discard_body`). */
 int axiam_client_send_raw_capped(axiam_client_t *c, const char *method, const char *path,
-                                 const char *body, size_t max_response_bytes,
+                                 const char *body, size_t max_response_bytes, int discard_body,
                                  axiam_http_response_t *resp);
 
 /* ---- §16 bounded read-only retry ---- */
@@ -382,9 +402,21 @@ struct axiam_client {
 
     /* JWKS cache */
     pthread_mutex_t jwks_mtx;
+    /* §12.4 rule 2: 1 while one thread is fetching the JWKS; the others use the held set or wait
+     * on jwks_cond. Both guarded by jwks_mtx; no lock is held across the transport call. */
+    int jwks_fetch_in_flight;
+    pthread_cond_t jwks_cond;
     struct axiam_jwk *jwks;
+    /* §12.4 rule 2 (contract 1.69, D-10): the age's anchor -- the clock reading at the last
+     * SUCCESSFUL fetch (a 200 with at least one key, or a 304 to a conditional request). A failed
+     * refresh never moves it. */
     time_t jwks_fetched_at;
     int jwks_valid;
+    /* The ETag the held set came with (sent as If-None-Match), and the TTL its response
+     * advertised through Cache-Control: max-age (0 = none advertised -> the default). Both are
+     * replaced only together with a successful 200. */
+    char *jwks_etag;
+    long jwks_advertised_ttl_s;
     /* §12.4 rule 2: when the unknown-`kid` re-fetch cooldown window closes. An
      * unknown kid inside the window re-consults the cached set with NO network
      * call, so an attacker presenting forged kids cannot drive one JWKS fetch
@@ -495,6 +527,15 @@ int axiam_client_send_raw(axiam_client_t *c, const char *method, const char *pat
 int axiam_client_send_bare(axiam_client_t *c, const char *method, const char *url,
                            axiam_kv_t *headers, const char *body,
                            axiam_http_response_t *resp);
+
+/**
+ * GET `path` through the SDK transport (as axiam_client_raw_get()), keeping the whole response
+ * so the caller sees the status and headers, and sending `If-None-Match: <etag>` when `etag`
+ * is non-NULL. Returns 0 when a response arrived, nonzero on transport failure; the caller
+ * disposes `resp` either way. For the §12.4 rule 2 JWKS refresh.
+ */
+int axiam_client_get_conditional(axiam_client_t *c, const char *path, const char *etag,
+                                 axiam_http_response_t *resp);
 
 /** `path` joined onto the client's base URL (trailing slashes trimmed). malloc'd. */
 char *axiam_client_url(const axiam_client_t *c, const char *path);

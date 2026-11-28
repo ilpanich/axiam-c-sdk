@@ -17,8 +17,9 @@
  * observable requirement (one wire call per burst, that one outcome shared with
  * every concurrent caller) is exactly the fix.
  *
- * The guard is keyed on the token's SHA-256 rather than on the client, because
- * unrelated tokens have no reason to contend, and on the DIGEST rather than the
+ * The guard is keyed on the SHA-256 of the resolved tenant and the token rather
+ * than on the client, because unrelated tokens (or the same token for another tenant, which
+ * needs its own server check) have no reason to contend, and on the DIGEST rather than the
  * token so the registry never holds a second copy of a live credential.
  * §9 rule 5 permits this dedicated instance rather than reusing the §1 cookie
  * guard, whose API compares an access token's freshness — a comparison with no
@@ -34,7 +35,7 @@
 #include "oidc_internal.h"
 
 struct axiam_oidc_flight {
-    char key[65]; /* hex SHA-256 of the refresh token */
+    char key[65]; /* hex SHA-256 of tenant, NUL, refresh token */
     int done;
     int refs; /* leader + waiters; the last one out frees the node */
     axiam_error_kind_t kind;
@@ -43,14 +44,23 @@ struct axiam_oidc_flight {
     struct axiam_oidc_flight *next;
 };
 
-/* Hex SHA-256 of `s` into `out` (65 bytes). Returns 1 on success. */
-static int digest_hex(const char *s, char out[65]) {
+/* Hex SHA-256 of the flight key into `out` (65 bytes). Returns 1 on success.
+ *
+ * `tenant_lc` is the RESOLVED tenant_id in lower-case hyphenated UUID form (see
+ * axiam_oidc_refresh, which canonicalises it once). The key is that, then a NUL separator
+ * (a UUID never contains one, so the two parts cannot run into each other), then the refresh
+ * token (CONTRACT §9 rule 7; §12.3 rule 4 makes the operation always tenant-scoped). The same
+ * token for two tenants is two flights; the default tenant passed explicitly, in either case,
+ * or omitted is one. `scope` is deliberately not part of it. */
+static int digest_hex(const char *tenant_lc, const char *token, char out[65]) {
+    size_t n = strlen(tenant_lc);
     unsigned char digest[EVP_MAX_MD_SIZE];
     unsigned int len = 0;
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     if (!ctx) return 0;
     int ok = EVP_DigestInit_ex(ctx, EVP_sha256(), NULL) == 1 &&
-             EVP_DigestUpdate(ctx, s, strlen(s)) == 1 &&
+             EVP_DigestUpdate(ctx, tenant_lc, n + 1) == 1 && /* includes the NUL */
+             EVP_DigestUpdate(ctx, token, strlen(token)) == 1 &&
              EVP_DigestFinal_ex(ctx, digest, &len) == 1;
     EVP_MD_CTX_free(ctx);
     if (!ok || len != 32) return 0;
@@ -138,9 +148,24 @@ axiam_error_kind_t axiam_oidc_refresh(axiam_client_t *client,
     if (!client_id) return AXIAM_ERR_AUTH;
     const char *tenant = oidc_require_tenant_uuid(client, tenant_id, "oidc_refresh", err);
     if (!tenant) return AXIAM_ERR_AUTH;
+    /* Resolved ONCE, here, before the guard, and canonicalised (lower-case hyphenated UUID;
+     * oidc_require_tenant_uuid has already refused anything that is not one). This single value
+     * is both the flight key's tenant and the wire `tenant_id`; nothing below re-resolves it,
+     * so a spelling or default change between the two cannot split one token across two
+     * flights. An invalid tenant has already returned: no slot, no discovery, no token call. */
+    char tenant_canon[37];
+    size_t tn = strlen(tenant);
+    if (tn != 36) {
+        axiam_error_set(err, AXIAM_ERR_AUTH, 0, "oidc_refresh requires a tenant_id UUID");
+        return AXIAM_ERR_AUTH;
+    }
+    for (size_t i = 0; i < tn; i++)
+        tenant_canon[i] = (tenant[i] >= 'A' && tenant[i] <= 'F') ? (char) (tenant[i] - 'A' + 'a')
+                                                                 : tenant[i];
+    tenant_canon[tn] = '\0';
 
     char key[65];
-    if (!digest_hex(raw, key)) {
+    if (!digest_hex(tenant_canon, raw, key)) {
         axiam_error_set(err, AXIAM_ERR_NETWORK, 0, "oidc_refresh: digest failed");
         return AXIAM_ERR_NETWORK;
     }
@@ -180,7 +205,7 @@ axiam_error_kind_t axiam_oidc_refresh(axiam_client_t *client,
     axiam_error_reset(&local);
     axiam_oidc_token_set_t result;
     axiam_error_kind_t kind =
-        perform_oidc_refresh(client, raw, scope, tenant, client_id, &result, &local);
+        perform_oidc_refresh(client, raw, scope, tenant_canon, client_id, &result, &local);
 
     pthread_mutex_lock(&client->oidc_refresh_mtx);
     /*

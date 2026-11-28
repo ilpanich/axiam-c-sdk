@@ -6,9 +6,50 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.4.0] - 2026-11-22
-
 ### Security
+
+- The vendored cJSON's parse-error record (`global_error`) is now thread-local
+  (`third_party/cjson/AXIAM-PATCHES.md`). Every parse reset it and every failed parse overwrote it,
+  so concurrent token verification was a data race on a process-global (undefined behaviour,
+  reported by ThreadSanitizer); the SDK never read it. A new `test_cjson_threads` runs parallel
+  parses and verifications and a TSan leg in the `sanitizers` CI job gates it (#91).
+- The CIBA test harness no longer races: `test_ciba`'s accept thread and the test body shared
+  plain `volatile int` members (`stop`, `accepts`) of a stack struct, which is not synchronisation
+  (ThreadSanitizer data race, undefined behaviour). They are now `atomic_int`, and `test_ciba`
+  joins `test_cjson_threads` in the `sanitizers` job's TSan leg. Test-only; nothing under `src/`
+  changed (#92).
+- The curl transport test helpers no longer race: in `test_transport_curl_extra`, the
+  `drop_writes_server` thread's `stop`, `gets`, `writes` and `connections` counters were plain ints
+  read and written by the test body across a `usleep` (three ThreadSanitizer data races). They are
+  now `atomic_int`, and the test joins the TSan leg of the `sanitizers` job. Test-only; nothing
+  under `src/` changed (#93).
+- `oidc_refresh`'s single-flight is now keyed on the resolved tenant as well as the token
+  (CONTRACT §9 rule 7): a SHA-256 of the lower-case hyphenated tenant UUID, a NUL separator and
+  the refresh token. The same token presented for two tenants is two flights, each with its own
+  server check; the default tenant passed explicitly (in either case) or omitted is one flight
+  and one wire call. `scope` is not part of the key. Before, the key was the token alone (#94).
+- **The JWKS cache is stale-if-error, bounded (CONTRACT §12.4 rule 2, contract 1.69; D-10,
+  OI-41, axiam#883).** The cache's age is measured from the last *successful* fetch (a `200` with
+  at least one key, or a `304` to the conditional request the SDK now sends with the held set's
+  `ETag`). A failed refresh -- transport error, other status, a non-JWKS body, or an **empty key
+  set** -- no longer replaces anything and never moves that anchor: the held keys keep verifying
+  until exactly TTL + 300 s after it, after which every token is refused until a fetch succeeds.
+  Before, an outage after the 300 s TTL refused every token at once, and a `{"keys":[]}` answer
+  replaced the held set. A failed refresh (including one an unknown `kid` triggered) counts toward
+  the 60 s re-fetch window, so a failing endpoint costs one fetch per window, and it never opens
+  or extends the stale window. The cache reads the client clock (`clock_fn`) rather than
+  `time()`, so it is testable with an injected clock.
+- The real libcurl transport now captures the `ETag` and `Cache-Control` response headers, so the
+  conditional refresh, the `304` re-confirmation (which also re-reads its own `max-age`) and an
+  advertised smaller `max-age` take effect on the default transport. A body whose `keys` array
+  holds no JWK object (`{"keys":[{}]}`, `[0]`, `[null]`) is a failed refresh, like the empty set;
+  a failing endpoint on a cold cache costs one fetch per 60 s window; a clock stepped backwards
+  makes a refresh due rather than counting as fresh; an ETag over 256 bytes or with a control
+  character is neither stored nor echoed.
+- The TTL is the configured value or the response's `Cache-Control: max-age`, default 300 s and
+  **never more than 300 s**. New `axiam_client_config_set_jwks_cache_ttl()`; a configured value
+  above 300 is clamped and reported once through the §19 `config_clamped` event
+  (`jwks_cache_ttl_s`). New `AXIAM_JWKS_MAX_STALE_SECS` (300).
 
 - **Access-token verification applies CONTRACT §10.1 rules 10-12 (SA-29, N14).** AXIAM signs its
   MFA-challenge and WebAuthn-state tokens with the access-token key, with no `aud` and no `kid`; a
@@ -18,8 +59,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `AXIAM_JWT_VERIFY_ACCESS_TOKEN` flag: a JOSE `typ`, when present, must be `at+jwt`
   (case-insensitive, optional `application/` prefix); a token whose claims carry a `purpose`
   member is refused whatever its value; a token with no `kid` is refused and the "only key in
-  the set" fallback is gone on this path. ID-token, logout-token and SSF verification are
-  unchanged.
+  the set" fallback is gone. Rules 10 and 11 are not applied to ID-token, logout-token and SSF
+  verification (the kid-less fallback is removed there too, see Fixed).
   **Migration:** an access token minted before AXIAM server 1.67 carries `typ: JWT` and is now
   refused by the guards (its holder refreshes; at most one access-token lifetime). A caller that
   composes its own policy with `axiam_jwt_verify_ex` no longer needs to OR in
@@ -30,19 +71,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   must use `AXIAM_JWT_VERIFY_SIGNATURE_ONLY` and check the claims itself.
 - The libcurl transport caps a response body at 16 MiB (`AXIAM_MAX_RESPONSE_BYTES`); a larger
   one aborts the transfer as a transport error (`transport_err` 63, `CURLE_FILESIZE_EXCEEDED`,
-  message naming the size cap, and not retried) instead of growing the buffer without bound.
-  The two operations whose response is a whole export -- `tenants.export_audit` and
-  `privacy.download_export` -- use a 1 GiB bound (`AXIAM_MAX_EXPORT_RESPONSE_BYTES`) through the
-  new trailing `max_response_bytes` member of `axiam_http_request_t` (0 = the 16 MiB default), so
-  a large audit trail is not reported as a failed export after the server has recorded it.
+  message naming the size cap) instead of growing the buffer without bound. The management
+  surface does not retry it (`privacy.download_export` is a single-use GET: a second request
+  would turn the cap into a 404); the §16 authorization check, an idempotent POST, still treats
+  it as any other transport failure and retries. The two operations whose response is a whole
+  export -- `tenants.export_audit` and `privacy.download_export` -- use a 1 GiB bound
+  (`AXIAM_MAX_EXPORT_RESPONSE_BYTES`) through the new trailing `max_response_bytes` member of
+  `axiam_http_request_t` (0 = the 16 MiB default), so a large audit trail is not reported as a
+  failed export after the server has recorded it. The C API hands that export to nobody, so
+  these two requests also set the new trailing `discard_body` member: the transport counts the
+  body against the bound while reading, drops it as it arrives and keeps only a 64 KiB prefix
+  for a non-2xx error envelope; nothing near 1 GiB is held in memory, and the body is no longer
+  parsed (a 2xx whose body is not JSON used to be a network error and is now success).
 - Range-check a JSON double before the integer cast in the OPAQUE key-stretching cost reader and
   in the reactor's canonical-event builder (`timeout_ms`, `key_version`); an out-of-range value
   was undefined behaviour. The reactor now refuses such an event as `MALFORMED`.
 
 ### Changed
 
-- Re-vendored `CONTRACT.md` (1.68), `openapi.json` and `management-registry.json` from
+- Re-vendored `CONTRACT.md` (1.69), `openapi.json` and `management-registry.json` from
   `ilpanich/axiam`; regenerated the §27 management surface (`scripts/gen_management.py`).
+
+### Fixed
+
+- **Back-channel logout and ID-token key selection (contract 1.69, axiam#880).** The key is
+  selected by the token's `kid` (§12.7.3 rule 1, §12.7.6); a token with no `kid` is refused as
+  `unknown_kid` and an unknown `kid` follows §12.4 rule 2. The "only key of a one-key JWKS"
+  fallback in the JWKS lookup is removed: it admitted a kid-less ID token or logout token whose
+  signature the one key verified, ambiguous as soon as a rotation publishes a second key. The
+  access-token path was already protected by §10.1 rule 12 (a `kid` is required before any key
+  is looked up), so its behaviour is unchanged. New server-shaped logout-token tests (a header of
+  exactly `alg`, `typ: logout+jwt`, `kid`; a two-key JWKS with the signing key second) and a test
+  that §10.1 rules 10 and 11 stay off the logout and ID-token paths. A kid-less token no longer
+  forces a JWKS re-fetch or opens the §12.4 rule 2 cooldown window.
+  **Migration:** the public `axiam_jwt_verify_ex()` and `axiam_jwt_verify_ex_with_evidence()`
+  with `AXIAM_JWT_VERIFY_SIGNATURE_ONLY` (flags 0) now refuse a kid-less token that the one key
+  of the JWKS would have verified; the issuer must put a `kid` in the header (AXIAM does, from
+  server 1.69 for logout tokens).
+- The reactor refuses an event whose `timeout_ms` does not fit a `long` (ILP32, LLP64) as
+  `MALFORMED` before the nonce is claimed and whether or not the caller asked for the event
+  (it was decided after the nonce was recorded and only when `out` was set).
 
 ## [1.3.1] - 2026-11-11
 
