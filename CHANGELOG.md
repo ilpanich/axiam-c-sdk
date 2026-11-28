@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-28
+
 ### Security
 
 - The vendored cJSON's parse-error record (`global_error`) is now thread-local
@@ -92,6 +94,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Re-vendored `CONTRACT.md` (1.69), `openapi.json` and `management-registry.json` from
   `ilpanich/axiam`; regenerated the §27 management surface (`scripts/gen_management.py`).
 
+- re-vendor CONTRACT.md 1.69 (§9 rule 7: oidc_refresh single-flight per tenant and token)
+
+- Assert a shared refresh refusal never carries the token (#94)
+
+- Run the race tests through ctest and scale the flood timeout under sanitizers (#93)
+
+- re-vendor CONTRACT.md after the server merged ilpanich/axiam#893
+
+- re-vendor CONTRACT.md 1.69 (typed consume, BOM refusal, bounded JWKS stale-if-error; axiam#883)
+
+- re-vendor CONTRACT.md 1.69 wire-form clarification (axiam#883)
+
+- re-vendor CONTRACT.md for the contract 1.69 §8 correction
+
+- re-vendor CONTRACT.md, openapi.json and the management registry
+
 ### Fixed
 
 - **Back-channel logout and ID-token key selection (contract 1.69, axiam#880).** The key is
@@ -111,6 +129,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The reactor refuses an event whose `timeout_ms` does not fit a `long` (ILP32, LLP64) as
   `MALFORMED` before the nonce is claimed and whether or not the caller asked for the event
   (it was decided after the nonce was recorded and only when `out` was set).
+
+- Key the oidc_refresh single-flight on tenant and token (#94)
+
+- Synchronise the curl transport test helpers (#93)
+
+- Synchronise the CIBA accept thread with the test body (#92)
+
+- Review follow-ups for the thread-local error record (#91)
+
+- Make the vendored parser's error record thread-local (#91)
+
+- OI-41 review round 3 (axiam#883)
+
+- OI-41 review round 2 (axiam#883)
+
+- OI-41 review round 1 (axiam#883)
+
+- Bounded JWKS stale-if-error (OI-41, axiam#883)
+
+- CI step for the seam-free release configuration, unmasked 2xx RSS check (OI wave B, round 2)
+
+- kid-less tokens skip the re-fetch window, test-only reactor seam, smaller discard test (OI wave B, round 1)
+
+- Select logout key by kid, drop kid-less fallback, discard export bodies (OI-19, #87, axiam#880)
+
+- access-token rules for pre-1.4 STRICT callers, per-request response cap (wave 3, round 2)
+
+- access-token rules 10-12, response cap, checked casts (SA-29, N14)
 
 ## [1.3.1] - 2026-11-11
 
