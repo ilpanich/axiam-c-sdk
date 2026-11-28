@@ -1,0 +1,7 @@
+<map id="axiam_mgmt_network_reply_profile_page" name="axiam_mgmt_network_reply_profile_page">
+<area shape="rect" id="Node000001" title="One page of NetworkReplyProfile objects (27.4 rule 4)." alt="" coords="104,108,273,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__network__reply__profile.html" title="A segment&#39;s reply profile as read: the effective one, with the Session&#45;Timeout already clamped to the..." alt="" coords="5,5,175,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="120,54,172,106,168,110,116,57"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="199,13,375,38"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="268,50,209,110,205,106,264,46"/>
+</map>

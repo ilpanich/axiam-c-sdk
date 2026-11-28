@@ -1,0 +1,15 @@
+<map id="axiam_mgmt_planned_network" name="axiam_mgmt_planned_network">
+<area shape="rect" id="Node000001" title="What a plan intends to do to one network object (CONTRACT.md §27.6.2 item 3)." alt="" coords="321,165,489,205"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__network__segment__spec.html" title="One network.segments[] entry (CONTRACT.md §27.6.2 item 1, contract 1.62)." alt="" coords="5,5,175,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="181,47,240,68,299,96,347,129,385,163,382,167,343,134,296,101,238,73,179,52"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__network__profile__spec.html" title="One network.profiles[] entry (§27.6.2 item 1)." alt="" coords="5,69,175,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="186,110,298,143,354,163,352,168,297,148,185,115"/>
+<area shape="rect" id="Node000004" href="$structaxiam__mgmt__network__policy__spec.html" title="The network.policy singleton (§27.6.2 item 1): the tenant&#39;s Session&#45;Timeout cap." alt="" coords="5,133,175,173"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="189,161,321,174,321,179,188,166"/>
+<area shape="rect" id="Node000005" href="$structaxiam__mgmt__network__policy__response.html" title="The tenant&#39;s network policy, as the management API returns it." alt="" coords="5,197,175,237"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="188,205,321,191,321,196,189,210"/>
+<area shape="rect" id="Node000006" href="$structaxiam__mgmt__network__segment__response.html" title="A network segment, as the management API returns it." alt="" coords="5,261,175,301"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="187,255,297,224,355,203,356,208,298,229,189,261"/>
+<area shape="rect" id="Node000007" href="$structaxiam__mgmt__network__reply__profile.html" title="A segment&#39;s reply profile as read: the effective one, with the Session&#45;Timeout already clamped to the..." alt="" coords="5,325,175,365"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="184,319,241,299,296,272,344,238,383,204,386,208,348,243,299,277,243,304,186,324"/>
+</map>

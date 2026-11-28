@@ -1,0 +1,24 @@
+<map id="include/axiam/account.h" name="include/axiam/account.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="385,5,567,31"/>
+<area shape="rect" id="Node000002" href="$client_8h.html" title=" " alt="" coords="419,79,533,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="479,31,479,65,473,65,473,31"/>
+<area shape="rect" id="Node000005" href="$error_8h.html" title=" " alt="" coords="333,225,443,251"/>
+<area shape="poly" id="edge13_Node000001_Node000005" title=" " alt="" coords="457,33,431,53,409,80,396,114,390,149,388,212,383,212,384,149,391,112,404,77,427,49,454,29"/>
+<area shape="rect" id="Node000008" href="$sensitive_8h.html" title=" " alt="" coords="517,152,656,177"/>
+<area shape="poly" id="edge14_Node000001_Node000008" title=" " alt="" coords="495,29,521,50,547,77,567,108,580,138,575,140,562,110,543,80,518,54,491,33"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="351,299,425,324"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="480,104,479,169,472,211,457,252,440,274,420,292,417,288,436,271,452,249,467,210,474,169,474,104"/>
+<area shape="rect" id="Node000004" href="$config_8h.html" title=" " alt="" coords="202,152,321,177"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="442,107,310,150,308,145,441,101"/>
+<area shape="poly" id="edge10_Node000002_Node000005" title=" " alt="" coords="471,106,404,215,400,212,467,103"/>
+<area shape="poly" id="edge11_Node000002_Node000008" title=" " alt="" coords="495,102,558,142,555,147,492,106"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="283,175,357,216,354,221,280,180"/>
+<area shape="rect" id="Node000006" href="$telemetry_8h.html" title=" " alt="" coords="5,225,147,251"/>
+<area shape="poly" id="edge6_Node000004_Node000006" title=" " alt="" coords="233,180,120,223,118,218,231,175"/>
+<area shape="rect" id="Node000007" href="$transport_8h.html" title=" " alt="" coords="171,225,309,251"/>
+<area shape="poly" id="edge8_Node000004_Node000007" title=" " alt="" coords="260,178,250,213,245,211,255,177"/>
+<area shape="poly" id="edge5_Node000005_Node000003" title=" " alt="" coords="391,251,391,285,385,285,385,251"/>
+<area shape="poly" id="edge7_Node000006_Node000003" title=" " alt="" coords="127,248,338,296,336,301,126,253"/>
+<area shape="poly" id="edge9_Node000007_Node000003" title=" " alt="" coords="265,248,353,290,350,295,263,253"/>
+<area shape="poly" id="edge12_Node000008_Node000003" title=" " alt="" coords="579,179,545,214,500,253,463,276,427,295,425,290,461,272,497,249,542,210,575,176"/>
+</map>

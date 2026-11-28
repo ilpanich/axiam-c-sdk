@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_oidc_policy" name="axiam_mgmt_oidc_policy">
+<area shape="rect" id="Node000001" title="OpenID Connect surface controls (X7 G8, plan §4.6/§4.8; T21.4)." alt="" coords="8,93,197,119"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__cimd__policy.html" title="Whether, and on what terms, a client_id that is a URL is resolved by fetching the document it names (..." alt="" coords="5,5,200,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="105,45,105,93,100,93,100,45"/>
+</map>

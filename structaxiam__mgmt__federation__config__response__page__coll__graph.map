@@ -1,0 +1,11 @@
+<map id="axiam_mgmt_federation_config_response_page" name="axiam_mgmt_federation_config_response_page">
+<area shape="rect" id="Node000001" title="One page of FederationConfigResponse objects (27.4 rule 4)." alt="" coords="231,211,413,251"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__federation__config__response.html" title="Federation config response – omits client_secret." alt="" coords="128,108,311,148"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="250,156,305,209,301,213,246,159"/>
+<area shape="rect" id="Node000003" href="$structaxiam__mgmt__native__login__trust__response.html" title="Native sign&#45;in trust as returned to an administrator." alt="" coords="5,5,201,45"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="137,52,199,106,196,110,134,56"/>
+<area shape="rect" id="Node000004" href="$structaxiam__mgmt__token__exchange__trust__response.html" title="X4 trust as returned." alt="" coords="225,5,448,45"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="306,56,243,110,240,106,302,52"/>
+<area shape="rect" id="Node000005" href="$structaxiam__mgmt__page__req.html" title="One page&#39;s worth of ?offset=/?limit=/?search= (CONTRACT.md §27.4 rule 4)." alt="" coords="335,115,511,141"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="404,152,343,212,339,209,400,148"/>
+</map>

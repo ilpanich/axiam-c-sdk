@@ -1,0 +1,5 @@
+<map id="axiam_mgmt_mfa_method_response_list" name="axiam_mgmt_mfa_method_response_list">
+<area shape="rect" id="Node000001" title="A plain list of MfaMethodResponse objects." alt="" coords="5,108,204,148"/>
+<area shape="rect" id="Node000002" href="$structaxiam__mgmt__mfa__method__response.html" title="The MfaMethodResponse schema from the server&#39;s OpenAPI document." alt="" coords="5,5,204,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="107,59,107,108,102,108,102,59"/>
+</map>

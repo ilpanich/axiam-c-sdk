@@ -1,0 +1,34 @@
+<map id="include/axiam/ciba.h" name="include/axiam/ciba.h">
+<area shape="rect" id="Node000001" title="CONTRACT.md §33 — CIBA, client&#45;initiated backchannel authentication (contract 1.58),..." alt="" coords="386,5,544,31"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="290,372,365,397"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="386,30,272,47,148,75,93,93,49,113,19,137,12,150,9,164,9,239,11,286,18,304,33,322,50,333,75,343,140,359,277,377,276,382,139,364,73,348,48,338,30,326,13,307,5,287,4,239,4,163,7,148,15,134,46,109,91,88,146,69,271,42,386,25"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="774,79,838,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="523,28,756,76,761,77,760,82,755,81,522,33"/>
+<area shape="rect" id="Node000004" href="$client_8h.html" title=" " alt="" coords="313,152,428,177"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="459,33,388,142,383,139,455,30"/>
+<area shape="rect" id="Node000006" href="$error_8h.html" title=" " alt="" coords="422,299,532,324"/>
+<area shape="poly" id="edge15_Node000001_Node000006" title=" " alt="" coords="468,31,479,285,473,285,463,31"/>
+<area shape="rect" id="Node000008" href="$transport_8h.html" title=" " alt="" coords="44,299,182,324"/>
+<area shape="poly" id="edge22_Node000001_Node000008" title=" " alt="" coords="452,33,303,154,139,292,135,288,299,150,449,29"/>
+<area shape="rect" id="Node000009" href="$sensitive_8h.html" title=" " alt="" coords="553,225,692,251"/>
+<area shape="poly" id="edge21_Node000001_Node000009" title=" " alt="" coords="545,28,588,46,607,60,623,77,638,111,642,148,639,183,633,213,627,212,633,182,636,148,633,112,619,80,604,64,585,50,543,33"/>
+<area shape="rect" id="Node000010" href="$oidc_8h.html" title=" " alt="" coords="502,79,609,104"/>
+<area shape="poly" id="edge16_Node000001_Node000010" title=" " alt="" coords="481,29,531,68,528,72,478,33"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="319,180,279,198,262,211,248,227,236,252,232,274,236,297,247,323,266,346,290,363,287,368,262,350,243,325,231,298,227,274,231,250,244,224,259,207,277,193,316,175"/>
+<area shape="rect" id="Node000005" href="$config_8h.html" title=" " alt="" coords="258,225,376,251"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="364,179,336,216,332,213,359,176"/>
+<area shape="poly" id="edge12_Node000004_Node000006" title=" " alt="" coords="381,176,462,286,458,289,377,179"/>
+<area shape="poly" id="edge13_Node000004_Node000009" title=" " alt="" coords="411,175,569,219,567,224,410,180"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="344,248,439,291,437,295,342,253"/>
+<area shape="rect" id="Node000007" href="$telemetry_8h.html" title=" " alt="" coords="257,299,398,324"/>
+<area shape="poly" id="edge8_Node000005_Node000007" title=" " alt="" coords="321,251,326,285,321,286,316,251"/>
+<area shape="poly" id="edge10_Node000005_Node000008" title=" " alt="" coords="285,253,160,297,158,292,283,248"/>
+<area shape="poly" id="edge7_Node000006_Node000002" title=" " alt="" coords="454,326,365,368,363,364,452,322"/>
+<area shape="poly" id="edge9_Node000007_Node000002" title=" " alt="" coords="330,324,330,358,325,358,325,324"/>
+<area shape="poly" id="edge11_Node000008_Node000002" title=" " alt="" coords="148,321,281,365,279,370,147,327"/>
+<area shape="poly" id="edge14_Node000009_Node000002" title=" " alt="" coords="617,253,588,289,568,309,545,326,504,347,460,362,379,380,378,375,458,357,502,342,542,322,564,305,584,285,612,249"/>
+<area shape="poly" id="edge17_Node000010_Node000002" title=" " alt="" coords="583,102,630,126,678,160,697,181,710,203,714,227,706,252,676,291,639,321,596,344,550,362,503,373,457,381,379,387,378,381,457,376,502,368,548,357,594,340,636,317,673,287,701,249,708,227,705,205,693,184,674,164,627,130,581,106"/>
+<area shape="poly" id="edge18_Node000010_Node000004" title=" " alt="" coords="527,107,414,149,412,145,525,102"/>
+<area shape="poly" id="edge19_Node000010_Node000006" title=" " alt="" coords="554,105,488,287,483,285,549,103"/>
+<area shape="poly" id="edge20_Node000010_Node000009" title=" " alt="" coords="563,103,614,212,609,214,559,106"/>
+</map>
